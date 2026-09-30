@@ -1,26 +1,44 @@
-# API Development
+# Architecture
 
-How to design, build, and evolve HTTP APIs that other developers (including future you) can use without reading your source code.
+How to organize the code behind your API so it stays understandable, testable, and changeable as it grows from 5 routes to 500.
 
-## Why API design deserves its own section
+## Why architecture matters
 
-Writing a route handler is easy. Writing an API that stays consistent across 80 endpoints, survives three years of change without breaking clients, and fails in predictable ways is a different skill. Once an API has users, every decision becomes a **contract**: renaming a field or changing a status code can break someone's production app.
+Every Node.js project starts the same way: a few routes, a database call inside each handler, and everything works. Six months later:
 
-The goal of this section is to make those decisions deliberately, once, and consistently.
+```js
+// ❌ the "fat route handler" — where most projects end up
+app.post("/orders", async (req, res) => {
+  if (!req.body.items?.length) return res.status(400).json({ error: "No items" });     // validation
+  const user = await db.query("SELECT * FROM users WHERE id = $1", [req.user.id]);      // data access
+  let total = 0;
+  for (const item of req.body.items) {                                                   // business rules
+    const p = (await db.query("SELECT * FROM products WHERE id = $1", [item.id])).rows[0];
+    if (p.stock < item.qty) return res.status(409).json({ error: "Out of stock" });
+    total += p.price * item.qty * (user.rows[0].isPremium ? 0.9 : 1);
+  }
+  await db.query("INSERT INTO orders ...");                                              // more data access
+  await sendgrid.send({ to: user.rows[0].email, ... });                                  // external service
+  res.status(201).json({ total });                                                       // HTTP
+});
+```
+
+This handler knows about HTTP, SQL, pricing rules, stock, and email. You can't test the pricing rule without a database and an email account, can't reuse it from a background job, and can't change the database without rewriting every route.
+
+**Architecture is about deciding where each kind of code lives, and which code is allowed to know about which.** Good structure makes the common changes (new endpoint, new database, new rule) small and local.
 
 ---
 
-## What makes an API good
+## The core ideas (they recur in every file)
 
-| Quality | What it means | Where it's covered |
-|---|---|---|
-| **Predictable** | Same conventions everywhere: naming, status codes, error shape | `01`, `05` |
-| **Evolvable** | You can add features without breaking existing clients | `02` |
-| **Efficient** | Clients fetch what they need, in pages, with filters | `02`, `03` |
-| **Safe** | Bad input is rejected early and clearly | `04` |
-| **Debuggable** | Errors explain what went wrong and how to fix it | `05` |
-| **Reliable** | Retries don't cause duplicate charges or duplicate records | `06` |
-| **Integrable** | You can push events to other systems, and receive theirs securely | `07` |
+| Idea | Meaning |
+|---|---|
+| **Separation of concerns** | HTTP handling, business rules, and data access are different jobs; keep them in different places |
+| **Single responsibility** | A module has one reason to change |
+| **Dependency direction** | Dependencies should point toward stable, important code (business rules), not away from it |
+| **Abstraction at boundaries** | Hide volatile details (database, email provider, framework) behind interfaces you own |
+| **Testability** | If something is hard to test, it's usually badly placed or badly coupled |
+| **Cohesion and coupling** | Keep related things together (high cohesion); keep unrelated things independent (low coupling) |
 
 ---
 
@@ -28,77 +46,85 @@ The goal of this section is to make those decisions deliberately, once, and cons
 
 | File | What you learn |
 |---|---|
-| `01-rest-api-design.md` | Resources, URLs, HTTP methods, status codes, response shapes |
-| `02-versioning-and-pagination.md` | Changing an API safely; offset vs cursor pagination |
-| `03-filtering-and-sorting.md` | Query-string conventions and safe implementation |
-| `04-validation.md` | Validating bodies, params, and queries with `zod` |
-| `05-error-responses.md` | A consistent error format and a central error handler |
-| `06-idempotency.md` | Making POST requests safe to retry |
-| `07-webhooks.md` | Sending and receiving webhooks securely |
+| `01-mvc-and-layered-architecture.md` | The pragmatic default: routes → controllers → services → data access |
+| `02-clean-architecture.md` | Making business rules independent of frameworks and databases |
+| `03-repository-and-service-pattern.md` | The two patterns that do most of the work, with real code |
+| `04-dependency-injection.md` | Wiring it all together so layers can be swapped and tested |
+| `05-modular-monolith-vs-microservices.md` | Deciding how to split the system as it (and the team) grows |
 
-Read in order. Each file assumes the conventions established in the previous ones, and the running example (a small `posts` and `users` API) carries through.
+Read in order: `01` is what most projects need, `02` is the stricter version, `03` and `04` are the tools that make both work, and `05` zooms out to the whole system.
+
+---
+
+## You don't need all of this on day one
+
+The biggest architecture mistake isn't too little structure, it's **too much, too early**.
+
+| Project stage | Reasonable structure |
+|---|---|
+| Prototype / script / weekend project | Everything in a few files. That's fine. |
+| Small API (5–20 endpoints, 1–2 devs) | Layered: routes, controllers, services, models |
+| Growing product (20–100+ endpoints, team of 3–10) | Layered + repositories + dependency injection, organized by feature |
+| Large system / many teams | Modular monolith, possibly some services split out |
+
+A useful rule: **add a layer when you feel a specific pain, not because a blog post said so.** Pains and the tool that fixes them:
+
+| Pain you're feeling | Reach for |
+|---|---|
+| Handlers are huge and hard to read | Controllers + services (`01`) |
+| Tests need a real database | Repository + dependency injection (`03`, `04`) |
+| Changing the DB/ORM touches everything | Repository pattern, clean architecture (`02`, `03`) |
+| Business logic is duplicated between HTTP, jobs, and CLI | Service layer / use cases (`01`, `02`) |
+| Teams step on each other's code | Modules with enforced boundaries (`05`) |
+| One part needs to scale or deploy independently | Extract a service (`05`) |
 
 ---
 
 ## Prerequisites
 
-- `05-http-web/01-http-methods-and-status-codes.md` — the vocabulary REST is built on
-- `05-http-web/02-headers-and-content-negotiation.md` — `Content-Type`, `Accept`, custom headers
-- `06-express/` — routing, middleware, controllers, and error handling
-- `07-databases/` — queries, indexes (they matter a great deal for pagination and filtering)
-- `08-authentication-security/` — every API in this section assumes authentication and rate limiting are in place
+- `06-express/01-setup-and-routing.md` and `06-express/03-controllers.md`: the layers start here
+- `06-express/02-middleware.md`: cross-cutting concerns (auth, logging, validation) live in middleware
+- `07-databases/`: data access is the layer you'll abstract
+- `09-api-development/`: the HTTP-facing conventions (validation, errors, DTOs) that the outer layer is responsible for
+- `03-javascript-for-node/05-error-handling.md`: layers communicate failures through errors
 
 ---
 
 ## The running example
 
-Most snippets use a simple blog-style API so concepts stay concrete:
+Examples across this section build one feature, **placing an order**, through every style, so you can see the same logic in each structure:
 
 ```
-GET    /api/v1/posts              list posts (paginated, filterable, sortable)
-POST   /api/v1/posts              create a post
-GET    /api/v1/posts/:id          get one post
-PATCH  /api/v1/posts/:id          partially update a post
-DELETE /api/v1/posts/:id          delete a post
-GET    /api/v1/users/:id/posts    posts belonging to a user
+POST /api/v1/orders
+  → validate the request
+  → check the products exist and have stock
+  → calculate the total (premium customers get 10% off)
+  → save the order and reduce stock (atomically)
+  → email a confirmation
+  → return the created order
 ```
 
-It's the same shape as the project in `20-projects/04-blog-api/`.
+It's deliberately business-flavored: real rules, multiple data sources, and a side effect (email) that's annoying to test. This is the same kind of feature you'll build in `20-projects/07-production-api/`.
 
 ---
 
-## A recommended project layout
+## A note on language and tooling
 
-```
-src/
-├── routes/            URL → controller wiring            (06-express/01)
-├── controllers/       HTTP in, HTTP out                  (06-express/03)
-├── services/          business logic                     (10-architecture/03)
-├── schemas/           zod schemas for validation         (04-validation.md)
-├── middleware/
-│   ├── validate.js    runs schemas on requests
-│   ├── idempotency.js
-│   └── errorHandler.js
-├── utils/
-│   ├── AppError.js    error classes                      (05-error-responses.md)
-│   ├── pagination.js  shared pagination helpers          (02-versioning-and-pagination.md)
-│   └── query.js       filter/sort parsing                (03-filtering-and-sorting.md)
-└── app.js
-```
-
-The idea: **controllers stay thin**. Validation, pagination parsing, error formatting, and idempotency are reusable pieces, not copy-pasted code in every handler.
+- Examples use **plain JavaScript (ES modules)**, consistent with the rest of the course. Architecture is about structure, not types, but TypeScript makes interfaces and dependency contracts explicit. See `17-typescript/02-interfaces-and-generics.md` for the typed versions.
+- Examples use Express, but nothing here is Express-specific. Fastify, NestJS, and Hono all support the same layering. NestJS in particular bakes in modules and dependency injection.
+- Libraries are kept to a minimum on purpose: most of this is plain functions, classes, and folders.
 
 ---
 
-## Principles that run through every file
+## Principles to remember
 
-1. **Consistency beats cleverness.** A boring, uniform API is easier to use than a clever one.
-2. **Be strict in what you send, reasonably strict in what you accept.** Validate input hard; return the same shape every time.
-3. **Never break existing clients silently.** Additive changes are free; removals and renames need a new version or a deprecation period.
-4. **Errors are part of the API.** Clients write code against your error format just like your success format.
-5. **Assume requests will be retried, duplicated, and reordered.** Networks are unreliable; design for it.
-6. **Document as you build.** An API nobody can discover may as well not exist (consider an OpenAPI spec).
+1. **Optimize for change, not for the first version.** The first version is written once; the codebase is changed for years.
+2. **Keep business rules free of HTTP and database details.** This single habit gives you most of the benefit.
+3. **Dependencies point inward.** Routes know about services; services don't know about Express.
+4. **Organize by feature as the codebase grows.** `orders/`, `users/`, `billing/`, not one giant `controllers/` folder.
+5. **Prefer boring and consistent over clever.** A new teammate should guess where code lives.
+6. **Architecture is a set of trade-offs, not a set of rules.** Every pattern adds indirection; it must earn its place.
 
 ## Next
 
-**`01-rest-api-design.md`** starts with the fundamentals: how to model resources, name URLs, and choose the right methods and status codes.
+**`01-mvc-and-layered-architecture.md`** starts with the pragmatic default that most production Node.js APIs use: separating routes, controllers, services, and data access.
