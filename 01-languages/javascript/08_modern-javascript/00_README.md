@@ -1,42 +1,32 @@
-# 07 · Functional Programming
+# 08 · Modern JavaScript
 
-Functional programming (FP) builds programs from **small, pure functions** that transform data without changing it. JavaScript is not a purely functional language, but its first-class functions, closures and array methods make FP a natural, practical style.
-
-```
-data ──► fn ──► fn ──► fn ──► result      (no hidden state, no mutation)
-```
+Since ES2015 (ES6) JavaScript has been updated every year. This chapter covers the language features that make modern code shorter and safer but that did not fit in earlier chapters: template literals, enhanced object literals, symbols, the iteration protocols, generators, and a version-by-version map of what arrived when.
 
 ## Reading order
 
 | # | File | You will learn |
 |---|------|----------------|
-| 1 | [Pure Functions and Side Effects](./01_pure-functions-and-side-effects.md) | Purity, referential transparency, isolating effects |
-| 2 | [Immutability](./02_immutability.md) | Updating data without mutation, `freeze`, structural sharing |
-| 3 | [map, filter, reduce](./03_map-filter-reduce.md) | Declarative data pipelines and recipes |
-| 4 | [Composition and Pipe](./04_composition-and-pipe.md) | Building functions from functions |
-| 5 | [Currying and Partial Application](./05_currying-and-partial-application.md) | Configuring functions one argument at a time |
-| 6 | [Point-Free Style](./06_point-free.md) | Tacit programming and when to stop |
-| 7 | [Functional Patterns](./07_functional-patterns.md) | Functors, Maybe, Either, monads, transducers (intro) |
+| 1 | [Template Literals](./01_template-literals.md) | Interpolation, multi-line strings, tagged templates, `String.raw` |
+| 2 | [Enhanced Object Literals](./02_enhanced-object-literals.md) | Shorthand, computed keys, methods, `super`, spread |
+| 3 | [Symbols](./03_symbols.md) | Unique keys, registry, well-known symbols |
+| 4 | [Iterators and Iterables](./04_iterators-and-iterables.md) | The iteration protocol, custom iterables, iterator helpers |
+| 5 | [Generators](./05_generators.md) | `function*`, `yield`, lazy sequences, two-way communication |
+| 6 | [ES Features by Version](./06_es-features-by-version.md) | ES2015 to ES2025 timeline |
+| 7 | [Modern Syntax Cheatsheet](./07_modern-syntax-cheatsheet.md) | One-page reference of old vs new syntax |
 
-## Core ideas in one table
+## Already covered elsewhere
 
-| Idea | Meaning |
-|------|---------|
-| First-class functions | Functions are values |
-| Pure functions | Same input gives same output, no side effects |
-| Immutability | Never change data, create new data |
-| Declarative style | Say **what**, not **how** |
-| Composition | Combine small functions into bigger ones |
-| Higher-order functions | Functions that take or return functions |
+| Feature | Where |
+|---------|-------|
+| `let` / `const` | [Variables](../01_fundamentals/01_variables.md) |
+| Arrow functions, default and rest parameters | [Functions](../02_functions/00_README.md) |
+| Destructuring, spread and rest, optional chaining | [Objects and Arrays](../03_objects-and-arrays/00_README.md) |
+| Classes, private fields | [This and OOP](../05_this-and-oop/00_README.md) |
+| Promises, `async`/`await` | [Asynchronous JavaScript](../11_asynchronous-javascript/00_README.md) |
+| ES modules | [Modules](../13_modules/00_README.md) |
 
 ## Goal
 
-By the end you can write predictable, testable transformations, avoid shared-state bugs, and build pipelines from small reusable functions.
+By the end you can read any modern codebase, customize how your objects behave with symbols and iterators, and know which language version introduced each feature.
 
-## Prerequisites
-
-- [Higher-Order Functions](../02_functions/06_higher-order-functions.md)
-- [Closures](../06_closures/01_closures.md)
-- [Copying and Cloning](../03_objects-and-arrays/05_copying-and-cloning.md)
-
-**Next:** [Pure Functions and Side Effects](./01_pure-functions-and-side-effects.md)
+**Next:** [Template Literals](./01_template-literals.md)
