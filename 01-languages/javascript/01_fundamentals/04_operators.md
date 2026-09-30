@@ -67,13 +67,19 @@ Combine with `??`: `user?.age ?? "unknown"`.
 
 ## Assignment
 
-| Operator                       | Same as        |
-| ------------------------------ | -------------- | --- | --- | --- | -------- |
-| `=`                            | assign         |
-| `+=` `-=` `*=` `/=` `%=` `**=` | `a = a op b`   |
-| `                              |                | =`  | `a  |     | (a = b)` |
-| `&&=`                          | `a && (a = b)` |
-| `??=`                          | `a ?? (a = b)` |
+| Operator | Meaning / Same as |
+| :--- | :--- |
+| `=` | `a = b` (Assignment) |
+| `+=` | `a = a + b` |
+| `-=` | `a = a - b` |
+| `*=` | `a = a * b` |
+| `/=` | `a = a / b` |
+| `%=` | `a = a % b` |
+| `**=` | `a = a ** b` |
+| `||=` | `a || (a = b)` |
+| `&&=` | `a && (a = b)` |
+| `??=` | `a ?? (a = b)` |
+
 
 ```js
 config.retries ??= 3; // set only if null or undefined
