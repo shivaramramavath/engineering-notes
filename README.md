@@ -1,716 +1,373 @@
 # Engineering Notes
 
-A structured **software engineering knowledge base** covering programming languages, frontend, backend, databases, libraries, DevOps, system design, AI, DSA, interviews, and production engineering.
+> A personal software engineering knowledge base for learning, revision, implementation, and future reference.
 
-The goal is to maintain notes from:
-
-```text
-Fundamentals
-    ↓
-Core Concepts
-    ↓
-Intermediate
-    ↓
-Advanced
-    ↓
-Internals
-    ↓
-Production
-    ↓
-Interview
-```
-
-These notes are designed for both **learning** and **long-term technical reference**.
+![Status](https://img.shields.io/badge/status-active-success)
+![Focus](https://img.shields.io/badge/focus-software%20engineering-blue)
+![Type](https://img.shields.io/badge/type-knowledge%20base-purple)
 
 ---
 
-## Repository Structure
+## 📖 About
+
+**Engineering Notes** is a structured collection of my technical learning, implementation notes, engineering patterns, and project knowledge.
+
+The repository is designed as a **long-term reference**, not just a collection of tutorials.
+
+It covers software engineering from fundamentals to production-level concepts:
+
+```text
+Fundamentals
+     ↓
+Programming
+     ↓
+Frontend
+     ↓
+Backend
+     ↓
+Databases
+     ↓
+Security
+     ↓
+Architecture
+     ↓
+DevOps
+     ↓
+System Design
+     ↓
+Projects & Patterns
+```
+
+---
+
+## 🎯 Purpose
+
+This repository is maintained to:
+
+- Build strong engineering fundamentals
+- Keep technical knowledge organized
+- Quickly revisit previously learned concepts
+- Document implementation patterns
+- Connect theory with practical development
+- Maintain reusable reference material
+- Prepare for technical interviews
+- Support future projects and system design
+
+---
+
+## 🗂️ Repository Structure
 
 ```text
 engineering-notes/
 │
 ├── README.md
-├── ROADMAP.md
+├── Secure Authentication.md
 │
 ├── 01-languages/
+│   ├── java/
+│   ├── javascript/
+│   ├── python/
+│   └── typescript/
+│
 ├── 02-frontend/
+│   ├── nextjs/
+│   └── react/
+│
 ├── 03-backend/
-├── 04-databases/
-├── 05-libraries/
-├── 06-devops/
-├── 07-system-design/
-├── 08-ai/
-├── 09-dsa/
-├── 10-interview/
-└── 11-production-patterns/
+│   ├── nodejs/
+│   └── nodejs-mastery/
+│
+├── 04-devops/
+│   ├── docker/
+│   ├── git-github/
+│   └── nginx/
+│
+├── 05-system-design/
+│
+└── 06-project-patterns/
 ```
 
 ---
 
-# 01. Languages
+## 📚 Knowledge Areas
 
-Programming language fundamentals, advanced concepts, internals, patterns, and interview preparation.
+### 01 — Languages
 
-```text
-01-languages/
-│
-├── javascript/
-├── typescript/
-├── java/
-└── python/
-```
+Programming language concepts, fundamentals, advanced features, and language-specific engineering knowledge.
 
-### Topics
+**Includes:**
 
-- Syntax and fundamentals
-- Data types
-- Functions
-- OOP
-- Collections
-- Error handling
-- Asynchronous programming
-- Memory management
-- Concurrency
-- Language internals
-- Advanced features
-- Best practices
-
-→ [JavaScript](./01-languages/javascript/)
-→ [TypeScript](./01-languages/typescript/)
-→ [Java](./01-languages/java/)
-→ [Python](./01-languages/python/)
+- Java
+- JavaScript
+- Python
+- TypeScript
 
 ---
 
-# 02. Frontend
+### 02 — Frontend
 
-Frontend technologies and application development.
+Frontend development concepts, frameworks, architecture, UI engineering, and application development.
 
-```text
-02-frontend/
-│
-├── html/
-├── css/
-├── javascript/
-├── react/
-├── nextjs/
-├── tailwind/
-├── zustand/
-└── tanstack-query/
-```
+**Includes:**
 
-### Topics
-
-- HTML
-- CSS
-- JavaScript in the browser
 - React
 - Next.js
-- Tailwind CSS
-- Client-side state management
-- Server state management
-- Routing
-- Forms
-- Performance
-- Accessibility
-- Frontend architecture
-
-→ [HTML](./02-frontend/html/)
-→ [CSS](./02-frontend/css/)
-→ [React](./02-frontend/react/)
-→ [Next.js](./02-frontend/nextjs/)
-→ [Tailwind CSS](./02-frontend/tailwind/)
-→ [Zustand](./02-frontend/zustand/)
-→ [TanStack Query](./02-frontend/tanstack-query/)
 
 ---
 
-# 03. Backend
+### 03 — Backend
 
-Backend development with Node.js and related architecture concepts.
+Backend development, APIs, databases, authentication, architecture, asynchronous processing, realtime systems, testing, performance, and production engineering.
 
-```text
-03-backend/
-│
-├── nodejs/
-├── express/
-├── api-design/
-├── authentication/
-├── authorization/
-├── websocket/
-└── microservices/
-```
+**Includes:**
 
-### Topics
-
-- Node.js fundamentals
-- Node.js runtime
-- Modules
-- HTTP
-- Events
-- Streams
-- Buffers
-- File system
-- Error handling
+- Node.js
 - Express
-- REST APIs
-- Authentication
-- Authorization
-- WebSockets
-- Microservices
-- Backend architecture
-- Scalability
-
-→ [Node.js](./03-backend/nodejs/)
-→ [Express](./03-backend/express/)
-→ [API Design](./03-backend/api-design/)
-→ [Authentication](./03-backend/authentication/)
-→ [Authorization](./03-backend/authorization/)
-→ [WebSocket](./03-backend/websocket/)
-→ [Microservices](./03-backend/microservices/)
-
----
-
-# 04. Databases
-
-Database concepts, implementation, optimization, and design.
-
-```text
-04-databases/
-│
-├── mongodb/
-├── postgresql/
-├── mysql/
-├── redis/
-└── database-design/
-```
-
-### Topics
-
-- Database fundamentals
-- SQL
-- NoSQL
-- Data modeling
-- Schema design
-- Indexing
-- Queries
-- Transactions
-- Relationships
-- Aggregation
-- Caching
-- Replication
+- MongoDB
+- Mongoose
+- PostgreSQL
+- Redis
+- ioredis
+- Authentication & Security
+- API Development
+- Architecture
+- Async Processing
+- Realtime Systems
+- Testing
+- Observability
 - Performance
-- Database security
-
-→ [MongoDB](./04-databases/mongodb/)
-→ [PostgreSQL](./04-databases/postgresql/)
-→ [MySQL](./04-databases/mysql/)
-→ [Redis](./04-databases/redis/)
-→ [Database Design](./04-databases/database-design/)
 
 ---
 
-# 05. Libraries
+### 04 — DevOps
 
-Practical reference notes for commonly used development libraries and tools.
+Development and deployment infrastructure, tooling, networking, and production environments.
 
-```text
-05-libraries/
-│
-├── axios/
-├── pino/
-├── argon2/
-├── jose/
-├── passport/
-├── eslint/
-├── prettier/
-├── husky/
-├── bullmq/
-└── socketio/
-```
+**Includes:**
 
-### Current Libraries
-
-| Library   | Purpose                           |
-| --------- | --------------------------------- |
-| Axios     | HTTP client                       |
-| Pino      | Structured logging                |
-| Argon2    | Password hashing                  |
-| JOSE      | JWT/JWS/JWE and related standards |
-| Passport  | Authentication middleware         |
-| ESLint    | Code linting                      |
-| Prettier  | Code formatting                   |
-| Husky     | Git hooks                         |
-| BullMQ    | Background jobs and queues        |
-| Socket.IO | Real-time communication           |
-
-Each library should document:
-
-```text
-Concept
-   ↓
-Why
-   ↓
-Installation
-   ↓
-Syntax
-   ↓
-Examples
-   ↓
-How It Works
-   ↓
-Configuration
-   ↓
-Common Mistakes
-   ↓
-Advanced
-   ↓
-Production
-   ↓
-Security
-   ↓
-Performance
-   ↓
-Interview
-```
-
----
-
-# 06. DevOps
-
-Development, deployment, infrastructure, automation, and observability.
-
-```text
-06-devops/
-│
-├── git/
-├── github/
-├── docker/
-├── nginx/
-├── github-actions/
-├── aws/
-└── observability/
-```
-
-### Topics
-
-- Git
-- GitHub
-- Branching
-- Pull requests
 - Docker
 - Docker Compose
+- Git
+- GitHub
 - Nginx
-- CI/CD
-- GitHub Actions
-- AWS
-- Deployment
-- Monitoring
-- Logging
-- Metrics
-- Tracing
-
-→ [Git](./06-devops/git/)
-→ [GitHub](./06-devops/github/)
-→ [Docker](./06-devops/docker/)
-→ [Nginx](./06-devops/nginx/)
-→ [GitHub Actions](./06-devops/github-actions/)
-→ [AWS](./06-devops/aws/)
-→ [Observability](./06-devops/observability/)
 
 ---
 
-# 07. System Design
+### 05 — System Design
 
-Concepts required to design reliable, scalable, and distributed systems.
+A dedicated area for understanding how to design scalable, reliable, maintainable, and production-ready systems.
 
-```text
-07-system-design/
-│
-├── scalability/
-├── caching/
-├── queues/
-├── load-balancing/
-├── databases/
-├── distributed-systems/
-└── system-design-problems/
-```
-
-### Topics
+**Focus:**
 
 - Scalability
-- Vertical scaling
-- Horizontal scaling
-- Caching
-- Message queues
-- Load balancing
-- Database scaling
-- Replication
-- Sharding
-- Distributed systems
-- CAP theorem
-- Consistency
+- Reliability
 - Availability
-- Fault tolerance
-- Rate limiting
-- System design problems
-
-→ [Scalability](./07-system-design/scalability/)
-→ [Caching](./07-system-design/caching/)
-→ [Queues](./07-system-design/queues/)
-→ [Load Balancing](./07-system-design/load-balancing/)
-→ [Databases](./07-system-design/databases/)
-→ [Distributed Systems](./07-system-design/distributed-systems/)
-→ [System Design Problems](./07-system-design/system-design-problems/)
+- Distributed systems
+- Caching
+- Databases
+- Queues
+- Load balancing
+- System architecture
+- Trade-offs
 
 ---
 
-# 08. AI
+### 06 — Project Patterns
 
-Artificial intelligence and modern LLM application development.
+Reusable patterns and architectural approaches extracted from practical project development.
 
-```text
-08-ai/
-│
-├── llm/
-├── embeddings/
-├── rag/
-├── langchain/
-├── langgraph/
-└── vector-databases/
-```
+**Focus:**
 
-### Topics
-
-- Large Language Models
-- Prompt engineering
-- Tokens
-- Embeddings
-- Vector search
-- RAG
-- Retrieval pipelines
-- LangChain
-- LangGraph
-- Vector databases
-- AI application architecture
-- Evaluation
-- AI production systems
-
-→ [LLM](./08-ai/llm/)
-→ [Embeddings](./08-ai/embeddings/)
-→ [RAG](./08-ai/rag/)
-→ [LangChain](./08-ai/langchain/)
-→ [LangGraph](./08-ai/langgraph/)
-→ [Vector Databases](./08-ai/vector-databases/)
+- Backend patterns
+- API patterns
+- Repository / Service architecture
+- Queue / Worker architecture
+- Caching patterns
+- Authentication patterns
+- Realtime patterns
+- Production patterns
 
 ---
 
-# 09. DSA
+## 🧠 Learning Approach
 
-Data structures, algorithms, reusable patterns, and problem-solving techniques.
-
-```text
-09-dsa/
-│
-├── patterns/
-├── arrays/
-├── strings/
-├── trees/
-├── graphs/
-└── dynamic-programming/
-```
-
-### Topics
-
-- Arrays
-- Strings
-- Hashing
-- Two pointers
-- Sliding window
-- Prefix sum
-- Binary search
-- Stack
-- Queue
-- Linked list
-- Trees
-- Graphs
-- Greedy
-- Backtracking
-- Dynamic programming
-
-→ [Patterns](./09-dsa/patterns/)
-→ [Arrays](./09-dsa/arrays/)
-→ [Strings](./09-dsa/strings/)
-→ [Trees](./09-dsa/trees/)
-→ [Graphs](./09-dsa/graphs/)
-→ [Dynamic Programming](./09-dsa/dynamic-programming/)
-
----
-
-# 10. Interview
-
-Interview-focused revision material.
-
-```text
-10-interview/
-│
-├── javascript.md
-├── typescript.md
-├── react.md
-├── nodejs.md
-├── mongodb.md
-├── system-design.md
-└── hr.md
-```
-
-### Coverage
-
-- Core concepts
-- Frequently asked questions
-- Practical questions
-- Debugging questions
-- Architecture questions
-- Performance questions
-- Security questions
-- System design questions
-- Behavioral questions
-
-→ [JavaScript Interview](./10-interview/javascript.md)
-→ [TypeScript Interview](./10-interview/typescript.md)
-→ [React Interview](./10-interview/react.md)
-→ [Node.js Interview](./10-interview/nodejs.md)
-→ [MongoDB Interview](./10-interview/mongodb.md)
-→ [System Design Interview](./10-interview/system-design.md)
-→ [HR Interview](./10-interview/hr.md)
-
----
-
-# 11. Production Patterns
-
-Reusable patterns for building real-world applications.
-
-```text
-11-production-patterns/
-│
-├── scalable-node-api/
-├── authentication/
-├── redis-cache/
-├── background-jobs/
-├── realtime-system/
-├── file-upload/
-├── logging/
-├── error-handling/
-└── deployment/
-```
-
-### Topics
-
-- Scalable Node.js APIs
-- Authentication architecture
-- Redis caching
-- Background jobs
-- Real-time systems
-- File uploads
-- Logging
-- Error handling
-- Production deployment
-
-This section focuses on **how technologies are combined to solve real engineering problems**.
-
----
-
-# Documentation Philosophy
-
-Every major topic should follow a consistent structure:
+The notes generally follow this progression:
 
 ```text
 Concept
    ↓
-Why
+Why?
    ↓
-Prerequisites
-   ↓
-Mental Model
-   ↓
-Syntax
+How?
    ↓
 Example
    ↓
-How It Works
+Implementation
    ↓
-Common Mistakes
+Real-world Usage
    ↓
-Advanced
-   ↓
-Production
-   ↓
-Performance
-   ↓
-Security
-   ↓
-Best Practices
-   ↓
-Interview
-   ↓
-Quick Revision
+Production Considerations
 ```
 
-The goal is not to copy official documentation.
-
-The goal is to understand:
-
-```text
-What?
- ↓
-Why?
- ↓
-How?
- ↓
-When?
- ↓
-When NOT?
- ↓
-What happens internally?
- ↓
-What can go wrong?
- ↓
-How is it used in production?
-```
+The depth of each note depends on the complexity of the topic.
 
 ---
 
-# Learning Levels
+## 🔗 Connecting Knowledge
 
-Each technology should progressively move through these levels:
-
-### Level 1 — Fundamentals
-
-Understand basic terminology, syntax, APIs, and simple examples.
-
-### Level 2 — Core
-
-Understand how the major features work and how they interact.
-
-### Level 3 — Advanced
-
-Understand internals, edge cases, performance, security, and advanced APIs.
-
-### Level 4 — Production
-
-Understand architecture, scalability, observability, reliability, and operational concerns.
-
-### Level 5 — Interview
-
-Convert the knowledge into concise explanations and problem-solving ability.
-
----
-
-# Repository Principles
-
-## 1. Learn, Don't Copy
-
-Notes should explain concepts in your own understanding rather than reproduce documentation.
-
-## 2. Prefer Examples
-
-A concept should normally be supported by practical code.
-
-## 3. Understand Internals
-
-Don't stop at API usage. Understand what happens underneath when it matters.
-
-## 4. Connect Concepts
-
-Link related technologies and patterns.
+The repository is organized so that concepts can be connected across technologies.
 
 For example:
 
 ```text
+JavaScript
+    ↓
 Node.js
-   ↓
+    ↓
 Express
-   ↓
-Authentication
-   ↓
-JOSE / Passport
-   ↓
+    ↓
+REST API
+    ↓
+MongoDB
+    ↓
 Redis
-   ↓
-Scalable API
+    ↓
+Queues / Workers
+    ↓
+Docker
+    ↓
+Nginx
+    ↓
+Cloud / Deployment
+    ↓
+System Design
 ```
 
-## 5. Keep Notes Updated
-
-Technology changes over time. Update notes when APIs, recommended practices, or production patterns change.
-
-## 6. Separate Knowledge From Patterns
-
-Document:
-
-> **What is Redis?**
-
-in the Redis section.
-
-Document:
-
-> **How to implement Redis caching in a Node.js API**
-
-in Production Patterns.
+The goal is to understand how individual technologies work together to build complete systems.
 
 ---
 
-# Recommended Workflow
+## 🛠️ Practical Learning
 
-When learning a new technology:
+Whenever possible, concepts are reinforced through implementation.
 
 ```text
-1. Learn the fundamentals
-        ↓
-2. Create the reference notes
-        ↓
-3. Write simple examples
-        ↓
-4. Build a small implementation
-        ↓
-5. Study internals
-        ↓
-6. Add advanced concepts
-        ↓
-7. Document production patterns
-        ↓
-8. Add common mistakes
-        ↓
-9. Add interview questions
-        ↓
-10. Create quick revision notes
+Learn
+  ↓
+Experiment
+  ↓
+Build
+  ↓
+Debug
+  ↓
+Refactor
+  ↓
+Document
 ```
 
----
-
-# Repository Status
-
-This repository is continuously evolving.
-
-New technologies, concepts, patterns, implementation notes, and interview questions can be added as the knowledge base grows.
+Projects and patterns are used to turn theoretical knowledge into practical engineering knowledge.
 
 ---
 
-## Quick Navigation
+## 📝 Note Structure
 
-| Area                                             | Description                     |
-| ------------------------------------------------ | ------------------------------- |
-| [Languages](./01-languages/)                     | Programming languages           |
-| [Frontend](./02-frontend/)                       | Frontend development            |
-| [Backend](./03-backend/)                         | Backend development             |
-| [Databases](./04-databases/)                     | Database technologies           |
-| [Libraries](./05-libraries/)                     | Development libraries           |
-| [DevOps](./06-devops/)                           | Infrastructure and deployment   |
-| [System Design](./07-system-design/)             | Scalable system architecture    |
-| [AI](./08-ai/)                                   | LLM and AI engineering          |
-| [DSA](./09-dsa/)                                 | Algorithms and data structures  |
-| [Interview](./10-interview/)                     | Interview preparation           |
-| [Production Patterns](./11-production-patterns/) | Real-world engineering patterns |
+Notes may contain some or all of the following depending on the topic:
+
+- Concept
+- Why
+- Syntax
+- Example
+- Internal working
+- Common mistakes
+- Best practices
+- Advanced concepts
+- Production usage
+- Performance
+- Security
+- Trade-offs
+- Interview questions
+- References
 
 ---
 
-> **Learn the concept. Understand the internals. Build it. Apply it in production. Document it. Revise it.**
+## 🔍 Reference Philosophy
+
+This repository is intended to answer:
+
+> **What is it?**
+
+> **Why does it exist?**
+
+> **How does it work?**
+
+> **How do I use it?**
+
+For advanced concepts:
+
+> **What are the trade-offs?**
+
+> **What can go wrong?**
+
+> **How does it behave in production?**
+
+---
+
+## 🚀 Long-Term Vision
+
+The goal is to gradually build a complete personal engineering reference covering:
+
+```text
+Programming
+     ↓
+Software Development
+     ↓
+Backend Engineering
+     ↓
+Frontend Engineering
+     ↓
+Database Engineering
+     ↓
+System Architecture
+     ↓
+DevOps
+     ↓
+Distributed Systems
+     ↓
+Production Engineering
+```
+
+This repository will evolve continuously as new technologies, projects, patterns, and engineering lessons are learned.
+
+---
+
+## 📈 Status
+
+This is a **living knowledge base**.
+
+Some sections may be:
+
+- Completed
+- In progress
+- Partially documented
+- Planned
+- Continuously updated
+
+The repository structure will evolve as the scope of the knowledge base grows.
+
+---
+
+## 👤 Maintainer
+
+**Shiva Ram**
+
+Computer Science & Engineering Student
+
+---
+
+## 📜 License
+
+See the [`LICENSE`](./LICENSE) file for licensing information.
+
+---
+
+> **Learn deeply. Build practically. Document clearly. Reference forever.**
