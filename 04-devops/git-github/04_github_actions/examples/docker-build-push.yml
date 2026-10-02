@@ -1,0 +1,102 @@
+# =============================================================================
+# Docker build and push to GitHub Container Registry (GHCR)
+# -----------------------------------------------------------------------------
+# Copy to: .github/workflows/docker.yml
+# Chapter: 16_docker-ci-cd.md
+#
+# Behavior
+#   pull request   -> build only (proves the Dockerfile works), nothing pushed
+#   push to main   -> build and push  ghcr.io/<owner>/<repo>:main and :sha-xxxxxxx
+#   push tag v1.2.3-> build and push  :1.2.3  :1.2  and :sha-xxxxxxx
+#
+# Expects
+#   - a Dockerfile at the repository root (change `context` / `file` if not)
+#   - no extra secrets: GITHUB_TOKEN is enough for GHCR
+#
+# Check each action's repository for its latest major version before use.
+# =============================================================================
+
+name: Docker image
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]
+  pull_request:
+  workflow_dispatch:
+
+# Do not run two image builds for the same ref at once.
+concurrency:
+  group: docker-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}      # metadata-action lowercases this
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write            # push to GHCR with GITHUB_TOKEN
+      # For provenance attestations, also add:
+      #   id-token: write
+      #   attestations: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Buildx enables layer caching and multi-platform builds.
+      - uses: docker/setup-buildx-action@v3
+
+      # Only log in when we are going to push (never for pull requests).
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Computes tags and OCI labels from the Git context.
+      - name: Image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha                  # reuse layers from earlier runs
+          cache-to: type=gha,mode=max
+          # Multi-platform (also add docker/setup-qemu-action before buildx):
+          # platforms: linux/amd64,linux/arm64
+
+      # Record the immutable digest so deploys can reference it.
+      - name: Summary
+        run: |
+          {
+            echo "### Docker image"
+            echo ""
+            echo "- Pushed: ${{ github.event_name != 'pull_request' }}"
+            echo "- Digest: \`${{ steps.build.outputs.digest }}\`"
+            echo ""
+            echo "Tags:"
+            echo '```'
+            echo "${{ steps.meta.outputs.tags }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

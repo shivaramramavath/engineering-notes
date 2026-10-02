@@ -1,0 +1,139 @@
+# =============================================================================
+# Node.js CI
+# -----------------------------------------------------------------------------
+# Copy to: .github/workflows/ci.yml
+# Chapter: 14_ci-pipelines.md
+#
+# What it does
+#   - lint (+ type check when a tsconfig.json exists)
+#   - tests on Node 18, 20, 22 in parallel
+#   - production build, kept as an artifact
+#   - a single "ci-ok" gate job to use as the REQUIRED status check
+#
+# Expects
+#   - package-lock.json committed (for `npm ci` and the npm cache)
+#   - package.json scripts: "test" (required), "lint" and "build" (optional)
+# =============================================================================
+
+name: Node.js CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]            # avoids duplicate runs on PR branches
+  workflow_dispatch:            # manual run from the Actions tab
+
+permissions:
+  contents: read                # least privilege: the jobs only read code
+
+# Cancel outdated runs on the same PR; never cancel runs on main.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # ---------------------------------------------------------------------------
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm             # caches ~/.npm, keyed on package-lock.json
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint --if-present
+
+      - name: Type check
+        if: hashFiles('tsconfig.json') != ''
+        run: npx tsc --noEmit
+
+  # ---------------------------------------------------------------------------
+  test:
+    name: Test (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false           # see every failing Node version, not just the first
+      matrix:
+        node: [18, 20, 22]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      # Upload even when tests fail so the report can be inspected.
+      # If your test runner writes coverage elsewhere, change `path`.
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-node${{ matrix.node }}   # unique per matrix job (required in v4)
+          path: coverage/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "### Tests on Node ${{ matrix.node }}"
+            echo ""
+            echo "- Result: ${{ job.status }}"
+            echo "- Commit: \`${GITHUB_SHA::7}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------------------
+  build:
+    name: Build
+    needs: [lint, test]          # only build code that passed lint and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build
+        run: npm run build --if-present
+
+      - name: Upload build output
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # Gate job: mark ONLY this as the required status check in branch protection.
+  # Matrix jobs have many check names; this gives you one stable name.
+  # Skipped jobs are fine; failed or cancelled jobs fail the gate.
+  ci-ok:
+    name: CI OK
+    if: always()
+    needs: [lint, test, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any required job failed or was cancelled
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1

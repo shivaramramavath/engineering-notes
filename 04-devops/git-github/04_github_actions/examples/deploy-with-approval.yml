@@ -1,0 +1,159 @@
+# =============================================================================
+# Staged deployment with a manual approval gate
+# -----------------------------------------------------------------------------
+# Copy to: .github/workflows/deploy.yml
+# Chapters: 11_permissions-and-environments.md, 15_cd-and-deployment.md
+#
+# Flow
+#   build (once) -> staging -> smoke test -> [approval] -> production
+#
+# One-time setup in the repository (Settings -> Environments)
+#   1. Create environment "staging"
+#   2. Create environment "production" and add:
+#        - Required reviewers (and enable "Prevent self-review")
+#        - Deployment branches: only "main"
+#   3. Add a secret DEPLOY_TOKEN to EACH environment (different values)
+#   4. Provide ./scripts/deploy.sh in your repository. It receives the
+#      target name ("staging" or "production") and deploys the contents of dist/
+#
+# Rollback: run this workflow manually (Actions tab -> Run workflow) and
+# enter a previous tag or commit SHA in the "ref" input.
+# =============================================================================
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git tag, branch, or SHA to deploy (leave empty for the current commit)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+# One deployment pipeline at a time per branch; never cancel one midway.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  STAGING_URL: https://staging.example.com          # change me
+  PRODUCTION_URL: https://example.com               # change me
+  SOURCE_REF: ${{ inputs.ref || github.sha }}
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Build ONCE. The exact same artifact is deployed to every environment.
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_REF }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 14
+
+  # ---------------------------------------------------------------------------
+  staging:
+    name: Deploy to staging
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: staging
+      url: ${{ env.STAGING_URL }}
+    steps:
+      - uses: actions/checkout@v4                    # for scripts/deploy.sh
+        with:
+          ref: ${{ env.SOURCE_REF }}
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      - name: Deploy
+        run: ./scripts/deploy.sh staging
+        env:
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}  # staging's own value
+
+  # ---------------------------------------------------------------------------
+  smoke-test:
+    name: Smoke test staging
+    needs: staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check health endpoint
+        run: |
+          for i in $(seq 1 10); do
+            if curl --fail --silent --show-error "$STAGING_URL/health"; then
+              echo "Staging is healthy"
+              exit 0
+            fi
+            echo "Attempt $i failed; retrying in 6s"
+            sleep 6
+          done
+          echo "::error::Staging health check failed"
+          exit 1
+
+  # ---------------------------------------------------------------------------
+  # The run pauses here until a required reviewer approves.
+  # Environment secrets are only released AFTER approval.
+  production:
+    name: Deploy to production
+    needs: smoke-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: production
+      url: ${{ env.PRODUCTION_URL }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_REF }}
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      - name: Deploy
+        run: ./scripts/deploy.sh production
+        env:
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}  # production's own value
+
+      - name: Verify production
+        run: curl --fail --retry 5 --retry-delay 5 "$PRODUCTION_URL/health"
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Production deployment"
+            echo ""
+            echo "- Result: ${{ job.status }}"
+            echo "- Ref: \`${SOURCE_REF}\`"
+            echo "- URL: $PRODUCTION_URL"
+          } >> "$GITHUB_STEP_SUMMARY"

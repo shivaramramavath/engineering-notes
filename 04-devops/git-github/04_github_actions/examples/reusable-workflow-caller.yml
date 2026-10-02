@@ -1,0 +1,170 @@
+# =============================================================================
+# Calling reusable workflows
+# -----------------------------------------------------------------------------
+# Copy to: .github/workflows/main.yml
+# Chapter: 12_reusable-workflows.md
+#
+# This CALLER expects three reusable workflows in the same repository
+# (each declares `on: workflow_call`). Minimal versions are shown at the
+# bottom of this file so you can copy them into .github/workflows/.
+#
+# To use shared workflows from ANOTHER repository instead, replace
+#   ./.github/workflows/node-ci.yml
+# with
+#   my-org/shared-workflows/.github/workflows/node-ci.yml@v1
+# and pin to a tag or commit SHA, never a moving branch.
+# =============================================================================
+
+name: Main pipeline
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 1. Call a reusable workflow once per matrix entry.
+  #    A calling job has ONLY `uses`, `with`, `secrets`, `needs`, `if`,
+  #    `strategy`, `permissions`, `concurrency`. No `runs-on` and no `steps`.
+  test:
+    name: CI (Node ${{ matrix.node }})
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["18", "20", "22"]
+    uses: ./.github/workflows/node-ci.yml
+    with:
+      node-version: ${{ matrix.node }}
+      working-directory: "."
+
+  # ---------------------------------------------------------------------------
+  # 2. Call a workflow that RETURNS an output.
+  build:
+    name: Build
+    needs: test
+    uses: ./.github/workflows/build.yml
+    with:
+      node-version: "20"
+
+  # ---------------------------------------------------------------------------
+  # 3. Use the output, and pass a secret explicitly.
+  #    Secrets are NOT passed automatically. Map them one by one (preferred)
+  #    or use `secrets: inherit` only when you fully trust the called workflow.
+  deploy:
+    name: Deploy
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    permissions:                     # the called workflow can only keep or reduce these
+      contents: read
+    uses: ./.github/workflows/deploy.yml
+    with:
+      version: ${{ needs.build.outputs.version }}
+      environment: production
+    secrets:
+      deploy-token: ${{ secrets.DEPLOY_TOKEN }}
+      # or: `secrets: inherit` (replaces the mapping above)
+
+  # ---------------------------------------------------------------------------
+  # 4. A normal job can also read the reusable workflow's outputs.
+  report:
+    name: Report
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Built version $VERSION"
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+
+
+# =============================================================================
+# MINIMAL REUSABLE WORKFLOWS (save each as its own file in .github/workflows/)
+# =============================================================================
+#
+# ---- .github/workflows/node-ci.yml ------------------------------------------
+# name: Node CI (reusable)
+# on:
+#   workflow_call:
+#     inputs:
+#       node-version:
+#         type: string
+#         default: "20"
+#       working-directory:
+#         type: string
+#         default: "."
+# permissions:
+#   contents: read
+# jobs:
+#   ci:
+#     runs-on: ubuntu-latest
+#     defaults:
+#       run:
+#         working-directory: ${{ inputs.working-directory }}
+#     steps:
+#       - uses: actions/checkout@v4
+#       - uses: actions/setup-node@v4
+#         with:
+#           node-version: ${{ inputs.node-version }}
+#           cache: npm
+#           cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+#       - run: npm ci
+#       - run: npm test
+#
+# ---- .github/workflows/build.yml --------------------------------------------
+# name: Build (reusable)
+# on:
+#   workflow_call:
+#     inputs:
+#       node-version:
+#         type: string
+#         default: "20"
+#     outputs:
+#       version:
+#         description: "Version that was built"
+#         value: ${{ jobs.build.outputs.version }}
+# permissions:
+#   contents: read
+# jobs:
+#   build:
+#     runs-on: ubuntu-latest
+#     outputs:
+#       version: ${{ steps.ver.outputs.value }}
+#     steps:
+#       - uses: actions/checkout@v4
+#       - uses: actions/setup-node@v4
+#         with:
+#           node-version: ${{ inputs.node-version }}
+#           cache: npm
+#       - id: ver
+#         run: echo "value=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+#       - run: npm ci && npm run build --if-present
+#
+# ---- .github/workflows/deploy.yml -------------------------------------------
+# name: Deploy (reusable)
+# on:
+#   workflow_call:
+#     inputs:
+#       version:
+#         type: string
+#         required: true
+#       environment:
+#         type: string
+#         required: true
+#     secrets:
+#       deploy-token:
+#         required: true
+# permissions:
+#   contents: read
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
+#     environment: ${{ inputs.environment }}
+#     steps:
+#       - uses: actions/checkout@v4
+#       - run: ./scripts/deploy.sh "$VERSION"
+#         env:
+#           VERSION: ${{ inputs.version }}
+#           DEPLOY_TOKEN: ${{ secrets.deploy-token }}
