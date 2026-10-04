@@ -1,0 +1,149 @@
+Create a **professional, high-quality Markdown learning/reference note** for:
+
+**Topic:** `[TOPIC]`  
+**Technology:** `[TECHNOLOGY]`  
+**Version:** `[VERSION, if applicable]`
+
+The document should work for **learning, long-term reference, real-world development, debugging, production use, and interviews**.
+
+### Content
+
+Explain the topic from **fundamentals → practical usage → advanced concepts**, covering only sections relevant to the topic:
+
+- What it is
+- Why it exists
+- Mental model
+- How it works
+- Core concepts
+- Syntax / API / commands
+- Practical examples
+- Internal behavior / internals
+- Common patterns
+- Common mistakes
+- Debugging / troubleshooting
+- Performance
+- Security
+- Production considerations
+- Best practices
+- Version / compatibility notes
+- Real-world use cases
+- Interview questions
+- Quick reference
+- Key takeaways
+- Related topics
+
+### Quality Rules
+
+- Be technically accurate and precise.
+- Explain **what, why, how, and when**.
+- Beginner-friendly without oversimplifying.
+- Progress logically from basic to advanced.
+- Use practical, realistic examples.
+- Use correct syntax and runnable code where possible.
+- Use appropriate language identifiers in code blocks.
+- Use **tables** for comparisons, commands, APIs, errors, and trade-offs.
+- Use **ASCII diagrams** for architecture, workflows, execution flow, or internals when useful.
+- Include common misconceptions and mistakes.
+- Mention version-specific behavior when relevant.
+- Do not invent APIs, commands, features, versions, or links.
+- Do not force irrelevant sections.
+- Avoid repetition, filler, and unnecessary theory.
+
+### Recommended Structure
+
+```md
+# [Topic]
+
+## Overview
+
+## Mental Model
+
+## Core Concepts
+
+## How It Works
+
+## Examples
+
+## Syntax / API / Commands
+
+## Common Patterns
+
+## Common Mistakes
+
+## Debugging
+
+## Performance
+
+## Security
+
+## Production Considerations
+
+## Best Practices
+
+## Version / Compatibility
+
+## Real-World Use Cases
+
+## Interview Questions
+
+## Quick Reference
+
+## Key Takeaways
+
+## Related Topics
+```
+
+Adapt, merge, remove, or reorder sections when the topic requires it.
+
+### Repository Integration
+
+If repository information is provided:
+
+**Repository:** `[REPOSITORY]`  
+**File:** `[FILE PATH]`  
+**Related Files:** `[RELATED FILES]`
+
+- Avoid duplicating content from related files.
+- Link to related files only when their paths are known.
+- Maintain consistent terminology and learning progression.
+- Clearly identify prerequisites and next topics.
+
+### Learning Flow
+
+```text
+What
+ ↓
+Why
+ ↓
+How
+ ↓
+Example
+ ↓
+Core Concepts
+ ↓
+Internals
+ ↓
+Practical Usage
+ ↓
+Mistakes / Debugging
+ ↓
+Performance / Security
+ ↓
+Production
+ ↓
+Interview
+ ↓
+Quick Reference
+```
+
+### Output
+
+Return **only the final Markdown content**.
+
+Do not include explanations, meta commentary, or an introduction outside the Markdown.
+
+Start directly with:
+
+```md
+# [Topic]
+```
