@@ -1,0 +1,2189 @@
+﻿Folder PATH listing for volume New Volume
+Volume serial number is 3C03-D2A5
+F:.
+ª   folder-structure.txt
+ª   README.md
+ª   
++---01-languages
+ª   +---java
+ª   ª   ª   CONTRIBUTING.md
+ª   ª   ª   GLOSSARY.md
+ª   ª   ª   INDEX.md
+ª   ª   ª   LICENSE
+ª   ª   ª   README.md
+ª   ª   ª   ROADMAP.md
+ª   ª   ª   
+ª   ª   +---00-setup
+ª   ª   ª       00_jdk-installation.md
+ª   ª   ª       01_java-version-management.md
+ª   ª   ª       02_how-java-works.md
+ª   ª   ª       03_jshell.md
+ª   ª   ª       04_intellij-idea.md
+ª   ª   ª       05_first-project-with-maven-and-gradle.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---01-fundamentals
+ª   ª   ª       00_syntax-and-program-structure.md
+ª   ª   ª       01_variables-and-data-types.md
+ª   ª   ª       02_operators.md
+ª   ª   ª       03_type-casting-and-conversion.md
+ª   ª   ª       04_wrapper-classes-and-autoboxing.md
+ª   ª   ª       05_conditionals.md
+ª   ª   ª       06_loops.md
+ª   ª   ª       07_arrays.md
+ª   ª   ª       08_numeric-precision-and-math.md
+ª   ª   ª       09_console-input-output.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---02-methods
+ª   ª   ª       00_methods.md
+ª   ª   ª       01_pass-by-value.md
+ª   ª   ª       02_overloading-and-varargs.md
+ª   ª   ª       03_recursion.md
+ª   ª   ª       README (3).md
+ª   ª   ª       
+ª   ª   +---03-strings-and-text
+ª   ª   ª       00_string-basics.md
+ª   ª   ª       01_string-methods.md
+ª   ª   ª       02_string-pool-and-comparison.md
+ª   ª   ª       03_stringbuilder-and-stringbuffer.md
+ª   ª   ª       04_string-formatting.md
+ª   ª   ª       05_text-blocks.md
+ª   ª   ª       06_regex.md
+ª   ª   ª       07_unicode-and-encoding.md
+ª   ª   ª       README (4).md
+ª   ª   ª       
+ª   ª   +---04-oop
+ª   ª   ª       00_classes-and-objects.md
+ª   ª   ª       01_constructors.md
+ª   ª   ª       02_static.md
+ª   ª   ª       03_final.md
+ª   ª   ª       04_encapsulation-and-access-modifiers.md
+ª   ª   ª       05_initialization-order.md
+ª   ª   ª       06_inheritance.md
+ª   ª   ª       07_polymorphism.md
+ª   ª   ª       08_abstract-classes.md
+ª   ª   ª       09_interfaces.md
+ª   ª   ª       10_composition-and-object-relationships.md
+ª   ª   ª       11_enums.md
+ª   ª   ª       12_nested-and-inner-classes.md
+ª   ª   ª       13_object-class.md
+ª   ª   ª       14_equals-and-hashcode.md
+ª   ª   ª       15_clone-and-copying.md
+ª   ª   ª       README (5).md
+ª   ª   ª       
+ª   ª   +---05-packages-and-modules
+ª   ª   ª       00_packages-and-imports.md
+ª   ª   ª       01_classpath-and-jars.md
+ª   ª   ª       02_java-modules.md
+ª   ª   ª       README (4).md
+ª   ª   ª       
+ª   ª   +---06-exceptions-and-debugging
+ª   ª   ª       00_exception-hierarchy-and-types.md
+ª   ª   ª       01_try-catch-finally.md
+ª   ª   ª       02_throw-and-throws.md
+ª   ª   ª       03_try-with-resources.md
+ª   ª   ª       04_custom-exceptions.md
+ª   ª   ª       05_exception-handling-patterns.md
+ª   ª   ª       06_stack-traces-and-debugging.md
+ª   ª   ª       README (5).md
+ª   ª   ª       
+ª   ª   +---07-generics
+ª   ª   ª       00_generic-classes-and-methods.md
+ª   ª   ª       01_bounded-types.md
+ª   ª   ª       02_wildcards-and-pecs.md
+ª   ª   ª       03_type-erasure.md
+ª   ª   ª       04_generic-patterns.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---08-collections
+ª   ª   ª       00_collection-hierarchy.md
+ª   ª   ª       01_list.md
+ª   ª   ª       02_set.md
+ª   ª   ª       03_map.md
+ª   ª   ª       04_queue-and-deque.md
+ª   ª   ª       05_comparable-and-comparator.md
+ª   ª   ª       06_arraylist.md
+ª   ª   ª       07_linkedlist.md
+ª   ª   ª       08_hashmap-and-hashset.md
+ª   ª   ª       09_treemap-and-treeset.md
+ª   ª   ª       10_priorityqueue.md
+ª   ª   ª       11_specialized-collections.md
+ª   ª   ª       12_iterators-and-fail-fast-behavior.md
+ª   ª   ª       13_immutable-and-unmodifiable-collections.md
+ª   ª   ª       14_collections-and-arrays-utilities.md
+ª   ª   ª       15_collection-performance-and-selection.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---09-functional-java
+ª   ª   ª       00_lambda-expressions.md
+ª   ª   ª       01_functional-interfaces.md
+ª   ª   ª       02_method-references.md
+ª   ª   ª       03_optional.md
+ª   ª   ª       04_streams-fundamentals.md
+ª   ª   ª       05_stream-operations.md
+ª   ª   ª       06_collectors.md
+ª   ª   ª       07_parallel-streams.md
+ª   ª   ª       08_functional-patterns.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---10-date-and-time
+ª   ª   ª       00_java-time-overview.md
+ª   ª   ª       01_local-date-time.md
+ª   ª   ª       02_instant-and-zoned-date-time.md
+ª   ª   ª       03_duration-and-period.md
+ª   ª   ª       04_date-time-formatting-and-parsing.md
+ª   ª   ª       05_date-time-best-practices.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---11-io-and-networking
+ª   ª   ª       00_io-streams-readers-writers.md
+ª   ª   ª       01_nio-paths-and-files.md
+ª   ª   ª       02_file-processing-patterns.md
+ª   ª   ª       03_java-serialization.md
+ª   ª   ª       04_http-client-and-networking.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---12-modern-java
+ª   ª   ª       00_java-release-timeline.md
+ª   ª   ª       01_records.md
+ª   ª   ª       02_sealed-classes.md
+ª   ª   ª       03_switch-expressions.md
+ª   ª   ª       04_pattern-matching.md
+ª   ª   ª       05_var-and-type-inference.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---13-advanced-language-features
+ª   ª   ª       00_annotations.md
+ª   ª   ª       01_reflection.md
+ª   ª   ª       02_dynamic-proxies.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---14-concurrency
+ª   ª   ª       00_threads-and-lifecycle.md
+ª   ª   ª       01_runnable-callable-and-future.md
+ª   ª   ª       02_thread-safety.md
+ª   ª   ª       03_synchronization.md
+ª   ª   ª       04_memory-model-and-volatile.md
+ª   ª   ª       05_locks.md
+ª   ª   ª       06_atomic-classes.md
+ª   ª   ª       07_synchronizers.md
+ª   ª   ª       08_concurrent-collections.md
+ª   ª   ª       09_thread-local.md
+ª   ª   ª       10_executors-and-thread-pools.md
+ª   ª   ª       11_fork-join-and-parallelism.md
+ª   ª   ª       12_completablefuture.md
+ª   ª   ª       13_virtual-threads-and-structured-concurrency.md
+ª   ª   ª       14_deadlock-livelock-starvation.md
+ª   ª   ª       15_concurrency-patterns.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---15-jvm-internals
+ª   ª   ª       00_jvm-architecture.md
+ª   ª   ª       01_class-loading.md
+ª   ª   ª       02_jvm-memory-areas.md
+ª   ª   ª       03_bytecode.md
+ª   ª   ª       04_garbage-collection.md
+ª   ª   ª       05_gc-algorithms.md
+ª   ª   ª       06_jit-compiler.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---16-jdbc-and-databases
+ª   ª   ª       00_sql-and-indexing-essentials.md
+ª   ª   ª       01_jdbc-fundamentals.md
+ª   ª   ª       02_statements-and-prepared-statements.md
+ª   ª   ª       03_resultset-and-data-mapping.md
+ª   ª   ª       04_transactions.md
+ª   ª   ª       05_connection-pooling.md
+ª   ª   ª       06_jdbc-patterns.md
+ª   ª   ª       07_from-jdbc-to-orm.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---17-json-and-data-formats
+ª   ª   ª       00_json-basics.md
+ª   ª   ª       01_jackson.md
+ª   ª   ª       02_gson.md
+ª   ª   ª       03_json-patterns-and-pitfalls.md
+ª   ª   ª       04_data-formats-comparison.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---18-build-and-dependencies
+ª   ª   ª       00_maven.md
+ª   ª   ª       01_gradle.md
+ª   ª   ª       02_dependency-management.md
+ª   ª   ª       03_ci-cd-pipelines.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---19-testing
+ª   ª   ª       00_unit-testing-fundamentals.md
+ª   ª   ª       01_junit-5.md
+ª   ª   ª       02_mocking-and-mockito.md
+ª   ª   ª       03_integration-testing.md
+ª   ª   ª       04_testing-patterns.md
+ª   ª   ª       05_code-coverage-and-mutation-testing.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---20-performance
+ª   ª   ª       00_profiling.md
+ª   ª   ª       01_benchmarking-with-jmh.md
+ª   ª   ª       02_memory-optimization.md
+ª   ª   ª       03_gc-tuning.md
+ª   ª   ª       04_concurrency-performance.md
+ª   ª   ª       05_common-performance-pitfalls.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---21-security
+ª   ª   ª       00_input-validation-and-injection.md
+ª   ª   ª       01_cryptography.md
+ª   ª   ª       02_password-hashing.md
+ª   ª   ª       03_secrets-management.md
+ª   ª   ª       04_insecure-deserialization.md
+ª   ª   ª       05_dependency-security.md
+ª   ª   ª       06_security-checklist.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---22-production-engineering
+ª   ª   ª       00_logging.md
+ª   ª   ª       01_configuration-management.md
+ª   ª   ª       02_packaging-and-deployment.md
+ª   ª   ª       03_observability.md
+ª   ª   ª       04_jvm-diagnostics.md
+ª   ª   ª       05_troubleshooting-playbook.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---23-design-and-clean-code
+ª   ª   ª       00_solid-principles.md
+ª   ª   ª       01_design-principles.md
+ª   ª   ª       02_clean-code.md
+ª   ª   ª       03_refactoring-and-code-smells.md
+ª   ª   ª       04_immutability.md
+ª   ª   ª       05_defensive-programming.md
+ª   ª   ª       06_common-java-mistakes.md
+ª   ª   ª       07_code-review-checklist.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---24-design-patterns
+ª   ª   ª   ª   00_pattern-selection-guide.md
+ª   ª   ª   ª   05_anti-patterns.md
+ª   ª   ª   ª   README.md
+ª   ª   ª   ª   
+ª   ª   ª   +---01-creational
+ª   ª   ª   ª       00_singleton.md
+ª   ª   ª   ª       01_factory-method.md
+ª   ª   ª   ª       02_abstract-factory.md
+ª   ª   ª   ª       03_builder.md
+ª   ª   ª   ª       04_prototype.md
+ª   ª   ª   ª       
+ª   ª   ª   +---02-structural
+ª   ª   ª   ª       00_adapter.md
+ª   ª   ª   ª       01_decorator.md
+ª   ª   ª   ª       02_facade.md
+ª   ª   ª   ª       03_proxy.md
+ª   ª   ª   ª       04_composite.md
+ª   ª   ª   ª       
+ª   ª   ª   +---03-behavioral
+ª   ª   ª   ª       00_strategy.md
+ª   ª   ª   ª       01_observer.md
+ª   ª   ª   ª       02_command.md
+ª   ª   ª   ª       03_template-method.md
+ª   ª   ª   ª       04_iterator.md
+ª   ª   ª   ª       05_state.md
+ª   ª   ª   ª       06_chain-of-responsibility.md
+ª   ª   ª   ª       
+ª   ª   ª   +---04-architecture
+ª   ª   ª           00_dependency-injection.md
+ª   ª   ª           01_layered-architecture.md
+ª   ª   ª           02_repository-and-dao.md
+ª   ª   ª           
+ª   ª   +---25-real-world-patterns
+ª   ª   ª   ª   00_caching.md
+ª   ª   ª   ª   01_pagination.md
+ª   ª   ª   ª   02_retry-and-backoff.md
+ª   ª   ª   ª   03_rate-limiting.md
+ª   ª   ª   ª   04_idempotency.md
+ª   ª   ª   ª   05_background-jobs.md
+ª   ª   ª   ª   06_circuit-breaker-and-resilience.md
+ª   ª   ª   ª   README.md
+ª   ª   ª   ª   
+ª   ª   ª   +---examples
+ª   ª   +---26-projects
+ª   ª   ª   ª   README.md
+ª   ª   ª   ª   
+ª   ª   ª   +---01-cli-application
+ª   ª   ª   +---02-banking-system
+ª   ª   ª   +---03-library-management
+ª   ª   ª   +---04-ecommerce
+ª   ª   ª   +---05-task-management
+ª   ª   ª   +---06-rest-api
+ª   ª   ª   +---07-concurrent-task-system
+ª   ª   ª   +---08-url-shortener-service
+ª   ª   +---27-dsa
+ª   ª   ª   ª   00_complexity-analysis.md
+ª   ª   ª   ª   README.md
+ª   ª   ª   ª   
+ª   ª   ª   +---01-arrays-and-hashing
+ª   ª   ª   +---02-two-pointers-and-sliding-window
+ª   ª   ª   +---03-stack-and-queue
+ª   ª   ª   +---04-linked-list
+ª   ª   ª   +---05-binary-search
+ª   ª   ª   +---06-sorting
+ª   ª   ª   +---07-trees
+ª   ª   ª   +---08-heap-and-priority-queue
+ª   ª   ª   +---09-graphs
+ª   ª   ª   +---10-recursion-and-backtracking
+ª   ª   ª   +---11-dynamic-programming
+ª   ª   ª   +---12-greedy
+ª   ª   ª   +---13-bit-manipulation
+ª   ª   +---28-interview
+ª   ª   ª       00_core-java.md
+ª   ª   ª       01_oop.md
+ª   ª   ª       02_strings.md
+ª   ª   ª       03_collections.md
+ª   ª   ª       04_generics.md
+ª   ª   ª       05_exceptions.md
+ª   ª   ª       06_functional-and-modern-java.md
+ª   ª   ª       07_concurrency.md
+ª   ª   ª       08_jvm.md
+ª   ª   ª       09_jdbc-and-persistence.md
+ª   ª   ª       10_design-patterns-and-principles.md
+ª   ª   ª       11_performance-and-troubleshooting.md
+ª   ª   ª       12_output-based-questions.md
+ª   ª   ª       13_backend-system-design.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---29-cheatsheets
+ª   ª   ª       00_core-language.md
+ª   ª   ª       01_strings.md
+ª   ª   ª       02_collections.md
+ª   ª   ª       03_streams.md
+ª   ª   ª       04_concurrency.md
+ª   ª   ª       05_modern-java.md
+ª   ª   ª       06_design-patterns.md
+ª   ª   ª       07_jvm-flags-and-diagnostics.md
+ª   ª   ª       08_maven-and-gradle-commands.md
+ª   ª   ª       dsa-patterns-and-complexity.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---_templates
+ª   ª           concept-template.md
+ª   ª           project-template.md
+ª   ª           
+ª   +---javascript
+ª   ª   ª   CODE_OF_CONDUCT.md
+ª   ª   ª   CONTRIBUTING.md
+ª   ª   ª   GLOSSARY.md
+ª   ª   ª   LICENSE
+ª   ª   ª   README.md
+ª   ª   ª   ROADMAP.md
+ª   ª   ª   
+ª   ª   +---00_setup
+ª   ª   ª       01_what-is-javascript.md
+ª   ª   ª       02_runtimes-browser-and-node.md
+ª   ª   ª       03_npm-and-package-managers.md
+ª   ª   ª       04_devtools-and-debugging.md
+ª   ª   ª       05_tooling.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---01_fundamentals
+ª   ª   ª       01_variables.md
+ª   ª   ª       02_data-types.md
+ª   ª   ª       03_type-conversion-and-equality.md
+ª   ª   ª       04_operators.md
+ª   ª   ª       05_expressions-and-statements.md
+ª   ª   ª       06_conditionals.md
+ª   ª   ª       07_loops.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---02_functions
+ª   ª   ª       01_declarations-and-expressions.md
+ª   ª   ª       02_arrow-functions.md
+ª   ª   ª       03_parameters-and-arguments.md
+ª   ª   ª       04_return-values.md
+ª   ª   ª       05_callbacks.md
+ª   ª   ª       06_higher-order-functions.md
+ª   ª   ª       07_iife-and-function-properties.md
+ª   ª   ª       08_recursion.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---03_objects-and-arrays
+ª   ª   ª       01_objects.md
+ª   ª   ª       02_property-descriptors.md
+ª   ª   ª       03_getters-and-setters.md
+ª   ª   ª       04_object-static-methods.md
+ª   ª   ª       05_copying-and-cloning.md
+ª   ª   ª       06_arrays.md
+ª   ª   ª       07_array-methods.md
+ª   ª   ª       08_sorting-and-searching.md
+ª   ª   ª       09_destructuring.md
+ª   ª   ª       10_spread-and-rest.md
+ª   ª   ª       11_optional-chaining-and-nullish.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---04_scope-and-execution
+ª   ª   ª       01_scope.md
+ª   ª   ª       02_lexical-environment.md
+ª   ª   ª       03_execution-context-and-call-stack.md
+ª   ª   ª       04_hoisting-and-tdz.md
+ª   ª   ª       05_strict-mode.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---05_this-and-oop
+ª   ª   ª       01_this.md
+ª   ª   ª       02_call-apply-bind.md
+ª   ª   ª       03_prototypes-and-prototype-chain.md
+ª   ª   ª       04_constructor-functions.md
+ª   ª   ª       05_classes.md
+ª   ª   ª       06_inheritance.md
+ª   ª   ª       07_private-fields.md
+ª   ª   ª       08_mixins-and-composition.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---06_closures
+ª   ª   ª       01_closures.md
+ª   ª   ª       02_closure-use-cases.md
+ª   ª   ª       03_closure-pitfalls.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---07_functional-programming
+ª   ª   ª       01_pure-functions-and-side-effects.md
+ª   ª   ª       02_immutability.md
+ª   ª   ª       03_map-filter-reduce.md
+ª   ª   ª       04_composition-and-pipe.md
+ª   ª   ª       05_currying-and-partial-application.md
+ª   ª   ª       06_point-free.md
+ª   ª   ª       07_functional-patterns.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---08_modern-javascript
+ª   ª   ª       01_template-literals.md
+ª   ª   ª       02_enhanced-object-literals.md
+ª   ª   ª       03_symbols.md
+ª   ª   ª       04_iterators-and-iterables.md
+ª   ª   ª       05_generators.md
+ª   ª   ª       06_es-features-by-version.md
+ª   ª   ª       07_modern-syntax-cheatsheet.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---09_built-in-objects
+ª   ª   ª       01_string.md
+ª   ª   ª       02_number-and-bigint.md
+ª   ª   ª       03_math.md
+ª   ª   ª       04_date-and-temporal.md
+ª   ª   ª       05_regexp.md
+ª   ª   ª       06_map-and-set.md
+ª   ª   ª       07_weakmap-weakset-weakref.md
+ª   ª   ª       08_json.md
+ª   ª   ª       09_intl.md
+ª   ª   ª       10_typed-arrays-and-arraybuffer.md
+ª   ª   ª       11_proxy-and-reflect.md
+ª   ª   ª       12_global-objects.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---10_error-handling
+ª   ª   ª       01_errors.md
+ª   ª   ª       02_try-catch-finally.md
+ª   ª   ª       03_custom-errors.md
+ª   ª   ª       04_error-propagation.md
+ª   ª   ª       05_production-error-handling.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---11_asynchronous-javascript
+ª   ª   ª       01_sync-vs-async.md
+ª   ª   ª       02_callbacks.md
+ª   ª   ª       03_promises.md
+ª   ª   ª       04_promise-combinators.md
+ª   ª   ª       05_async-await.md
+ª   ª   ª       06_async-error-handling.md
+ª   ª   ª       07_async-iterators-and-generators.md
+ª   ª   ª       08_cancellation-and-abort.md
+ª   ª   ª       09_async-patterns.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---12_event-loop
+ª   ª   ª       01_event-loop.md
+ª   ª   ª       02_microtasks-and-macrotasks.md
+ª   ª   ª       03_timers.md
+ª   ª   ª       04_task-ordering.md
+ª   ª   ª       05_event-loop-patterns.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---13_modules
+ª   ª   ª       01_es-modules.md
+ª   ª   ª       02_commonjs.md
+ª   ª   ª       03_esm-vs-commonjs.md
+ª   ª   ª       04_bundlers-and-tree-shaking.md
+ª   ª   ª       05_module-patterns.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---14_dom-and-browser
+ª   ª   ª       01_dom.md
+ª   ª   ª       02_selectors.md
+ª   ª   ª       03_element-manipulation.md
+ª   ª   ª       04_events.md
+ª   ª   ª       05_event-delegation.md
+ª   ª   ª       06_forms.md
+ª   ª   ª       07_observers.md
+ª   ª   ª       08_browser-storage.md
+ª   ª   ª       09_web-apis.md
+ª   ª   ª       10_web-components.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---15_networking
+ª   ª   ª       01_http-fundamentals.md
+ª   ª   ª       02_fetch.md
+ª   ª   ª       03_headers-and-cors.md
+ª   ª   ª       04_request-and-response.md
+ª   ª   ª       05_websockets-and-sse.md
+ª   ª   ª       06_networking-patterns.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---16_nodejs
+ª   ª   ª       00_README.md
+ª   ª   ª       01_node-runtime.md
+ª   ª   ª       02_node-event-loop.md
+ª   ª   ª       03_process-and-env.md
+ª   ª   ª       04_filesystem-and-path.md
+ª   ª   ª       05_events.md
+ª   ª   ª       06_streams.md
+ª   ª   ª       07_buffers.md
+ª   ª   ª       08_http-server.md
+ª   ª   ª       09_child-process-and-cluster.md
+ª   ª   ª       
+ª   ª   +---17_concurrency-and-parallelism
+ª   ª   ª       00_README.md
+ª   ª   ª       01_concurrency-vs-parallelism.md
+ª   ª   ª       02_web-workers.md
+ª   ª   ª       03_worker-threads.md
+ª   ª   ª       04_sharedarraybuffer-and-atomics.md
+ª   ª   ª       05_concurrency-control.md
+ª   ª   ª       
+ª   ª   +---18_memory-and-garbage-collection
+ª   ª   ª       01_memory-model.md
+ª   ª   ª       02_garbage-collection.md
+ª   ª   ª       03_memory-leaks.md
+ª   ª   ª       04_memory-optimization.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---19_performance
+ª   ª   ª       01_performance-fundamentals.md
+ª   ª   ª       02_profiling.md
+ª   ª   ª       03_browser-performance.md
+ª   ª   ª       04_node-performance.md
+ª   ª   ª       05_optimization-patterns.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---20_design-patterns
+ª   ª   ª       01_module-pattern.md
+ª   ª   ª       02_factory-pattern.md
+ª   ª   ª       03_singleton-pattern.md
+ª   ª   ª       04_builder-pattern.md
+ª   ª   ª       05_strategy-pattern.md
+ª   ª   ª       06_observer-pattern.md
+ª   ª   ª       07_adapter-pattern.md
+ª   ª   ª       08_decorator-pattern.md
+ª   ª   ª       09_dependency-injection.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---21_testing
+ª   ª   ª       01_testing-fundamentals.md
+ª   ª   ª       02_unit-testing.md
+ª   ª   ª       03_integration-testing.md
+ª   ª   ª       04_vitest-and-jest.md
+ª   ª   ª       05_mocking.md
+ª   ª   ª       06_testing-patterns.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---22_security
+ª   ª   ª       01_xss.md
+ª   ª   ª       02_csrf.md
+ª   ª   ª       03_prototype-pollution.md
+ª   ª   ª       04_input-validation.md
+ª   ª   ª       05_dependency-security.md
+ª   ª   ª       06_security-checklist.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---23_real-world-patterns
+ª   ª           01_debounce.md
+ª   ª           02_throttle.md
+ª   ª           03_retry.md
+ª   ª           04_timeout.md
+ª   ª           05_memoization.md
+ª   ª           06_concurrency-control.md
+ª   ª           07_event-emitter.md
+ª   ª           08_caching.md
+ª   ª           09_rate-limiting.md
+ª   ª           README.md
+ª   ª           
+ª   +---python
+ª   +---typescript
+ª       ª   CONTRIBUTING.md
+ª       ª   GLOSSARY.md
+ª       ª   INDEX.md
+ª       ª   LICENSE
+ª       ª   README.md
+ª       ª   ROADMAP.md
+ª       ª   
+ª       +---00-setup
+ª       ª       00-toolchain.md
+ª       ª       01-first-project.md
+ª       ª       02-editor-and-playground.md
+ª       ª       README (1).md
+ª       ª       
+ª       +---01-fundamentals
+ª       ª       00-types-and-inference.md
+ª       ª       01-primitive-types.md
+ª       ª       02-arrays-and-tuples.md
+ª       ª       03-objects.md
+ª       ª       04-type-aliases.md
+ª       ª       05-enums-and-const-objects.md
+ª       ª       06-any-and-unknown.md
+ª       ª       07-never-and-void.md
+ª       ª       08-null-and-undefined.md
+ª       ª       README (1).md
+ª       ª       
+ª       +---02-functions
+ª       ª       00-function-types.md
+ª       ª       01-parameters-and-return-types.md
+ª       ª       02-callbacks.md
+ª       ª       03-function-overloads.md
+ª       ª       04-this-parameters.md
+ª       ª       README (1).md
+ª       ª       
+ª       +---03-unions-and-narrowing
+ª       ª       00-union-types.md
+ª       ª       01-intersection-types.md
+ª       ª       02-literal-types-and-const-assertions.md
+ª       ª       03-type-narrowing.md
+ª       ª       04-discriminated-unions.md
+ª       ª       05-type-guards-and-assertion-functions.md
+ª       ª       06-exhaustiveness-checking.md
+ª       ª       07-type-assertions-and-satisfies.md
+ª       ª       README (1).md
+ª       ª       
+ª       +---04-objects-and-interfaces
+ª       ª       00-interfaces.md
+ª       ª       01-interface-vs-type.md
+ª       ª       02-readonly-and-optional-properties.md
+ª       ª       03-index-signatures.md
+ª       ª       04-structural-typing.md
+ª       ª       README (1).md
+ª       ª       
+ª       +---05-classes
+ª       ª       00-classes.md
+ª       ª       01-access-modifiers.md
+ª       ª       02-inheritance-and-abstract-classes.md
+ª       ª       03-implements.md
+ª       ª       04-static-members.md
+ª       ª       05-getters-and-setters.md
+ª       ª       06-mixins.md
+ª       ª       07-decorators.md
+ª       ª       README (1).md
+ª       ª       
+ª       +---06-generics
+ª       ª       00-generic-functions.md
+ª       ª       01-generic-types.md
+ª       ª       02-generic-constraints-and-defaults.md
+ª       ª       03-keyof-and-typeof.md
+ª       ª       04-indexed-access-types.md
+ª       ª       05-generic-inference.md
+ª       ª       README (1).md
+ª       ª       
+ª       +---07-utility-types
+ª       ª       00-partial-required-readonly.md
+ª       ª       01-pick-omit-record.md
+ª       ª       02-exclude-extract-nonnullable.md
+ª       ª       03-function-and-class-utilities.md
+ª       ª       04-building-custom-utility-types.md
+ª       ª       README.md
+ª       ª       
+ª       +---08-modules
+ª       ª       00-imports-and-exports.md
+ª       ª       01-es-modules-and-commonjs.md
+ª       ª       02-barrel-files-and-module-organization.md
+ª       ª       03-namespaces.md
+ª       ª       README.md
+ª       ª       
+ª       +---09-declaration-files
+ª       ª       00-declaration-files.md
+ª       ª       01-ambient-declarations.md
+ª       ª       02-global-and-module-augmentation.md
+ª       ª       03-declaration-merging.md
+ª       ª       04-third-party-types.md
+ª       ª       README.md
+ª       ª       
+ª       +---10-advanced-types
+ª       ª       00-conditional-types.md
+ª       ª       01-distributive-conditional-types.md
+ª       ª       02-infer.md
+ª       ª       03-mapped-types.md
+ª       ª       04-template-literal-types.md
+ª       ª       05-recursive-types.md
+ª       ª       06-variadic-tuple-types.md
+ª       ª       07-branded-types.md
+ª       ª       08-type-level-programming.md
+ª       ª       README.md
+ª       ª       
+ª       +---11-error-handling
+ª       ª       00-catching-and-narrowing-errors.md
+ª       ª       01-custom-errors.md
+ª       ª       02-result-pattern.md
+ª       ª       03-error-handling-strategies.md
+ª       ª       README.md
+ª       ª       
+ª       +---12-async-and-iteration
+ª       ª       00-event-loop.md
+ª       ª       01-promises.md
+ª       ª       02-async-await.md
+ª       ª       03-async-generics.md
+ª       ª       04-iterators-and-generators.md
+ª       ª       05-concurrency-patterns.md
+ª       ª       README.md
+ª       ª       
+ª       +---13-compiler-and-tsconfig
+ª       ª       00-compiler-options.md
+ª       ª       01-strict-mode.md
+ª       ª       02-target-module-and-lib.md
+ª       ª       03-module-resolution-and-paths.md
+ª       ª       04-project-references-and-incremental-builds.md
+ª       ª       05-tsconfig-recipes.md
+ª       ª       README.md
+ª       ª       
+ª       +---14-type-system-internals
+ª       ª       00-type-erasure-and-runtime.md
+ª       ª       01-assignability-and-subtyping.md
+ª       ª       02-variance.md
+ª       ª       03-type-widening-and-inference.md
+ª       ª       04-soundness-and-escape-hatches.md
+ª       ª       05-compiler-architecture.md
+ª       ª       README.md
+ª       ª       
+ª       +---15-runtime-validation
+ª       ª       00-trust-boundaries.md
+ª       ª       01-schema-validation.md
+ª       ª       02-zod.md
+ª       ª       03-other-validation-libraries.md
+ª       ª       04-validation-recipes.md
+ª       ª       README.md
+ª       ª       
+ª       +---16-type-safe-apis
+ª       ª       00-api-contracts.md
+ª       ª       01-request-response-types.md
+ª       ª       02-dto-pattern.md
+ª       ª       03-pagination-types.md
+ª       ª       04-error-response-types.md
+ª       ª       05-typed-fetch-and-api-client.md
+ª       ª       06-contract-first-apis.md
+ª       ª       README.md
+ª       ª       
+ª       +---17-design-patterns
+ª       ª       00-factory.md
+ª       ª       01-builder.md
+ª       ª       02-strategy.md
+ª       ª       03-adapter.md
+ª       ª       04-repository.md
+ª       ª       05-dependency-injection.md
+ª       ª       06-state-machines.md
+ª       ª       07-typed-event-emitter.md
+ª       ª       README.md
+ª       ª       
+ª       +---18-testing-and-debugging
+ª       ª       00-unit-testing.md
+ª       ª       01-integration-testing.md
+ª       ª       02-mocking.md
+ª       ª       03-test-runners.md
+ª       ª       04-type-testing.md
+ª       ª       05-debugging.md
+ª       ª       06-reading-type-errors.md
+ª       ª       README.md
+ª       ª       
+ª       +---19-react-and-frontend
+ª       ª       00-component-props-and-children.md
+ª       ª       01-event-types.md
+ª       ª       02-hooks.md
+ª       ª       03-context.md
+ª       ª       04-refs.md
+ª       ª       05-forms.md
+ª       ª       06-generic-and-polymorphic-components.md
+ª       ª       07-server-state-tanstack-query.md
+ª       ª       08-client-state-zustand.md
+ª       ª       09-nextjs.md
+ª       ª       README.md
+ª       ª       
+ª       +---20-nodejs-backend
+ª       ª       00-node-types.md
+ª       ª       01-config-and-environment.md
+ª       ª       02-express.md
+ª       ª       03-middleware.md
+ª       ª       04-service-and-repository-layers.md
+ª       ª       05-databases.md
+ª       ª       06-redis-and-caching.md
+ª       ª       07-authentication-and-authorization.md
+ª       ª       08-nestjs.md
+ª       ª       README.md
+ª       ª       
+ª       +---21-production-tooling
+ª       ª       00-linting-and-formatting.md
+ª       ª       01-build-and-bundling.md
+ª       ª       02-monorepos.md
+ª       ª       03-publishing-packages.md
+ª       ª       04-js-to-ts-migration.md
+ª       ª       05-ci-and-deployment.md
+ª       ª       06-logging-and-observability.md
+ª       ª       README.md
+ª       ª       
+ª       +---22-performance
+ª       ª       00-type-checking-performance.md
+ª       ª       01-build-performance.md
+ª       ª       02-runtime-performance.md
+ª       ª       README.md
+ª       ª       
+ª       +---23-security
+ª       ª       00-unsafe-types-and-assertions.md
+ª       ª       01-input-validation.md
+ª       ª       02-dependency-security.md
+ª       ª       03-security-checklist.md
+ª       ª       README.md
+ª       ª       
+ª       +---24-best-practices
+ª       ª       00-type-design-principles.md
+ª       ª       01-common-mistakes-and-anti-patterns.md
+ª       ª       02-project-structure.md
+ª       ª       03-code-style-and-conventions.md
+ª       ª       README.md
+ª       ª       
+ª       +---25-real-world-patterns
+ª       ª       00-domain-modeling.md
+ª       ª       01-filtering-and-sorting.md
+ª       ª       02-state-management.md
+ª       ª       README.md
+ª       ª       
+ª       +---26-projects
+ª       ª   ª   README.md
+ª       ª   ª   
+ª       ª   +---01-cli-tool
+ª       ª   ª       README.md
+ª       ª   ª       
+ª       ª   +---02-type-safe-api-client
+ª       ª   ª       README.md
+ª       ª   ª       
+ª       ª   +---03-rest-api
+ª       ª   ª       README.md
+ª       ª   ª       
+ª       ª   +---04-authentication-system
+ª       ª   ª       README.md
+ª       ª   ª       
+ª       ª   +---05-react-dashboard
+ª       ª   ª       README.md
+ª       ª   ª       
+ª       ª   +---06-nestjs-api
+ª       ª   ª       README.md
+ª       ª   ª       
+ª       ª   +---07-fullstack-application
+ª       ª   ª       README.md
+ª       ª   ª       
+ª       ª   +---exercises
+ª       ª           00-type-challenges.md
+ª       ª           README.md
+ª       ª           
+ª       +---27-interview
+ª       ª       00-typescript-basics.md
+ª       ª       01-type-system-and-runtime.md
+ª       ª       02-generics.md
+ª       ª       03-utility-types.md
+ª       ª       04-advanced-types.md
+ª       ª       05-narrowing.md
+ª       ª       06-compiler-and-tsconfig.md
+ª       ª       07-react-typescript.md
+ª       ª       08-node-typescript.md
+ª       ª       09-output-based-questions.md
+ª       ª       10-design-and-architecture-questions.md
+ª       ª       11-coding-challenges.md
+ª       ª       README.md
+ª       ª       
+ª       +---28-cheatsheets
+ª       ª       00-syntax-and-types.md
+ª       ª       01-utility-types.md
+ª       ª       02-generics.md
+ª       ª       03-narrowing.md
+ª       ª       04-tsconfig.md
+ª       ª       05-react-typescript.md
+ª       ª       06-node-typescript.md
+ª       ª       README.md
+ª       ª       
+ª       +---templates
+ª               concept-template.md
+ª               
++---02-frontend
+ª   +---nextjs
+ª   +---reactjs
+ª       ª   CONTRIBUTING.md
+ª       ª   GLOSSARY.md
+ª       ª   LICENSE
+ª       ª   README.md
+ª       ª   ROADMAP.md
+ª       ª   
+ª       +---00-setup
+ª       ª       00-javascript-for-react.md
+ª       ª       01-node-and-npm.md
+ª       ª       02-vite.md
+ª       ª       03-project-structure.md
+ª       ª       04-react-devtools.md
+ª       ª       05-typescript-and-linting-setup.md
+ª       ª       README.md
+ª       ª       
+ª       +---01-fundamentals
+ª       ª       00-thinking-in-react.md
+ª       ª       01-jsx.md
+ª       ª       02-components-and-props.md
+ª       ª       03-children-and-composition.md
+ª       ª       04-conditional-rendering.md
+ª       ª       05-lists-and-keys.md
+ª       ª       06-events.md
+ª       ª       07-forms-basics.md
+ª       ª       README.md
+ª       ª       
+ª       +---02-state-and-rendering
+ª       ª       00-state-and-snapshots.md
+ª       ª       01-state-updates-and-batching.md
+ª       ª       02-state-structure-and-lifting.md
+ª       ª       03-rendering.md
+ª       ª       04-component-lifecycle.md
+ª       ª       05-state-preservation-and-reset.md
+ª       ª       README (1).md
+ª       ª       
+ª       +---03-hooks
+ª       ª       00-hook-rules.md
+ª       ª       01-useState.md
+ª       ª       02-useEffect.md
+ª       ª       03-you-might-not-need-an-effect.md
+ª       ª       04-useRef.md
+ª       ª       05-useContext.md
+ª       ª       06-useReducer.md
+ª       ª       07-useMemo-and-useCallback.md
+ª       ª       08-useLayoutEffect.md
+ª       ª       09-custom-hooks.md
+ª       ª       10-hook-recipes.md
+ª       ª       README (3).md
+ª       ª       
+ª       +---04-typescript-with-react
+ª       ª       00-typing-components-and-props.md
+ª       ª       01-typing-events.md
+ª       ª       02-typing-hooks.md
+ª       ª       03-generics.md
+ª       ª       04-utility-types.md
+ª       ª       05-advanced-typing-patterns.md
+ª       ª       README.md
+ª       ª       
+ª       +---05-component-design
+ª       ª       00-component-api-design.md
+ª       ª       01-composition-patterns.md
+ª       ª       02-compound-components.md
+ª       ª       03-legacy-component-patterns.md
+ª       ª       README.md
+ª       ª       
+ª       +---06-forms
+ª       ª       00-controlled-and-uncontrolled-inputs.md
+ª       ª       01-form-validation.md
+ª       ª       02-react-hook-form.md
+ª       ª       03-dynamic-forms.md
+ª       ª       04-multi-step-forms.md
+ª       ª       05-form-submission-and-errors.md
+ª       ª       06-file-upload.md
+ª       ª       README.md
+ª       ª       
+ª       +---07-styling
+ª       ª       00-css-essentials.md
+ª       ª       01-css-modules.md
+ª       ª       02-tailwindcss.md
+ª       ª       03-responsive-design.md
+ª       ª       04-theming-and-dark-mode.md
+ª       ª       05-styling-approaches-compared.md
+ª       ª       README.md
+ª       ª       
+ª       +---08-accessibility
+ª       ª       00-semantic-html.md
+ª       ª       01-aria.md
+ª       ª       02-keyboard-and-focus-management.md
+ª       ª       03-screen-readers.md
+ª       ª       04-accessibility-checklist.md
+ª       ª       README.md
+ª       ª       
+ª       +---09-ui-components
+ª       ª       00-shadcn-ui.md
+ª       ª       01-component-variants.md
+ª       ª       02-dialogs-and-modals.md
+ª       ª       03-dropdowns-and-menus.md
+ª       ª       04-tabs.md
+ª       ª       05-command-palette.md
+ª       ª       06-form-controls.md
+ª       ª       07-data-tables.md
+ª       ª       08-toasts-and-notifications.md
+ª       ª       09-design-system.md
+ª       ª       README.md
+ª       ª       
+ª       +---10-routing
+ª       ª       00-react-router.md
+ª       ª       01-nested-routes-and-layouts.md
+ª       ª       02-dynamic-routes-and-params.md
+ª       ª       03-navigation.md
+ª       ª       04-route-protection.md
+ª       ª       05-route-data-loading.md
+ª       ª       06-search-filter-and-url-state.md
+ª       ª       README.md
+ª       ª       
+ª       +---11-api-integration
+ª       ª       00-fetch.md
+ª       ª       01-axios.md
+ª       ª       02-api-client.md
+ª       ª       03-authentication.md
+ª       ª       04-refresh-token-flow.md
+ª       ª       05-api-error-handling.md
+ª       ª       06-realtime-communication.md
+ª       ª       README.md
+ª       ª       
+ª       +---12-server-state
+ª       ª       00-server-vs-client-state.md
+ª       ª       01-fetching-data.md
+ª       ª       02-loading-and-error-states.md
+ª       ª       03-tanstack-query.md
+ª       ª       04-caching-and-synchronization.md
+ª       ª       05-mutations.md
+ª       ª       06-optimistic-updates.md
+ª       ª       07-pagination-and-infinite-queries.md
+ª       ª       README.md
+ª       ª       
+ª       +---13-state-management
+ª       ª       00-choosing-state-management.md
+ª       ª       01-context-patterns-and-performance.md
+ª       ª       02-reducer-and-context-pattern.md
+ª       ª       03-zustand.md
+ª       ª       04-redux-toolkit.md
+ª       ª       README.md
+ª       ª       
+ª       +---14-performance
+ª       ª       00-profiling-and-measuring.md
+ª       ª       01-rendering-performance.md
+ª       ª       02-memoization.md
+ª       ª       03-code-splitting-and-lazy-loading.md
+ª       ª       04-virtualization.md
+ª       ª       05-bundle-optimization.md
+ª       ª       06-network-performance.md
+ª       ª       README.md
+ª       ª       
+ª       +---15-concurrent-and-modern-react
+ª       ª       00-concurrent-rendering.md
+ª       ª       01-transitions.md
+ª       ª       02-useDeferredValue.md
+ª       ª       03-suspense.md
+ª       ª       04-error-boundaries.md
+ª       ª       05-react-19-features.md
+ª       ª       06-react-compiler.md
+ª       ª       07-server-components-and-ssr.md
+ª       ª       README.md
+ª       ª       
+ª       +---16-advanced-react
+ª       ª       00-portals.md
+ª       ª       01-refs-and-imperative-handles.md
+ª       ª       02-external-stores.md
+ª       ª       03-internationalization.md
+ª       ª       README.md
+ª       ª       
+ª       +---17-react-internals
+ª       ª       00-fiber-architecture.md
+ª       ª       01-reconciliation.md
+ª       ª       02-how-hooks-work.md
+ª       ª       03-scheduler-and-lanes.md
+ª       ª       04-event-system.md
+ª       ª       README.md
+ª       ª       
+ª       +---18-testing-and-debugging
+ª       ª       00-testing-fundamentals.md
+ª       ª       01-vitest.md
+ª       ª       02-component-testing-with-rtl.md
+ª       ª       03-hook-testing.md
+ª       ª       04-mocking-and-msw.md
+ª       ª       05-integration-testing.md
+ª       ª       06-e2e-testing-playwright.md
+ª       ª       07-debugging.md
+ª       ª       README.md
+ª       ª       
+ª       +---19-production
+ª       ª       00-environment-variables.md
+ª       ª       01-build.md
+ª       ª       02-deployment.md
+ª       ª       03-docker.md
+ª       ª       04-ci-cd.md
+ª       ª       05-security.md
+ª       ª       06-error-monitoring-and-logging.md
+ª       ª       07-performance-monitoring.md
+ª       ª       08-production-checklist.md
+ª       ª       README.md
+ª       ª       
+ª       +---20-frontend-architecture
+ª       ª       00-feature-based-architecture.md
+ª       ª       01-layered-architecture.md
+ª       ª       02-api-architecture.md
+ª       ª       03-error-handling-architecture.md
+ª       ª       04-scaling-large-applications.md
+ª       ª       README.md
+ª       ª       
+ª       +---21-specializations
+ª       ª   ª   README.md
+ª       ª   ª   
+ª       ª   +---animation
+ª       ª   ª       00-css-transitions-and-animations.md
+ª       ª   ª       01-framer-motion.md
+ª       ª   ª       02-layout-animations.md
+ª       ª   ª       03-gestures.md
+ª       ª   ª       04-animation-performance-and-accessibility.md
+ª       ª   ª       README.md
+ª       ª   ª       
+ª       ª   +---react-flow
+ª       ª           00-nodes-and-edges.md
+ª       ª           01-custom-nodes-and-edges.md
+ª       ª           02-node-state.md
+ª       ª           03-connection-validation.md
+ª       ª           04-drag-and-drop.md
+ª       ª           README.md
+ª       ª           
+ª       +---22-projects
+ª       ª   ª   README.md
+ª       ª   ª   
+ª       ª   +---01-todo-app
+ª       ª   +---02-authentication
+ª       ª   +---03-admin-dashboard
+ª       ª   +---04-ecommerce
+ª       ª   +---05-waste-collection
+ª       ª   +---06-pixel-mind
+ª       ª   +---07-timetable-generator
+ª       ª   +---08-workflow-builder
+ª       ª   +---09-realtime-chat-app
+ª       +---23-interview
+ª       ª       00-react-fundamentals.md
+ª       ª       01-hooks.md
+ª       ª       02-rendering-and-internals.md
+ª       ª       03-state-management.md
+ª       ª       04-performance.md
+ª       ª       05-typescript-react.md
+ª       ª       06-react-router.md
+ª       ª       07-tanstack-query.md
+ª       ª       08-testing.md
+ª       ª       09-accessibility.md
+ª       ª       10-architecture.md
+ª       ª       11-frontend-system-design.md
+ª       ª       12-coding-challenges.md
+ª       ª       README.md
+ª       ª       
+ª       +---24-cheatsheets
+ª       ª       00-react.md
+ª       ª       01-hooks.md
+ª       ª       02-typescript-react.md
+ª       ª       03-react-router.md
+ª       ª       04-tanstack-query.md
+ª       ª       05-forms-rhf-zod.md
+ª       ª       06-zustand.md
+ª       ª       07-tailwind.md
+ª       ª       08-shadcn-ui.md
+ª       ª       09-testing.md
+ª       ª       README.md
+ª       ª       
+ª       +---_templates
+ª               concept.md
+ª               
++---03-backend
+ª   +---nestjs
+ª   ª   ª   CONTRIBUTING.md
+ª   ª   ª   GLOSSARY.md
+ª   ª   ª   INDEX.md
+ª   ª   ª   LICENSE
+ª   ª   ª   README.md
+ª   ª   ª   ROADMAP.md
+ª   ª   ª   
+ª   ª   +---00-prerequisites
+ª   ª   ª       01-typescript-essentials.md
+ª   ª   ª       02-typescript-decorators.md
+ª   ª   ª       03-nodejs-async-and-event-loop.md
+ª   ª   ª       04-http-and-rest-basics.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---01-getting-started
+ª   ª   ª       01-installation.md
+ª   ª   ª       02-nest-cli.md
+ª   ª   ª       03-first-project.md
+ª   ª   ª       04-project-structure.md
+ª   ª   ª       05-development-environment.md
+ª   ª   ª       06-debugging.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---02-fundamentals
+ª   ª   ª       01-architecture-overview.md
+ª   ª   ª       02-modules.md
+ª   ª   ª       03-controllers.md
+ª   ª   ª       04-providers-and-services.md
+ª   ª   ª       05-dependency-injection.md
+ª   ª   ª       06-decorators.md
+ª   ª   ª       07-request-data.md
+ª   ª   ª       08-response-handling.md
+ª   ª   ª       09-request-lifecycle.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---03-core-concepts
+ª   ª   ª   +---01-request-pipeline
+ª   ª   ª   ª       01-pipeline-overview-and-execution-order.md
+ª   ª   ª   ª       02-middleware.md
+ª   ª   ª   ª       03-pipes.md
+ª   ª   ª   ª       04-guards.md
+ª   ª   ª   ª       05-interceptors.md
+ª   ª   ª   ª       06-interceptor-recipes.md
+ª   ª   ª   ª       07-http-exceptions.md
+ª   ª   ª   ª       08-exception-filters.md
+ª   ª   ª   ª       09-execution-context.md
+ª   ª   ª   ª       10-custom-decorators.md
+ª   ª   ª   ª       README.md
+ª   ª   ª   ª       
+ª   ª   ª   +---02-validation-and-serialization
+ª   ª   ª   ª       01-dto.md
+ª   ª   ª   ª       02-validation-pipe.md
+ª   ª   ª   ª       03-class-validator.md
+ª   ª   ª   ª       04-class-transformer.md
+ª   ª   ª   ª       05-nested-and-conditional-validation.md
+ª   ª   ª   ª       06-custom-validators.md
+ª   ª   ª   ª       07-serialization.md
+ª   ª   ª   ª       08-schema-validation-alternatives.md
+ª   ª   ª   ª       README.md
+ª   ª   ª   ª       
+ª   ª   ª   +---03-configuration
+ª   ª   ª   ª       01-configuration-basics.md
+ª   ª   ª   ª       02-configuration-validation.md
+ª   ª   ª   ª       03-custom-configuration.md
+ª   ª   ª   ª       README.md
+ª   ª   ª   ª       
+ª   ª   ª   +---04-modules-and-di
+ª   ª   ª           01-feature-and-shared-modules.md
+ª   ª   ª           02-global-modules.md
+ª   ª   ª           03-dynamic-modules.md
+ª   ª   ª           04-circular-dependencies.md
+ª   ª   ª           05-custom-providers.md
+ª   ª   ª           06-injection-tokens-and-optional-dependencies.md
+ª   ª   ª           07-scopes-and-request-context.md
+ª   ª   ª           08-module-ref-and-lazy-loading.md
+ª   ª   ª           09-application-lifecycle.md
+ª   ª   ª           README.md
+ª   ª   ª           
+ª   ª   +---04-intermediate
+ª   ª   ª   +---01-testing
+ª   ª   ª   ª       01-testing-fundamentals.md
+ª   ª   ª   ª       02-unit-testing.md
+ª   ª   ª   ª       03-mocking.md
+ª   ª   ª   ª       04-testing-pipeline-components.md
+ª   ª   ª   ª       05-integration-testing.md
+ª   ª   ª   ª       06-e2e-testing.md
+ª   ª   ª   ª       README.md
+ª   ª   ª   ª       
+ª   ª   ª   +---02-database-foundations
+ª   ª   ª   ª       01-database-architecture.md
+ª   ª   ª   ª       02-database-connection.md
+ª   ª   ª   ª       03-repository-pattern.md
+ª   ª   ª   ª       04-transactions.md
+ª   ª   ª   ª       05-migrations.md
+ª   ª   ª   ª       06-indexing-and-query-basics.md
+ª   ª   ª   ª       07-database-errors.md
+ª   ª   ª   ª       08-orm-comparison.md
+ª   ª   ª   ª       README.md
+ª   ª   ª   ª       
+ª   ª   ª   +---03-typeorm
+ª   ª   ª   ª       01-setup.md
+ª   ª   ª   ª       02-entities.md
+ª   ª   ª   ª       03-relations.md
+ª   ª   ª   ª       04-repositories.md
+ª   ª   ª   ª       05-query-builder.md
+ª   ª   ª   ª       06-migrations.md
+ª   ª   ª   ª       07-transactions.md
+ª   ª   ª   ª       README.md
+ª   ª   ª   ª       
+ª   ª   ª   +---04-prisma
+ª   ª   ª   ª       01-setup.md
+ª   ª   ª   ª       02-schema.md
+ª   ª   ª   ª       03-prisma-client.md
+ª   ª   ª   ª       04-relations.md
+ª   ª   ª   ª       05-repositories.md
+ª   ª   ª   ª       06-migrations.md
+ª   ª   ª   ª       07-transactions.md
+ª   ª   ª   ª       README.md
+ª   ª   ª   ª       
+ª   ª   ª   +---05-mongoose
+ª   ª   ª   ª       01-setup.md
+ª   ª   ª   ª       02-schemas-and-models.md
+ª   ª   ª   ª       03-repositories.md
+ª   ª   ª   ª       04-populate.md
+ª   ª   ª   ª       05-middleware-hooks.md
+ª   ª   ª   ª       06-indexes.md
+ª   ª   ª   ª       07-transactions.md
+ª   ª   ª   ª       README.md
+ª   ª   ª   ª       
+ª   ª   ª   +---06-authentication
+ª   ª   ª   ª       01-authentication-architecture.md
+ª   ª   ª   ª       02-passport-and-local-strategy.md
+ª   ª   ª   ª       03-password-hashing.md
+ª   ª   ª   ª       04-jwt.md
+ª   ª   ª   ª       05-refresh-tokens-and-logout.md
+ª   ª   ª   ª       06-cookie-authentication.md
+ª   ª   ª   ª       07-session-authentication.md
+ª   ª   ª   ª       08-oauth2.md
+ª   ª   ª   ª       09-social-login.md
+ª   ª   ª   ª       10-two-factor-authentication.md
+ª   ª   ª   ª       README.md
+ª   ª   ª   ª       
+ª   ª   ª   +---07-authorization
+ª   ª   ª   ª       01-authorization-fundamentals.md
+ª   ª   ª   ª       02-rbac.md
+ª   ª   ª   ª       03-abac-and-policies.md
+ª   ª   ª   ª       04-casl-integration.md
+ª   ª   ª   ª       README.md
+ª   ª   ª   ª       
+ª   ª   ª   +---08-api-design
+ª   ª   ª   ª       01-rest-and-resource-design.md
+ª   ª   ª   ª       02-api-versioning.md
+ª   ª   ª   ª       03-pagination.md
+ª   ª   ª   ª       04-filtering-sorting-and-search.md
+ª   ª   ª   ª       05-response-and-error-format.md
+ª   ª   ª   ª       06-idempotency.md
+ª   ª   ª   ª       07-webhooks.md
+ª   ª   ª   ª       README.md
+ª   ª   ª   ª       
+ª   ª   ª   +---09-openapi-and-swagger
+ª   ª   ª           01-swagger-setup.md
+ª   ª   ª           02-documenting-endpoints.md
+ª   ª   ª           03-dto-documentation.md
+ª   ª   ª           04-documenting-auth.md
+ª   ª   ª           05-responses-and-examples.md
+ª   ª   ª           06-client-sdk-generation.md
+ª   ª   ª           README.md
+ª   ª   ª           
+ª   ª   +---05-advanced
+ª   ª   ª   +---01-caching
+ª   ª   ª   ª       01-caching-fundamentals.md
+ª   ª   ª   ª       02-cache-manager.md
+ª   ª   ª   ª       03-redis.md
+ª   ª   ª   ª       04-cache-invalidation.md
+ª   ª   ª   ª       05-distributed-caching.md
+ª   ª   ª   ª       README.md
+ª   ª   ª   ª       
+ª   ª   ª   +---02-background-processing
+ª   ª   ª   ª       01-queues-fundamentals.md
+ª   ª   ª   ª       02-bullmq.md
+ª   ª   ª   ª       03-producers-and-consumers.md
+ª   ª   ª   ª       04-retries-and-dead-letter-queues.md
+ª   ª   ª   ª       05-delayed-and-repeatable-jobs.md
+ª   ª   ª   ª       06-job-idempotency.md
+ª   ª   ª   ª       07-queue-scaling-and-performance.md
+ª   ª   ª   ª       08-scheduling-with-cron.md
+ª   ª   ª   ª       09-dynamic-scheduling-and-timezones.md
+ª   ª   ª   ª       README.md
+ª   ª   ª   ª       
+ª   ª   ª   +---03-events-and-messaging
+ª   ª   ª   ª       01-event-emitter.md
+ª   ª   ª   ª       02-messaging-fundamentals.md
+ª   ª   ª   ª       03-kafka.md
+ª   ª   ª   ª       04-rabbitmq.md
+ª   ª   ª   ª       README.md
+ª   ª   ª   ª       
+ª   ª   ª   +---04-realtime
+ª   ª   ª   ª       01-gateways-and-events.md
+ª   ª   ª   ª       02-socketio.md
+ª   ª   ª   ª       03-websocket-authentication.md
+ª   ª   ª   ª       04-rooms-and-namespaces.md
+ª   ª   ª   ª       05-scaling-websockets.md
+ª   ª   ª   ª       06-server-sent-events-and-streaming.md
+ª   ª   ª   ª       README.md
+ª   ª   ª   ª       
+ª   ª   ª   +---05-graphql
+ª   ª   ª   ª       01-graphql-fundamentals.md
+ª   ª   ª   ª       02-dataloader-and-n-plus-one.md
+ª   ª   ª   ª       03-graphql-auth-and-security.md
+ª   ª   ª   ª       04-subscriptions-and-federation.md
+ª   ª   ª   ª       README.md
+ª   ª   ª   ª       
+ª   ª   ª   +---06-microservices
+ª   ª   ª   ª       01-microservices-architecture.md
+ª   ª   ª   ª       02-transporters.md
+ª   ª   ª   ª       03-message-patterns.md
+ª   ª   ª   ª       04-broker-transporters.md
+ª   ª   ª   ª       05-hybrid-apps-and-api-gateway.md
+ª   ª   ª   ª       06-grpc-fundamentals-and-protobuf.md
+ª   ª   ª   ª       07-grpc-server-and-client.md
+ª   ª   ª   ª       08-grpc-streaming.md
+ª   ª   ª   ª       09-grpc-authentication.md
+ª   ª   ª   ª       README.md
+ª   ª   ª   ª       
+ª   ª   ª   +---07-integrations
+ª   ª   ª   ª       01-file-upload.md
+ª   ª   ª   ª       02-cloud-storage.md
+ª   ª   ª   ª       03-email.md
+ª   ª   ª   ª       04-notifications.md
+ª   ª   ª   ª       05-http-client-and-third-party-apis.md
+ª   ª   ª   ª       README.md
+ª   ª   ª   ª       
+ª   ª   ª   +---08-ai-and-llm
+ª   ª   ª           01-openai-integration.md
+ª   ª   ª           02-embeddings-and-vector-search.md
+ª   ª   ª           03-rag.md
+ª   ª   ª           04-langchain.md
+ª   ª   ª           05-ai-architecture.md
+ª   ª   ª           README.md
+ª   ª   ª           
+ª   ª   +---06-internals
+ª   ª   ª       01-how-nest-boots.md
+ª   ª   ª       02-dependency-injection-internals.md
+ª   ª   ª       03-metadata-and-reflection.md
+ª   ª   ª       04-request-lifecycle-internals.md
+ª   ª   ª       05-platform-adapters.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---07-production
+ª   ª   ª   +---01-security
+ª   ª   ª   ª       01-security-fundamentals.md
+ª   ª   ª   ª       02-http-security-headers-and-cors.md
+ª   ª   ª   ª       03-csrf.md
+ª   ª   ª   ª       04-rate-limiting-and-brute-force-protection.md
+ª   ª   ª   ª       05-injection-and-xss-prevention.md
+ª   ª   ª   ª       06-secrets-management.md
+ª   ª   ª   ª       07-dependency-security.md
+ª   ª   ª   ª       08-security-checklist.md
+ª   ª   ª   ª       README.md
+ª   ª   ª   ª       
+ª   ª   ª   +---02-performance
+ª   ª   ª   ª       01-performance-fundamentals.md
+ª   ª   ª   ª       02-request-and-async-performance.md
+ª   ª   ª   ª       03-database-performance.md
+ª   ª   ª   ª       04-memory-and-cpu-optimization.md
+ª   ª   ª   ª       05-clustering-and-worker-processes.md
+ª   ª   ª   ª       06-load-testing.md
+ª   ª   ª   ª       README.md
+ª   ª   ª   ª       
+ª   ª   ª   +---03-observability
+ª   ª   ª   ª       01-logging-fundamentals.md
+ª   ª   ª   ª       02-structured-logging-with-pino.md
+ª   ª   ª   ª       03-request-logging-and-correlation-id.md
+ª   ª   ª   ª       04-health-checks.md
+ª   ª   ª   ª       05-metrics.md
+ª   ª   ª   ª       06-tracing.md
+ª   ª   ª   ª       07-error-tracking-and-alerting.md
+ª   ª   ª   ª       README.md
+ª   ª   ª   ª       
+ª   ª   ª   +---04-deployment
+ª   ª   ª           01-production-configuration.md
+ª   ª   ª           02-graceful-shutdown-and-process-management.md
+ª   ª   ª           03-docker.md
+ª   ª   ª           04-reverse-proxy-and-nginx.md
+ª   ª   ª           05-ci-cd.md
+ª   ª   ª           06-cloud-deployment-aws.md
+ª   ª   ª           07-kubernetes.md
+ª   ª   ª           08-horizontal-scaling.md
+ª   ª   ª           09-production-error-handling.md
+ª   ª   ª           10-production-checklist.md
+ª   ª   ª           README.md
+ª   ª   ª           
+ª   ª   +---08-architecture-and-patterns
+ª   ª   ª   +---01-architecture
+ª   ª   ª   ª       01-layered-architecture.md
+ª   ª   ª   ª       02-modular-monolith.md
+ª   ª   ª   ª       03-clean-and-hexagonal-architecture.md
+ª   ª   ª   ª       04-domain-driven-design.md
+ª   ª   ª   ª       05-cqrs-and-event-sourcing.md
+ª   ª   ª   ª       06-event-driven-architecture.md
+ª   ª   ª   ª       07-monolith-vs-microservices.md
+ª   ª   ª   ª       README.md
+ª   ª   ª   ª       
+ª   ª   ª   +---02-design-patterns
+ª   ª   ª   ª       01-factory.md
+ª   ª   ª   ª       02-strategy.md
+ª   ª   ª   ª       03-adapter.md
+ª   ª   ª   ª       04-decorator-pattern.md
+ª   ª   ª   ª       05-facade.md
+ª   ª   ª   ª       06-observer.md
+ª   ª   ª   ª       07-service-layer.md
+ª   ª   ª   ª       08-specification.md
+ª   ª   ª   ª       README.md
+ª   ª   ª   ª       
+ª   ª   ª   +---03-clean-code
+ª   ª   ª   ª       01-clean-code-and-code-organization.md
+ª   ª   ª   ª       02-solid-principles.md
+ª   ª   ª   ª       03-cohesion-coupling-and-separation-of-concerns.md
+ª   ª   ª   ª       04-error-handling-principles.md
+ª   ª   ª   ª       05-code-review-checklist.md
+ª   ª   ª   ª       README.md
+ª   ª   ª   ª       
+ª   ª   ª   +---04-real-world-patterns
+ª   ª   ª           01-audit-logging.md
+ª   ª   ª           02-soft-delete.md
+ª   ª   ª           03-transactional-outbox.md
+ª   ª   ª           04-saga.md
+ª   ª   ª           05-retry-and-circuit-breaker.md
+ª   ª   ª           06-distributed-lock.md
+ª   ª   ª           07-full-text-search.md
+ª   ª   ª           08-multi-tenancy.md
+ª   ª   ª           README.md
+ª   ª   ª           
+ª   ª   +---09-best-practices
+ª   ª   ª       01-nestjs-best-practices.md
+ª   ª   ª       02-common-mistakes-and-anti-patterns.md
+ª   ª   ª       03-troubleshooting-common-errors.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---10-projects
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---11-system-design
+ª   ª   ª       01-system-design-approach.md
+ª   ª   ª       02-scalable-rest-api.md
+ª   ª   ª       03-authentication-system.md
+ª   ª   ª       04-notification-system.md
+ª   ª   ª       05-file-upload-system.md
+ª   ª   ª       06-job-queue-system.md
+ª   ª   ª       07-realtime-chat-system.md
+ª   ª   ª       08-ecommerce-backend.md
+ª   ª   ª       09-url-shortener.md
+ª   ª   ª       10-rate-limiter.md
+ª   ª   ª       11-microservices-system.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---12-interview-preparation
+ª   ª   ª       01-nestjs-fundamentals.md
+ª   ª   ª       02-modules-providers-and-di.md
+ª   ª   ª       03-request-pipeline.md
+ª   ª   ª       04-authentication-and-authorization.md
+ª   ª   ª       05-databases-and-orms.md
+ª   ª   ª       06-testing.md
+ª   ª   ª       07-microservices-and-realtime.md
+ª   ª   ª       08-architecture.md
+ª   ª   ª       09-performance.md
+ª   ª   ª       10-security.md
+ª   ª   ª       11-output-based-questions.md
+ª   ª   ª       12-scenario-based-questions.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---13-quick-reference
+ª   ª   ª       01-nestjs.md
+ª   ª   ª       02-cli.md
+ª   ª   ª       03-decorators.md
+ª   ª   ª       04-dependency-injection.md
+ª   ª   ª       05-request-pipeline.md
+ª   ª   ª       06-authentication.md
+ª   ª   ª       07-typeorm.md
+ª   ª   ª       08-prisma.md
+ª   ª   ª       09-mongoose.md
+ª   ª   ª       10-redis.md
+ª   ª   ª       11-bullmq.md
+ª   ª   ª       12-microservices.md
+ª   ª   ª       13-testing.md
+ª   ª   ª       14-configuration.md
+ª   ª   ª       15-production.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---_templates
+ª   ª           concept-template.md
+ª   ª           project-template.md
+ª   ª           
+ª   +---nodejs
+ª       ª   CONTRIBUTING.md
+ª       ª   LICENSE
+ª       ª   README.md
+ª       ª   ROADMAP.md
+ª       ª   
+ª       +---00-setup
+ª       ª       00-README.md
+ª       ª       01-getting-started.md
+ª       ª       02-npm-and-package-json.md
+ª       ª       
+ª       +---01-fundamentals
+ª       ª       00-README.md
+ª       ª       01-node-runtime.md
+ª       ª       02-global-objects.md
+ª       ª       03-module-system.md
+ª       ª       04-environment-variables.md
+ª       ª       
+ª       +---02-core-modules
+ª       ª       00-README.md
+ª       ª       01-fs.md
+ª       ª       02-path.md
+ª       ª       03-http.md
+ª       ª       04-events.md
+ª       ª       05-streams.md
+ª       ª       06-buffer.md
+ª       ª       07-process.md
+ª       ª       08-os.md
+ª       ª       09-child-process.md
+ª       ª       10-cluster-worker-threads.md
+ª       ª       11-module-system.md
+ª       ª       
+ª       +---03-javascript-for-node
+ª       ª       00-README.md
+ª       ª       01-callbacks-promises-async-await.md
+ª       ª       02-event-loop.md
+ª       ª       03-closures.md
+ª       ª       04-prototypes.md
+ª       ª       05-error-handling.md
+ª       ª       06-memory-management.md
+ª       ª       
+ª       +---04-npm-ecosystem
+ª       ª       00-README.md
+ª       ª       01-semantic-versioning.md
+ª       ª       02-dependencies-and-scripts.md
+ª       ª       03-publishing-a-package.md
+ª       ª       
+ª       +---05-http-web
+ª       ª       00-README.md
+ª       ª       01-http-methods-and-status-codes.md
+ª       ª       02-headers-and-content-negotiation.md
+ª       ª       03-cookies.md
+ª       ª       04-cors.md
+ª       ª       05-caching-and-compression.md
+ª       ª       06_status-codes.md
+ª       ª       
+ª       +---06-express
+ª       ª       00-README.md
+ª       ª       01-setup-and-routing.md
+ª       ª       02-middleware.md
+ª       ª       03-controllers.md
+ª       ª       04-error-handling.md
+ª       ª       05-validation.md
+ª       ª       06-auth-and-authorization.md
+ª       ª       07-file-upload.md
+ª       ª       08_http-errors.md
+ª       ª       
+ª       +---07-databases
+ª       ª   ª   00-README.md
+ª       ª   ª   
+ª       ª   +---mongodb
+ª       ª   ª   ª   CONTRIBUTING.md
+ª       ª   ª   ª   LICENSE
+ª       ª   ª   ª   README.md
+ª       ª   ª   ª   ROADMAP.md
+ª       ª   ª   ª   
+ª       ª   ª   +---00-mongodb-basics
+ª       ª   ª   ª       00-README.md
+ª       ª   ª   ª       01-installation-and-atlas.md
+ª       ª   ª   ª       02-shell-and-compass.md
+ª       ª   ª   ª       03-architecture-and-bson.md
+ª       ª   ª   ª       04-databases-collections-documents.md
+ª       ª   ª   ª       
+ª       ª   ª   +---01-mongodb-native-driver
+ª       ª   ª   ª       00-README.md
+ª       ª   ª   ª       01-connecting-with-the-native-driver.md
+ª       ª   ª   ª       02-native-crud-methods.md
+ª       ª   ª   ª       03-query-operators-reference.md
+ª       ª   ª   ª       
+ª       ª   ª   +---02-mongodb-vs-mongoose
+ª       ª   ª   ª       00-README.md
+ª       ª   ª   ª       01-what-mongoose-adds.md
+ª       ª   ª   ª       02-when-to-drop-to-the-native-driver.md
+ª       ª   ª   ª       
+ª       ª   ª   +---03-setup
+ª       ª   ª   ª       00-README.md
+ª       ª   ª   ª       01-installing-mongoose.md
+ª       ª   ª   ª       02-connecting-to-mongodb.md
+ª       ª   ª   ª       03-connection-events-and-lifecycle.md
+ª       ª   ª   ª       
+ª       ª   ª   +---04-schemas
+ª       ª   ª   ª       00-README.md
+ª       ª   ª   ª       01-defining-a-schema.md
+ª       ª   ª   ª       02-schema-types-reference.md
+ª       ª   ª   ª       03-schema-type-options.md
+ª       ª   ª   ª       04-nested-and-subdocument-schemas.md
+ª       ª   ª   ª       05-schema-options.md
+ª       ª   ª   ª       06-schema-methods-statics-virtuals.md
+ª       ª   ª   ª       07-indexes-in-schemas.md
+ª       ª   ª   ª       
+ª       ª   ª   +---05-models
+ª       ª   ª   ª       00-README.md
+ª       ª   ª   ª       01-creating-a-model.md
+ª       ª   ª   ª       02-model-vs-document.md
+ª       ª   ª   ª       03-compiling-models-and-avoiding-overwrite-errors.md
+ª       ª   ª   ª       
+ª       ª   ª   +---06-crud-methods
+ª       ª   ª   ª       00-README.md
+ª       ª   ª   ª       01-create-methods.md
+ª       ª   ª   ª       02-read-methods.md
+ª       ª   ª   ª       03-update-methods.md
+ª       ª   ª   ª       04-delete-methods.md
+ª       ª   ª   ª       05-query-chaining-and-cursor-methods.md
+ª       ª   ª   ª       06-bulk-and-batch-methods.md
+ª       ª   ª   ª       
+ª       ª   ª   +---07-filter-conditions
+ª       ª   ª   ª       00-README.md
+ª       ª   ª   ª       01-basic-filter-syntax.md
+ª       ª   ª   ª       02-comparison-operators.md
+ª       ª   ª   ª       03-logical-operators.md
+ª       ª   ª   ª       04-element-and-type-operators.md
+ª       ª   ª   ª       05-array-filter-conditions.md
+ª       ª   ª   ª       06-regex-and-text-filters.md
+ª       ª   ª   ª       07-filtering-nested-and-subdocument-fields.md
+ª       ª   ª   ª       08-combining-filters-with-mongoose-query-builders.md
+ª       ª   ª   ª       
+ª       ª   ª   +---08-errors
+ª       ª   ª   ª       00-README.md
+ª       ª   ª   ª       01-mongoose-error-types-overview.md
+ª       ª   ª   ª       02-validation-errors.md
+ª       ª   ª   ª       03-cast-errors.md
+ª       ª   ª   ª       04-duplicate-key-errors.md
+ª       ª   ª   ª       05-turning-errors-into-friendly-responses.md
+ª       ª   ª   ª       06-custom-application-errors.md
+ª       ª   ª   ª       
+ª       ª   ª   +---09-validation
+ª       ª   ª   ª       00-README.md
+ª       ª   ª   ª       01-built-in-validators.md
+ª       ª   ª   ª       02-custom-validators.md
+ª       ª   ª   ª       03-async-validators.md
+ª       ª   ª   ª       04-validating-updates.md
+ª       ª   ª   ª       
+ª       ª   ª   +---10-middleware-hooks
+ª       ª   ª   ª       00-README.md
+ª       ª   ª   ª       01-pre-and-post-hooks.md
+ª       ª   ª   ª       02-document-vs-query-vs-aggregate-middleware.md
+ª       ª   ª   ª       03-common-hook-patterns.md
+ª       ª   ª   ª       
+ª       ª   ª   +---11-relationships
+ª       ª   ª   ª       00-README.md
+ª       ª   ª   ª       01-references-and-populate.md
+ª       ª   ª   ª       02-embedding-vs-referencing-in-mongoose.md
+ª       ª   ª   ª       03-virtual-populate.md
+ª       ª   ª   ª       04-populate-performance.md
+ª       ª   ª   ª       
+ª       ª   ª   +---12-aggregation-with-mongoose
+ª       ª   ª   ª       00-README.md
+ª       ª   ª   ª       01-the-aggregate-method.md
+ª       ª   ª   ª       02-common-pipeline-recipes.md
+ª       ª   ª   ª       
+ª       ª   ª   +---13-transactions
+ª       ª   ª   ª       00-README.md
+ª       ª   ª   ª       01-sessions-and-transactions.md
+ª       ª   ª   ª       02-transaction-patterns.md
+ª       ª   ª   ª       
+ª       ª   ª   +---14-performance
+ª       ª   ª   ª       00-README.md
+ª       ª   ª   ª       01-indexes-in-mongoose.md
+ª       ª   ª   ª       02-query-optimization-and-lean.md
+ª       ª   ª   ª       03-pagination.md
+ª       ª   ª   ª       04-connection-pooling.md
+ª       ª   ª   ª       
+ª       ª   ª   +---15-patterns-and-architecture
+ª       ª   ª   ª       00-README.md
+ª       ª   ª   ª       01-repository-and-service-pattern.md
+ª       ª   ª   ª       02-soft-delete.md
+ª       ª   ª   ª       03-multi-tenancy.md
+ª       ª   ª   ª       
+ª       ª   ª   +---16-testing
+ª       ª   ª   ª       00-README.md
+ª       ª   ª   ª       01-testing-with-an-in-memory-database.md
+ª       ª   ª   ª       02-mocking-and-fixtures.md
+ª       ª   ª   ª       
+ª       ª   ª   +---17-production
+ª       ª   ª           00-README.md
+ª       ª   ª           01-connection-management-in-production.md
+ª       ª   ª           02-monitoring-and-logging.md
+ª       ª   ª           03-migrations.md
+ª       ª   ª           04-production-checklist.md
+ª       ª   ª           
+ª       ª   +---postgresql
+ª       ª   ª       01-connection-and-queries.md
+ª       ª   ª       02-transactions-and-indexing.md
+ª       ª   ª       
+ª       ª   +---redis
+ª       ª       ª   CONTRIBUTING.md
+ª       ª       ª   LICENSE
+ª       ª       ª   README.md
+ª       ª       ª   ROADMAP.md
+ª       ª       ª   
+ª       ª       +---00_introduction
+ª       ª       ª       01_why-redis.md
+ª       ª       ª       02_redis-vs-alternatives.md
+ª       ª       ª       03_redis-architecture.md
+ª       ª       ª       04_when-not-to-use-redis.md
+ª       ª       ª       README.md
+ª       ª       ª       
+ª       ª       +---01_setup
+ª       ª       ª       01_redis-installation.md
+ª       ª       ª       02_redis-cli-and-insight.md
+ª       ª       ª       03_ioredis-setup.md
+ª       ª       ª       README.md
+ª       ª       ª       
+ª       ª       +---02_redis-fundamentals
+ª       ª       ª       01_keys-and-values.md
+ª       ª       ª       02_data-types-overview.md
+ª       ª       ª       03_expiration-and-ttl.md
+ª       ª       ª       04_persistence.md
+ª       ª       ª       05_memory-and-eviction.md
+ª       ª       ª       README.md
+ª       ª       ª       
+ª       ª       +---03_ioredis-basics
+ª       ª       ª       01_connection.md
+ª       ª       ª       02_configuration.md
+ª       ª       ª       03_commands-and-options.md
+ª       ª       ª       04_promises-callbacks-buffers.md
+ª       ª       ª       05_error-handling.md
+ª       ª       ª       06_graceful-shutdown.md
+ª       ª       ª       README.md
+ª       ª       ª       
+ª       ª       +---04_data-structures
+ª       ª       ª       01_strings.md
+ª       ª       ª       02_hashes.md
+ª       ª       ª       03_lists.md
+ª       ª       ª       04_sets.md
+ª       ª       ª       05_sorted-sets.md
+ª       ª       ª       06_bitmaps-and-bitfields.md
+ª       ª       ª       07_hyperloglog-and-geo.md
+ª       ª       ª       08_streams-overview.md
+ª       ª       ª       09_choosing-the-right-structure.md
+ª       ª       ª       README.md
+ª       ª       ª       
+ª       ª       +---05_key-management
+ª       ª       ª       01_key-design.md
+ª       ª       ª       02_scan-and-iteration.md
+ª       ª       ª       03_delete-and-unlink.md
+ª       ª       ª       README.md
+ª       ª       ª       
+ª       ª       +---06_advanced-commands
+ª       ª       ª       01_pipelines-and-auto-pipelining.md
+ª       ª       ª       02_transactions.md
+ª       ª       ª       03_lua-scripts.md
+ª       ª       ª       04_atomic-and-conditional-ops.md
+ª       ª       ª       README.md
+ª       ª       ª       
+ª       ª       +---07_caching
+ª       ª       ª       01_cache-aside.md
+ª       ª       ª       02_cache-strategies.md
+ª       ª       ª       03_cache-invalidation.md
+ª       ª       ª       04_cache-problems.md
+ª       ª       ª       05_caching-api-responses.md
+ª       ª       ª       README.md
+ª       ª       ª       
+ª       ª       +---08_nodejs-integration
+ª       ª       ª       01_connection-management.md
+ª       ª       ª       02_redis-service.md
+ª       ª       ª       03_redis-repository.md
+ª       ª       ª       04_typed-redis-client.md
+ª       ª       ª       05_redis-key-builder.md
+ª       ª       ª       06_express-integration.md
+ª       ª       ª       README.md
+ª       ª       ª       
+ª       ª       +---09_pub-sub
+ª       ª       ª       01_pub-sub-fundamentals.md
+ª       ª       ª       02_event-driven-nodejs.md
+ª       ª       ª       03_socketio-with-redis.md
+ª       ª       ª       README.md
+ª       ª       ª       
+ª       ª       +---10_streams
+ª       ª       ª       01_stream-fundamentals.md
+ª       ª       ª       02_producers-and-consumers.md
+ª       ª       ª       03_consumer-groups-and-acks.md
+ª       ª       ª       04_stream-patterns.md
+ª       ª       ª       README.md
+ª       ª       ª       
+ª       ª       +---11_distributed-locks
+ª       ª       ª       01_locking-fundamentals.md
+ª       ª       ª       02_lock-expiration-and-renewal.md
+ª       ª       ª       03_redlock.md
+ª       ª       ª       README.md
+ª       ª       ª       
+ª       ª       +---12_rate-limiting
+ª       ª       ª       01_fixed-and-sliding-window.md
+ª       ª       ª       02_token-and-leaky-bucket.md
+ª       ª       ª       03_distributed-rate-limiter.md
+ª       ª       ª       README.md
+ª       ª       ª       
+ª       ª       +---13_session-management
+ª       ª       ª       01_session-storage.md
+ª       ª       ª       02_token-management.md
+ª       ª       ª       README.md
+ª       ª       ª       
+ª       ª       +---14_queues-and-workers
+ª       ª       ª       01_queue-fundamentals.md
+ª       ª       ª       02_delayed-jobs.md
+ª       ª       ª       03_retries-and-dead-letter-queue.md
+ª       ª       ª       04_bullmq.md
+ª       ª       ª       README.md
+ª       ª       ª       
+ª       ª       +---15_redis-architecture
+ª       ª       ª       01_replication.md
+ª       ª       ª       02_sentinel.md
+ª       ª       ª       03_cluster.md
+ª       ª       ª       04_high-availability-and-failover.md
+ª       ª       ª       README.md
+ª       ª       ª       
+ª       ª       +---16_performance
+ª       ª       ª       01_latency-and-benchmarking.md
+ª       ª       ª       02_command-optimization.md
+ª       ª       ª       03_memory-optimization.md
+ª       ª       ª       04_serialization.md
+ª       ª       ª       README.md
+ª       ª       ª       
+ª       ª       +---17_security
+ª       ª       ª       01_authentication-and-acl.md
+ª       ª       ª       02_tls.md
+ª       ª       ª       03_security-checklist.md
+ª       ª       ª       README.md
+ª       ª       ª       
+ª       ª       +---18_testing-and-debugging
+ª       ª       ª       01_testing-with-redis.md
+ª       ª       ª       02_debugging.md
+ª       ª       ª       03_common-pitfalls.md
+ª       ª       ª       README.md
+ª       ª       ª       
+ª       ª       +---19_redis-production
+ª       ª       ª       01_deployment.md
+ª       ª       ª       02_monitoring-and-logging.md
+ª       ª       ª       03_backup-and-disaster-recovery.md
+ª       ª       ª       04_production-checklist.md
+ª       ª       ª       README.md
+ª       ª       ª       
+ª       ª       +---20_real-world-patterns
+ª       ª               01_idempotency.md
+ª       ª               02_request-deduplication.md
+ª       ª               03_leaderboard.md
+ª       ª               04_notification-system.md
+ª       ª               05_feature-flags.md
+ª       ª               06_event-driven-system.md
+ª       ª               README (2).md
+ª       ª               
+ª       +---08-authentication-security
+ª       ª       00-README.md
+ª       ª       01-password-hashing.md
+ª       ª       02-jwt-and-tokens.md
+ª       ª       03-sessions.md
+ª       ª       04-oauth-and-oidc.md
+ª       ª       05-common-vulnerabilities.md
+ª       ª       06-rate-limiting.md
+ª       ª       07-helmet.md
+ª       ª       08-security-checklist.md
+ª       ª       
+ª       +---09-api-development
+ª       ª       00-README.md
+ª       ª       01-rest-api-design.md
+ª       ª       02-versioning-and-pagination.md
+ª       ª       03-filtering-and-sorting.md
+ª       ª       04-validation.md
+ª       ª       05-error-responses.md
+ª       ª       06-idempotency.md
+ª       ª       07-webhooks.md
+ª       ª       
+ª       +---10-architecture
+ª       ª       00-README.md
+ª       ª       01-mvc-and-layered-architecture.md
+ª       ª       02-clean-architecture.md
+ª       ª       03-repository-and-service-pattern.md
+ª       ª       04-dependency-injection.md
+ª       ª       05-modular-monolith-vs-microservices.md
+ª       ª       
+ª       +---11-async-processing
+ª       ª       00-README.md
+ª       ª       01-queues-and-bullmq.md
+ª       ª       02-workers-retry-dlq.md
+ª       ª       03-scheduled-jobs.md
+ª       ª       04-kafka.md
+ª       ª       
+ª       +---12-realtime
+ª       ª       00-README.md
+ª       ª       01-websocket-and-socketio.md
+ª       ª       02-auth-and-rooms.md
+ª       ª       03-scaling-with-redis-adapter.md
+ª       ª       
+ª       +---13-testing
+ª       ª       00-README.md
+ª       ª       01-unit-and-integration-testing.md
+ª       ª       02-api-testing-and-mocking.md
+ª       ª       03-test-database-and-coverage.md
+ª       ª       
+ª       +---14-logging-observability
+ª       ª       00-README.md
+ª       ª       01-pino-and-structured-logging.md
+ª       ª       02-correlation-id.md
+ª       ª       03-metrics-and-prometheus.md
+ª       ª       04-tracing-and-opentelemetry.md
+ª       ª       05-grafana.md
+ª       ª       
+ª       +---15-performance
+ª       ª       00-README.md
+ª       ª       01-event-loop-performance.md
+ª       ª       02-profiling-and-memory-leaks.md
+ª       ª       03-database-optimization.md
+ª       ª       04-load-balancing-and-testing.md
+ª       ª       
+ª       +---16-production
+ª       ª       00-README.md
+ª       ª       01-environment-management.md
+ª       ª       02-graceful-shutdown-and-health-checks.md
+ª       ª       03-docker-and-compose.md
+ª       ª       04-nginx.md
+ª       ª       05-ci-cd.md
+ª       ª       
+ª       +---17-typescript
+ª       ª       00-README.md
+ª       ª       01-setup-and-types.md
+ª       ª       02-interfaces-and-generics.md
+ª       ª       03-express-types.md
+ª       ª       04-error-types.md
+ª       ª       05-production-config.md
+ª       ª       
+ª       +---18-design-patterns
+ª       ª       00_README.md
+ª       ª       01_module-pattern.md
+ª       ª       02_factory-pattern.md
+ª       ª       03_singleton-pattern.md
+ª       ª       04_builder-pattern.md
+ª       ª       05_strategy-pattern.md
+ª       ª       06_observer-pattern.md
+ª       ª       07_adapter-pattern.md
+ª       ª       08_decorator-pattern.md
+ª       ª       09_dependency-injection.md
+ª       ª       
+ª       +---19-system-design
+ª       ª       00-README.md
+ª       ª       01-scalable-api-and-rate-limiter.md
+ª       ª       02-url-shortener.md
+ª       ª       03-chat-system.md
+ª       ª       04-notification-system.md
+ª       ª       05-file-upload-system.md
+ª       ª       06-job-processing-system.md
+ª       ª       
+ª       +---20_testing
+ª       ª       00_README.md
+ª       ª       01_testing-fundamentals.md
+ª       ª       02_unit-testing.md
+ª       ª       03_integration-testing.md
+ª       ª       04_vitest-and-jest.md
+ª       ª       05_mocking.md
+ª       ª       06_testing-patterns.md
+ª       ª       
+ª       +---21_libraries
+ª               01_project-structure.md
+ª               02_environment-variables.md
+ª               03_git-hooks-and-commits.md
+ª               04_linting-and-formatting.md
+ª               05_validation-libraries.md
+ª               README.md
+ª               
++---04-devops
+ª   +---aws
+ª   +---docker
+ª   ª   +---00_setup
+ª   ª   ª       getting-started.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---01_docker_fundamentals
+ª   ª   ª       01_docker-vs-vm.md
+ª   ª   ª       02_images-containers.md
+ª   ª   ª       03_docker-architecture.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---02_docker_commands
+ª   ª   ª       01_run-ps-stop.md
+ª   ª   ª       02_logs-exec-inspect.md
+ª   ª   ª       03_images.md
+ª   ª   ª       04_build.md
+ª   ª   ª       05_cleanup.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---03_dockerfile
+ª   ª   ª       01_dockerfile-basics.md
+ª   ª   ª       02_layers-caching.md
+ª   ª   ª       03_multi-stage-builds.md
+ª   ª   ª       04_dockerignore.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---04_volumes_networking
+ª   ª   ª       01_volumes-bind-mounts.md
+ª   ª   ª       02_networking.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---05_docker_compose
+ª   ª   ª       01_compose-basics.md
+ª   ª   ª       02_compose-multi-service.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---06_production
+ª   ª           01_environments-secrets.md
+ª   ª           02_image-optimization.md
+ª   ª           03_docker-in-ci.md
+ª   ª           README.md
+ª   ª           
+ª   +---git-github
+ª   ª   +---00_setup
+ª   ª   ª       getting-started.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---01_git_fundamentals
+ª   ª   ª       01_git-vs-github.md
+ª   ª   ª       02_repositories.md
+ª   ª   ª       03_working-tree-staging-area.md
+ª   ª   ª       04_commits.md
+ª   ª   ª       05_git-objects.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---02_git_commands
+ª   ª   ª       01_init-clone.md
+ª   ª   ª       02_status-diff-log.md
+ª   ª   ª       03_add-commit.md
+ª   ª   ª       04_undoing-changes.md
+ª   ª   ª       05_clean-rm-mv.md
+ª   ª   ª       06_branching.md
+ª   ª   ª       07_merging.md
+ª   ª   ª       08_remotes.md
+ª   ª   ª       09_tracking-upstream.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---03_history_rewriting
+ª   ª   ª       01_amend.md
+ª   ª   ª       02_rebase.md
+ª   ª   ª       03_cherry-pick.md
+ª   ª   ª       04_reflog.md
+ª   ª   ª       README.md
+ª   ª   ª       
+ª   ª   +---04_github_actions
+ª   ª       ª   01_core-concepts.md
+ª   ª       ª   02_workflow-syntax.md
+ª   ª       ª   03_events-and-triggers.md
+ª   ª       ª   04_jobs-and-steps.md
+ª   ª       ª   05_actions-and-marketplace.md
+ª   ª       ª   06_runners.md
+ª   ª       ª   07_variables-and-secrets.md
+ª   ª       ª   08_contexts-expressions-conditions.md
+ª   ª       ª   09_artifacts-caching-dependencies.md
+ª   ª       ª   10_matrix-and-concurrency.md
+ª   ª       ª   11_permissions-and-environments.md
+ª   ª       ª   12_reusable-workflows.md
+ª   ª       ª   13_custom-actions.md
+ª   ª       ª   14_ci-pipelines.md
+ª   ª       ª   15_cd-and-deployment.md
+ª   ª       ª   16_docker-ci-cd.md
+ª   ª       ª   17_security-hardening.md
+ª   ª       ª   18_debugging-and-workflow-commands.md
+ª   ª       ª   CHEATSHEET.md
+ª   ª       ª   README.md
+ª   ª       ª   
+ª   ª       +---examples
+ª   ª               deploy-with-approval.yml
+ª   ª               docker-build-push.yml
+ª   ª               nodejs-ci.yml
+ª   ª               release-automation.yml
+ª   ª               reusable-workflow-caller.yml
+ª   ª               
+ª   +---linux
+ª   +---nginx
+ª           00-README.md
+ª           01-reverse-proxy-basics.md
+ª           02-tls-https.md
+ª           03-static-files-and-compression.md
+ª           04-caching.md
+ª           05-load-balancing.md
+ª           06-rate-limiting.md
+ª           07-commands-and-troubleshooting.md
+ª           
++---05-system-design
++---06-project-patterns
+ª       Secure Authentication.md
+ª       
++---prompts
+        learning-repository-optimization-prompt.txt
+        markdown-learning-reference-note-prompt.txt
+        

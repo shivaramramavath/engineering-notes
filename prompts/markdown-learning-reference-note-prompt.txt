@@ -1,0 +1,114 @@
+Create a **high-quality Markdown learning/reference note** for:
+
+**Technology:** `[TECHNOLOGY]`
+**Topic:** `[TOPIC]`
+**Version:** `[VERSION, if relevant]`
+
+The note is for a **mastery repository**, so it should be useful for learning, revision, real-world development, debugging, and interviews.
+
+### Writing Rules
+
+- Write like an experienced developer explaining the topic to another developer.
+- Start with a concise explanation of what the topic is and why it matters.
+- Follow the **natural learning flow of the topic**; do not force a fixed section structure.
+- Explain **what → why → how → when → practical usage**.
+- Start simple, then progressively explain deeper concepts.
+- Focus on the important concepts developers actually need.
+- Prefer practical code examples over long theory.
+- Explain code when the behavior is not obvious.
+- Use tables only when they genuinely improve clarity.
+- Use ASCII diagrams only when they help explain a flow, architecture, lifecycle, or internal behavior.
+- Include common mistakes and debugging advice when relevant.
+- Include performance, security, internals, or production considerations **only when they are relevant to the topic**.
+- Include version-specific behavior only when relevant.
+- Correct common misconceptions.
+- Do not repeat the same information in multiple sections.
+- Do not add filler just to make the document longer.
+- Do not invent APIs, behavior, versions, links, or features.
+- Keep the document concise enough to be useful as a future reference.
+
+### Recommended Flow
+
+Use this as guidance, **not as a mandatory template**:
+
+```text
+Topic
+ ↓
+What / Why
+ ↓
+Prerequisites
+ ↓
+Core Concept
+ ↓
+Syntax
+ ↓
+Basic Example
+ ↓
+How It Works
+ ↓
+Important Rules / Behavior
+ ↓
+Practical Usage
+ ↓
+Advanced Cases
+ ↓
+Common Mistakes
+ ↓
+Debugging
+ ↓
+Quick Summary
+ ↓
+Next / Related Topics
+```
+
+Skip, merge, or reorder sections whenever appropriate.
+
+### Code
+
+Use correct language-specific code blocks:
+
+```tsx
+// example
+```
+
+```bash
+# command
+```
+
+Keep examples:
+
+- Minimal
+- Correct
+- Practical
+- Relevant to the topic
+
+### Repository Context
+
+If these are provided:
+
+**Repository:** `[REPOSITORY]`
+**Current File:** `[FILE PATH]`
+**Related Files:** `[RELATED FILES]`
+
+Use them to:
+
+- Avoid duplicating existing content.
+- Reference prerequisites.
+- Connect related topics.
+- Maintain the repository's terminology and learning order.
+- Create relative links only when the target file is known.
+
+### Final Section
+
+End with a short **Quick Summary / Key Takeaways** and, when useful, a **Next** section pointing to the logical next topic.
+
+### Output
+
+Return **only the Markdown content**.
+
+Do not explain your process.
+Do not describe the prompt.
+Do not add unnecessary sections.
+Do not use a generic documentation template.
+
+The final result should feel like a **well-written engineering note**, not an AI-generated textbook chapter.

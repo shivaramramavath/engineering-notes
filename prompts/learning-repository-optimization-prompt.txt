@@ -1,0 +1,185 @@
+Analyze my existing **[TECHNOLOGY] learning repository** and redesign it into a clean, scalable structure for:
+
+- Beginner → Advanced learning
+- Long-term reference
+- Real-world development
+- Production knowledge
+- Debugging
+- Interview preparation
+
+## What to do
+
+### 1. Analyze
+Review the **entire existing folder/file structure** and identify:
+
+- Duplicate or overlapping topics
+- Missing important topics
+- Incorrect grouping
+- Poor or inconsistent naming
+- Files that should be merged
+- Files that should be split
+- Unnecessary or low-value files
+- Important content that should be preserved
+
+Do not assume the current structure is correct.
+
+### 2. Reorganize
+
+Create a logical learning progression such as:
+
+Setup
+  ↓
+Fundamentals
+  ↓
+Core Concepts
+  ↓
+Intermediate
+  ↓
+Advanced
+  ↓
+Internals / Architecture
+  ↓
+Testing / Debugging
+  ↓
+Performance / Security
+  ↓
+Production
+  ↓
+Projects
+  ↓
+Interview / Quick Reference
+
+**Adapt this structure to the technology. Do not blindly create every category.**
+
+Keep related concepts together, independent concepts separate, and avoid unnecessary nesting.
+
+### 3. Merge / Split / Add / Remove
+
+- **Merge** files when they substantially overlap.
+- **Split** files when one file contains unrelated concepts.
+- **Add** only genuinely missing and valuable topics.
+- **Remove** only redundant or low-value content.
+- Preserve useful existing information.
+- Do not increase the file count just for completeness.
+
+### 4. Naming
+
+Use short, descriptive, consistent filenames:
+
+closures.md
+event-loop.md
+promises.md
+error-handling.md
+testing.md
+
+Avoid:
+
+misc.md
+stuff.md
+notes2.md
+advanced-things.md
+
+### 5. Learning + Reference
+
+The final structure must support two workflows:
+
+**Learning:** a beginner can follow the repository in order.
+
+**Reference:** an experienced developer can quickly locate a specific concept.
+
+Use numbering only where it improves learning order. Avoid excessive numbering or deeply nested folders.
+
+### 6. Concept Files
+
+Do **not** force every topic into the same template.
+
+Let each Markdown file follow the topic naturally. Where useful, include:
+
+Concept
+Prerequisites
+What / Why
+How It Works
+Syntax / API
+Examples
+Important Rules
+Common Patterns
+Common Mistakes
+Debugging
+Internals
+Performance
+Security
+Production
+Best Practices
+Interview Questions
+Quick Reference
+Related / Next Topics
+
+Only include sections that actually make sense for that topic.
+
+## Required Output
+
+### A. Structure Problems
+
+Briefly list the major problems found in the existing repository.
+
+### B. Change Plan
+
+Use:
+
+| Current | Action | New Location | Reason |
+|---|---|---|---|
+| ... | Merge / Move / Rename / Split / Delete / Keep | ... | ... |
+
+### C. Final Structure
+
+Provide the **complete final folder/file tree**.
+
+technology-mastery/
+├── README.md
+├── ROADMAP.md
+├── ...
+
+This must be the structure I should actually use, not an example.
+
+### D. File Purpose
+
+For each final file/folder, briefly explain its purpose and position in the learning path.
+
+### E. Missing Topics
+
+List important topics that should be added and why.
+
+### F. Removed / Merged Topics
+
+List what was removed or merged and why.
+
+### G. Learning Order
+
+Show the final recommended learning progression.
+
+### H. Final Decision
+
+End with **one recommended structure only**. Do not provide multiple alternatives unless there is a genuine architectural trade-off.
+
+## Important Rules
+
+- Analyze before restructuring.
+- Do not blindly preserve the existing structure.
+- Do not blindly delete anything.
+- Do not create unnecessary files.
+- Prefer quality over quantity.
+- Avoid duplicate explanations.
+- Preserve technically valuable content.
+- Keep the structure scalable for future topics.
+- Use consistent naming.
+- Make decisions based on the actual technology and existing repository.
+- Do not invent topics merely to fill folders.
+- Do not force irrelevant categories.
+- Optimize for both **learning progression and fast future reference**.
+- The result should look like a **professional open-source mastery repository**, not a collection of random notes.
+
+**Input repository:**
+
+[PASTE YOUR EXISTING FOLDER TREE HERE]
+
+Now analyze it and produce the optimized final structure.
