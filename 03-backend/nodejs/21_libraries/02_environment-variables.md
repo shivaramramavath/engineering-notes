@@ -478,22 +478,23 @@ Anything with that prefix is **public**. API keys that must stay secret belong o
 
 ## Pitfalls
 
-| Pitfall                                                | Why it hurts                                              | Better                                               |
-| ------------------------------------------------------ | --------------------------------------------------------- | ---------------------------------------------------- | ----------------------------- | --------------------------------- |
-| Reading `process.env.X` all over the code              | Typos, missing values, and wrong types surface at runtime | One validated `config/env.js`                        |
-| Treating values as numbers or booleans                 | They are always strings: `"false"` is truthy              | Parse explicitly (envalid, zod)                      |
-| `z.coerce.boolean()`                                   | `"false"` becomes `true`                                  | `z.enum(['true','false']).transform(...)`            |
-| Importing config before `dotenv` runs                  | Variables are `undefined` at import time                  | `import 'dotenv/config'` first, or `node --env-file` |
-| Committing `.env`                                      | Leaked secrets in Git history                             | `.gitignore`, `.env.example`, rotate leaked keys     |
-| No `.env.example`                                      | Newcomers guess the required variables                    | Commit a complete template                           |
-| Silent defaults for secrets (`JWT_SECRET               |                                                           | 'secret'`)                                           | Insecure production fallbacks | No default for secrets; fail fast |
-| `NODE_ENV=staging`                                     | Libraries treat it as non-production                      | `NODE_ENV=production` plus `APP_ENV=staging`         |
-| Secrets in frontend variables                          | Bundled into public JS                                    | Keep them on the server                              |
-| Loading `.env` in production by habit                  | Stale or leaked files override platform config            | Let the platform inject variables                    |
-| Logging the whole config object                        | Secrets end up in logs                                    | Log selected non-sensitive fields; use redaction     |
-| Same secrets in every environment                      | One leak compromises everything                           | Separate secrets per environment                     |
-| Validation scattered or lazy                           | Failures appear mid-request                               | Validate everything once at startup                  |
-| Expecting `.env` changes to apply to a running process | Variables load at startup                                 | Restart (or use `node --watch`)                      |
+| Pitfall                                                  | Why it hurts                                              | Better                                               |
+| :------------------------------------------------------- | :-------------------------------------------------------- | :--------------------------------------------------- |
+| Reading `process.env.X` all over the code                | Typos, missing values, and wrong types surface at runtime | One validated `config/env.js`                        |
+| Treating values as numbers or booleans                   | They are always strings: `"false"` is truthy              | Parse explicitly (envalid, zod)                      |
+| `z.coerce.boolean()`                                     | `"false"` becomes `true`                                  | `z.enum(['true','false']).transform(...)`            |
+| Importing config before `dotenv` runs                    | Variables are `undefined` at import time                  | `import 'dotenv/config'` first, or `node --env-file` |
+| Committing `.env`                                        | Leaked secrets in Git history                             | `.gitignore`, `.env.example`, rotate leaked keys     |
+| No `.env.example`                                        | Newcomers guess the required variables                    | Commit a complete template                           |
+| Silent defaults for secrets (`JWT_SECRET \|\| 'secret'`) | Insecure production fallbacks                             | No default for secrets; fail fast                    |
+| `NODE_ENV=staging`                                       | Libraries treat it as non-production                      | `NODE_ENV=production` plus `APP_ENV=staging`         |
+| Secrets in frontend variables                            | Bundled into public JS                                    | Keep them on the server                              |
+| Loading `.env` in production by habit                    | Stale or leaked files override platform config            | Let the platform inject variables                    |
+| Logging the whole config object                          | Secrets end up in logs                                    | Log selected non-sensitive fields; use redaction     |
+| Same secrets in every environment                        | One leak compromises everything                           | Separate secrets per environment                     |
+| Validation scattered or lazy                             | Failures appear mid-request                               | Validate everything once at startup                  |
+| Expecting `.env` changes to apply to a running process   | Variables load at startup                                 | Restart (or use `node --watch`)                      |
+|  |
 
 ## Key takeaways
 
