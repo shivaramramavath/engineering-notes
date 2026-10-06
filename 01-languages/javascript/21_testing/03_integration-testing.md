@@ -1,153 +1,229 @@
 # Integration Testing
 
-An integration test runs **several real parts together** and checks that they cooperate: an HTTP handler with its routing and validation, a service with a real database, a module with the real file system. Unit tests prove the pieces are right. Integration tests prove they are connected correctly.
+Unit tests prove each piece works alone. Integration tests prove the pieces work **together**: routes call services, services talk to a database, JSON serializes the way the client expects. Many real bugs live in the seams between modules, not inside them.
 
-Many production bugs live in the seams: a wrong column name, a missing header, a misconfigured middleware, a serialization mismatch. Unit tests with fakes can't see those.
+## Prerequisites
 
-**Prerequisites:** [Unit Testing](./02_unit-testing.md), [HTTP Server](../16_nodejs/08_http_server.md), [Fetch](../15_networking/02_fetch.md)
+- [Unit testing](./02_unit-testing.md)
+- [HTTP server basics](../16_nodejs/08_http-server.md) and [HTTP fundamentals](../15_networking/01_http-fundamentals.md)
 
 ---
 
-## What Changes From Unit Tests
+## What Counts as Integration?
+
+Anything that exercises **real collaboration** between parts of your system, with only the *outermost* boundaries (third-party APIs, email, payment providers) faked.
+
+```text
+Unit:         [ service ]                     ← collaborators faked
+
+Integration:  [ route ] → [ service ] → [ repository ] → [ test DB ]
+                  ▲                                          
+              test enters here, asserts on HTTP response + stored data
+```
 
 | | Unit | Integration |
-| --- | --- | --- |
-| Dependencies | Faked | Real (or a faithful substitute) |
-| Setup | Usually none | Start server, prepare data |
-| Cleanup | Rarely | Required: close servers, reset data |
-| Speed | Milliseconds | Hundreds of ms and up |
-| Failure points to | A function | A connection between parts |
-
-The key decision is the **boundary**: what's real and what's replaced. A good default is to keep everything you own real and replace only what you don't control or can't run locally (third-party APIs, payment providers, email).
+|---|---|---|
+| Real collaborators | No | Yes |
+| Speed | ms | tens–hundreds of ms |
+| Failure tells you | Which function | Which interaction is broken |
+| Setup cost | Low | Higher (DB, server, fixtures) |
 
 ---
 
 ## Example: Testing an HTTP API
 
-Start the real server on a random port, call it with `fetch`, check the response.
+The key design move: **export the app without starting a server**, so tests can drive it in-process.
 
 ```js
-// users.int.test.js
-import { createServer } from "node:http";
-import { beforeAll, afterAll, beforeEach, test, expect } from "vitest";
-import { createApp } from "./app.js";               // returns a (req, res) request listener
-import { InMemoryUserRepo } from "./in-memory-user-repo.js";
+// app.js
+import express from 'express';
 
-let server;
-let baseUrl;
-let users;
+export function createApp({ userRepo }) {
+  const app = express();
+  app.use(express.json());
 
-beforeAll(async () => {
-  users = new InMemoryUserRepo();
-  server = createServer(createApp({ users }));
-  await new Promise((resolve) => server.listen(0, resolve)); // port 0 = pick a free port
-  baseUrl = `http://127.0.0.1:${server.address().port}`;
-});
-
-afterAll(async () => {
-  await new Promise((resolve) => server.close(resolve));
-});
-
-beforeEach(async () => {
-  await users.clear(); // each test starts from a known state
-});
-
-test("POST /users creates a user", async () => {
-  const res = await fetch(`${baseUrl}/users`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ email: "a@example.com" }),
+  app.post('/users', async (req, res) => {
+    const { name, email } = req.body;
+    if (!name || !email) return res.status(400).json({ error: 'name and email required' });
+    const user = await userRepo.create({ name, email });
+    res.status(201).json(user);
   });
 
-  expect(res.status).toBe(201);
-  expect(await res.json()).toMatchObject({ email: "a@example.com" });
-});
-
-test("POST /users rejects an invalid email", async () => {
-  const res = await fetch(`${baseUrl}/users`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ email: "not-an-email" }),
+  app.get('/users/:id', async (req, res) => {
+    const user = await userRepo.findById(req.params.id);
+    if (!user) return res.status(404).json({ error: 'not found' });
+    res.json(user);
   });
 
-  expect(res.status).toBe(400);
+  return app;
+}
+```
+
+```js
+// server.js: only this file calls listen()
+import { createApp } from './app.js';
+import { userRepo } from './db.js';
+createApp({ userRepo }).listen(3000);
+```
+
+Using [supertest](https://github.com/ladjs/supertest) to call the app:
+
+```js
+// app.test.js
+import { describe, it, expect, beforeEach } from 'vitest';
+import request from 'supertest';
+import { createApp } from './app.js';
+
+// A small in-memory repo with the same interface as the real one
+function createMemoryRepo() {
+  const users = new Map();
+  let id = 1;
+  return {
+    async create(data) { const u = { id: String(id++), ...data }; users.set(u.id, u); return u; },
+    async findById(i) { return users.get(i) ?? null; },
+  };
+}
+
+describe('users API', () => {
+  let app;
+  beforeEach(() => { app = createApp({ userRepo: createMemoryRepo() }); });
+
+  it('creates and then fetches a user', async () => {
+    const created = await request(app)
+      .post('/users')
+      .send({ name: 'Asha', email: 'asha@example.com' })
+      .expect(201);
+
+    const fetched = await request(app).get(`/users/${created.body.id}`).expect(200);
+    expect(fetched.body).toMatchObject({ name: 'Asha', email: 'asha@example.com' });
+  });
+
+  it('rejects an invalid payload', async () => {
+    const res = await request(app).post('/users').send({ name: 'No Email' });
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 404 for an unknown user', async () => {
+    await request(app).get('/users/999').expect(404);
+  });
 });
 ```
 
-Things to notice:
-
-- **Port `0`** lets the OS choose a free port, so parallel test files don't collide.
-- The test goes through routing, JSON parsing, validation, the handler and serialization, the pieces a unit test would skip.
-- `afterAll` closes the server. If a test run hangs after finishing, an open server or connection is the first thing to check. `server.closeAllConnections()` (Node 18.2+) forces lingering keep-alive connections shut.
-- Here the repository is an in-memory fake, which is enough to test the HTTP layer. To test the real persistence code, swap in the real repository against a real database.
-
-Libraries like `supertest` wrap this pattern if you prefer less boilerplate. The plain `fetch` version has no extra dependency.
+This test covers routing, JSON parsing, validation, status codes, and serialization in one go, which is something no single unit test can claim.
 
 ---
 
-## Testing With a Real Database
+## Using a Real Database
 
-Use the same database engine you run in production, because differences in SQL dialect, constraints and transactions are exactly what you want to catch. Common options are a local instance, a throwaway container, or an in-memory/embedded engine if that's what production uses.
+An in-memory fake is fast but can hide bugs (constraints, transactions, query syntax). When the database *is* the risk, test against the real engine:
 
-The hard part is **isolation**: each test must not see data left by another.
+- A **disposable instance**: a Docker container (e.g. via Testcontainers) or a local test database.
+- Run **migrations** before the suite so the schema matches production.
+- Keep the connection details in env vars (`DATABASE_URL`), never hard-coded to a shared dev DB.
 
-| Strategy | How | Trade-off |
-| --- | --- | --- |
-| Truncate/delete tables before each test | `beforeEach` clears tables | Simple, slower with many tables |
-| Roll back a transaction per test | Open a transaction in `beforeEach`, roll back in `afterEach` | Fast, but code that commits its own transactions can't be tested this way |
-| Unique data per test | Random emails/IDs, never assert on "all rows" | No cleanup needed, but data accumulates |
-| Fresh database per test file | Create/drop a schema per file | Strongest isolation, heaviest setup |
+```js
+import { beforeAll, afterAll, beforeEach } from 'vitest';
 
-Whichever you pick, run schema migrations in a `beforeAll`/global setup, and make sure tests can run in parallel without touching the same rows.
+beforeAll(async () => { await db.connect(process.env.TEST_DATABASE_URL); await db.migrate(); });
+afterAll(async () => { await db.close(); });
+beforeEach(async () => { await db.truncateAll(); });  // clean slate per test
+```
+
+(`db` is your own wrapper; the shape is the point, not the API.)
+
+### Keeping tests isolated
+
+| Strategy | Trade-off |
+|---|---|
+| Truncate tables in `beforeEach` | Simple, reliable, slower with many tables |
+| Wrap each test in a transaction and roll back | Fast, but doesn't work if code under test manages its own transactions |
+| Fresh database per test file | Strongest isolation, more setup |
+
+Whichever you choose: tests must not depend on data left by other tests, and they should be able to run in any order.
 
 ---
 
-## Handling External Services
+## Faking the Outside World
 
-Don't call real third-party APIs from tests. They are slow, rate-limited and flaky, and some cost money.
+Real third-party calls make tests slow, flaky, and sometimes costly. Intercept at the network layer with [MSW](https://mswjs.io/) so your real `fetch` code is still exercised:
 
-- Inject a fake of your own adapter ([Adapter Pattern](../20_design-patterns/07_adapter-pattern.md)). This is the simplest option.
-- Or intercept at the network level with a tool such as MSW (Mock Service Worker), so your real HTTP client code still runs.
-- Keep a **small number of separate contract or smoke tests** against the real service, run less often, to catch the case where the fake and the real API drift apart.
+```js
+import { setupServer } from 'msw/node';
+import { http, HttpResponse } from 'msw';
+import { beforeAll, afterEach, afterAll, it, expect } from 'vitest';
 
-See [Mocking](./05_mocking.md) for the mechanics.
+const server = setupServer(
+  http.get('https://api.example.com/rates/USD', () =>
+    HttpResponse.json({ INR: 83.2 })
+  ),
+);
+
+beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
+
+it('converts using the remote rate', async () => {
+  expect(await convertUsdToInr(10)).toBeCloseTo(832);
+});
+
+it('handles an upstream failure', async () => {
+  server.use(http.get('https://api.example.com/rates/USD', () => new HttpResponse(null, { status: 503 })));
+  await expect(convertUsdToInr(10)).rejects.toThrow();
+});
+```
+
+`onUnhandledRequest: 'error'` makes any accidental real request fail loudly. Always test the **failure paths** (timeouts, 5xx, malformed bodies); that's where integration tests earn their keep. See [Mocking](./05_mocking.md) for the trade-offs of each fake.
 
 ---
 
-## Keeping Them Manageable
+## Test Data
 
-- Name them so they can be selected: `*.int.test.js`, or keep them in an `integration/` folder.
-- Run them separately: `vitest run integration` filters by file path. Many teams run unit tests on every save and integration tests before commit or in CI.
-- Share expensive setup (starting a container, running migrations) once per run, not once per test.
-- Keep them few and meaningful. One test per important flow and one per tricky failure path is usually better than re-testing every unit-level branch.
+Avoid giant shared fixtures. Prefer small **factories** that build valid objects with overrides:
+
+```js
+const makeUser = (overrides = {}) => ({
+  name: 'Test User',
+  email: `user-${crypto.randomUUID()}@example.com`,
+  role: 'member',
+  ...overrides,
+});
+
+await repo.create(makeUser({ role: 'admin' }));
+```
+
+Unique values (like emails) avoid collisions with unique constraints. More in [Testing patterns](./06_testing-patterns.md).
 
 ---
 
 ## Common Mistakes
 
-- **Leftover data between tests** causing order-dependent failures.
-- **Hard-coded ports** that collide when files run in parallel.
-- **Forgetting to close** servers, pools and connections, so the runner hangs or reports open handles.
-- **Mocking everything.** If the database, router and validator are all faked, it isn't an integration test.
-- **Asserting on whole responses** including timestamps and generated IDs. Use `toMatchObject` or check the fields that matter.
-- **Depending on test order**, such as a second test using the user created by the first.
-- **Calling real third-party services** in the default test run.
+| Mistake | Fix |
+|---|---|
+| Calling `app.listen()` inside the module under test → port conflicts | Export the app; listen in a separate entry file |
+| Tests share DB state | Reset per test; never rely on order |
+| Hitting real third-party APIs | Intercept with MSW or inject a fake client |
+| Asserting only the status code | Also assert body and persisted state |
+| Not closing connections → runner hangs | Close DB/server in `afterAll` |
+| Hard-coded ports or `sleep()` waits | Let the OS pick ports; await real conditions |
+| Making integration tests exhaustive | Cover key flows and edge cases; leave combinatorics to unit tests |
+
+---
 
 ## Debugging
 
-- If it passes alone and fails in the suite, suspect shared state. Run the file alone, then with its neighbors.
-- Log the response body when a status code surprises you: `console.log(res.status, await res.text())`.
-- If the run never exits, look for unclosed servers, timers or DB pools. See [Event Loop](../12_event-loop/01_event-loop.md) for why a pending handle keeps Node alive.
-- Check that migrations or seed data actually ran before the first test.
+- **Hanging test run** usually means an open handle (DB pool, server, timer). Ensure teardown runs; check with `--detectOpenHandles` (Jest) or by closing resources explicitly.
+- **Passes alone, fails in suite** means shared state or order dependence. Run with the single file, then bisect.
+- **Works locally, fails in CI** is usually a missing env var, a different DB version, timing assumptions, or a port in use.
+- Log the response body on failure: `console.log(res.body)`.
 
 ---
 
 ## Quick Summary
 
-- Integration tests run real components together to verify the seams unit tests can't see.
-- Decide the boundary: keep what you own real, replace third-party services.
-- Start servers on port `0`, and always close servers and connections afterward.
-- Isolate data per test (truncate, rollback, or unique data).
-- Keep them separate, selectable, and fewer than unit tests.
+- Integration tests verify **real collaboration** between modules with only external boundaries faked.
+- Export your app/factory without `listen()`, then drive it in-process with supertest.
+- Use a real (disposable) DB when queries and constraints matter; reset state per test.
+- Fake third-party HTTP at the network layer (MSW) and test failure cases.
+- Keep them focused: a handful of key flows, not every permutation.
 
 **Next:** [Vitest and Jest](./04_vitest-and-jest.md)

@@ -1,180 +1,179 @@
 # Testing Fundamentals
 
-A test is code that runs your code and fails loudly when the result isn't what you expected. Automated tests let you change code, upgrade dependencies, and refactor without re-checking everything by hand.
+A test is code that runs your code and fails loudly when the behavior is wrong. Automated tests let you change code without fear: refactor, upgrade a dependency, or fix a bug and know within seconds whether something else broke.
 
-This note covers what tests are for, how a test runner works, the main kinds of tests, and what separates a useful test from a noisy one. Examples use [Vitest](./04_vitest-and-jest.md), but the ideas apply to any runner.
+Testing is not about proving the code is bug-free. It's about **cheaply detecting regressions** and **documenting intended behavior**.
 
-**Prerequisites:** [Functions](../02_functions/README.md), [Error Handling](../10_error-handling/README.md), [Promises](../11_asynchronous-javascript/03_promises.md)
+## Prerequisites
 
----
-
-## Your First Test
-
-```js
-// sum.js
-export const sum = (a, b) => a + b;
-```
-
-```js
-// sum.test.js
-import { test, expect } from "vitest";
-import { sum } from "./sum.js";
-
-test("adds two numbers", () => {
-  expect(sum(2, 3)).toBe(5);
-});
-```
-
-```bash
-npx vitest run
-```
+- [Functions](../02_functions/README.md) and [Error handling](../10_error-handling/README.md)
+- [Async JavaScript](../11_asynchronous-javascript/README.md) (most real tests touch promises)
 
 ---
 
-## How a Test Runner Works
+## Why Tests Pay Off
 
-1. It finds test files (by default names like `*.test.js` and `*.spec.js`).
-2. It runs each `test()` callback.
-3. A test **passes** if the callback finishes without throwing. It **fails** if it throws or, for async tests, if the returned promise rejects.
-4. `expect(actual).toBe(expected)` throws an assertion error when the check doesn't hold. That thrown error is the failure.
+| Without tests | With tests |
+|---|---|
+| Every change needs manual re-checking | Change, run, know |
+| Refactoring is risky, so code rots | Refactoring is routine |
+| Bugs come back | A regression test pins each fixed bug |
+| Behavior lives in people's heads | Tests are executable documentation |
 
-Two consequences worth remembering:
-
-- **A test with no assertions passes.** Running code is not the same as checking it.
-- **An async test must return or await its promise.** If the runner can't see the promise, it may finish before the assertion runs.
-
-```js
-// Wrong: the assertion isn't awaited, so the test may finish first
-test("rejects for unknown user", () => {
-  expect(loadUser(-1)).rejects.toThrow();
-});
-
-// Right
-test("rejects for unknown user", async () => {
-  await expect(loadUser(-1)).rejects.toThrow();
-});
-```
-
----
-
-## Structure: Arrange, Act, Assert
-
-Most readable tests have three visible steps.
-
-```js
-test("applies a 10% coupon", () => {
-  // Arrange
-  const cart = createCart([{ price: 200, qty: 1 }]);
-
-  // Act
-  const total = cart.total({ coupon: "SAVE10" });
-
-  // Assert
-  expect(total).toBe(180);
-});
-```
-
-If you can't tell which line is the "act", the test is doing too much.
+Tests also **shape design**. Code that is hard to test (hidden globals, `new Date()` everywhere, I/O mixed with logic) is usually hard to reason about too.
 
 ---
 
 ## Kinds of Tests
 
 ```text
-        /\          End-to-end: a few, slow, closest to real usage
-       /  \
-      /----\        Integration: some, real components working together
-     /      \
-    /--------\      Unit: many, fast, one piece in isolation
+        /\
+       /  \        E2E        few, slow, high confidence, brittle
+      /----\
+     /      \      Integration  some, moderate speed, real collaboration
+    /--------\
+   /          \    Unit         many, fast, isolated, cheap
+  /------------\
 ```
 
-| Kind | Scope | Speed | Good at catching | Cost |
-| --- | --- | --- | --- | --- |
-| Unit | One function/class, dependencies faked | Milliseconds | Logic bugs, edge cases | Cheap to write and run |
-| Integration | Several real parts (e.g. HTTP handler + database) | Slower | Wiring, config, contract mismatches | Needs setup and cleanup |
-| End-to-end | The whole app, often through a browser | Slowest | Broken user flows | Expensive, can be flaky |
+| Type | Scope | Typical tool | Speed |
+|---|---|---|---|
+| Unit | One function/class, collaborators faked | Vitest, Jest | ms |
+| Integration | Several real modules (e.g. route + service + DB) | Vitest/Jest + supertest | 10s–100s ms |
+| End-to-end | Whole app through the UI or public API | Playwright, Cypress | seconds |
 
-The "pyramid" is a guide to proportions, not a rule. Many teams of API-heavy services put more weight on integration tests because most of their bugs live in the wiring. Follow where your bugs actually come from.
+The classic "pyramid" says: many unit tests, fewer integration tests, very few E2E. A popular variant (the "testing trophy") puts more weight on integration tests because they catch the bugs that actually reach users. Neither is a law. Pick the cheapest test that gives you confidence in the behavior.
 
-See [Unit Testing](./02_unit-testing.md) and [Integration Testing](./03_integration-testing.md).
-
----
-
-## What Makes a Test Good
-
-- **Tests behavior, not implementation.** Assert on what the code returns or does through its public interface. If a refactor that keeps behavior the same breaks the test, the test was coupled to internals.
-- **Deterministic.** Same code, same result, every run. Time, randomness, network and shared state are the usual sources of trouble.
-- **Independent.** Each test sets up what it needs and can run alone or in any order.
-- **Fast.** Slow suites don't get run.
-- **Fails with a clear message.** A failure should point at the problem without a debugger.
-- **Has one reason to fail.** A test named "works" that checks twelve things is hard to diagnose.
+> Related: [Unit testing](./02_unit-testing.md), [Integration testing](./03_integration-testing.md).
 
 ---
 
-## What to Test
-
-Worth testing:
-
-- Business logic and branches (every `if` that changes a result)
-- Edge cases: empty input, `null`/`undefined`, zero, negative, very large, duplicates
-- Error paths: what happens when something throws or a dependency fails
-- Every bug you fix: write the failing test first, then fix. It stays as a regression guard.
-
-Usually not worth testing:
-
-- The framework or language itself (`Array.prototype.map` works)
-- Trivial getters and pass-through functions
-- Exact internal calls that don't affect observable behavior
-
-### Coverage is not quality
-
-Coverage tells you which lines ran, not whether anything was checked.
+## Anatomy of a Test
 
 ```js
-test("discount", () => {
-  applyDiscount(100, 0.1); // runs every line, asserts nothing
+import { describe, it, expect } from 'vitest';
+import { add } from './math.js';
+
+describe('add', () => {
+  it('adds two numbers', () => {
+    // Arrange
+    const a = 2, b = 3;
+
+    // Act
+    const result = add(a, b);
+
+    // Assert
+    expect(result).toBe(5);
+  });
 });
 ```
 
-Use coverage to find **untested** code, not to prove tested code is correct. A high number as a target tends to produce tests like the one above.
+The **Arrange / Act / Assert** shape is the thing to internalize:
+
+1. **Arrange**: build inputs and the system under test.
+2. **Act**: do *one* thing.
+3. **Assert**: check the outcome.
+
+If you need two Acts, you probably need two tests.
+
+A test **passes** if it finishes without throwing. An `expect` is just a function that throws when the condition fails.
 
 ---
 
-## Writing Testable Code
+## What Makes a Good Test
 
-Code is easy to test when it separates decisions from side effects.
+- **Fast.** Slow suites don't get run.
+- **Isolated.** No shared mutable state, no required order. Each test sets up its own world.
+- **Deterministic.** Same input, same result. No real clock, randomness, or network unless controlled.
+- **Readable.** The name states the behavior; the body shows cause and effect.
+- **Tests behavior, not implementation.** Assert *what* happens, not *how*.
 
-- Put logic in **pure functions** (same input, same output, no I/O). See [Pure Functions](../07_functional-programming/01_pure-functions-and-side-effects.md).
-- Pass in anything that touches the outside world (database, clock, HTTP client). See [Dependency Injection](../20_design-patterns/09_dependency-injection.md).
-- Keep the I/O at the edges thin, so most of your code can be tested without any fakes.
+```js
+// Brittle: breaks if you rename or restructure internals
+expect(cart._items.length).toBe(1);
+
+// Resilient: tests the public contract
+expect(cart.count()).toBe(1);
+```
+
+If a refactor that keeps behavior identical breaks your tests, those tests are coupled to implementation.
+
+### Naming
+
+Describe behavior, not methods:
+
+```js
+it('rejects an expired coupon')          // good
+it('test applyCoupon')                   // useless on failure
+it('returns 0 when the cart is empty')   // good: input + outcome
+```
+
+When a test fails in CI, the name alone should tell you what broke.
 
 ---
 
-## Common Mistakes
+## Core Vocabulary
 
-- Tests that depend on **execution order** or leftover state from another test.
-- **Real time, real network, real randomness** in unit tests. They fail one run in fifty.
-- **Missing `await`** on async assertions (see above).
-- **Copying the implementation** into the test (computing the expected value with the same formula), so a bug passes both.
-- **One giant test** covering a whole flow, where the first failure hides the rest.
-- **Skipping or `.only` left in** committed code. `test.only` silently disables every other test in the file.
+| Term | Meaning |
+|---|---|
+| **System under test (SUT)** | The code the test exercises |
+| **Assertion** | A check that throws on failure |
+| **Fixture** | Prepared data/state a test needs |
+| **Test double** | A stand-in for a dependency (stub, spy, mock, fake). See [Mocking](./05_mocking.md) |
+| **Regression test** | A test added to pin a bug that was fixed |
+| **Flaky test** | Passes and fails without code changes |
+| **Coverage** | % of code executed during tests |
 
-## Debugging a Failing Test
+---
 
-1. Read the diff the runner prints (expected vs received) before changing anything.
-2. Run just that test: `npx vitest run -t "applies a 10% coupon"`, or temporarily use `test.only`.
-3. Check for a missing `await` or a shared variable modified by another test.
-4. Add a `console.log` or run under the debugger ([DevTools and Debugging](../00_setup/04_devtools-and-debugging.md)).
-5. If it passes alone but fails with others, you have shared state or order dependence.
+## Misconceptions
+
+**"100% coverage means it's well tested."** Coverage tells you which lines *ran*, not whether anything was *verified*. This has 100% line coverage and tests nothing:
+
+```js
+it('runs', () => { calculateTotal([1, 2, 3]); }); // no assertion
+```
+
+Use coverage to find **untested areas**, not as a quality score. A target like 80% as a floor is fine; chasing 100% produces junk tests.
+
+**"Mock everything for isolation."** Over-mocking makes tests pass while the real system is broken. Mock at *boundaries* (network, clock, filesystem), not between your own modules without a reason.
+
+**"Tests slow you down."** Writing them has a cost; *not* having them costs more once the code lives for more than a few weeks.
+
+**"Test every function."** Test **behavior that matters**. Trivial getters and glue code rarely need their own tests.
+
+---
+
+## TDD in One Paragraph
+
+Test-driven development is a loop: write a failing test (**red**), write the minimum code to pass (**green**), clean up (**refactor**). It's a design tool, not a religion. It works especially well for pure logic and for reproducing bugs: write the failing test first, then fix.
+
+---
+
+## Flaky Tests
+
+A flaky test is worse than no test because it trains the team to ignore failures. Common causes:
+
+| Cause | Fix |
+|---|---|
+| Real timers / `setTimeout` waits | Fake timers; await real conditions |
+| `Date.now()` / `Math.random()` | Inject or mock them |
+| Shared state between tests | Reset in `beforeEach`; avoid module-level mutables |
+| Test order dependency | Make each test self-contained |
+| Real network/DB | Use a local fake or controlled test instance |
+| Unawaited promises | Always `await`/`return` async work |
+
+Never "fix" flakiness by adding `sleep(500)`.
 
 ---
 
 ## Quick Summary
 
-- A test passes unless it throws or rejects, so assertions are what give it meaning.
-- Use Arrange / Act / Assert. Keep tests independent and deterministic.
-- Unit tests are many and fast, integration tests check the wiring, end-to-end tests are few.
-- Test behavior and edge cases, not implementation details. Coverage finds gaps, not correctness.
-- Testable code isolates pure logic and injects its dependencies.
+- Tests exist to **catch regressions cheaply** and document behavior.
+- Prefer many fast unit tests, supported by integration tests for real wiring and a few E2E tests.
+- Structure tests as **Arrange → Act → Assert**; one behavior per test.
+- Test **public behavior**, not internals.
+- Coverage finds gaps; it doesn't prove quality.
+- Eliminate flakiness at the source (time, randomness, shared state, I/O).
 
 **Next:** [Unit Testing](./02_unit-testing.md)
