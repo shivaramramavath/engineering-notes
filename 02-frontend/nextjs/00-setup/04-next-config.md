@@ -127,10 +127,13 @@ const nextConfig: NextConfig = {
   typedRoutes: true, // type-safe route strings in <Link> and navigation
   reactCompiler: true, // enable the React Compiler (needs its Babel plugin installed)
   cacheComponents: true, // enable Cache Components / `use cache`
+  partialPrefetching: true, // set explicitly alongside cacheComponents
 };
 ```
 
-Features still in development live under `experimental`. Treat everything there as subject to change and pin your Next version when you rely on it. See [Cache Components](../06-caching/05-cache-components.md).
+Per the Next.js 16.4 docs, projects created with the recommended `create-next-app` defaults already have `cacheComponents` and `partialPrefetching` enabled, and both are planned to become the only behavior in the next major version. Cache Components requires the Node.js runtime (no `runtime = "edge"`) and replaces route segment config such as `dynamic` and `revalidate`; see [Cache Components](../06-caching/05-cache-components.md).
+
+Features still in development live under `experimental`. Treat everything there as subject to change and pin your Next version when you rely on it.
 
 ## Dynamic config
 

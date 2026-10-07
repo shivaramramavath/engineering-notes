@@ -31,16 +31,16 @@ npx create-next-app@latest my-app
 
 `@latest` matters. Without it, `npx` may reuse a cached older generator and scaffold an outdated project.
 
-Recent versions first ask whether to use the **recommended defaults** (TypeScript, ESLint, Tailwind CSS, App Router, Turbopack, `@/*` import alias). Choosing to customize shows the individual prompts:
+Recent versions first ask whether to use the **recommended defaults**: TypeScript, ESLint, Tailwind CSS, App Router, Turbopack and the `@/*` import alias. In recent 16.x releases the defaults also enable **Cache Components** and **Partial Prefetching**, which changes how caching and rendering behave (see [Caching](../06-caching/README.md)). Choosing to customize shows the individual prompts:
 
-| Prompt | What it controls |
-|---|---|
-| TypeScript | `.tsx` files and `tsconfig.json` instead of JavaScript |
-| Linter | Which linter is configured (ESLint, or an alternative / none, depending on version) |
-| Tailwind CSS | Installs and configures Tailwind |
-| `src/` directory | Puts `app/` inside `src/` instead of the project root |
-| App Router | Uses `app/` (recommended) instead of the legacy `pages/` |
-| Import alias | Enables `@/*` imports so you avoid `../../../` paths |
+| Prompt           | What it controls                                                                    |
+| ---------------- | ----------------------------------------------------------------------------------- |
+| TypeScript       | `.tsx` files and `tsconfig.json` instead of JavaScript                              |
+| Linter           | Which linter is configured (ESLint, or an alternative / none, depending on version) |
+| Tailwind CSS     | Installs and configures Tailwind                                                    |
+| `src/` directory | Puts `app/` inside `src/` instead of the project root                               |
+| App Router       | Uses `app/` (recommended) instead of the legacy `pages/`                            |
+| Import alias     | Enables `@/*` imports so you avoid `../../../` paths                                |
 
 Everything can be answered up front with flags, which is useful for scripts and for reproducing a setup:
 
@@ -105,11 +105,11 @@ Open <http://localhost:3000>. Editing `app/page.tsx` updates the browser without
 
 The three scripts are three different modes:
 
-| Script | Mode | Use it for |
-|---|---|---|
-| `dev` | Development server with fast refresh and detailed errors | Day-to-day coding |
-| `build` | Produces an optimized production build | CI, deploying, catching build errors |
-| `start` | Serves the output of `build` | Testing production behavior locally |
+| Script  | Mode                                                     | Use it for                           |
+| ------- | -------------------------------------------------------- | ------------------------------------ |
+| `dev`   | Development server with fast refresh and detailed errors | Day-to-day coding                    |
+| `build` | Produces an optimized production build                   | CI, deploying, catching build errors |
+| `start` | Serves the output of `build`                             | Testing production behavior locally  |
 
 `start` needs a prior `build`; without one it fails.
 
@@ -125,14 +125,14 @@ The extra `--` passes the flag through npm to `next dev`.
 
 ## Common mistakes and debugging
 
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| `You are using Node.js X. Next.js requires Node.js Y` | Node too old | Upgrade via fnm/nvm, reopen the terminal |
-| Scaffolded project looks outdated | Cached generator | Re-run with `create-next-app@latest` |
-| `name can no longer contain capital letters` | npm package names must be lowercase | Use a lowercase project name |
-| `EADDRINUSE: port 3000 already in use` | Another process owns the port | Stop it, or run with `-p` |
-| `next start` says there is no production build | `build` was not run first | `npm run build`, then `npm start` |
-| Odd install errors after switching package managers | Two lockfiles or stale `node_modules` | Delete `node_modules` and the extra lockfile, reinstall with one manager |
+| Symptom                                               | Likely cause                          | Fix                                                                      |
+| ----------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------ |
+| `You are using Node.js X. Next.js requires Node.js Y` | Node too old                          | Upgrade via fnm/nvm, reopen the terminal                                 |
+| Scaffolded project looks outdated                     | Cached generator                      | Re-run with `create-next-app@latest`                                     |
+| `name can no longer contain capital letters`          | npm package names must be lowercase   | Use a lowercase project name                                             |
+| `EADDRINUSE: port 3000 already in use`                | Another process owns the port         | Stop it, or run with `-p`                                                |
+| `next start` says there is no production build        | `build` was not run first             | `npm run build`, then `npm start`                                        |
+| Odd install errors after switching package managers   | Two lockfiles or stale `node_modules` | Delete `node_modules` and the extra lockfile, reinstall with one manager |
 
 Pin the Node version so the whole team gets the same behavior. A `.nvmrc` file is enough:
 
