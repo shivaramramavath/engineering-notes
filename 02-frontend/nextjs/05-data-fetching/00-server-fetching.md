@@ -66,7 +66,7 @@ await fetch(url, { cache: "force-cache" });
 await fetch(url, { cache: "no-store" });
 ```
 
-Since Next.js 15, `fetch` responses are **not cached by default**; you opt in. Whether and how a result is stored affects whether the route is static or dynamic, and what refreshes it. That is the subject of [Caching Overview](../06-caching/00-caching-overview.md) and [Revalidation](../06-caching/04-revalidation.md). With Cache Components enabled in Next.js 16, caching is controlled with `use cache` instead; see [Cache Components](../06-caching/05-cache-components.md).
+Since Next.js 15, `fetch` responses are **not cached by default**; you opt in. Whether and how a result is stored affects whether the route is static or dynamic, and what refreshes it. That is the subject of [Caching Overview](../06-caching/00-caching-overview.md) and [Revalidation](../06-caching/04-revalidation.md). With Cache Components enabled (the default in new projects per the Next.js 16.4 docs), caching is controlled with the `use cache` directive instead of `fetch` options: fetches inside a `use cache` scope are cached, and uncached fetches run at request time and must sit inside `<Suspense>` (or be cached) so the rest of the page can prerender. See [Cache Components](../06-caching/05-cache-components.md).
 
 ## Request deduplication
 

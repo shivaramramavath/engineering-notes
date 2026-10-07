@@ -36,6 +36,8 @@ When a `<Link>` enters the viewport, Next.js preloads its route in the backgroun
 - **Static routes** can be prefetched in full.
 - **Dynamic routes** are prefetched only up to the nearest `loading.tsx`, so the skeleton shows immediately while data streams.
 
+With **Partial Prefetching** (enabled by default in new projects per the 16.4 docs), the router prefetches each route's static **App Shell** by default. Set `prefetch={true}` on a link to also prefetch cached content that depends on that link's URL (`searchParams`, dynamic `params`); this costs a server invocation per link, so use it selectively.
+
 Disable it for a link if it would trigger heavy or unwanted requests: `<Link prefetch={false} href="...">`. How prefetched data is stored and expires is in [Router Cache](../06-caching/03-router-cache.md).
 
 ## `useRouter`: imperative navigation
@@ -166,6 +168,7 @@ On the server (Server Components, Server Actions, Route Handlers) navigate with 
 - After navigation, Next.js scrolls to the top of the new page, unless the target is already visible or you pass `scroll={false}`.
 - Browser back/forward restores scroll position.
 - Layout state, such as an open sidebar or a playing video in a layout, survives navigation.
+- With Cache Components, recently visited routes are kept mounted but hidden (React `<Activity>`), so their state (form inputs, open dropdowns) can also survive going away and coming back. Add explicit reset logic if you relied on unmounting. See [Router Cache](../06-caching/03-router-cache.md).
 - A hash link (`/docs#install`) scrolls to the element with that id.
 
 ## Type-safe links (optional)

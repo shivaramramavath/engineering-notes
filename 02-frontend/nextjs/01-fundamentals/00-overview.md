@@ -88,7 +88,7 @@ They can coexist in one project, which allows gradual migration.
 |---|---|
 | 13 | App Router introduced (stable in 13.4) |
 | 15 | React 19 support; `params` / `searchParams` became Promises; fetch is no longer cached by default |
-| 16 | Turbopack default; Cache Components (`use cache`); `middleware.ts` replaced by `proxy.ts`; `next lint` removed |
+| 16 | Turbopack default; Cache Components (`use cache`), enabled by default in new projects per the 16.4 docs; `middleware.ts` replaced by `proxy.ts`; `next lint` removed |
 
 Verify against the release notes for your installed version; behavior in tutorials depends heavily on which version they were written for.
 

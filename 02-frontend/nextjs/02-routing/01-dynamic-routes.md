@@ -130,7 +130,7 @@ export const dynamicParams = false; // unlisted slugs → 404
 // default is true: unlisted slugs render on demand
 ```
 
-If a parent segment also has dynamic params, children's `generateStaticParams` can read the parent's values. Rendering consequences (static vs dynamic, ISR) are in [Static Rendering](../04-rendering/01-static-rendering.md). Behavior here has shifted between versions, particularly with Cache Components, so verify against the docs for yours.
+If a parent segment also has dynamic params, children's `generateStaticParams` can read the parent's values. Rendering consequences (static vs dynamic, ISR) are in [Static Rendering](../04-rendering/01-static-rendering.md). With **Cache Components** enabled (the default in new projects per the 16.4 docs), the rules change: `export const dynamicParams` is not supported and fails the build (call `notFound()` for params with no data), `generateStaticParams` must return at least one param (an empty array errors), and unlisted params are served an App Shell and then rendered and cached after the first visit. See [Full Route Cache](../06-caching/02-full-route-cache.md).
 
 ## Precedence
 
