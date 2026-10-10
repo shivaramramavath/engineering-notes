@@ -1,0 +1,259 @@
+# Databases
+
+Talking to a database from TypeScript has a built-in tension: the database knows its schema, the compiler does not, and a query's result type is whatever you claim it is unless something connects the two. The tools differ mainly in **how much of that connection they provide**: raw drivers give none, query builders and ORMs give a lot, generated SQL clients give the most. This note covers the options, the common typing and runtime pitfalls (parameters, transactions, pooling, surprising column types), and the habits that keep database code correct.
+
+> **Tool note.** ORMs and query builders change quickly. Examples show the general shape of Prisma, Kysely, and the `pg` driver. Check each library's current documentation for exact APIs, setup, and versions.
+
+**Prerequisites:**
+- [Service and repository layers](./04-service-and-repository-layers.md)
+- [Repository](../17-design-patterns/04-repository.md)
+- [Trust boundaries](../15-runtime-validation/00-trust-boundaries.md)
+
+---
+
+## The spectrum of type safety
+
+| Approach | Examples | How types connect to the schema | Trade-offs |
+|---|---|---|---|
+| **Raw driver** | `pg`, `mysql2`, `better-sqlite3` | you write the row type by hand (an assertion) | full SQL control, no safety, easy drift |
+| **Query builder** | Kysely, Knex (with typing), Drizzle | you describe tables as TypeScript types; queries are checked against them | SQL-like, strong query typing, schema defined in code |
+| **ORM** | Prisma, TypeORM, MikroORM, Drizzle ORM | the schema (or entity classes) is the source; types are generated or derived | productive, abstracts SQL, can hide inefficient queries |
+| **Typed SQL** | tools that generate types from `.sql` files or the live database | types generated from the real schema and your actual queries | accurate, adds a generation step |
+
+There is no best choice. Teams that like SQL tend toward query builders or typed SQL. Teams that want fast CRUD tend toward ORMs. Whatever you pick, **keep database types behind a repository** so the rest of the app sees domain types ([repository](../17-design-patterns/04-repository.md)).
+
+## Raw driver: `pg`
+
+```ts
+import { Pool } from "pg";
+
+const pool = new Pool({ connectionString: config.db.url, max: config.db.poolMax });
+
+interface UserRow {
+  id: string;
+  email: string;
+  created_at: Date;
+}
+
+const { rows } = await pool.query<UserRow>(
+  "select id, email, created_at from users where email = $1",
+  [email],
+);
+
+const user = rows[0];          // UserRow | undefined (with noUncheckedIndexedAccess), else UserRow
+```
+
+- The generic `query<UserRow>` types the rows, but it is an **assertion**: nothing checks that the query returns those columns. Rename a column and the code still compiles.
+- **Always use parameters** (`$1`, `$2`) for values, never string concatenation or template literals. Parameters prevent SQL injection ([input validation](../23-security/01-input-validation.md)).
+
+```ts
+// vulnerable: user input becomes SQL
+await pool.query(`select * from users where email = '${email}'`);
+
+// safe: the driver sends the value separately
+await pool.query("select * from users where email = $1", [email]);
+```
+
+- Identifiers (table and column names) **cannot** be parameters. If a column or sort field comes from user input, map it from an allow-list (a union type) to a fixed string, never interpolate it.
+
+### Surprising column types
+
+Database types do not map one-to-one onto JavaScript types, and drivers make choices that bite:
+
+| Database type | Typical result in Node (`pg`) | Notes |
+|---|---|---|
+| `bigint` / `int8` | **string** | exceeds JavaScript's safe integer range, so the driver returns text |
+| `numeric` / `decimal` | **string** | preserves precision |
+| `timestamp` / `timestamptz` | `Date` | `timestamp` (without time zone) is easy to misinterpret: store UTC with `timestamptz` |
+| `json` / `jsonb` | parsed object (`any`) | **untrusted shape**: validate |
+| `uuid`, `text` | `string` | |
+| `int4` | `number` | |
+| arrays | JavaScript arrays | element parsing depends on type |
+
+Declare the row type with what the driver **actually returns** (`total: string` for a `numeric`), then convert in the mapper (`Number(...)`, or a decimal library for money). Do not annotate a `bigint` column as `number` and trust it.
+
+### Mapping rows to domain objects
+
+```ts
+function toUser(row: UserRow): User {
+  return { id: row.id, email: row.email, createdAt: row.created_at };
+}
+```
+
+Keep column naming (`snake_case`) inside the repository, and expose domain naming (`camelCase`) outside. Validate `json` columns with a schema as you map ([validation recipes](../15-runtime-validation/04-validation-recipes.md)).
+
+## Query builder: Kysely
+
+Kysely types queries from a `Database` interface you define, so column names and result types are checked:
+
+```ts
+import { Kysely, PostgresDialect, type Generated, type ColumnType } from "kysely";
+
+interface UsersTable {
+  id: Generated<string>;                                        // generated by the database on insert
+  email: string;
+  role: "admin" | "member";
+  created_at: ColumnType<Date, string | undefined, never>;      // select: Date, insert: optional, update: never
+}
+
+interface Database { users: UsersTable }
+
+const db = new Kysely<Database>({ dialect: new PostgresDialect({ pool }) });
+
+const user = await db
+  .selectFrom("users")
+  .select(["id", "email"])
+  .where("email", "=", email)
+  .executeTakeFirst();
+// { id: string; email: string } | undefined
+
+await db.selectFrom("users").select("nmae");     // error: no such column
+```
+
+A typo in a column name or comparing against the wrong type fails at compile time. The result type follows the **selected columns**, so you only get the fields you asked for. Keeping the `Database` interface **in sync with the real schema** is the manual part: generate it from the database with a codegen tool, or derive it from migrations, rather than maintaining it by hand.
+
+## ORM: Prisma
+
+Prisma generates a typed client from a schema file:
+
+```prisma
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  role      Role     @default(MEMBER)
+  createdAt DateTime @default(now())
+  posts     Post[]
+}
+```
+
+```ts
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
+
+const user = await prisma.user.findUnique({
+  where: { email },
+  select: { id: true, email: true },
+});
+// { id: string; email: string } | null
+
+const withPosts = await prisma.user.findMany({ include: { posts: true } });
+// each user has a typed `posts` array
+```
+
+The types are generated from the schema, so the compiler knows exactly which fields and relations exist, and `select`/`include` change the result type precisely. Helper types such as `Prisma.UserGetPayload<...>` derive types for specific query shapes. Other ORMs (TypeORM, MikroORM, Drizzle) take different approaches, such as decorated classes or schema-as-code.
+
+ORM cautions:
+
+- **Do not leak ORM models** through services and controllers. Map to domain objects or DTOs ([DTO pattern](../16-type-safe-apis/02-dto-pattern.md)).
+- **Watch the SQL it generates.** Abstractions hide **N+1 queries** (one query per row in a loop) and unintended full-table loads. Log queries in development, and use `include`/joins or batch loading deliberately.
+- **Select only what you need** to avoid pulling large columns and secrets into memory.
+- Know the escape hatch for raw SQL, and use it for complex queries, with the same parameter safety.
+
+## Transactions
+
+Operations that must succeed or fail together run in a transaction. With a raw driver, use one **dedicated connection** and always release it:
+
+```ts
+const client = await pool.connect();
+try {
+  await client.query("BEGIN");
+  await client.query("update accounts set balance = balance - $1 where id = $2", [amount, from]);
+  await client.query("update accounts set balance = balance + $1 where id = $2", [amount, to]);
+  await client.query("COMMIT");
+} catch (err) {
+  await client.query("ROLLBACK");
+  throw err;
+} finally {
+  client.release();                       // always return the connection to the pool
+}
+```
+
+Rules:
+
+- **Every statement in the transaction must use the same client.** Calling `pool.query` inside runs on a *different* connection, outside the transaction.
+- **Always release** the connection in `finally`, or the pool runs dry.
+- Keep transactions **short**, and do not make network calls to other services inside them.
+
+Query builders and ORMs provide helpers (`db.transaction().execute(...)`, `prisma.$transaction(...)`) that manage the connection and rollback for you. Wrap the pattern in a unit of work so services express **what** is atomic without handling connections ([service and repository layers](./04-service-and-repository-layers.md)).
+
+For concurrent updates, use **optimistic locking** (a `version` column checked on update) or row locks (`select ... for update`) as appropriate ([repository](../17-design-patterns/04-repository.md)).
+
+## Connection pooling
+
+Opening a connection per request is slow and exhausts the database. A **pool** keeps a bounded set of reusable connections:
+
+- Create **one pool per process**, at startup, shared by the app (not one per request or per module).
+- Size it deliberately: the sum of pool sizes across all instances must stay under the database's connection limit.
+- Set timeouts (connection, idle, query/statement) so a slow query cannot hold a connection forever.
+- **Close the pool on shutdown** (`await pool.end()`) so the process exits cleanly ([Express](./02-express.md) graceful shutdown).
+- In serverless or short-lived environments, use a connection pooler or the provider's serverless driver, since each instance opening its own pool can overwhelm the database.
+
+## Migrations
+
+Schema changes are code. Use a migration tool (Prisma Migrate, Drizzle Kit, Knex or node-pg-migrate migrations, and others), and follow these habits:
+
+- Migrations are **versioned files committed to the repository**, applied in order, and applied the same way in every environment.
+- Run them as a **deployment step**, not manually or at app startup in many instances at once.
+- Make changes **backward compatible** across a deploy: add columns as nullable or with defaults, deploy code that writes both, then migrate and drop old columns later ("expand and contract"). Old and new code run side by side during a rolling deploy.
+- **Never edit an applied migration.** Add a new one.
+- Test migrations (apply to a copy of production-shaped data) and have a rollback plan.
+
+Types follow the schema, so regenerate them as part of the same step (Prisma `generate`, Kysely codegen, typed SQL generation) and fail CI if generated files are out of date.
+
+## Data validation and the database
+
+- **Constraints in the database** (`NOT NULL`, `UNIQUE`, foreign keys, `CHECK`) are the last line of defense, and they are reliable under concurrency, unlike an "exists?" check in application code. Let violations surface as errors and translate them (a unique violation becomes a `ConflictError`).
+- **JSON columns** have no schema in the database. Validate data on the way in and out ([trust boundaries](../15-runtime-validation/00-trust-boundaries.md)).
+- **Dates:** store timestamps in UTC (`timestamptz`), convert at the edges.
+- **Money:** integer minor units or `numeric` (returned as a string), never floating point.
+- **IDs:** UUIDs or database-generated ids as `string` in application types, since large integer ids exceed safe JavaScript numbers.
+
+## Pagination and performance
+
+- Use **keyset (cursor) pagination** for large or changing data, and index the sort columns ([pagination types](../16-type-safe-apis/03-pagination-types.md)).
+- Never `select *` into DTOs or logs: select the columns you need.
+- **Index** columns used in `where`, `join`, and `order by`, and check slow queries with the database's query plan (`EXPLAIN ANALYZE`).
+- Avoid **N+1**: load related rows in one query (join, `IN (...)`, or the ORM's batching).
+- Put a **limit** on every list query and every external-facing endpoint.
+
+## Testing
+
+Use a real database of the same kind as production for repository and integration tests, with real migrations and a clean state per test ([integration testing](../18-testing-and-debugging/01-integration-testing.md)). In-memory substitutes with different SQL dialects or type behavior can pass tests that fail in production.
+
+## Common mistakes
+
+- Building SQL with string concatenation or interpolation.
+- Trusting a hand-written row type that has drifted from the schema.
+- Typing `bigint` or `numeric` columns as `number` when the driver returns strings.
+- Using `pool.query` inside a transaction, so the statement runs outside it.
+- Forgetting to `release()` a client, leaking connections.
+- Creating a new pool per request.
+- Returning ORM entities (with secrets or relations) straight from handlers.
+- N+1 queries hidden behind ORM property access.
+- Storing timestamps without a time zone, or as local time.
+- Running migrations concurrently from every instance at startup.
+- Editing an already applied migration.
+- Relying only on application-level uniqueness checks instead of a unique constraint.
+- Unbounded queries with no `LIMIT`.
+
+## Debugging
+
+- **Log the SQL and parameters** (in development and, carefully, in staging) to see what actually runs. Most ORM surprises are visible here.
+- Use `EXPLAIN ANALYZE` on slow queries to see missing indexes and scans.
+- If rows have the wrong shape at runtime, compare the actual driver output (`console.log(rows[0])`) with the declared row type, especially `bigint`, `numeric`, dates, and JSON.
+- If the app stalls under load, check pool exhaustion: unreleased connections, long transactions, or too-small pool sizes.
+- If a transaction does not roll back, confirm all statements use the transaction's client.
+- If types are out of date, regenerate them, and verify the migration was applied to the database you are using.
+
+## Quick summary
+
+- Choose a point on the spectrum: raw driver (no safety), query builder (checked queries), ORM or typed SQL (types from the schema). Keep database types behind a repository.
+- Always use parameterized queries. Map allow-listed identifiers. Never concatenate user input into SQL.
+- Know what the driver returns: `bigint` and `numeric` are strings, `jsonb` is untrusted. Convert and validate in the mapper.
+- Transactions need one connection for all statements and a guaranteed release. Use helper APIs or a unit of work.
+- One pool per process, sized against the database limit, closed on shutdown.
+- Treat migrations as versioned, backward-compatible deployment steps, and regenerate types with them.
+- Prefer database constraints for integrity, avoid N+1, paginate with cursors, and test against a real database.
+
+**Next:** [Redis and caching](./06-redis-and-caching.md)
