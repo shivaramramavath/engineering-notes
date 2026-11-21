@@ -335,6 +335,57 @@ All modifications, error fixes, technical corrections, and structural extensions
   - Added runnable example `examples/17-enums-and-flags.c` with verified real output in `real_outputs_batch9.json`.
   - Added 6-row common pitfalls table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
 
+---
+
+## Batch 10: Module 02 Core Concepts Complete (Notes 18–25 + Module README)
+- **`02-core-concepts/README.md`**: Created comprehensive module roadmap, index table of all 25 notes, learning outcomes, and prerequisites.
+- **`02-core-concepts/18-designated-initializers-and-compound-literals.md`**:
+  - Authored complete 414-line reference on C99/C11/C23 modernization idioms.
+  - Detailed designated initialization for structs/unions, sparse array indexing, compound literals as modifiable lvalues with automatic/static storage duration, and ISO C23 empty braces `{}`.
+  - Added runnable example `examples/18-designated-initializers-and-compound-literals.c` with verified real output in `real_outputs_batch10.json`.
+  - Added 6-row common pitfalls table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+- **`02-core-concepts/19-struct-padding-and-alignment.md`**:
+  - Authored complete 420-line guide to hardware memory alignment and struct packing.
+  - Detailed natural alignment boundaries, internal member padding, trailing padding calculations, member reordering optimization (saving 33% memory footprint), `offsetof` mechanics, C11 `<stdalign.h>` / C23 `alignas`, and packed attribute hazards.
+  - Added runnable example `examples/19-struct-padding-and-alignment.c` with verified real output in `real_outputs_batch10.json`.
+  - Added 6-row common pitfalls table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+- **`02-core-concepts/20-memory-layout-stack-heap-data-bss.md`**:
+  - Authored complete 428-line architectural breakdown of process virtual address spaces.
+  - Detailed `.text` (RX), `.rodata` (R), `.data` (RW initialized), `.bss` (RW zeroed, 0 bytes on disk), Heap (upward growth via `brk`/`mmap`), and Stack (downward growth via RSP).
+  - Added live Linux virtual page table inspection via `/proc/self/maps`, stack canaries, ASLR, and memory tool commands (`size`, `readelf`, `nm`).
+  - Added runnable example `examples/20-memory-layout-stack-heap-data-bss.c` with verified real output in `real_outputs_batch10.json`.
+  - Added 6-row common pitfalls table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+- **`02-core-concepts/21-flexible-array-members.md`**:
+  - Authored complete 407-line guide to variable-length single-allocation structures.
+  - Detailed ISO C99 flexible array member syntax (`type member[]`), single `malloc()` allocation for header + payload, cache prefetch benefits, and why FAM structs cannot be assigned by value or stored in flat arrays.
+  - Contrasted with historic C89 struct hack (`[1]`) and GCC zero-length arrays (`[0]`).
+  - Added runnable example `examples/21-flexible-array-members.c` with verified real output in `real_outputs_batch10.json`.
+  - Added 6-row common pitfalls table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+- **`02-core-concepts/22-restrict-and-aliasing-intro.md`**:
+  - Authored complete 403-line guide to pointer aliasing and optimization boundaries.
+  - Detailed the Strict Aliasing Rule (§6.5), Type-Based Alias Analysis (TBAA), the character pointer aliasing exception (`char *`), and the `restrict` non-aliasing contract.
+  - Analyzed SIMD AVX2 auto-vectorization, why `memcpy` forbids overlap while `memmove` permits it, and standard-compliant type-punning via union or `memcpy`.
+  - Added runnable example `examples/22-restrict-and-aliasing-intro.c` with verified real output in `real_outputs_batch10.json`.
+  - Added 6-row common pitfalls table, 10 interview questions with `<details>`, and 3 practice exercises with full solutions.
+- **`02-core-concepts/23-pointers-to-pointers-and-arrays-of-pointers.md`**:
+  - Authored complete 416-line guide to multi-level pointer indirection.
+  - Detailed pointer-to-pointer (`T**`) out parameters for dynamic memory allocation and linked list head mutation.
+  - Contrasted ragged arrays of pointers (`char *argv[]`) with contiguous 2D matrices, indirect pointer sorting for large struct records, and universal pointer-nullifying free routines.
+  - Added runnable example `examples/23-pointers-to-pointers-and-arrays-of-pointers.c` with verified real output in `real_outputs_batch10.json`.
+  - Added 6-row common pitfalls table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+- **`02-core-concepts/24-complex-declarations-reading-guide.md`**:
+  - Authored complete 425-line guide to deciphering C declaration syntax.
+  - Detailed declarator operator precedence (`()` and `[]` over `*`), the step-by-step Clockwise/Spiral reading algorithm, signal handler prototypes, 2D state machine function pointer transition matrices, and C23 `typeof`.
+  - Added runnable example `examples/24-complex-declarations-reading-guide.c` with verified real output in `real_outputs_batch10.json`.
+  - Added 6-row common pitfalls table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+- **`02-core-concepts/25-linked-structures-with-pointers-intro.md`**:
+  - Authored complete 416-line introduction to self-referential structures.
+  - Formalized why structures cannot contain instances of themselves by value but can contain pointers to themselves, heap node linking, iterative list traversal, and safe leak-free deallocation.
+  - Added Floyd's Cycle-Finding Algorithm (Tortoise and Hare), sorted list insertion via double pointers, and cache penalty comparisons between linked lists and arrays.
+  - Added runnable example `examples/25-linked-structures-with-pointers-intro.c` with verified real output in `real_outputs_batch10.json`.
+  - Added 6-row common pitfalls table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+
+
 
 
 

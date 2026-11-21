@@ -57,7 +57,7 @@
 ---
 
 ## Module 02: Core Concepts (`02-core-concepts/`)
-- [ ] `02-core-concepts/README.md` (Not started)
+- [x] `02-core-concepts/README.md` (Done)
 - [x] `02-core-concepts/01-arrays.md` (Done)
 - [x] `02-core-concepts/02-strings.md` (Done)
 - [x] `02-core-concepts/03-pointers.md` (Done)
@@ -75,14 +75,14 @@
 - [x] `02-core-concepts/15-string-h-functions-and-safe-alternatives.md` (Done)
 - [x] `02-core-concepts/16-bit-fields.md` (Done)
 - [x] `02-core-concepts/17-enums-and-flags.md` (Done)
-- [ ] `02-core-concepts/18-designated-initializers-and-compound-literals.md` (Not started)
-- [ ] `02-core-concepts/19-struct-padding-and-alignment.md` (Not started)
-- [ ] `02-core-concepts/20-memory-layout-stack-heap-data-bss.md` (Not started)
-- [ ] `02-core-concepts/21-flexible-array-members.md` (Not started)
-- [ ] `02-core-concepts/22-restrict-and-aliasing-intro.md` (Not started)
-- [ ] `02-core-concepts/23-pointers-to-pointers-and-arrays-of-pointers.md` (Not started)
-- [ ] `02-core-concepts/24-complex-declarations-reading-guide.md` (Not started)
-- [ ] `02-core-concepts/25-linked-structures-with-pointers-intro.md` (Not started)
+- [x] `02-core-concepts/18-designated-initializers-and-compound-literals.md` (Done)
+- [x] `02-core-concepts/19-struct-padding-and-alignment.md` (Done)
+- [x] `02-core-concepts/20-memory-layout-stack-heap-data-bss.md` (Done)
+- [x] `02-core-concepts/21-flexible-array-members.md` (Done)
+- [x] `02-core-concepts/22-restrict-and-aliasing-intro.md` (Done)
+- [x] `02-core-concepts/23-pointers-to-pointers-and-arrays-of-pointers.md` (Done)
+- [x] `02-core-concepts/24-complex-declarations-reading-guide.md` (Done)
+- [x] `02-core-concepts/25-linked-structures-with-pointers-intro.md` (Done)
 
 ---
 
