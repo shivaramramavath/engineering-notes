@@ -2,7 +2,7 @@
 
 > **Last Updated:** 2026-11-21  
 > **Overall Status:** In Progress  
-> **Completed Batches:** Batch 1 (1 / 13)
+> **Completed Batches:** Batches 1, 2, 3, 4 (4 / 13)
 
 ---
 
@@ -22,14 +22,17 @@
   - [x] `00-setup` (6 concept notes + README expanded to 466-557 lines)
   - [x] `01-fundamentals` (10 concept notes + README expanded to 507-556 lines)
   - [x] `02-methods` (4 concept notes + README expanded to 577-595 lines)
-- [ ] **Batch 3: Text, OOP & Modules (Modules 03, 04, 05)**
-  - [ ] `03-strings-and-text` (9 notes)
-  - [ ] `04-oop` (17 notes)
-  - [ ] `05-packages-and-modules` (4 notes)
-- [ ] **Batch 4: Robustness & Data (Modules 06, 07, 08)**
-  - [ ] `06-exceptions-and-debugging` (8 notes)
-  - [ ] `07-generics` (6 notes)
-  - [ ] `08-collections` (17 notes)
+  - [x] Git commit Batch 2 (`ea0d86a`)
+- [x] **Batch 3: Text, OOP & Modules (Modules 03, 04, 05)**
+  - [x] `03-strings-and-text` (8 concept notes + README expanded to 420-586 lines)
+  - [x] `04-oop` (16 concept notes + README expanded to 430-520 lines)
+  - [x] `05-packages-and-modules` (4 concept notes + README expanded to 330-405 lines)
+  - [x] Git commit Batch 3 (`2332295`)
+- [x] **Batch 4: Robustness & Data (Modules 06, 07, 08)**
+  - [x] `06-exceptions-and-debugging` (7 concept notes + README expanded to 405-458 lines)
+  - [x] `07-generics` (5 concept notes + README expanded to 423-470 lines)
+  - [x] `08-collections` (16 concept notes + README expanded to 403-560 lines, featuring Java 21 Sequenced Collections JEP 431)
+  - [x] Verification on JDK 25 LTS via `scratch/Batch4Verification.java`
 - [ ] **Batch 5: Functional & Systems I/O (Modules 09, 10, 11)**
   - [ ] `09-functional-java` (10 notes)
   - [ ] `10-date-and-time` (7 notes)

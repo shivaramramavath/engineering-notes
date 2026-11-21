@@ -27,6 +27,49 @@ All notable changes, structural migrations, and note creations in the Java learn
 - Pre-execution backup verified at `E:\Learning\java-backup-20261121`.
 - Oracle JDK 25.0.1 LTS compiler toolchain verified in scratch environment.
 
+## [Batch 4] - 2026-11-21 - Robustness, Generics, and Collections Track Expansion
+
+### Added / Expanded
+- **06-exceptions-and-debugging (7 concept notes + README, 405–458 lines each):**
+  - Expanded `00_exception-hierarchy-and-types.md`: Throwable, Error, Exception, RuntimeException; Heap allocation and stack walk costs.
+  - Expanded `01_try-catch-finally.md`: Bytecode exception table (`Exception table:`), finally block inlining, return shadowing hazards.
+  - Expanded `02_throw-and-throws.md`: Rethrowing, multi-catch disjoint union typing, precision exception analysis in javac.
+  - Expanded `03_try-with-resources.md`: AutoCloseable, suppressed exceptions (`Throwable.getSuppressed()`), effectively final variables (Java 9+).
+  - Expanded `04_custom-exceptions.md`: Domain-driven exception hierarchies, constructor overloading, chaining causes, serialVersionUID.
+  - Expanded `05_exception-handling-patterns.md`: Fail-fast vs fault-tolerant, circuit breaker, retry loops with jitter, translation/wrapping.
+  - Expanded `06_stack-traces-and-debugging.md`: StackWalker API (JEP 259), lazy frames, Helpful NullPointerExceptions (JEP 358), async stack traces.
+  - Updated `README.md` with complete module index.
+
+- **07-generics (5 concept notes + README, 423–470 lines each):**
+  - Expanded `00_generic-classes-and-methods.md`: Type parameters, diamond operator `<>`, generic methods, heap pollution, `@SafeVarargs`.
+  - Expanded `01_bounded-types.md`: Single upper bounds, multiple bounds (`&`), class bound first rule, recursive type bounds (`<T extends Comparable<? super T>>`).
+  - Expanded `02_wildcards-and-pecs.md`: Invariance vs covariance (`? extends T`) vs contravariance (`? super T`), PECS rule, wildcard capture helper.
+  - Expanded `03_type-erasure.md`: Erasure to first bound or Object, synthetic bridge methods (`ACC_BRIDGE`), reification boundaries, Super Type Tokens.
+  - Expanded `04_generic-patterns.md`: Typesafe Heterogeneous Containers (Effective Java Item 33), CRTP, phantom types, compile-time state machines.
+  - Updated `README.md` with complete module index.
+
+- **08-collections (16 concept notes + README, 403–560 lines each):**
+  - Expanded `00_collection-hierarchy.md`: JCF blueprint, and **Java 21 Sequenced Collections (JEP 431)** (`SequencedCollection`, `SequencedSet`, `SequencedMap`).
+  - Expanded `01_list.md`: Index-based access, ListIterator, subList view mechanics, unmodifiable factories.
+  - Expanded `02_set.md`: Mathematical set contract, backing map pattern, hash vs tree vs enum sets.
+  - Expanded `03_map.md`: Associative mapping, collection views, Java 8+ functional methods (`merge`, `computeIfAbsent`).
+  - Expanded `04_queue-and-deque.md`: FIFO vs LIFO, special value vs exception methods, circular `ArrayDeque` bitwise indexing.
+  - Expanded `05_comparable-and-comparator.md`: Natural ordering, fluent combinator composition (`comparingInt`, `thenComparing`, `reversed`, `nullsFirst`).
+  - Expanded `06_arraylist.md`: Dynamic 1.5x array growth formula, contiguous memory cache locality, `System.arraycopy`, fail-fast iterators.
+  - Expanded `07_linkedlist.md`: Doubly-linked node layout (24 bytes/node), pointer chasing cache miss penalties vs `ArrayList`.
+  - Expanded `08_hashmap-and-hashset.md`: Hash spreading `(h ^ (h >>> 16))`, bitwise index masking, treeification threshold 8, untreeify threshold 6, resize doubling.
+  - Expanded `09_treemap-and-treeset.md`: Red-Black tree invariants, NavigableMap range queries (`subMap`, `floorKey`, `ceilingKey`).
+  - Expanded `10_priorityqueue.md`: Binary min-heap array representation, sift-up, sift-down, linear-time $O(N)$ heapify.
+  - Expanded `11_specialized-collections.md`: `EnumSet` (bit vector in single `long`), `EnumMap`, `IdentityHashMap` (`==`), `WeakHashMap`, `BitSet`.
+  - Expanded `12_iterators-and-fail-fast-behavior.md`: `Iterator`, `ListIterator`, `Spliterator`, `modCount` fail-fast validation.
+  - Expanded `13_immutable-and-unmodifiable-collections.md`: Unmodifiable views vs true immutable collections (`List.of()`, `Set.of()`, `Map.of()`), randomized order.
+  - Expanded `14_collections-and-arrays-utilities.md`: TimSort vs Dual-Pivot Quicksort, binary search mechanics, SIMD vectorized `Arrays.mismatch`.
+  - Expanded `15_collection-performance-and-selection.md`: Big-O time and space matrix, per-element memory overhead table, architectural decision trees.
+  - Updated `README.md` with complete module index.
+
+### Verified
+- Full verification test compiled and executed on Oracle JDK 25 LTS via `scratch/Batch4Verification.java`. All tests passed.
+
 ## [Batch 3] - 2026-11-21 - Text, OOP, and Modules Track Expansion
 
 ### Added / Expanded

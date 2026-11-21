@@ -1,244 +1,417 @@
-# Custom Exceptions
+# Custom Exceptions in Java: Domain-Driven Error Modeling
 
-A **custom exception** is your own exception class that expresses a failure in your domain (`InsufficientFundsException`, `OrderNotFoundException`) instead of a generic one (`RuntimeException`). Used well, it makes failures **specific, catchable and informative**. Used badly, it floods a codebase with near-identical classes.
+> An authoritative guide to designing domain-specific custom exceptions, the 4 standard constructor recipe, checked vs unchecked decision matrices, and error payload modeling.
 
+| Metadata | Details |
+| :--- | :--- |
+| **Level** | Intermediate |
+| **Prerequisites** | [00_exception-hierarchy-and-types.md](./00_exception-hierarchy-and-types.md) |
+| **Time to Read** | 25 minutes |
+| **Status** | Active |
+| **Java Version** | Java 8+ (Java 25 LTS verified) |
+
+---
+
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & Usage](#4-syntax--usage)
+5. [Practical Examples](#5-practical-examples)
+6. [Best Practices](#6-best-practices)
+7. [Common Mistakes & Pitfalls](#7-common-mistakes--pitfalls)
+8. [Performance & Security Notes](#8-performance--security-notes)
+9. [Comparison: Custom vs Standard JDK Exceptions](#9-comparison-custom-vs-standard-jdk-exceptions)
+10. [Interview Questions](#10-interview-questions)
+11. [Practice Exercises](#11-practice-exercises)
+12. [Summary & Cheat Sheet](#12-summary--cheat-sheet)
+13. [Further Reading](#13-further-reading)
+
+---
+
+## 1. What & Why
+
+The Java Standard Library provides dozens of general-purpose exception classes (`IllegalArgumentException`, `IllegalStateException`, `NoSuchElementException`, `UnsupportedOperationException`). While reusing standard exceptions is recommended for generic programming errors (Effective Java Item 72), complex business applications require **Custom Domain Exceptions**.
+
+Custom exceptions allow an application to:
+- Convey rich domain context (e.g. `InsufficientFundsException` carrying `availableBalance` and `attemptedWithdrawal`).
+- Differentiate business errors from raw technical bugs in telemetry and alerting dashboards.
+- Allow API clients to catch and recover from specific business failures without parsing fragile error strings.
+
+---
+
+## 2. Core Concepts
+
+### 2.1 Checked vs Unchecked Custom Exception Decision Tree
+```
+                         Should this failure be handled?
+                                       │
+                ┌──────────────────────┴──────────────────────┐
+                ▼                                             ▼
+     Can caller reasonably recover?                Is it a programming bug,
+     (e.g., Retry, Alternative path)                invalid argument, or bad state?
+                │                                             │
+                ▼                                             ▼
+      CHECKED EXCEPTION                             UNCHECKED EXCEPTION
+   (extends java.lang.Exception)               (extends java.lang.RuntimeException)
+```
+
+In modern cloud-native architectures (Spring Boot, REST APIs, Microservices), **over 95% of custom exceptions should extend `RuntimeException`**. Checked exceptions do not scale well through functional pipelines (Streams, Lambdas) and force intermediate service layers to declare unhelpful checked exception signatures.
+
+---
+
+## 3. How It Works Internally
+
+### 3.1 The Canonical 4-Constructor Recipe
+Every well-designed exception class in Java should provide the four standard constructors defined by `java.lang.Throwable`:
+1. **No-arg:** `public CustomException()`
+2. **Message-only:** `public CustomException(String message)`
+3. **Message and Cause:** `public CustomException(String message, Throwable cause)`
+4. **Cause-only:** `public CustomException(Throwable cause)`
+
+Providing all four constructors guarantees that your custom exception integrates seamlessly with third-party logging frameworks, serialization engines, and exception translation pipelines.
+
+---
+
+## 4. Syntax & Usage
+
+### 4.1 Rich Domain Exception with Typed Properties
 ```java
-public class InsufficientFundsException extends Exception {          // checked
-    private final double balance;
-    private final double requested;
+public class InsufficientFundsException extends RuntimeException {
+    private final String accountId;
+    private final double currentBalance;
+    private final double attemptedAmount;
 
-    public InsufficientFundsException(double balance, double requested) {
-        super("Insufficient funds: balance " + balance + ", requested " + requested);
-        this.balance = balance;
-        this.requested = requested;
+    // Standard 4 Constructors + Domain Constructor
+    public InsufficientFundsException(String accountId, double currentBalance, double attemptedAmount) {
+        super(String.format("Account %s has balance $%.2f; attempted withdrawal of $%.2f",
+            accountId, currentBalance, attemptedAmount));
+        this.accountId = accountId;
+        this.currentBalance = currentBalance;
+        this.attemptedAmount = attemptedAmount;
     }
 
-    public double getShortfall() { return requested - balance; }
+    public String getAccountId() { return accountId; }
+    public double getCurrentBalance() { return currentBalance; }
+    public double getAttemptedAmount() { return attemptedAmount; }
 }
 ```
 
+---
+
+## 5. Practical Examples
+
+### Example 1: Full Implementation of Canonical 4 Constructors
 ```java
-try {
-    account.withdraw(500);
-} catch (InsufficientFundsException e) {
-    System.out.println("Short by " + e.getShortfall());     // structured data, not string parsing
-}
-```
-
-## When to create one
-
-| Create a custom exception when | Reuse a standard one when |
-|--------------------------------|---------------------------|
-| Callers need to **catch and handle it separately** from other failures | A standard type already says it: `IllegalArgumentException`, `IllegalStateException`, `NoSuchElementException`, `UnsupportedOperationException` |
-| It carries **extra data** the handler needs (ids, codes, amounts) | The message alone is enough |
-| It names a **domain concept** (`PaymentDeclinedException`) | The failure is a generic precondition violation |
-| It marks an **API boundary** (`MyLibraryException` wrapping internals) | You would create a class per message |
-| You want to map failures to responses (HTTP status, exit code) | Only one `catch` block would ever use it |
-
-Rule of thumb: **if no caller will ever catch it specifically, or if it adds nothing over a standard exception, do not create it.**
-
-## Checked or unchecked?
-
-Extend `Exception` for **checked**, `RuntimeException` for **unchecked** ([00](./00_exception-hierarchy-and-types.md)).
-
-| Extend `Exception` (checked) | Extend `RuntimeException` (unchecked) |
-|------------------------------|---------------------------------------|
-| The caller can realistically **recover** and you want the compiler to force them to consider it | Programming errors, violated preconditions, failures most callers cannot fix |
-| Public library API for a recoverable condition | Domain failures in application code that propagate to a global handler |
-| | Anything used in lambdas and streams |
-
-Many modern codebases default to **unchecked** domain exceptions, with checked ones only where recovery is part of the contract. Make the choice deliberately and consistently per project.
-
-## The standard four constructors
-
-Provide the constructors callers expect:
-
-```java
-public class StorageException extends RuntimeException {
-
-    public StorageException() { super(); }
-
-    public StorageException(String message) { super(message); }
-
-    public StorageException(String message, Throwable cause) { super(message, cause); }
-
-    public StorageException(Throwable cause) { super(cause); }
-}
-```
-
-| Constructor | Use |
-|-------------|-----|
-| `(String message)` | A new failure |
-| `(String message, Throwable cause)` | **Wrapping** a lower-level exception with context: the most important one |
-| `(Throwable cause)` | Wrapping with a default message (`cause.toString()`) |
-| `()` | Rarely useful |
-
-Include only the constructors you need, but **always** offer the `(message, cause)` form so chaining works ([02](./02_throw-and-throws.md)).
-
-## Carrying data
-
-Add fields for what a handler or log entry needs. Make them `final` and immutable.
-
-```java
-public class OrderNotFoundException extends RuntimeException {
-    private final long orderId;
-
-    public OrderNotFoundException(long orderId) {
-        super("Order not found: " + orderId);
-        this.orderId = orderId;
+public class OrderProcessingException extends RuntimeException {
+    public OrderProcessingException() {
+        super();
     }
-    public long orderId() { return orderId; }
-}
-```
 
-```java
-public class ValidationException extends RuntimeException {
-    private final List<String> errors;
-    public ValidationException(List<String> errors) {
-        super("Validation failed: " + errors.size() + " error(s)");
-        this.errors = List.copyOf(errors);            // defensive copy: exception state must not change
+    public OrderProcessingException(String message) {
+        super(message);
     }
-    public List<String> errors() { return errors; }
-}
-```
 
-Keep the data **small and serializable-friendly**: store ids and values, not entire domain objects, sessions or connections. Exceptions are often logged, serialized and kept alive in traces.
+    public OrderProcessingException(String message, Throwable cause) {
+        super(message, cause);
+    }
 
-## Designing a hierarchy
+    public OrderProcessingException(Throwable cause) {
+        super(cause);
+    }
 
-One **base exception per application or module** lets callers catch "anything from this library" or a specific case:
+    public static void main(String[] args) {
+        var ex1 = new OrderProcessingException("Payment gateway timeout");
+        var ex2 = new OrderProcessingException("Inventory lock failed", new IllegalStateException("Out of stock"));
 
-```
-RuntimeException
-   └── ShopException                         base for the application
-         ├── OrderException
-         │     ├── OrderNotFoundException
-         │     └── OrderAlreadyPaidException
-         └── PaymentException
-               ├── PaymentDeclinedException
-               └── PaymentGatewayException
-```
-
-```java
-public class ShopException extends RuntimeException {
-    public ShopException(String message) { super(message); }
-    public ShopException(String message, Throwable cause) { super(message, cause); }
-}
-public class OrderNotFoundException extends ShopException { ... }
-
-try { checkout(); }
-catch (PaymentDeclinedException e) { showCardError(); }      // specific handling
-catch (ShopException e) { showGenericError(); }              // anything else from the shop
-```
-
-Keep it **shallow** (two or three levels) and avoid creating a class for every message. Prefer a specific class only where handlers differ.
-
-## Error codes and categories
-
-Sometimes an `enum` code scales better than dozens of classes, for example for API responses:
-
-```java
-public enum ErrorCode { NOT_FOUND, CONFLICT, INVALID_INPUT, UNAUTHORIZED }
-
-public class ApiException extends RuntimeException {
-    private final ErrorCode code;
-    public ApiException(ErrorCode code, String message) { super(message); this.code = code; }
-    public ErrorCode code() { return code; }
-}
-```
-
-A global handler maps `code` to an HTTP status ([05](./05_exception-handling-patterns.md)). Do not ship **internal** messages to end users: map codes to safe user-facing text.
-
-## Naming and style
-
-| Guideline | Example |
-|-----------|---------|
-| End the name with `Exception` | `PaymentDeclinedException` |
-| Name the **problem**, not the layer | `UserNotFoundException`, not `UserServiceException` |
-| Place it near the code that throws it (same package) | `com.example.orders.OrderNotFoundException` |
-| Write a precise Javadoc: when it is thrown, what the data means | |
-| Include **specifics** in the message (ids, values), no secrets | `"Order 42 not found"` |
-| Be consistent: all checked or all unchecked per module | |
-
-## Serialization and `serialVersionUID`
-
-`Throwable` implements `Serializable`, so compilers and IDEs may warn that your exception lacks a `serialVersionUID`:
-
-```java
-private static final long serialVersionUID = 1L;
-```
-
-Add it if exceptions cross serialization boundaries (RMI, some messaging, application servers) or if your build treats the warning as an error. Make any extra fields serializable (or `transient`). Records **cannot** be used for exceptions: records cannot extend a class, and `Exception` is a class.
-
-## Performance: disabling the stack trace
-
-Creating an exception captures a stack trace, which dominates its cost. For exceptions used as a **high-frequency signal** in a hot path (rare, and usually a design smell), you can skip it:
-
-```java
-public class FastFailException extends RuntimeException {
-    public FastFailException(String message) {
-        super(message, null, false, false);     // enableSuppression=false, writableStackTrace=false
+        System.out.println("Ex 1 Message: " + ex1.getMessage());
+        System.out.println("Ex 2 Cause:   " + ex2.getCause().getMessage());
     }
 }
-// Or override fillInStackTrace() { return this; }
+```
+**Output:**
+```text
+Ex 1 Message: Payment gateway timeout
+Ex 2 Cause:   Out of stock
 ```
 
-Do this only after profiling, and never for exceptions developers need to debug. See [20-performance](../20-performance/README.md).
-
-## Using custom exceptions in a method contract
-
+### Example 2: Real-World REST Error Payload Exception
 ```java
-/**
- * Withdraws money from the account.
- *
- * @throws InsufficientFundsException if the balance is lower than the amount
- * @throws IllegalArgumentException   if the amount is not positive
- */
-public void withdraw(double amount) throws InsufficientFundsException {
-    if (amount <= 0) throw new IllegalArgumentException("amount must be positive: " + amount);
-    if (amount > balance) throw new InsufficientFundsException(balance, amount);
-    balance -= amount;
+import java.time.Instant;
+
+public class ApiProblemException extends RuntimeException {
+    private final int httpStatus;
+    private final String errorCode;
+    private final Instant timestamp;
+
+    public ApiProblemException(int httpStatus, String errorCode, String detail) {
+        super(detail);
+        this.httpStatus = httpStatus;
+        this.errorCode = errorCode;
+        this.timestamp = Instant.now();
+    }
+
+    public int getHttpStatus() { return httpStatus; }
+    public String getErrorCode() { return errorCode; }
+    public Instant getTimestamp() { return timestamp; }
+
+    public static void main(String[] args) {
+        try {
+            throw new ApiProblemException(404, "USER_NOT_FOUND", "No user with ID 8912");
+        } catch (ApiProblemException e) {
+            System.out.printf("[%s] HTTP %d: %s (at %s)%n",
+                e.getErrorCode(), e.getHttpStatus(), e.getMessage(), e.getTimestamp());
+        }
+    }
 }
 ```
-
-Note the split: the **caller's bug** (negative amount) is a standard unchecked exception; the **business condition** (not enough money) is your domain exception.
-
-## Testing
-
-```java
-@Test
-void withdrawMoreThanBalanceFails() {
-    Account account = new Account("Ada", 100);
-    InsufficientFundsException e =
-        assertThrows(InsufficientFundsException.class, () -> account.withdraw(150));
-    assertEquals(50, e.getShortfall());
-}
+**Output:**
+```text
+[USER_NOT_FOUND] HTTP 404: No user with ID 8912 (at ...)
 ```
 
-Assert on the **type and data**, not on message text. See [19-testing/01_junit-5.md](../19-testing/01_junit-5.md).
+### Example 3: Edge Case – Hierarchical Domain Exceptions
+```java
+// Base abstract domain exception for entire billing subsystem
+public abstract class BillingException extends RuntimeException {
+    private final String billingTransactionId;
+    public BillingException(String txId, String message) {
+        super(message);
+        this.billingTransactionId = txId;
+    }
+    public String getBillingTransactionId() { return billingTransactionId; }
+}
 
-## Common mistakes
+public class CardExpiredException extends BillingException {
+    public CardExpiredException(String txId) {
+        super(txId, "Credit card on file has expired");
+    }
+}
 
-| Mistake | Symptom | Fix |
-|---------|---------|-----|
-| One exception class per error message | Class explosion | Reuse; add fields or codes |
-| Extending `Exception` for everything | `throws` clauses everywhere, swallowed exceptions | Prefer unchecked unless recovery is expected |
-| No `(message, cause)` constructor | Causes lost when wrapping | Provide it |
-| Storing heavy objects in the exception | Memory held, leaks into logs | Ids and primitives |
-| Mutable exception state | Surprising changes after it is thrown | `final` fields, defensive copies |
-| Parsing `getMessage()` in handlers | Fragile | Add fields or subclasses |
-| Putting secrets or full personal data in messages | Data leaks via logs and responses | Keep messages safe |
-| Throwing `new Exception("...")` or `new RuntimeException("...")` directly | Handlers cannot discriminate | A specific type |
-| Catching your base exception too early | Specific handling never runs | Catch subclasses first |
-| Naming it `FooError` | Confusable with `java.lang.Error` | `...Exception` |
-| Creating exceptions for control flow in hot paths | Slow | Return values or checks |
+public class CardDeclinedException extends BillingException {
+    public CardDeclinedException(String txId, String reason) {
+        super(txId, "Card declined: " + reason);
+    }
+}
+```
+*Benefit: Callers can catch specific `CardExpiredException` to prompt the user, or catch general `BillingException` to abort the transaction!*
 
-## Key takeaways
+### Example 4: Failure Case – Stringly-Typed Exceptions
+```java
+public class StringlyTypedAntiPattern {
+    public static void badCaller() {
+        try {
+            // ANTI-PATTERN: Throwing generic exception with structured data jammed into a string!
+            throw new RuntimeException("ERROR:CODE=502:RETRY=TRUE:USER=101");
+        } catch (RuntimeException ex) {
+            // DANGEROUS: Caller must parse string with regex to make business decisions!
+            if (ex.getMessage().contains("RETRY=TRUE")) {
+                System.out.println("Retrying based on fragile string parsing...");
+            }
+        }
+    }
 
-- Create a custom exception when callers must distinguish it or it carries data; otherwise reuse a standard one
-- Choose checked only when recovery is genuinely expected; unchecked is the common default in application code
-- Provide at least `(message)` and `(message, cause)` constructors; keep fields `final` and small
-- One base exception per module, a shallow hierarchy, names ending in `Exception`
-- Test the type and data, never the message text
+    public static void main(String[] args) {
+        badCaller();
+    }
+}
+```
+**Output:**
+```text
+Retrying based on fragile string parsing...
+```
+*Fix: Store `isRetryable()` as an explicit boolean getter on a custom exception.*
 
-**Next:** [Exception Handling Patterns](./05_exception-handling-patterns.md)
+### Example 5: Optimized / Idiomatic – Pattern Matching over Custom Exceptions (Java 21+)
+```java
+public class ExceptionPatternMatchingDemo {
+    public static void handleFailure(BillingException ex) {
+        // Java 21+ pattern matching switch on domain exceptions!
+        String action = switch (ex) {
+            case CardExpiredException c -> "Notify user to update expiration date for TX: " + c.getBillingTransactionId();
+            case CardDeclinedException d -> "Alert fraud detection team for TX: " + d.getBillingTransactionId();
+            default -> "Log generic billing alert: " + ex.getMessage();
+        };
+
+        System.out.println("Action: " + action);
+    }
+
+    public static void main(String[] args) {
+        handleFailure(new CardExpiredException("TX-9901"));
+        handleFailure(new CardDeclinedException("TX-9902", "Suspected Fraud"));
+    }
+}
+```
+**Output:**
+```text
+Action: Notify user to update expiration date for TX: TX-9901
+Action: Alert fraud detection team for TX: TX-9902
+```
+
+---
+
+## 6. Best Practices
+
+1. **Favor Standard Exceptions When Applicable:** Re-use `IllegalArgumentException`, `IllegalStateException`, `NullPointerException`, or `UnsupportedOperationException` if domain context is not required (Effective Java Item 72).
+2. **Provide Rich Diagnostic Context:** Include IDs, parameter values, thresholds, and timestamps as typed getter fields rather than formatting them only into the message string.
+3. **Always Implement All 4 Canonical Constructors:** Ensure subclasses of `Exception` or `RuntimeException` provide constructors with `(message)`, `(cause)`, and `(message, cause)`.
+4. **Extend `RuntimeException` by Default:** Unless callers are strictly expected to recover programmatically, create unchecked exceptions to maintain compatibility with Streams, Lambdas, and clean architecture.
+5. **Group Exceptions into a Logical Subsystem Hierarchy:** Create a common abstract base class (`BillingException`) for related domain exceptions.
+
+---
+
+## 7. Common Mistakes & Pitfalls
+
+| Mistake | Why It Is Wrong | Correct Idiom |
+| :--- | :--- | :--- |
+| Over-creating custom exceptions | Proliferates hundreds of redundant exception classes that duplicate standard JDK types. | Re-use standard JDK exceptions where appropriate. |
+| Missing cause constructor | Prevents chaining root causes when wrapping technical exceptions. | Implement `CustomException(String msg, Throwable cause)`. |
+| "Stringly-typed" exceptions | Encoding metadata inside error strings forces callers to parse messages with regex. | Provide typed getter methods (`getId()`, `getCode()`). |
+| Checked exceptions in Lambda pipelines | Cannot be thrown from standard Java 8 functional interfaces (`Function`, `Consumer`). | Extend `RuntimeException`. |
+| Modifying custom exception state | Exception objects should be immutable diagnostics. | Make all custom fields `final`. |
+
+---
+
+## 8. Performance & Security Notes
+
+### 8.1 Serialization of Custom Exceptions
+Because `java.lang.Throwable` implements `java.io.Serializable`, every custom exception class is serializable. If an exception contains custom fields containing non-serializable objects (like open sockets or database connections), mark those fields `transient` to prevent `NotSerializableException` during RMI or distributed logging serialization.
+
+---
+
+## 9. Comparison: Custom vs Standard JDK Exceptions
+
+| Scenario | Re-use Standard JDK Exception | Create Custom Domain Exception |
+| :--- | :--- | :--- |
+| **Null Parameter** | ✅ `NullPointerException` | ❌ Redundant |
+| **Out-of-Range Number**| ✅ `IllegalArgumentException` | ❌ Redundant |
+| **Object in Wrong State**| ✅ `IllegalStateException` | ❌ Redundant |
+| **Insufficient Funds** | ❌ Insufficient context | ✅ `InsufficientFundsException` |
+| **User Not Found in DB**| ❌ Too generic | ✅ `UserNotFoundException` |
+| **API Rate Limit Exceeded**| ❌ Too generic | ✅ `RateLimitExceededException` |
+
+---
+
+## 10. Interview Questions
+
+<details>
+<summary><strong>1. When should you create a custom exception instead of reusing a standard JDK exception?</strong></summary>
+
+Create a custom exception when:
+1. The domain failure carries rich business context (e.g. account numbers, retry intervals) that callers need to inspect programmatically.
+2. Callers need to handle this specific business error distinctly from other errors.
+3. You are designing a public API or library and want errors clearly categorized under your library's namespace.
+Re-use standard JDK exceptions (`IllegalArgumentException`, `IllegalStateException`) for generic programming errors.
+</details>
+
+<details>
+<summary><strong>2. Why should custom exceptions generally extend RuntimeException in modern Java?</strong></summary>
+
+Checked exceptions do not integrate smoothly with Java 8+ functional interfaces (Streams, Lambdas), which do not declare checked exceptions in their method signatures. Furthermore, in microservice architectures, checked exceptions force every intermediate layer to pollute method signatures with unhelpful `throws` clauses, whereas unchecked exceptions bubble up cleanly to centralized exception handlers (`@ControllerAdvice`).
+</details>
+
+<details>
+<summary><strong>3. What are the four canonical constructors every custom exception should provide?</strong></summary>
+
+1. `CustomException()` (no-arg)
+2. `CustomException(String message)`
+3. `CustomException(String message, Throwable cause)`
+4. `CustomException(Throwable cause)`
+</details>
+
+<details>
+<summary><strong>4. Why should all custom fields on an exception be marked final?</strong></summary>
+
+An exception represents an immutable historical record of an event that failed in the past. Allowing fields to be modified after creation could allow race conditions or inaccurate diagnostic data in logs and telemetry dashboards.
+</details>
+
+<details>
+<summary><strong>5. What is the naming convention for custom exceptions in Java?</strong></summary>
+
+Custom exception class names should always end with the suffix `Exception` (e.g. `PaymentFailedException`, `ResourceNotFoundException`). Custom errors should end with `Error`, though user-defined errors are strongly discouraged.
+</details>
+
+<details>
+<summary><strong>6. How can custom exceptions support internationalization (i18n)?</strong></summary>
+
+Store an error code or message bundle key (e.g. `error.insufficient.funds`) and parameter arguments inside the custom exception, rather than hardcoding a localized English string in the message. The presentation layer can look up the localized text using `ResourceBundle` based on the user's locale.
+</details>
+
+<details>
+<summary><strong>7. Why should non-serializable fields in custom exceptions be marked transient?</strong></summary>
+
+Because `Throwable` implements `Serializable`. If custom exceptions are transmitted across network boundaries (RMI, remote logging, distributed caching), any non-serializable fields will trigger a `java.io.NotSerializableException`.
+</details>
+
+<details>
+<summary><strong>8. What is the benefit of defining an abstract base custom exception for a module?</strong></summary>
+
+An abstract base exception (e.g. `abstract class PaymentException extends RuntimeException`) allows API consumers to write a single catch block (`catch (PaymentException e)`) to catch all payment-related errors, while still permitting fine-grained catch blocks for specific subtypes (`CardExpiredException`).
+</details>
+
+---
+
+## 11. Practice Exercises
+
+### Easy
+1. **Invalid Age Exception:** Create an unchecked custom `InvalidAgeException` with the 4 canonical constructors.
+2. **Entity Not Found Exception:** Create `EntityNotFoundException` taking `entityName` and `entityId`.
+3. **Throw and Catch Custom:** Write a test verifying custom exception message and cause.
+
+### Medium
+4. **Rich Balance Exception:** Implement `InsufficientBalanceException` with typed fields for `balance` and `attempted`, validating getters.
+5. **Subsystem Exception Hierarchy:** Design an exception hierarchy for an E-Commerce Cart subsystem with 1 base class and 3 subclasses.
+6. **I18n Custom Exception:** Build an exception storing message key and arguments, rendering localized text using `MessageFormat`.
+
+### Hard
+7. **Pattern Matching Exception Dispatcher:** Write an exception processing gateway using Java 21 switch pattern matching over a sealed exception hierarchy.
+8. **Serialized Exception Verification:** Write a test serializing and deserializing a custom exception containing transient and non-transient fields.
+9. **Zero-Allocation Custom Exception:** Create an ultra-low-latency custom exception with stack traces disabled and pre-cached singleton instances.
+
+<details>
+<summary><strong>Exercise Solutions</strong></summary>
+
+```java
+// Solution to Exercise 2: Entity Not Found Exception
+public class EntityNotFoundException extends RuntimeException {
+    private final String entityName;
+    private final Object entityId;
+
+    public EntityNotFoundException(String entityName, Object entityId) {
+        super(String.format("%s with ID '%s' was not found", entityName, entityId));
+        this.entityName = entityName;
+        this.entityId = entityId;
+    }
+
+    public String getEntityName() { return entityName; }
+    public Object getEntityId() { return entityId; }
+}
+```
+</details>
+
+---
+
+## 12. Summary & Cheat Sheet
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                      CUSTOM EXCEPTIONS CHEAT SHEET                     │
+├────────────────────────────────────────────────────────────────────────┤
+│ Rule of Thumb:      Extend RuntimeException for 95%+ of custom errors  │
+│ 4 Constructors:     Provide (), (msg), (msg, cause), (cause)           │
+│ Rich Properties:    Add final fields with getters for typed telemetry  │
+│ Naming:             Always suffix with Exception (e.g. OrderException) │
+│ Re-use Standard:    Prefer IllegalArgumentException for generic bugs   │
+│ Hierarchy:          Group related exceptions under abstract base class │
+│ Modern Java 21:     Use pattern matching for switch over custom errors │
+│ Serialization:      Mark non-serializable fields transient             │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 13. Further Reading
+- *Effective Java (3rd Edition)*, Joshua Bloch:
+  - Item 70: "Use checked exceptions for recoverable conditions and runtime exceptions for programming errors".
+  - Item 72: "Favor the use of standard exceptions".
+  - Item 75: "Include failure-capture information in detail messages".

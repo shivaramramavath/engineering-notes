@@ -1,59 +1,70 @@
-# 06 - Exceptions and Debugging
+# 06. Exceptions and Debugging in Java
 
-Programs fail: files are missing, networks drop, users type nonsense, and code has bugs. **Exceptions** are Java's mechanism for signalling and handling failure. This folder covers the language mechanics, how to design good exceptions, the patterns that keep error handling clean, and how to **read stack traces and debug** when something goes wrong.
+> Comprehensive reference and architecture guide to structured exception handling, exception hierarchy mechanics, bytecode exception tables, fault tolerance patterns, and the Java 9 StackWalker API.
+
+---
+
+## Module Overview
+
+Reliable software architectures distinguish themselves by how they anticipate, isolate, and recover from failures. Java provides structured exception handling built on the `java.lang.Throwable` hierarchy.
+
+This module covers the mechanics of checked vs unchecked exceptions, zero-cost bytecode exception tables, automatic resource cleanup, resilience patterns (Retry, Circuit Breaker), and modern diagnostic tools like `StackWalker` and Helpful NullPointerExceptions.
+
+---
+
+## Document Index
+
+| # | Note | Level | Description | Key Topics |
+| :- | :--- | :--- | :--- | :--- |
+| 00 | [Exception Hierarchy & Types](./00_exception-hierarchy-and-types.md) | Intermediate | Throwable, Error, Exception, and RuntimeException | Checked vs Unchecked, `fillInStackTrace()` cost, suppressed exceptions |
+| 01 | [Try-Catch-Finally Mechanism](./01_try-catch-finally.md) | Intermediate | Execution blocks & bytecode exception tables | Exception tables, multi-catch, `finally` guarantees, return in finally trap |
+| 02 | [Throw & Throws](./02_throw-and-throws.md) | Intermediate | Propagation, precise rethrow, translation | `athrow` opcode, stack unwinding, Java 7 precise rethrow, cause chaining |
+| 03 | [Try-With-Resources](./03_try-with-resources.md) | Intermediate | Automated resource management (JEP 110) | `AutoCloseable`, reverse-order closing, suppressed exceptions, Java 9 syntax |
+| 04 | [Custom Exceptions](./04_custom-exceptions.md) | Intermediate | Domain-driven error modeling | 4 canonical constructors, rich typed properties, checked vs unchecked matrix |
+| 05 | [Exception Handling Patterns](./05_exception-handling-patterns.md) | Int-Adv | Fault tolerance patterns and anti-patterns | Retry with backoff/jitter, Circuit Breaker, Fallback, black hole trap |
+| 06 | [Stack Traces & Debugging](./06_stack-traces-and-debugging.md) | Int-Adv | Diagnostics, StackWalker, and Helpful NPEs | `StackWalker` (JEP 259), Helpful NPEs (JEP 358), `getCallerClass()`, JIT fast throw |
+
+---
+
+## Conceptual Architecture Map
 
 ```
-hierarchy & types ─► try/catch/finally ─► throw & throws ─► try-with-resources
-                                                                   │
-        stack traces & debugging ◄─ handling patterns ◄─ custom exceptions
+                             ┌──────────────────────────┐
+                             │   java.lang.Throwable    │
+                             └────────────┬─────────────┘
+                                          │
+            ┌─────────────────────────────┴─────────────────────────────┐
+            ▼                                                           ▼
+┌──────────────────────────┐                               ┌──────────────────────────┐
+│     java.lang.Error      │                               │   java.lang.Exception    │
+├──────────────────────────┤                               ├──────────────────────────┤
+│ - Fatal JVM conditions   │                               │ - Recoverable conditions │
+│ - OutOfMemoryError       │                               │ - Checked Exceptions     │
+│ - StackOverflowError     │                               │   (IOException, etc.)    │
+│ - NEVER CATCH!           │                               └────────────┬─────────────┘
+└──────────────────────────┘                                            │
+                                                                        ▼
+                                                           ┌──────────────────────────┐
+                                                           │  java.lang.RuntimeException
+                                                           ├──────────────────────────┤
+                                                           │ - Unchecked              │
+                                                           │ - Contract/logic bugs    │
+                                                           │ - NullPointerException   │
+                                                           │ - Custom Domain Errors   │
+                                                           └──────────────────────────┘
 ```
 
-## Prerequisites
+---
 
-[04-oop](../04-oop/README.md), especially [inheritance](../04-oop/06_inheritance.md) (the exception hierarchy is a class hierarchy) and [classes and objects](../04-oop/00_classes-and-objects.md). Familiarity with [methods](../02-methods/00_methods.md) and the [call stack](../02-methods/00_methods.md#what-happens-at-a-call-the-call-stack).
+## Learning Objectives Checklist
 
-## Reading order
-
-| # | File | You will learn |
-|---|------|----------------|
-| 0 | [00_exception-hierarchy-and-types.md](./00_exception-hierarchy-and-types.md) | `Throwable`, `Error`, `Exception`, `RuntimeException`; checked vs unchecked |
-| 1 | [01_try-catch-finally.md](./01_try-catch-finally.md) | Catching, multi-catch, `finally`, and its traps |
-| 2 | [02_throw-and-throws.md](./02_throw-and-throws.md) | Throwing, declaring, chaining causes, validating arguments |
-| 3 | [03_try-with-resources.md](./03_try-with-resources.md) | Automatic cleanup, `AutoCloseable`, suppressed exceptions |
-| 4 | [04_custom-exceptions.md](./04_custom-exceptions.md) | When and how to define your own exceptions |
-| 5 | [05_exception-handling-patterns.md](./05_exception-handling-patterns.md) | Wrapping, translation, fail fast, global handlers, anti-patterns |
-| 6 | [06_stack-traces-and-debugging.md](./06_stack-traces-and-debugging.md) | Reading traces, using the debugger, a systematic debugging method |
-
-## Practice
-
-| After file | Try |
-|------------|-----|
-| 00 | Classify 15 exceptions as `Error` / checked / unchecked without looking them up |
-| 01 | Predict the output and return value of five `try/catch/finally` snippets (including `return` in `finally`) |
-| 02 | Write `withdraw(amount)` that validates arguments with the right exception types |
-| 03 | Write a class implementing `AutoCloseable` that logs open and close; use two in one `try` and note the order |
-| 04 | Create `InsufficientFundsException` carrying the balance and the requested amount |
-| 05 | Take a method that swallows exceptions and rewrite it with translation, context and a single log point |
-| 06 | Deliberately cause five common exceptions; for each, read the trace and fix the bug using the debugger |
-
-**Project:** [26-projects/02-banking-system](../26-projects/02-banking-system/) uses everything here (validation, custom exceptions, resource handling).
-
-## You are done when you can
-
-- [ ] Say which of `NullPointerException`, `IOException`, `OutOfMemoryError`, `IllegalArgumentException` are checked, unchecked or errors, and why it matters
-- [ ] Predict what `finally` does when the `try` block returns or throws
-- [ ] Explain why try-with-resources replaces `try/finally` for cleanup and what "suppressed" exceptions are
-- [ ] Choose between a standard exception and a custom one, and between checked and unchecked
-- [ ] Wrap an exception without losing its cause
-- [ ] Read a long stack trace with `Caused by:` sections and find the line in your code
-- [ ] Set a conditional breakpoint and evaluate an expression in the debugger
-
-## Key takeaways
-
-- Exceptions separate normal logic from error handling; `Error`s are not for you to catch
-- Checked exceptions must be declared or caught; unchecked ones indicate bugs or violated preconditions
-- Never swallow exceptions; keep the cause when wrapping; log **or** rethrow, not both
-- Use try-with-resources for anything closeable
-- A stack trace is a map to the problem: read it from the top, then follow `Caused by:`
-
-**Next:** [07-generics](../07-generics/README.md)
+- [x] Classify failures across `Error`, Checked `Exception`, and Unchecked `RuntimeException`.
+- [x] Trace bytecode Exception Table execution and explain zero-cost try blocks.
+- [x] Apply multi-catch syntax (`catch (A | B e)`) without inheritance redundancy.
+- [x] Eliminate the lethal "return in finally" anti-pattern.
+- [x] Implement deterministic cleanup and inspect suppressed exceptions with try-with-resources.
+- [x] Author robust custom domain exceptions with all 4 canonical constructors.
+- [x] Design fault-tolerant retry loops using exponential backoff and randomized jitter.
+- [x] Implement a thread-safe Circuit Breaker state machine (CLOSED $\to$ OPEN $\to$ HALF-OPEN).
+- [x] Inspect call stacks lazily using the Java 9 `StackWalker` API in $O(1)$ time.
+- [x] Troubleshoot failures using Java 14+ Helpful NullPointerExceptions (JEP 358).

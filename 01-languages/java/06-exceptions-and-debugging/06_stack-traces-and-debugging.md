@@ -1,289 +1,410 @@
-# Stack Traces and Debugging
+# Stack Traces, Debugging, and the StackWalker API in Java
 
-When something goes wrong, you need two skills: **reading** the evidence the JVM gives you (the stack trace) and **investigating** methodically (the debugger, logging, tests). This is the most-used practical skill in day-to-day Java work.
+> An authoritative guide to stack trace inspection, Java 9 `StackWalker` (JEP 259), Helpful NullPointerExceptions (JEP 358), and modern JVM debugging techniques.
 
+| Metadata | Details |
+| :--- | :--- |
+| **Level** | Intermediate to Advanced |
+| **Prerequisites** | [00_exception-hierarchy-and-types.md](./00_exception-hierarchy-and-types.md) |
+| **Time to Read** | 25 minutes |
+| **Status** | Active |
+| **Java Version** | Java 8+ (StackWalker in Java 9+, Helpful NPEs in Java 14+) |
+
+---
+
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & Usage](#4-syntax--usage)
+5. [Practical Examples](#5-practical-examples)
+6. [Best Practices](#6-best-practices)
+7. [Common Mistakes & Pitfalls](#7-common-mistakes--pitfalls)
+8. [Performance & Security Notes](#8-performance--security-notes)
+9. [Comparison: Throwable.getStackTrace vs StackWalker](#9-comparison-throwablegetstacktrace-vs-stackwalker)
+10. [Interview Questions](#10-interview-questions)
+11. [Practice Exercises](#11-practice-exercises)
+12. [Summary & Cheat Sheet](#12-summary--cheat-sheet)
+13. [Further Reading](#13-further-reading)
+
+---
+
+## 1. What & Why
+
+When an unexpected failure or crash occurs in a production environment, the **Stack Trace** is the single most valuable diagnostic artifact available to engineers. It provides an exact, chronological snapshot of active method frames on the call stack at the instant the exception occurred.
+
+Historically, inspecting the stack trace required calling `Throwable.getStackTrace()`, which has severe drawbacks:
+- It eagerly captures the **entire** call stack (often 100+ frames in framework applications like Spring or Jakarta EE).
+- It allocates an array of `StackTraceElement[]` heap objects for every single frame, causing heavy garbage collection churn.
+- It provides no way to filter or lazily stream frames.
+
+To solve this, **Java 9 introduced the `StackWalker` API (JEP 259)**: an efficient, lazy, stream-capable mechanism for inspecting call stacks.
+
+---
+
+## 2. Core Concepts
+
+### 2.1 The `StackTraceElement` Structure
+Each stack frame in a traditional stack trace contains:
+- `getClassName()`: Fully qualified class name.
+- `getMethodName()`: Method name.
+- `getFileName()`: Source code file name (e.g. `OrderService.java`).
+- `getLineNumber()`: Exact source code line number.
+- `isNativeMethod()`: Whether the method was a JNI native call.
+
+### 2.2 Helpful NullPointerExceptions (JEP 358 - Java 14+)
+Historically, a statement like `user.getAddress().getCity().toLowerCase()` that produced a `NullPointerException` gave no indication of which specific method call returned null.
+Since Java 14 (enabled by default in modern Java 15 through 25), the JVM bytecode interpreter precisely identifies the null operand:
+```text
+Cannot invoke "com.app.Address.getCity()" because the return value of "com.app.User.getAddress()" is null
 ```
-Exception in thread "main" java.lang.IllegalStateException: Order 42 is already paid
-    at com.example.orders.OrderService.pay(OrderService.java:31)
-    at com.example.web.OrderController.handle(OrderController.java:18)
-    at com.example.Main.main(Main.java:9)
-```
 
-## Reading a stack trace
+---
 
-A stack trace is a snapshot of the **call stack** at the moment the exception object was created ([methods: the call stack](../02-methods/00_methods.md#what-happens-at-a-call-the-call-stack)).
+## 3. How It Works Internally
 
-```
-java.lang.IllegalStateException: Order 42 is already paid     ◄── 1. exception TYPE and MESSAGE
-    at com.example.orders.OrderService.pay(OrderService.java:31)   ◄── 2. TOP frame: where it was created/thrown
-    at com.example.web.OrderController.handle(OrderController.java:18)   ◄── who called that
-    at com.example.Main.main(Main.java:9)                          ◄── BOTTOM: where the thread started
-```
+### 3.1 The `StackWalker` Architecture (JEP 259)
+`StackWalker` walks the JVM execution stack lazily without allocating `StackTraceElement[]` arrays upfront:
+- You configure `StackWalker` with options:
+  - `RETAIN_CLASS_REFERENCE`: Retains references to `Class<?>` instances for each frame.
+  - `SHOW_REFLECT_FRAMES`: Includes reflection frames.
+  - `SHOW_HIDDEN_FRAMES`: Includes JVM-internal synthetic frames.
+- It yields a `Stream<StackWalker.StackFrame>` that downstream operations can filter, slice, or count lazily.
+- If you only need the caller class (`getCallerClass()`), the JVM only inspects the immediate previous frame ($O(1)$) rather than walking the entire 100-frame stack!
 
-| Part | Meaning |
-|------|---------|
-| First line | Exception class and message: **what** went wrong |
-| Each `at` line | `package.Class.method(File.java:line)`: a frame |
-| **Top** frame | The code that threw: usually the first place to look |
-| Frames below | The chain of callers, from the nearest to the original entry point |
-| `Native Method` / `Unknown Source` | Native code, or classes compiled without debug info |
+---
 
-### Strategy
+## 4. Syntax & Usage
 
-1. Read the **exception type and message** first
-2. Find the **first frame in your own code** (skip `java.*`, `jdk.*`, `org.springframework.*` frames at the top)
-3. Open that file and line; inspect the values involved
-4. If the cause is not there, walk **down** the frames to see how bad data arrived
-
-### `Caused by:` (chained exceptions)
-
-```
-com.example.OrderException: Cannot save order 42
-    at com.example.orders.OrderService.place(OrderService.java:30)
-    at com.example.web.OrderController.handle(OrderController.java:18)
-    ... 3 more
-Caused by: java.sql.SQLException: Connection refused
-    at com.example.db.Dao.save(Dao.java:77)
-    at com.example.orders.OrderService.place(OrderService.java:28)
-    ... 5 more
-Caused by: java.net.ConnectException: Connection refused (Connection refused)
-    at java.base/sun.nio.ch.Net.connect0(Native Method)
-    ...
-```
-
-- The **top** exception is what the caller saw; the **last `Caused by:`** is usually the **root cause**
-- `... 5 more` means the remaining frames are identical to the enclosing exception's frames (elided to save space)
-- `Suppressed:` entries show exceptions from cleanup code ([03](./03_try-with-resources.md))
-
-**Always look at the last `Caused by:`**: it names the real problem (here, a refused database connection).
-
-### Getting traces programmatically
-
+### 4.1 Modern StackWalker Usage
 ```java
-e.printStackTrace();                         // to System.err: fine in a quick experiment
-log.error("Cannot save order {}", id, e);    // production: pass the exception as the LAST argument
-StringWriter sw = new StringWriter();
-e.printStackTrace(new PrintWriter(sw));      // as a String
+import java.lang.StackWalker.Option;
+import java.lang.StackWalker.StackFrame;
 
-StackTraceElement[] frames = e.getStackTrace();
-Throwable root = e; while (root.getCause() != null) root = root.getCause();    // find the root cause
+public class StackWalkerDemo {
+    private static final StackWalker WALKER = StackWalker.getInstance(Option.RETAIN_CLASS_REFERENCE);
 
-StackWalker.getInstance().walk(s -> s.limit(5).toList());   // inspect the current stack cheaply (Java 9+)
-```
+    public static void logCaller() {
+        // Retrieve caller class in O(1) time without full stack allocation!
+        Class<?> caller = WALKER.getCallerClass();
+        System.out.println("Invoked by: " + caller.getName());
+    }
 
-Log the **exception object**, not only `e.getMessage()` (which loses the type and trace). More: [22-production-engineering/00_logging.md](../22-production-engineering/00_logging.md).
-
-## Common exceptions and where to look
-
-| Exception | Typical cause | First step |
-|-----------|---------------|------------|
-| `NullPointerException` | A `null` was dereferenced | Read the helpful message: it names the null expression; trace where it should have been set |
-| `ArrayIndexOutOfBoundsException` / `IndexOutOfBoundsException` | Off-by-one, empty collection | Print the index and length; check loop bounds (`<` vs `<=`) |
-| `ClassCastException` | Wrong downcast, mixed types in a raw collection | Print `obj.getClass()` |
-| `NumberFormatException` | Bad input to `parseInt` etc. | Log the offending string (and check whitespace, locale) |
-| `ConcurrentModificationException` | Modifying a collection while iterating | Use `Iterator.remove()` or `removeIf` ([iterators](../08-collections/12_iterators-and-fail-fast-behavior.md)) |
-| `StackOverflowError` | Missing base case or too-deep recursion | Look at the repeating frames ([recursion](../02-methods/03_recursion.md)) |
-| `OutOfMemoryError` | Leak or huge data | Heap dump and profiler ([20-performance](../20-performance/README.md)) |
-| `ClassNotFoundException` / `NoClassDefFoundError` | Missing dependency | [classpath](../05-packages-and-modules/01_classpath-and-jars.md) |
-| `NoSuchMethodError` | Library version mismatch | `mvn dependency:tree` |
-| `UnsupportedOperationException` | Modifying an immutable collection (`List.of`) | Copy to a mutable list first |
-| `IllegalArgumentException` / `IllegalStateException` | A precondition failed | Read the message; check the caller |
-| `SQLException` | Database problem | Read SQLState and error code; check the SQL and connection |
-| `StackOverflowError` in `toString`/`hashCode`/`equals` | Cyclic references | Break the cycle |
-
-### Reading a `NullPointerException` message
-
-```
-Cannot invoke "String.length()" because "name" is null
-Cannot invoke "com.example.User.getName()" because the return value of "com.example.Repo.find(int)" is null
-Cannot read field "value" because "node.next" is null
-Cannot load from int array because "scores" is null
-```
-
-The message names the exact expression that was `null`. Then ask: **why** was it `null`? (never assigned, a lookup returned nothing, an optional parameter, a failed earlier step.)
-
-## Debugging methodically
-
-Guessing wastes time. Use a loop:
-
-```
-1. Reproduce        ──► make the failure happen on demand (a failing test or a script)
-2. Isolate          ──► shrink the input and code until the smallest case still fails
-3. Hypothesize      ──► "I think X is null because Y"
-4. Test             ──► check with a debugger, log or assertion
-5. Fix              ──► change the cause, not the symptom
-6. Verify & protect ──► the failing test now passes; keep it as a regression test
-```
-
-| Tip | Why |
-|-----|-----|
-| Write a **failing unit test** first | Reproducible and permanent ([19-testing](../19-testing/README.md)) |
-| Change **one thing at a time** | Otherwise you do not know what fixed it |
-| Believe the evidence over your assumptions | The bug is usually where you "know" it cannot be |
-| **Bisect**: halve the search space (comment out half, `git bisect` across commits) | Finds the culprit in log(n) steps |
-| Explain the problem aloud ("rubber duck") | Often reveals the flaw |
-| Read the **actual** values, not what you expect | Print or inspect them |
-| Take a break | Fresh eyes spot typos |
-| Check recent changes first | Most regressions come from what changed |
-
-## The debugger
-
-Print statements work, but a **debugger** shows the real state at any moment without editing code. All major IDEs share these features (shortcuts in [IntelliJ](../00-setup/04_intellij-idea.md)).
-
-```java
-int total = 0;
-for (int i = 1; i <= 5; i++) {
-    total += i * i;            // ◄── breakpoint: execution pauses here
-}
-System.out.println(total);
-```
-
-### Core operations
-
-| Operation | What it does | IntelliJ (Windows/Linux) |
-|-----------|--------------|--------------------------|
-| **Breakpoint** | Pause when execution reaches the line | Click the gutter, `Ctrl+F8` |
-| **Resume** | Run until the next breakpoint | `F9` |
-| **Step over** | Run the current line; stay in this method | `F8` |
-| **Step into** | Enter the method being called | `F7` |
-| **Step out** | Run until the current method returns | `Shift+F8` |
-| **Run to cursor** | Continue to the cursor line | `Alt+F9` |
-| **Evaluate expression** | Run arbitrary code against the paused state | `Alt+F8` |
-| **Variables / Watches** | See locals, fields and your own watched expressions | Debug panel |
-| **Frames (call stack)** | Click a frame to see its variables | Debug panel |
-
-### Advanced breakpoints
-
-| Type | Use |
-|------|-----|
-| **Conditional** (`i == 1000`) | Stop only on the interesting iteration |
-| **Hit count** | Stop on the Nth hit |
-| **Logging breakpoint** ("evaluate and log", no suspend) | Print without editing code |
-| **Exception breakpoint** (`NullPointerException`) | Stop **at the moment of the throw**, even if it is caught later |
-| **Field watchpoint** | Stop when a field is read or modified |
-| **Method breakpoint** | Stop on entry/exit |
-| **Drop frame / Reset frame** | Rewind to the start of the current method and try again |
-
-An **exception breakpoint** is the fastest way to find where a `NullPointerException` originates when the trace is long.
-
-### Debugger pitfalls
-
-- A paused thread can hide **timing and concurrency** bugs (use logs, thread dumps, or thread-specific suspension: [14-concurrency](../14-concurrency/README.md))
-- Evaluating expressions with side effects (`list.remove(0)`) **changes** the program state
-- Debugging **optimized/production** code may show variables as unavailable: compile with `-g` (Maven/Gradle default for debug info)
-
-### Remote debugging
-
-Attach the IDE to a running JVM (a container, a test server):
-
-```bash
-java -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005 -jar app.jar
-```
-
-Then create a "Remote JVM Debug" configuration pointing at port 5005. Use `suspend=y` to wait for the debugger before starting. **Never expose the debug port on a public network**: it allows remote code execution. Prefer SSH tunnels or local-only binding (`address=127.0.0.1:5005`).
-
-## Logging as a debugging tool
-
-When you cannot attach a debugger (production, concurrency, long-running jobs), logs are your evidence.
-
-```java
-log.debug("Calculating discount for order {} with total {}", order.id(), order.total());
-log.error("Payment failed for order {}", order.id(), exception);
-```
-
-| Do | Don't |
-|----|-------|
-| Log **identifiers** and key values (order id, user id, request id) | Log secrets, tokens or personal data |
-| Use levels: `ERROR`, `WARN`, `INFO`, `DEBUG`, `TRACE` | `System.out.println` in production |
-| Log the **exception object** | `log.error(e.getMessage())` |
-| Add a **correlation id** across a request | Log inside tight loops at `INFO` |
-
-Details: [22-production-engineering/00_logging.md](../22-production-engineering/00_logging.md).
-
-## Assertions
-
-`assert` checks **internal invariants** during development and testing. It is **disabled by default** and enabled with `-ea`.
-
-```java
-assert index >= 0 : "negative index: " + index;     // AssertionError if false (when -ea is on)
-```
-
-```bash
-java -ea -jar app.jar        # enable assertions (tests usually do)
-```
-
-| Use `assert` for | Use exceptions for |
-|------------------|--------------------|
-| "This cannot happen" internal invariants | Validating **arguments** to public methods |
-| Private-method preconditions | Anything that must run in production |
-| | Anything with **side effects** inside the condition |
-
-## Tools beyond the debugger
-
-| Problem | Tool |
-|---------|------|
-| Hung or slow application | **Thread dump**: `jstack <pid>` or `jcmd <pid> Thread.print`; look for `BLOCKED`/`WAITING` and deadlock reports ([14-concurrency/14_deadlock-livelock-starvation.md](../14-concurrency/14_deadlock-livelock-starvation.md)) |
-| Memory growth, `OutOfMemoryError` | **Heap dump** (`jcmd <pid> GC.heap_dump file.hprof`, `-XX:+HeapDumpOnOutOfMemoryError`) analysed with Eclipse MAT or VisualVM |
-| High CPU, slow code | **Profiler** / Java Flight Recorder ([20-performance/00_profiling.md](../20-performance/00_profiling.md)) |
-| Wrong dependency version | `mvn dependency:tree`, `./gradlew dependencies` |
-| Which class file or JAR was loaded | `java -verbose:class` |
-| Intermittent failures | Logging with timestamps and request ids; reproduce under load |
-| Reading bytecode | `javap -c` ([02_how-java-works](../00-setup/02_how-java-works.md)) |
-
-Full playbook: [22-production-engineering/05_troubleshooting-playbook.md](../22-production-engineering/05_troubleshooting-playbook.md), [04_jvm-diagnostics.md](../22-production-engineering/04_jvm-diagnostics.md).
-
-## A debugging session, step by step
-
-```java
-public double average(List<Integer> scores) {
-    int sum = 0;
-    for (int s : scores) sum += s;
-    return sum / scores.size();             // returns 3.0 instead of 3.5 for [3, 4]
+    public static void printFilteredStack() {
+        // Stream and filter frames lazily
+        WALKER.walk(frames -> frames
+            .filter(f -> !f.getClassName().startsWith("jdk.internal"))
+            .limit(5)
+            .toList()
+        ).forEach(f -> System.out.printf("%s.%s (line %d)%n",
+            f.getClassName(), f.getMethodName(), f.getLineNumber()));
+    }
 }
 ```
 
-1. **Reproduce:** `average(List.of(3, 4))` returns `3.0`; expected `3.5`
-2. **Isolate:** a one-line test: `assertEquals(3.5, average(List.of(3, 4)))`
-3. **Hypothesize:** "the division loses the fraction"
-4. **Test:** set a breakpoint, evaluate `sum / scores.size()` (→ `3`, an `int`), evaluate `(double) sum / scores.size()` (→ `3.5`)
-5. **Fix:** `return (double) sum / scores.size();` ([operators](../01-fundamentals/02_operators.md))
-6. **Verify:** the test passes; keep it. Also consider the empty-list case, which would divide by zero
+---
 
-## Preventing bugs
+## 5. Practical Examples
 
-| Practice | Effect |
-|----------|--------|
-| Small methods with one purpose | Faster isolation |
-| Unit tests with edge cases | Catch regressions early |
-| Immutability, `final` fields, minimal mutable state | Fewer places for state to go wrong |
-| Fail-fast validation | Errors near their source ([02](./02_throw-and-throws.md)) |
-| Static analysis (compiler warnings, SonarLint, SpotBugs) | Catches many bugs before running |
-| Code review | A second pair of eyes |
-| Clear logging | Faster diagnosis in production |
+### Example 1: Helpful NullPointerException in Java 14+ / Java 25
+```java
+public class HelpfulNpeDemo {
+    record Location(String city) {}
+    record Address(Location location) {}
+    record Customer(Address address) {}
 
-## Common mistakes
+    public static void main(String[] args) {
+        Customer customer = new Customer(null);
 
-| Mistake | Symptom | Fix |
-|---------|---------|-----|
-| Reading only the last line of a trace | Misdiagnosis | Read the type, the top frames, and the **last** `Caused by:` |
-| Looking in library frames first | Wasted time | Find the first frame in **your** code |
-| Logging only `e.getMessage()` | No type, no trace | Log the exception object |
-| `printStackTrace()` left in production | Unstructured output | Use a logger |
-| Fixing the symptom (adding a `null` check everywhere) | Bug returns in another form | Find why the value was `null` |
-| Changing several things at once | Cannot tell what worked | One change per experiment |
-| Debugging without a reproduction | Endless guessing | Write a failing test |
-| `assert` with side effects or for validation | Behaves differently with and without `-ea` | Use exceptions for validation |
-| Leaving a remote debug port open | Security hole | Bind locally, tunnel, disable in production |
-| Ignoring `Suppressed:` and chained causes | Missing the real problem | Read every section |
-| Debugging concurrency bugs by stepping | Bug disappears (Heisenbug) | Logs, thread dumps, stress tests |
-| Assuming the bug is "in the framework" | Rarely true | Prove it with a minimal reproduction |
+        try {
+            // Chained call where address is null:
+            String city = customer.address().location().city();
+        } catch (NullPointerException npe) {
+            System.out.println("JVM Diagnostic NPE Message:");
+            System.out.println(npe.getMessage());
+        }
+    }
+}
+```
+**Output:**
+```text
+JVM Diagnostic NPE Message:
+Cannot invoke "HelpfulNpeDemo$Address.location()" because the return value of "HelpfulNpeDemo$Customer.address()" is null
+```
 
-## Key takeaways
+### Example 2: Real-World Caller-Sensitive Security Audit Logger
+```java
+import java.lang.StackWalker.Option;
 
-- Read a trace from the exception type and message, to the first frame in **your** code, then to the last `Caused by:`
-- NPE messages tell you exactly which expression was `null`; ask why, not just where
-- Debug scientifically: reproduce, isolate, hypothesize, test, fix, verify, and keep a regression test
-- Use the debugger (conditional and exception breakpoints, evaluate expression) and logging; know thread and heap dumps for production
-- `assert` is for internal invariants only; exceptions validate input
+public class SecurityAuditLogger {
+    private static final StackWalker WALKER = StackWalker.getInstance(Option.RETAIN_CLASS_REFERENCE);
 
-**Next:** [07-generics](../07-generics/README.md)
+    public static void executePrivilegedAction(String actionName) {
+        // Retrieve caller class directly
+        Class<?> caller = WALKER.getCallerClass();
+
+        if (caller.getPackageName().startsWith("com.company.security")) {
+            System.out.println("Authorized action '" + actionName + "' requested by " + caller.getName());
+        } else {
+            System.err.println("UNAUTHORIZED action attempt from untrusted caller: " + caller.getName());
+        }
+    }
+
+    public static void main(String[] args) {
+        executePrivilegedAction("PURGE_AUDIT_LOGS");
+    }
+}
+```
+**Output:**
+```text
+UNAUTHORIZED action attempt from untrusted caller: SecurityAuditLogger
+```
+
+### Example 3: Edge Case – Extracting Source Line Numbers with StackWalker
+```java
+import java.lang.StackWalker.StackFrame;
+
+public class CallerInfoUtility {
+    private static final StackWalker WALKER = StackWalker.getInstance();
+
+    public static String getCallerLocation() {
+        return WALKER.walk(frames -> frames
+            .skip(1) // Skip getCallerLocation itself
+            .findFirst()
+            .map(f -> f.getFileName() + ":" + f.getLineNumber())
+            .orElse("Unknown")
+        );
+    }
+
+    public static void main(String[] args) {
+        System.out.println("Called from: " + getCallerLocation());
+    }
+}
+```
+**Output:**
+```text
+Called from: CallerInfoUtility.java:18
+```
+
+### Example 4: Failure Case – Calling `getCallerClass()` Without `RETAIN_CLASS_REFERENCE`
+```java
+import java.lang.StackWalker;
+
+public class StackWalkerOptionTrap {
+    public static void main(String[] args) {
+        // Default instance without RETAIN_CLASS_REFERENCE:
+        StackWalker walker = StackWalker.getInstance();
+
+        try {
+            // FATAL ERROR: getCallerClass() requires RETAIN_CLASS_REFERENCE!
+            Class<?> caller = walker.getCallerClass();
+        } catch (UnsupportedOperationException e) {
+            System.out.println("Caught: " + e.getClass().getSimpleName() + " - " + e.getMessage());
+        }
+    }
+}
+```
+**Output:**
+```text
+Caught: UnsupportedOperationException - No access to RETAIN_CLASS_REFERENCE
+```
+
+### Example 5: Optimized / Idiomatic – Filtering Stack Traces for Logging
+```java
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.util.Arrays;
+import java.util.stream.Collectors;
+
+public class StackTraceSanitizer {
+    public static String getCleanStackTrace(Throwable t, String packagePrefix) {
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+
+        pw.println(t.toString());
+        for (StackTraceElement element : t.getStackTrace()) {
+            // Highlight only application code frames, filtering internal framework noise:
+            if (element.getClassName().startsWith(packagePrefix)) {
+                pw.printf("\tat %s%n", element);
+            }
+        }
+        return sw.toString();
+    }
+
+    public static void main(String[] args) {
+        try {
+            Integer.parseInt("NOT_A_NUMBER");
+        } catch (NumberFormatException e) {
+            System.out.println("Sanitized trace:");
+            System.out.println(getCleanStackTrace(e, "StackTraceSanitizer"));
+        }
+    }
+}
+```
+**Output:**
+```text
+Sanitized trace:
+java.lang.NumberFormatException: For input string: "NOT_A_NUMBER"
+	at StackTraceSanitizer.main(StackTraceSanitizer.java:23)
+```
+
+---
+
+## 6. Best Practices
+
+1. **Use `StackWalker` Instead of `Throwable.getStackTrace()`:** `StackWalker` avoids eager object allocation and walks only as many frames as requested.
+2. **Configure `Option.RETAIN_CLASS_REFERENCE` Only When Needed:** Retaining class references has minor overhead; only configure it when calling `getCallerClass()`.
+3. **Filter Stack Traces in Production Loggers:** Strip out deep, repetitive JVM and reflection frames to keep error logs readable.
+4. **Leverage Helpful NPEs in Troubleshooting:** Read the precise failure path message generated by Java 14+ JEP 358.
+5. **Never Expose Raw Stack Traces to Public Users:** Stack traces reveal library versions, database schema names, and internal paths. Log them privately.
+
+---
+
+## 7. Common Mistakes & Pitfalls
+
+| Mistake | Why It Is Wrong | Correct Idiom |
+| :--- | :--- | :--- |
+| `Throwable.getStackTrace()` in hot loops | Forces full stack walk and massive array allocations on the heap. | Use `StackWalker`. |
+| Missing `RETAIN_CLASS_REFERENCE` | Calling `walker.getCallerClass()` throws `UnsupportedOperationException`. | Add option to `StackWalker.getInstance(...)`. |
+| Exposing traces in API responses | Leaks server internal paths and version metadata (CWE-209). | Return sanitized error IDs. |
+| Hardcoding expected line numbers | Fragile; adding comments shifts line numbers and breaks tests. | Assert on class or method name. |
+| Neglecting chained causes | Only printing `e.getStackTrace()` ignores nested root causes. | Use `e.printStackTrace()` or logging framework. |
+
+---
+
+## 8. Performance & Security Notes
+
+### 8.1 Stack Trace Stripping in Hot Paths
+In high-throughput logging frameworks (Log4j2, Logback, SLF4J), logging complete stack traces for 10,000 errors/second will saturate JVM garbage collection. Configure logging thresholds to log full stack traces only for unexpected `ERROR` levels and concise messages for anticipated validation warnings.
+
+---
+
+## 9. Comparison: Throwable.getStackTrace vs StackWalker
+
+| Feature | `Throwable.getStackTrace()` | `StackWalker` (Java 9+) |
+| :--- | :--- | :--- |
+| **Evaluation** | Eager (Entire stack walked) | Lazy (Walks only requested frames) |
+| **Memory Allocation**| Allocates full `StackTraceElement[]` | Zero array allocation (Streams frames) |
+| **Stream API** | Array-based | Native `Stream<StackFrame>` |
+| **Caller Class Access**| $O(N)$ full walk | $O(1)$ fast jump via `getCallerClass()` |
+| **Performance** | Slow (Heavy GC churn) | Extremely fast (Optimized JVM native) |
+
+---
+
+## 10. Interview Questions
+
+<details>
+<summary><strong>1. What major problem with Throwable.getStackTrace() does the StackWalker API solve?</strong></summary>
+
+`Throwable.getStackTrace()` eagerly walks the entire call stack and allocates an array of `StackTraceElement` objects for every single frame on the heap, which is computationally expensive and creates heavy GC pressure. `StackWalker` walks the stack lazily, evaluates frames on demand using the Stream API, and avoids allocating arrays for unexamined frames.
+</details>
+
+<details>
+<summary><strong>2. What are Helpful NullPointerExceptions introduced in Java 14 (JEP 358)?</strong></summary>
+
+Helpful NPEs enhance the JVM bytecode interpreter so that when a `NullPointerException` is thrown, the exception message precisely identifies which variable, expression, or method return value evaluated to `null`. For example: `Cannot invoke "Address.getCity()" because "user.getAddress()" is null`.
+</details>
+
+<details>
+<summary><strong>3. What options can be passed to StackWalker.getInstance()?</strong></summary>
+
+1. `RETAIN_CLASS_REFERENCE`: Retains `Class<?>` instances for frames, enabling `getCallerClass()`.
+2. `SHOW_REFLECT_FRAMES`: Includes reflection invocation frames (`java.lang.reflect.Method`).
+3. `SHOW_HIDDEN_FRAMES`: Includes JVM-internal synthetic implementation frames.
+</details>
+
+<details>
+<summary><strong>4. How does StackWalker.getCallerClass() achieve O(1) performance?</strong></summary>
+
+Because it only needs the immediate calling frame, the JVM does not walk or allocate the rest of the call stack; it inspects the single previous execution frame directly in native memory and returns its `Class<?>` reference.
+</details>
+
+<details>
+<summary><strong>5. What is the difference between printStackTrace() and logging frameworks?</strong></summary>
+
+`e.printStackTrace()` prints directly to `System.err`, bypassing thread safety, log rotation, formatting, timestamps, log levels, and remote aggregation. Enterprise applications must always route exceptions through structured logging frameworks (SLF4J, Logback, Log4j2).
+</details>
+
+<details>
+<summary><strong>6. Can stack trace information be omitted by the HotSpot JIT compiler?</strong></summary>
+
+Yes. Under the HotSpot JIT optimization known as **Fast Throw** (`-XX:+OmitStackTraceInFastThrow`), if an exception (like `NullPointerException`) is thrown repeatedly thousands of times at the exact same location, the JIT optimizes the code by reusing a pre-allocated exception instance without stack traces, causing `e.getStackTrace()` to return an empty array.
+</details>
+
+<details>
+<summary><strong>7. What information is contained in a StackTraceElement?</strong></summary>
+
+- Class name (`getClassName()`)
+- Method name (`getMethodName()`)
+- Source file name (`getFileName()`)
+- Source line number (`getLineNumber()`)
+- Module name and version (since Java 9)
+</details>
+
+<details>
+<summary><strong>8. Why should stack traces never be displayed directly to web clients?</strong></summary>
+
+Exposing raw stack traces violates secure coding standards (CWE-209: Information Exposure Through an Error Message). It exposes backend software versions, database types, internal server hostnames, and directory paths, providing attackers with intelligence to craft targeted exploits.
+</details>
+
+---
+
+## 11. Practice Exercises
+
+### Easy
+1. **Print Stack Depth:** Write a recursive method that prints the current call stack depth using `StackWalker`.
+2. **Helpful NPE Demonstration:** Write a chained expression that triggers a helpful NPE and print the message.
+3. **Capture Caller Method:** Write a utility method that logs the method name of its caller.
+
+### Medium
+4. **Application Frame Filter:** Use `StackWalker` to filter and print only stack frames belonging to your application's package.
+5. **Caller Verification Security Guard:** Build an access controller that permits method execution only if called from classes in a specific package.
+6. **Stack Walker vs Exception Benchmark:** Benchmark the speed of retrieving the caller class via `StackWalker` vs `new Throwable().getStackTrace()`.
+
+### Hard
+7. **Virtual Thread Stack Trace Inspector:** Launch 10,000 virtual threads and inspect their stack traces using `Thread.dumpStack()` and `StackWalker`.
+8. **JIT Fast Throw Demonstration:** Trigger a loop throwing 100,000 NPEs and verify when the JIT begins emitting stackless exceptions.
+9. **Custom Thread Dump Generator:** Build a lightweight thread dump tool using `Thread.getAllStackTraces()` and `StackWalker`.
+
+<details>
+<summary><strong>Exercise Solutions</strong></summary>
+
+```java
+// Solution to Exercise 1: Print Stack Depth
+public class StackDepthDemo {
+    public static long getStackDepth() {
+        return StackWalker.getInstance().walk(frames -> frames.count());
+    }
+
+    public static void main(String[] args) {
+        System.out.println("Current stack depth: " + getStackDepth());
+    }
+}
+```
+</details>
+
+---
+
+## 12. Summary & Cheat Sheet
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                   STACK TRACES & DEBUGGING CHEAT SHEET                 │
+├────────────────────────────────────────────────────────────────────────┤
+│ StackWalker (Java 9):Lazy, stream-based, zero-allocation stack walking │
+│ Caller Lookup:      StackWalker.getInstance(RETAIN_CLASS_REFERENCE)    │
+│                     .getCallerClass() (O(1) fast lookup)               │
+│ Helpful NPEs:       Java 14+ JEP 358 precisely names null variable     │
+│ JIT Fast Throw:     HotSpot omits stack traces on repeated hot throws  │
+│ Security Warning:   NEVER expose stack traces to web clients (CWE-209) │
+│ Logging Rule:       Always use structured loggers, never printStackTrace│
+│ Frame Filtering:    Filter framework noise using walker.walk(stream)   │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 13. Further Reading
+- [JEP 259: Stack-Walking API (Java 9)](https://openjdk.org/jeps/259)
+- [JEP 358: Helpful NullPointerExceptions (Java 14)](https://openjdk.org/jeps/358)
+- Official Java 25 `java.lang.StackWalker` Documentation

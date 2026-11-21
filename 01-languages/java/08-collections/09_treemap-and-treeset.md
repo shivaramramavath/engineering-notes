@@ -1,233 +1,412 @@
-# TreeMap and TreeSet
+# TreeMap and TreeSet Deep Dive
 
-`TreeMap<K, V>` and `TreeSet<E>` keep their entries **sorted** at all times. They are implemented with a **red-black tree**, a self-balancing binary search tree, giving **O(log n)** operations and a rich set of **navigation methods** (nearest key, ranges, first/last). Choose them when you need order or range queries; choose hash collections when you only need fast lookup.
+> Red-Black tree invariants, NavigableMap/NavigableSet range queries, predecessor/successor lookups, and logarithmic search mechanics.
 
+| Metadata | Value |
+|---|---|
+| **Level** | Advanced |
+| **Prerequisites** | [02_set.md](02_set.md), [03_map.md](03_map.md), [05_comparable-and-comparator.md](05_comparable-and-comparator.md) |
+| **Time to Read** | 25 minutes |
+| **Status** | Active |
+| **Java Version** | Java 1.2+ (NavigableMap Java 6+, SequencedMap Java 21 LTS) |
+
+---
+
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & Usage](#4-syntax--usage)
+5. [Practical Examples](#5-practical-examples)
+6. [Best Practices](#6-best-practices)
+7. [Common Mistakes & Pitfalls](#7-common-mistakes--pitfalls)
+8. [Performance & Security Notes](#8-performance--security-notes)
+9. [Comparison / When to Use What](#9-comparison--when-to-use-what)
+10. [Interview Questions](#10-interview-questions)
+11. [Practice Exercises](#11-practice-exercises)
+12. [Summary / Cheat Sheet](#12-summary--cheat-sheet)
+13. [Further Reading](#13-further-reading)
+
+---
+
+## 1. What & Why
+
+While `HashMap` and `HashSet` offer ultra-fast $O(1)$ lookups, they are inherently unordered. In many systems, operations must deal with ordered relationships:
+- Finding the nearest lower or higher price tier
+- Executing range scans between two timestamps ($T_1 \le t \le T_2$)
+- Traversing records in strictly sorted order
+- Maintaining real-time leaderboards and priority queues
+
+`java.util.TreeMap` is a balanced binary search tree implementation of `SortedMap`, `NavigableMap`, and `SequencedMap` based on a **Red-Black Tree**. `TreeSet` is a direct set wrapper around `TreeMap`.
+
+`TreeMap` guarantees $O(\log N)$ time complexity for `containsKey`, `get`, `put`, and `remove`, while providing rich range navigation APIs.
+
+---
+
+## 2. Core Concepts
+
+### Red-Black Tree Invariants
+A Red-Black Tree is a self-balancing binary search tree where each node has a color attribute (`RED` or `BLACK`). It strictly maintains 5 fundamental invariants:
+1. Every node is either **RED** or **BLACK**.
+2. The root node is always **BLACK**.
+3. Every leaf (`null` sentinel) is **BLACK**.
+4. If a node is **RED**, both of its children must be **BLACK** (no two consecutive red nodes on any path).
+5. For each node, all simple paths from the node to descendant leaves contain the **exact same number of black nodes** (the Black-Height invariant).
+
+These rules guarantee that the longest possible path from root to leaf is at most twice as long as the shortest path, bounding tree height to $2 \log_2 (N + 1)$.
+
+```
+Sample Red-Black Tree:
+            [20: Black]  (Root)
+           /           \
+     [10: Red]       [30: Black]
+     /       \             \
+[5: Black] [15: Black]   [40: Red]
+```
+
+### The `NavigableMap` Interface
+`TreeMap` implements `NavigableMap`, which provides directional query methods:
+- `lowerKey(K key)`: Strictly greatest key $< \text{key}$
+- `floorKey(K key)`: Greatest key $\le \text{key}$
+- `ceilingKey(K key)`: Smallest key $\ge \text{key}$
+- `higherKey(K key)`: Strictly smallest key $> \text{key}$
+- `firstEntry()`, `lastEntry()`, `pollFirstEntry()`, `pollLastEntry()`
+- `subMap(from, fromInclusive, to, toInclusive)`: Range view
+
+---
+
+## 3. How It Works Internally
+
+### Node Structure in `TreeMap`
 ```java
-TreeSet<Integer> set = new TreeSet<>(List.of(30, 10, 20));
-System.out.println(set);                // [10, 20, 30]: always sorted
-set.first();                            // 10
-set.ceiling(15);                        // 20: smallest element >= 15
-
-TreeMap<String, Integer> map = new TreeMap<>();
-map.put("banana", 2); map.put("apple", 1); map.put("cherry", 3);
-System.out.println(map);                // {apple=1, banana=2, cherry=3}: sorted by key
+static final class Entry<K,V> implements Map.Entry<K,V> {
+    K key;
+    V value;
+    Entry<K,V> left;
+    Entry<K,V> right;
+    Entry<K,V> parent;
+    boolean color = BLACK;
+}
 ```
+Every node maintains pointers to its `left` child, `right` child, and `parent`, allowing bidirectional in-order tree traversal.
 
-## How it works
-
-A **binary search tree** keeps smaller keys on the left and larger on the right, so lookup follows one path from the root:
+### Tree Balancing: Rotations and Recolorings
+When an element is inserted, it is initially placed as a **RED** leaf. If its parent is also RED, invariant 4 is violated ("Double Red").
+The algorithm balances the tree via two mechanisms:
+1. **Recoloring**: Flipping parent and uncle colors when both are red.
+2. **Rotations**: Left and Right tree rotations to balance path depths.
 
 ```
-                 20
-               /    \
-            10        30
-           /  \         \
-          5    15        40
-
- find 15: 20 → go left → 10 → go right → 15 ✔   (log n steps when the tree is balanced)
+Left Rotation on node X:
+      X                         Y
+     / \                       / \
+    A   Y       --->          X   C
+       / \                   / \
+      B   C                 A   B
 ```
+Balancing during insertion takes at most **2 rotations** and $O(\log N)$ recolorings.
 
-Plain BSTs degrade into linked lists on sorted input. A **red-black tree** colours each node red or black and enforces rules that keep the tree approximately balanced:
+---
 
-| Rule | Effect |
-|------|--------|
-| The root is black; red nodes have only black children | No two reds in a row |
-| Every path from a node to its leaves has the same number of black nodes | Longest path ≤ 2× the shortest |
-| After insert/delete, **rotations** and **recolouring** restore the rules | Height stays ≤ 2·log₂(n + 1) |
+## 4. Syntax & Usage
 
-You never write this code, but the consequences matter: **guaranteed O(log n)** for `put`, `get`, `remove`, `containsKey`, and in-order iteration in sorted order.
-
-`TreeSet` is backed by a `TreeMap` (elements are keys), exactly as `HashSet` is backed by `HashMap` ([08](./08_hashmap-and-hashset.md)).
-
-## Ordering: natural or comparator
-
+### 1. Navigable Range Lookups
 ```java
-TreeSet<String> natural = new TreeSet<>();                                   // String is Comparable
-TreeSet<String> byLength = new TreeSet<>(Comparator.comparing(String::length)
-                                                    .thenComparing(Comparator.naturalOrder()));
-TreeMap<String, Integer> caseInsensitive = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
-TreeMap<Integer, String> descending = new TreeMap<>(Comparator.reverseOrder());
-```
+import java.util.NavigableMap;
+import java.util.TreeMap;
 
-- With no comparator, keys must implement `Comparable`, else `ClassCastException` on the first `put`
-- Details of writing comparators: [05_comparable-and-comparator.md](./05_comparable-and-comparator.md)
+public class NavigableRangeDemo {
+    public static void main(String[] args) {
+        NavigableMap<Integer, String> statusCodes = new TreeMap<>();
+        statusCodes.put(200, "OK");
+        statusCodes.put(301, "Moved Permanently");
+        statusCodes.put(400, "Bad Request");
+        statusCodes.put(404, "Not Found");
+        statusCodes.put(500, "Internal Server Error");
 
-### Equality is decided by the comparator, not `equals`
+        System.out.println("Floor of 403: " + statusCodes.floorEntry(403)); // 400=Bad Request
+        System.out.println("Ceiling of 403: " + statusCodes.ceilingEntry(403)); // 404=Not Found
 
-```java
-Set<String> ci = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
-ci.add("Java");
-ci.add("JAVA");                // compare == 0 → treated as a duplicate and NOT added
-ci.size();                     // 1
-ci.contains("java");           // true
-```
-
-**Make the comparator compare every field that identifies an element**, or distinct elements will be silently dropped. Keep it consistent with `equals`, or accept the difference knowingly.
-
-```java
-Set<Person> bad = new TreeSet<>(Comparator.comparingInt(Person::age));      // two different people with the same age → one is lost
-Set<Person> ok  = new TreeSet<>(Comparator.comparingInt(Person::age).thenComparing(Person::name));
-```
-
-### `null`
-
-With natural ordering, `null` keys throw `NullPointerException`. A custom comparator may accept them (`Comparator.nullsFirst(...)`), but avoid it.
-
-## Navigation methods
-
-`TreeMap` implements `NavigableMap`, `TreeSet` implements `NavigableSet`. The "nearest" family answers questions that hash collections cannot.
-
-| Question | `TreeSet` | `TreeMap` (keys / entries) |
-|----------|-----------|-----------------------------|
-| Smallest / largest | `first()`, `last()` | `firstKey()`, `lastKey()`, `firstEntry()`, `lastEntry()` |
-| Greatest element **≤** x | `floor(x)` | `floorKey(x)`, `floorEntry(x)` |
-| Smallest element **≥** x | `ceiling(x)` | `ceilingKey(x)`, `ceilingEntry(x)` |
-| Greatest element **<** x | `lower(x)` | `lowerKey(x)`, `lowerEntry(x)` |
-| Smallest element **>** x | `higher(x)` | `higherKey(x)`, `higherEntry(x)` |
-| Remove and return the smallest / largest | `pollFirst()`, `pollLast()` | `pollFirstEntry()`, `pollLastEntry()` |
-| Reverse order | `descendingSet()`, `descendingIterator()` | `descendingMap()`, `descendingKeySet()` |
-
-```java
-TreeSet<Integer> s = new TreeSet<>(List.of(10, 20, 30, 40));
-s.floor(25);        // 20
-s.ceiling(25);      // 30
-s.lower(20);        // 10
-s.higher(40);       // null: no greater element
-s.floor(5);         // null: no element <= 5
-```
-
-All return `null` when no such element exists (check before unboxing).
-
-### Range views
-
-```java
-TreeSet<Integer> s = new TreeSet<>(List.of(10, 20, 30, 40, 50));
-s.headSet(30);                        // [10, 20]         elements < 30
-s.headSet(30, true);                  // [10, 20, 30]     inclusive
-s.tailSet(30);                        // [30, 40, 50]     elements >= 30
-s.tailSet(30, false);                 // [40, 50]
-s.subSet(20, 40);                     // [20, 30]         from inclusive, to EXCLUSIVE
-s.subSet(20, true, 40, true);         // [20, 30, 40]
-
-TreeMap<Integer, String> m = ...;
-m.headMap(30);  m.tailMap(30);  m.subMap(20, 40);              // same idea for maps
-m.subMap(20, true, 40, true);
-```
-
-These are **live views** of the original: changes to the view write through, and vice versa. Adding a key **outside** the view's range throws `IllegalArgumentException`.
-
-```java
-s.subSet(20, 40).clear();             // removes 20 and 30 from the original set
-```
-
-**Cost caveat:** `size()` of a range view is **O(n)** (it counts), though creating the view is O(log n). Do not call `headSet(x).size()` in a loop to compute rank.
-
-## Worked examples
-
-### Grade lookup by thresholds (`floorEntry`)
-
-```java
-TreeMap<Integer, String> grades = new TreeMap<>(Map.of(0, "F", 60, "D", 70, "C", 80, "B", 90, "A"));
-grades.floorEntry(85).getValue();      // "B": highest threshold <= 85
-grades.floorEntry(59).getValue();      // "F"
-```
-
-Tax brackets, price tiers, version ranges and rate tables all fit this pattern.
-
-### Time-based lookup
-
-```java
-TreeMap<Instant, Price> history = new TreeMap<>();
-Price at(Instant t) { Map.Entry<Instant, Price> e = history.floorEntry(t); return e == null ? null : e.getValue(); }
-```
-
-### Leaderboard / top N
-
-```java
-TreeMap<Integer, String> scores = new TreeMap<>(Comparator.reverseOrder());
-scores.put(90, "Ada");  scores.put(75, "Linus");
-scores.firstEntry();                                           // best score
-scores.headMap(80, true);                                      // everyone with >= 80 (descending order)
-```
-
-(For duplicate scores use `TreeMap<Integer, List<String>>` or a composite key.)
-
-### Next free slot / overlap check
-
-```java
-TreeMap<Integer, Integer> bookings = new TreeMap<>();          // start → end
-boolean overlaps(int s, int e) {
-    Map.Entry<Integer, Integer> prev = bookings.floorEntry(s);
-    if (prev != null && prev.getValue() > s) return true;      // previous booking runs into s
-    Integer next = bookings.ceilingKey(s);
-    return next != null && next < e;                           // next booking starts before e
+        // Range slice from 300 to 499 (Client/Redirect errors)
+        NavigableMap<Integer, String> slice = statusCodes.subMap(300, true, 500, false);
+        System.out.println("Client/Redirect errors: " + slice);
+    }
 }
 ```
 
-## Complexity
-
-| Operation | `TreeMap`/`TreeSet` | `HashMap`/`HashSet` |
-|-----------|---------------------|---------------------|
-| `put`, `get`, `remove`, `contains` | **O(log n)** guaranteed | O(1) average |
-| `first`/`last`, `floor`/`ceiling`, `pollFirst` | **O(log n)** | not available |
-| Range views | O(log n) to create | not available |
-| Iteration (in order) | O(n), **sorted** | O(capacity + size), unordered |
-| Memory per entry | ~40 bytes (node with key, value, left, right, parent, colour) | ~32-48 bytes |
-
-For small collections the difference is negligible. `TreeMap` is slower than `HashMap` for pure lookups, so use it for **what only it can do**.
-
-## When to choose
-
-| Need | Collection |
-|------|------------|
-| Fast lookup only | `HashMap` / `HashSet` |
-| Insertion order | `LinkedHashMap` / `LinkedHashSet` |
-| Keys iterated in sorted order | **`TreeMap`** / **`TreeSet`** |
-| "Closest key", range queries, floor/ceiling | **`TreeMap`** / **`TreeSet`** |
-| Smallest/largest repeatedly, no lookups | `PriorityQueue` ([10](./10_priorityqueue.md)) |
-| Sorted **concurrent** map or set | `ConcurrentSkipListMap` / `ConcurrentSkipListSet` ([14-concurrency](../14-concurrency/08_concurrent-collections.md)) |
-| Keys are enums | `EnumMap` / `EnumSet` ([11](./11_specialized-collections.md)) |
-| Sorted by **value**, not key | Not a `TreeMap` job: sort the entries into a list, or maintain a second structure |
-
-## Sorted by value? Not possible directly
-
-A `TreeMap` orders by **key**. A comparator that looks up the **value** through the map is wrong (values change, comparator calls `get` recursively, and keys with equal values collide). Instead:
-
+### 2. Custom Comparator Construction
 ```java
-List<Map.Entry<String, Integer>> byValue = new ArrayList<>(map.entrySet());
-byValue.sort(Map.Entry.comparingByValue());
+import java.util.Comparator;
+import java.util.TreeMap;
+
+public class CustomComparatorMap {
+    public static void main(String[] args) {
+        // Sort strings by length descending, then lexicographically
+        Comparator<String> comp = Comparator
+            .comparingInt(String::length).reversed()
+            .thenComparing(Comparator.naturalOrder());
+
+        TreeMap<String, Integer> map = new TreeMap<>(comp);
+        map.put("banana", 1);
+        map.put("apple", 2);
+        map.put("fig", 3);
+        map.put("watermelon", 4);
+
+        System.out.println("Ordered keys: " + map.keySet());
+        // [watermelon, banana, apple, fig]
+    }
+}
 ```
 
-## Thread-safety
+---
 
-Not thread-safe. Use `ConcurrentSkipListMap`/`Set`, or wrap with a lock ([14-concurrency](../14-concurrency/README.md)).
+## 5. Practical Examples
 
-## Java 21: sequenced methods
+### Example 1: Server Load Balancer Consistent Hashing Ring (Basic to Intermediate)
+```java
+import java.util.NavigableMap;
+import java.util.TreeMap;
 
-`TreeMap`/`TreeSet` implement `SequencedMap`/`SequencedSet`: `reversed()`, `firstEntry()`, `getFirst()`, `getLast()` are available alongside the older `first()`/`last()` ([hierarchy](./00_collection-hierarchy.md#sequenced-collections-java-21)). Methods that would reorder (`addFirst`, `putFirst`) throw `UnsupportedOperationException` on sorted collections.
+public class SimpleHashRing {
+    private final NavigableMap<Integer, String> ring = new TreeMap<>();
 
-## Common mistakes
+    public void addServer(String server, int token) {
+        ring.put(token, server);
+    }
 
-| Mistake | Symptom | Fix |
-|---------|---------|-----|
-| Key type not `Comparable` and no comparator | `ClassCastException` at the first `put` | Implement `Comparable` or pass a `Comparator` |
-| Comparator ignores some identifying fields | Elements silently missing ("duplicates") | Compare all identifying fields (add tie-breakers) |
-| Comparator inconsistent with `equals` and expecting `Set` semantics | `contains` surprises | Know that the comparator defines equality |
-| `null` in a natural-ordering tree | `NullPointerException` | Avoid `null`, or use `nullsFirst/nullsLast` |
-| Mutating a key's sort fields after insertion | Broken tree: lookups fail | Immutable keys; remove, change, re-add |
-| Assuming `floor`/`ceiling` never return `null` | `NullPointerException` on unboxing | Check for `null` |
-| `subSet(...).size()` in loops | O(n) each | Count by iteration once, or use a different structure |
-| Adding an out-of-range key through a range view | `IllegalArgumentException` | Add to the original collection |
-| Using `TreeMap` when only lookups are needed | Slower than `HashMap` | `HashMap` |
-| Trying to sort a `TreeMap` by value | Wrong results | Sort entries into a list |
-| Expecting `TreeMap` to be thread-safe | Corrupted tree | `ConcurrentSkipListMap` |
+    public String routeRequest(int requestHash) {
+        if (ring.isEmpty()) return null;
+        // Find first server with token >= requestHash
+        var entry = ring.ceilingEntry(requestHash);
+        // If past the end of the ring, wrap around to first server
+        if (entry == null) {
+            entry = ring.firstEntry();
+        }
+        return entry.getValue();
+    }
 
-## Key takeaways
+    public static void main(String[] args) {
+        SimpleHashRing hashRing = new SimpleHashRing();
+        hashRing.addServer("Server-A", 100);
+        hashRing.addServer("Server-B", 300);
+        hashRing.addServer("Server-C", 600);
 
-- `TreeMap`/`TreeSet` are red-black trees: sorted, O(log n), guaranteed
-- Ordering comes from `Comparable` or a `Comparator`, and **that ordering also defines equality**
-- Navigation (`floor`, `ceiling`, `lower`, `higher`, `first`, `last`) and range views (`headSet`, `tailMap`, `subMap`) are their superpower
-- Use them for sorted iteration and nearest-key queries; use `HashMap` for plain lookup and `PriorityQueue` for repeated min/max
-- Keys must be immutable with respect to the ordering; no `null` with natural ordering
+        System.out.println("Route hash 250 -> " + hashRing.routeRequest(250)); // Server-B
+        System.out.println("Route hash 700 -> " + hashRing.routeRequest(700)); // Server-A (wrapped)
+    }
+}
+```
 
-**Next:** [PriorityQueue](./10_priorityqueue.md)
+### Example 2: Financial Order Book Depth Matching (Real-World)
+```java
+import java.util.Collections;
+import java.util.NavigableMap;
+import java.util.TreeMap;
+
+public class OrderBook {
+    // Bids sorted descending (highest buyer first)
+    private final NavigableMap<Double, Integer> bids = new TreeMap<>(Collections.reverseOrder());
+    // Asks sorted ascending (lowest seller first)
+    private final NavigableMap<Double, Integer> asks = new TreeMap<>();
+
+    public void addBid(double price, int quantity) {
+        bids.merge(price, quantity, Integer::sum);
+    }
+
+    public void addAsk(double price, int quantity) {
+        asks.merge(price, quantity, Integer::sum);
+    }
+
+    public double getSpread() {
+        if (bids.isEmpty() || asks.isEmpty()) return Double.NaN;
+        return asks.firstKey() - bids.firstKey();
+    }
+
+    public static void main(String[] args) {
+        OrderBook book = new OrderBook();
+        book.addBid(100.50, 10);
+        book.addBid(100.75, 5);
+        book.addAsk(101.00, 20);
+
+        System.out.println("Best Bid: " + book.bids.firstKey()); // 100.75
+        System.out.println("Best Ask: " + book.asks.firstKey()); // 101.00
+        System.out.println("Spread: $" + book.getSpread());      // $0.25
+    }
+}
+```
+
+### Example 3: Edge Case - `null` Keys Cause Immediate NPE
+```java
+import java.util.TreeMap;
+
+public class TreeMapNullKeyEdgeCase {
+    public static void main(String[] args) {
+        TreeMap<String, String> map = new TreeMap<>();
+        try {
+            map.put(null, "value");
+        } catch (NullPointerException e) {
+            System.out.println("TreeMap forbids null keys because compareTo() cannot evaluate null!");
+        }
+    }
+}
+```
+
+### Example 4: Failure Case - Inconsistent Comparator Drops Valid Keys
+```java
+import java.util.TreeMap;
+
+public class DroppedKeyFailure {
+    record Student(String name, int score) {}
+
+    public static void main(String[] args) {
+        // Flawed comparator comparing ONLY score!
+        TreeMap<Student, String> map = new TreeMap<>((s1, s2) -> Integer.compare(s1.score(), s2.score()));
+        map.put(new Student("Alice", 90), "Grade A");
+        map.put(new Student("Bob", 90), "Grade A"); // DROPPED! compare() returns 0!
+
+        System.out.println("Size: " + map.size()); // 1! Bob overwritten or dropped!
+    }
+}
+```
+
+---
+
+## 6. Best Practices
+
+1. **Ensure Comparison Considers Full Identity**: If comparing records in a `TreeMap`, always add a secondary tie-breaker (such as an ID or name) so distinct items with the same primary value are not discarded.
+2. **Use `NavigableMap` Interface as the Variable Type**: Declare variables as `NavigableMap<K, V>` rather than `Map<K, V>` to expose `floor`, `ceiling`, and `subMap` APIs.
+3. **Prefer `subMap` Views Over Manual Iteration**: Range views execute in $O(\log N)$ to find endpoints and scan only the relevant range.
+4. **Never Pass `null` Keys**: `TreeMap` requires key comparison; `null` keys throw `NullPointerException`.
+
+---
+
+## 7. Common Mistakes & Pitfalls
+
+| Mistake | Why Wrong | Fix |
+|---|---|---|
+| Comparator returning 0 for distinct objects | `TreeMap` treats them as the same key, dropping or overwriting data. | Include unique identity fields in comparison. |
+| Passing `null` key to `TreeMap` | Throws `NullPointerException` on `compare()`. | Use `HashMap` if null keys are needed. |
+| Using non-`Comparable` key without `Comparator` | Throws `ClassCastException` on first insertion. | Implement `Comparable` or supply a `Comparator`. |
+| Mutating key fields after insertion | Corrupts binary search tree invariants; searches land in wrong subtrees. | Use strictly immutable keys. |
+| Choosing `TreeMap` when sorting is not required | Incurs $O(\log N)$ lookup overhead instead of $O(1)$ from `HashMap`. | Default to `HashMap`. |
+| SubMap index out-of-bounds mutation | Inserting a key outside the `subMap` bounds throws `IllegalArgumentException`. | Insert within declared range boundaries. |
+
+---
+
+## 8. Performance & Security Notes
+
+### Performance
+- **Guaranteed Logarithmic Bounds**: Unlike `HashMap` which relies on uniform hashing, `TreeMap` guarantees $O(\log N)$ operations regardless of key distribution.
+- **Node Allocation Overhead**: Each entry allocates an internal `Entry<K, V>` object with 5 object references (left, right, parent, key, value) + 1 boolean, consuming 32 bytes of heap per entry.
+
+### Security
+- **Predictable Performance Invariants**: `TreeMap` is immune to HashDoS attacks because its balancing depends entirely on binary comparisons rather than hash algorithms.
+
+---
+
+## 9. Comparison / When to Use What
+
+| Feature | `TreeMap` | `HashMap` | `LinkedHashMap` |
+|---|---|---|---|
+| **Lookup Time** | $O(\log N)$ | $O(1)$ amortized | $O(1)$ amortized |
+| **Ordering** | Sorted (Red-Black Tree) | Unordered | Insertion / Access order |
+| **Range Queries** | Supported (`subMap`) | Unsupported | Unsupported |
+| **Null Keys** | Prohibited (NPE) | Allowed (1 null key) | Allowed (1 null key) |
+| **Contract Basis** | `Comparable` / `Comparator` | `equals()` + `hashCode()` | `equals()` + `hashCode()` |
+
+---
+
+## 10. Interview Questions
+
+<details>
+<summary>1. What are the 5 invariants of a Red-Black Tree?</summary>
+1. Every node is red or black. 2. The root is black. 3. Every leaf (NIL) is black. 4. If a node is red, both children are black (no consecutive red nodes). 5. Every simple path from a node to descendant leaves contains the same number of black nodes.
+</details>
+
+<details>
+<summary>2. Why does `TreeMap` not require `equals()` or `hashCode()` for key lookups?</summary>
+`TreeMap` locates entries entirely by traversing its binary search tree using `Comparable.compareTo()` or `Comparator.compare()`. If `compare(a, b) == 0`, the keys are deemed identical.
+</details>
+
+<details>
+<summary>3. What is the difference between `floorKey()` and `lowerKey()`?</summary>
+`floorKey(k)` returns the greatest key $\le k$. `lowerKey(k)` returns the strictly greatest key $< k$.
+</details>
+
+<details>
+<summary>4. What is the time complexity of building a `TreeMap` from an unsorted list of $N$ elements?</summary>
+$O(N \log N)$ because each of the $N$ insertions requires $O(\log N)$ tree traversal and rotation steps.
+</details>
+
+<details>
+<summary>5. How does `TreeMap.subMap()` work internally?</summary>
+It returns an internal `AscendingSubMap` view bounding the search range. It does not copy entries; operations on the submap interact directly with the backing tree within the bounded interval.
+</details>
+
+<details>
+<summary>6. Can you insert a `null` key into a `TreeMap`?</summary>
+No. In modern Java, attempting to insert a `null` key throws `NullPointerException`.
+</details>
+
+<details>
+<summary>7. How does Java 21 Sequenced Collections affect `TreeMap`?</summary>
+`TreeMap` implements `SequencedMap`. It provides `firstEntry()`, `lastEntry()`, `pollFirstEntry()`, `pollLastEntry()`, `putFirst()`, `putLast()`, and `reversed()`.
+</details>
+
+<details>
+<summary>8. How many rotations are required in the worst-case during a `TreeMap` insertion?</summary>
+At most 2 rotations are required to restore Red-Black invariants after an insertion.
+</details>
+
+---
+
+## 11. Practice Exercises
+
+### Easy
+1. Create a `TreeMap<Integer, String>`, insert 5 pairs, and print them in reverse order using `descendingMap()`.
+2. Find the closest lower and higher temperature thresholds in a `TreeSet<Double>`.
+3. Demonstrate that inserting a `null` key into a `TreeMap` throws `NullPointerException`.
+
+### Medium
+4. Implement a time-series cache using `TreeMap<Instant, MetricData>` that retrieves all metrics recorded between two timestamps.
+5. Build a leaderboard system that maintains the top 10 players by score using `TreeMap`.
+6. Write a function that finds all words with a specific prefix in a `TreeSet<String>` using `subSet`.
+
+### Hard
+7. Implement an in-memory B-Tree from scratch and compare search performance against `TreeMap`.
+8. Implement an interval tree using `TreeMap` that finds all overlapping time intervals in $O(\log N + K)$ time.
+9. Construct a concurrent lock-free skip list and verify logarithmic bounds against `TreeMap`.
+
+<details>
+<summary>Solutions</summary>
+
+```java
+// Easy 2: Threshold lookup
+TreeSet<Double> temps = new TreeSet<>(List.of(18.5, 20.0, 22.5, 25.0));
+System.out.println("Lower: " + temps.lower(21.0));   // 20.0
+System.out.println("Higher: " + temps.higher(21.0)); // 22.5
+
+// Medium 6: Prefix matching with subSet
+public static Set<String> wordsWithPrefix(TreeSet<String> dict, String prefix) {
+    return dict.subSet(prefix, prefix + Character.MAX_VALUE);
+}
+```
+</details>
+
+---
+
+## 12. Summary / Cheat Sheet
+
+- **Data Structure**: Balanced Red-Black Tree.
+- **Complexity**: $O(\log N)$ for `get`, `put`, `remove`, `containsKey`.
+- **Navigation**: `floorKey`, `ceilingKey`, `lowerKey`, `higherKey`.
+- **Range Views**: `subMap(from, fromIncl, to, toIncl)`.
+- **Key Equality**: Relies exclusively on `compareTo()` / `compare()`, ignores `equals()`.
+- **Null Keys**: Strictly forbidden (`NullPointerException`).
+
+---
+
+## 13. Further Reading
+- Cormen, Leiserson, Rivest, Stein. *Introduction to Algorithms (CLRS)*: Chapter 13 (Red-Black Trees).
+- OpenJDK: `java.util.TreeMap` implementation comments.
+- Oracle Java Documentation: *The NavigableMap Interface*.

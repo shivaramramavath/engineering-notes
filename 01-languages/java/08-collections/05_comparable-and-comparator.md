@@ -1,254 +1,483 @@
 # Comparable and Comparator
 
-Sorting needs a rule for "which comes first?". Java gives you two ways to define it:
+> Ordering contracts in Java: natural vs explicit ordering, comparator composition, reverse and null-safe comparators, and sorting invariants.
 
-| | `Comparable<T>` | `Comparator<T>` |
-|---|-----------------|-----------------|
-| Where the rule lives | **Inside** the class (its *natural ordering*) | **Outside**, as a separate object |
-| Method | `int compareTo(T other)` | `int compare(T a, T b)` |
-| How many orderings | One per class | As many as you like |
-| Use when | There is one obvious order (numbers, strings, dates, versions) | Different orders in different places, or you cannot edit the class |
+| Metadata | Value |
+|---|---|
+| **Level** | Intermediate |
+| **Prerequisites** | [00_collection-hierarchy.md](00_collection-hierarchy.md), [07-generics/01_bounded-types.md](../07-generics/01_bounded-types.md) |
+| **Time to Read** | 24 minutes |
+| **Status** | Active |
+| **Java Version** | Java 1.2+ (Functional combinators Java 8+) |
 
-Both return a **negative** number (first is smaller), **zero** (equal in order), or a **positive** number (first is larger).
+---
 
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & Usage](#4-syntax--usage)
+5. [Practical Examples](#5-practical-examples)
+6. [Best Practices](#6-best-practices)
+7. [Common Mistakes & Pitfalls](#7-common-mistakes--pitfalls)
+8. [Performance & Security Notes](#8-performance--security-notes)
+9. [Comparison / When to Use What](#9-comparison--when-to-use-what)
+10. [Interview Questions](#10-interview-questions)
+11. [Practice Exercises](#11-practice-exercises)
+12. [Summary / Cheat Sheet](#12-summary--cheat-sheet)
+13. [Further Reading](#13-further-reading)
+
+---
+
+## 1. What & Why
+
+Sorting, searching, and maintaining sorted data structures (`TreeSet`, `TreeMap`, `PriorityQueue`) require comparing two objects to determine their relative order. Java separates comparison into two distinct philosophies:
+1. **Natural Ordering (`Comparable<T>`)**: Defined **internally** by the class itself. Represents the single canonical way instances of that class should be ordered (e.g., numbers ordered by value, strings ordered lexicographically).
+2. **Explicit / Custom Ordering (`Comparator<T>`)**: Defined **externally** by a separate strategy object. Allows ordering instances by multiple different criteria (e.g., sorting users by age, by sign-up date, or by last name), without modifying the original class.
+
+Java 8 transformed `Comparator` from a verbose anonymous inner class into a fluent functional interface with powerful combinators (`comparing`, `thenComparing`, `reversed`, `nullsFirst`).
+
+---
+
+## 2. Core Concepts
+
+### `Comparable<T>` Contract
+Declared as:
 ```java
-List<String> names = new ArrayList<>(List.of("Linus", "Ada", "Grace"));
-Collections.sort(names);                                    // natural order (String is Comparable)
-names.sort(Comparator.comparing(String::length));           // custom order via a Comparator
+public interface Comparable<T> {
+    int compareTo(T o);
+}
+```
+**Return value rules**:
+- Negative integer (conventionally `-1`): `this < o`
+- Zero (`0`): `this` equals `o` in ordering
+- Positive integer (conventionally `1`): `this > o`
+
+**Mathematical Invariants**:
+1. **Antisymmetry**: `sgn(x.compareTo(y)) == -sgn(y.compareTo(x))`
+2. **Transitivity**: `(x.compareTo(y) > 0 && y.compareTo(z) > 0)` implies `x.compareTo(z) > 0`
+3. **Congruence**: `x.compareTo(y) == 0` implies `sgn(x.compareTo(z)) == sgn(y.compareTo(z))`
+4. **Consistency with Equals** (strongly recommended): `(x.compareTo(y) == 0) == (x.equals(y))`
+
+### `Comparator<T>` Contract
+Declared as:
+```java
+@FunctionalInterface
+public interface Comparator<T> {
+    int compare(T o1, T o2);
+}
+```
+`Comparator` is a functional interface; any lambda `(a, b) -> Integer.compare(a.val, b.val)` is a valid comparator.
+
+---
+
+## 3. How It Works Internally
+
+### Comparator Combinators (Method References and Chaining)
+Under the hood, Java 8 `Comparator.comparing` builds a chained function pipeline using lambda closures:
+```java
+Comparator<User> comp = Comparator
+    .comparing(User::getLastName)
+    .thenComparing(User::getFirstName)
+    .thenComparingInt(User::getAge);
+```
+In bytecode:
+- `comparing` creates a `Comparator` that applies the key extractor `User::getLastName` and delegates to natural ordering.
+- `thenComparing` creates a composite comparator that first calls the initial comparator; if the result is `0`, it invokes the secondary comparator.
+
+```
+Input: User("Alice", "Smith", 25), User("Bob", "Smith", 30)
+
+Step 1: Compare last names -> "Smith".compareTo("Smith") == 0
+Step 2: Tie-breaker triggered! Compare first names -> "Alice".compareTo("Bob") < 0
+Result: -1 (Alice precedes Bob)
 ```
 
-## `Comparable`: natural ordering
+---
+
+## 4. Syntax & Usage
+
+### 1. Implementing `Comparable` on a Domain Record
+```java
+public record Employee(int id, String name, double salary) implements Comparable<Employee> {
+    @Override
+    public int compareTo(Employee other) {
+        // Use Integer.compare to avoid integer subtraction overflow!
+        return Integer.compare(this.id, other.id);
+    }
+}
+```
+
+### 2. Modern Fluent Comparator Composition
+```java
+import java.util.Comparator;
+
+public class ComparatorChainingDemo {
+    public static final Comparator<Employee> BY_SALARY_DESC_THEN_NAME = Comparator
+        .comparingDouble(Employee::salary)
+        .reversed() // Descending salary
+        .thenComparing(Employee::name); // Ascending name tie-breaker
+}
+```
+
+### 3. Null-Safe Comparators
+```java
+import java.util.Comparator;
+
+public class NullSafeDemo {
+    // Sorts nulls to the beginning, non-nulls by name
+    public static final Comparator<Employee> NULL_SAFE_NAME = Comparator
+        .comparing(Employee::name, Comparator.nullsFirst(String::compareToIgnoreCase));
+}
+```
+
+---
+
+## 5. Practical Examples
+
+### Example 1: Multi-Column Sorting (Basic)
+```java
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+
+public class MultiColumnSort {
+    record Product(String category, String name, double price) {}
+
+    public static void main(String[] args) {
+        List<Product> products = new ArrayList<>(List.of(
+            new Product("Electronics", "Laptop", 1200.0),
+            new Product("Books", "Java Guide", 45.0),
+            new Product("Electronics", "Phone", 800.0),
+            new Product("Books", "Algorithms", 60.0)
+        ));
+
+        // Sort by Category ascending, then by Price descending
+        products.sort(Comparator
+            .comparing(Product::category)
+            .thenComparing(Comparator.comparingDouble(Product::price).reversed()));
+
+        products.forEach(p -> System.out.println(p.category() + " | " + p.name() + " | $" + p.price()));
+    }
+}
+```
+
+### Example 2: Custom Sorting in `PriorityQueue` (Real-World)
+```java
+import java.util.Comparator;
+import java.util.PriorityQueue;
+
+public class TaskScheduler {
+    record Task(String id, int priority, long submittedAt) {}
+
+    public static void main(String[] args) {
+        // Higher priority first; if equal, earlier submission first (FIFO on ties)
+        Comparator<Task> taskComparator = Comparator
+            .comparingInt(Task::priority).reversed()
+            .thenComparingLong(Task::submittedAt);
+
+        PriorityQueue<Task> queue = new PriorityQueue<>(taskComparator);
+        queue.offer(new Task("Cleanup", 1, 1000L));
+        queue.offer(new Task("Backup", 5, 1050L));
+        queue.offer(new Task("SecurityScan", 5, 1020L));
+
+        while (!queue.isEmpty()) {
+            Task t = queue.poll();
+            System.out.println("Processing: " + t.id() + " (Priority " + t.priority() + ")");
+        }
+        // Processing SecurityScan (5) -> Backup (5) -> Cleanup (1)
+    }
+}
+```
+
+### Example 3: Edge Case - Integer Overflow with Subtraction in `compareTo`
+```java
+public class SubtractionOverflowHazard {
+    public static void main(String[] args) {
+        int x = -2_000_000_000;
+        int y = 2_000_000_000;
+
+        // DANGEROUS BAD PRACTICE:
+        int diff = x - y; // UNDERFLOWS to positive integer 294,967,296!
+        System.out.println("Faulty diff: " + diff); // Positive! Indicates x > y, which is WRONG!
+
+        // CORRECT FIX:
+        int correct = Integer.compare(x, y);
+        System.out.println("Correct comparison: " + correct); // -1 (Correct: x < y)
+    }
+}
+```
+
+### Example 4: Failure Case - Violating Transitivity and TimSort Crash
+```java
+import java.util.Arrays;
+import java.util.Comparator;
+
+public class TimSortViolationDemo {
+    public static void main(String[] args) {
+        // Inconsistent comparator violating transitivity
+        Comparator<Integer> buggy = (a, b) -> (a.equals(b)) ? 0 : (a > b ? 1 : 1); // Never returns -1!
+
+        Integer[] arr = new Integer[40];
+        Arrays.fill(arr, 1);
+        arr[0] = 2;
+
+        try {
+            Arrays.sort(arr, buggy);
+        } catch (IllegalArgumentException e) {
+            System.out.println("TimSort detected broken contract: " + e.getMessage());
+            // "Comparison method violates its general contract!"
+        }
+    }
+}
+```
+
+---
+
+## 6. Best Practices
+
+1. **Never Use Subtraction for Integer/Long Comparison**: Always use `Integer.compare(a, b)` or `Double.compare(a, b)` to prevent numerical overflow bugs.
+2. **Make `compareTo` Consistent with `equals`**: If `compareTo` returns 0, `equals` should return `true`. Inconsistencies cause subtle bugs in `TreeSet` and `TreeMap`.
+3. **Prefer `Comparator.comparing` Combinators**: Fluent combinators are readable, avoid boxing when using primitive specializations (`comparingInt`), and reduce boilerplate.
+4. **Handle Nulls Explicitly**: Use `Comparator.nullsFirst` or `Comparator.nullsLast` when sorting data sets that may contain null values.
+
+---
+
+## 7. Common Mistakes & Pitfalls
+
+| Mistake | Why Wrong | Fix |
+|---|---|---|
+| Using subtraction `return a.id - b.id;` | Causes integer overflow/underflow, inverting the comparison result. | Use `Integer.compare(a.id, b.id)`. |
+| Violating transitivity | Triggers `IllegalArgumentException: Comparison method violates its general contract` in TimSort. | Strictly obey mathematical ordering axioms. |
+| Inconsistency with `equals` | `TreeSet` drops distinct items if `compareTo` returns 0. | Ensure all identity fields are compared. |
+| Boxing overhead with `Comparator.comparing(User::getAge)` | Auto-boxes primitive `int` to `Integer` for every comparison ($O(N \log N)$ allocations). | Use `Comparator.comparingInt(User::getAge)`. |
+| Unhandled `NullPointerException` during sorting | Calling `compareTo` on `null` crashes the sort algorithm. | Wrap in `Comparator.nullsFirst()`. |
+| Reversing with `-compare(a, b)` | If `compare()` returns `Integer.MIN_VALUE`, `-Integer.MIN_VALUE` remains negative! | Use `comparator.reversed()`. |
+
+---
+
+## 8. Performance & Security Notes
+
+### Performance
+- **Primitive Specializations**: Always use `comparingInt()`, `comparingLong()`, and `comparingDouble()` to avoid boxing millions of primitive fields during sorts.
+- **TimSort Invariant Checking**: Java's sorting algorithm (`TimSort`) actively checks for contract violations (transitivity and antisymmetry) and throws `IllegalArgumentException` rather than looping indefinitely or corrupting memory.
+
+### Security
+- **Predictable Sorting Invariants**: Do not use non-deterministic properties (such as `System.currentTimeMillis()` or random values) inside comparators. Non-deterministic comparators violate sorting contracts and can crash application services.
+
+---
+
+## 9. Comparison / When to Use What
+
+| Feature | `Comparable<T>` | `Comparator<T>` |
+|---|---|---|
+| **Package** | `java.lang` | `java.util` |
+| **Location** | Implemented by the target class itself | Implemented in separate class/lambda |
+| **Number of Orders** | Exactly one (natural order) | Unlimited custom strategies |
+| **Source Code Modification** | Requires modifying class source | Works on classes you cannot modify |
+| **Invocation** | `itemA.compareTo(itemB)` | `comparator.compare(itemA, itemB)` |
+| **Primary Method** | `int compareTo(T o)` | `int compare(T o1, T o2)` |
+
+---
+
+## 10. Interview Questions
+
+<details>
+<summary>1. What is the fundamental difference between `Comparable` and `Comparator`?</summary>
+`Comparable` defines the natural, default ordering of an object implemented within the class itself via `compareTo()`. `Comparator` defines external, alternative sorting strategies implemented outside the class via `compare()`.
+</details>
+
+<details>
+<summary>2. Why does `a - b` comparison cause bugs?</summary>
+If `a` is a large negative integer and `b` is a large positive integer, `a - b` underflows, producing a positive integer and incorrectly reporting that `a > b`.
+</details>
+
+<details>
+<summary>3. What error occurs if a comparator violates transitivity during `Collections.sort`?</summary>
+`IllegalArgumentException: Comparison method violates its general contract!` thrown by TimSort.
+</details>
+
+<details>
+<summary>4. What does "consistent with equals" mean?</summary>
+An ordering is consistent with equals if `x.compareTo(y) == 0` is true if and only if `x.equals(y)` is true. If violated, collections like `TreeSet` and `TreeMap` will exhibit unexpected behavior because they use comparison rather than `equals` to determine key uniqueness.
+</details>
+
+<details>
+<summary>5. How do you sort a list in reverse natural order?</summary>
+`list.sort(Comparator.reverseOrder());`.
+</details>
+
+<details>
+<summary>6. Why is `Comparator.comparingInt(Person::getAge)` preferred over `Comparator.comparing(Person::getAge)`?</summary>
+`comparingInt` uses an `ToIntFunction`, preventing boxing overhead from primitive `int` to `Integer` during every comparison step.
+</details>
+
+<details>
+<summary>7. How does `Comparator.nullsFirst` handle comparisons when both elements are null?</summary>
+It considers two `null` elements equal (`returns 0`). If one is null and the other is not, `null` is considered smaller.
+</details>
+
+<details>
+<summary>8. Can you change the sorting order of a `TreeSet` after creation?</summary>
+No. The comparator is set at construction time. To re-sort with a different order, you must create a new `TreeSet` with the new comparator and add the elements.
+</details>
+
+---
+
+## 11. Practice Exercises
+
+### Easy
+1. Implement `Comparable<Book>` on a `Book` record to sort naturally by publication year.
+2. Sort a list of strings by their string length ascending using a lambda comparator.
+3. Sort a list of names case-insensitively using `String.CASE_INSENSITIVE_ORDER`.
+
+### Medium
+4. Build a multi-level comparator for `Student` (GPA descending, then Graduation Year ascending, then Name ascending).
+5. Sort a list containing `null` values such that all nulls appear at the end, and non-null strings are sorted alphabetically.
+6. Write a custom comparator that sorts even numbers before odd numbers, and sorts numbers within each group in ascending order.
+
+### Hard
+7. Implement a natural sort comparator ("Human Sort") that correctly compares alphanumeric strings (e.g., "file2.txt" before "file10.txt").
+8. Implement an in-place version of TimSort contract validator that verifies if a given `Comparator<T>` obeys transitivity on a sample set.
+9. Construct a composite dynamic comparator builder that parses sort expressions from string inputs (e.g., `"name:asc,age:desc"`).
+
+<details>
+<summary>Solutions</summary>
 
 ```java
-public class Version implements Comparable<Version> {
-    private final int major, minor;
-    public Version(int major, int minor) { this.major = major; this.minor = minor; }
+// Easy 2: Sort by length
+List<String> words = new ArrayList<>(List.of("banana", "apple", "pear", "fig"));
+words.sort(Comparator.comparingInt(String::length));
 
-    @Override
-    public int compareTo(Version other) {
-        int c = Integer.compare(major, other.major);
-        return c != 0 ? c : Integer.compare(minor, other.minor);
+// Medium 4: Student multi-level
+record Student(double gpa, int gradYear, String name) {}
+Comparator<Student> comp = Comparator
+    .comparingDouble(Student::gpa).reversed()
+    .thenComparingInt(Student::gradYear)
+    .thenComparing(Student::name);
+```
+</details>
+
+---
+
+
+### Deep-Dive: Bytecode Execution of Chained Comparators
+When chaining comparators with `thenComparing`, Java avoids virtual call overhead through specialized lambda function objects:
+```java
+default Comparator<T> thenComparing(Comparator<? super T> other) {
+    Objects.requireNonNull(other);
+    return (Comparator<T> & Serializable) (c1, c2) -> {
+        int res = compare(c1, c2);
+        return (res != 0) ? res : other.compare(c1, c2);
+    };
+}
+```
+If the primary comparison returns non-zero (`res != 0`), the second comparator is never evaluated (short-circuiting), keeping CPU cycles minimal.
+
+### Detailed Exercise Solutions (All 9 Problems)
+<details>
+<summary>View Complete Solutions for All Exercises</summary>
+
+```java
+// Easy 1: Book natural order
+record Book(String title, int year) implements Comparable<Book> {
+    public int compareTo(Book o) { return Integer.compare(this.year, o.year); }
+}
+
+// Easy 2: Sort by string length
+List<String> words = new ArrayList<>(List.of("banana", "fig", "apple", "watermelon"));
+words.sort(Comparator.comparingInt(String::length));
+
+// Easy 3: Case-insensitive sort
+words.sort(String.CASE_INSENSITIVE_ORDER);
+
+// Medium 4: Multi-level Student
+record Student(double gpa, int gradYear, String name) {}
+Comparator<Student> studentComp = Comparator
+    .comparingDouble(Student::gpa).reversed()
+    .thenComparingInt(Student::gradYear)
+    .thenComparing(Student::name);
+
+// Medium 5: Nulls at end, non-null sorted
+Comparator<String> nullsLastComp = Comparator.nullsLast(String::compareTo);
+
+// Medium 6: Evens before odds
+Comparator<Integer> evenFirstComp = (a, b) -> {
+    boolean aEven = (a % 2 == 0);
+    boolean bEven = (b % 2 == 0);
+    if (aEven != bEven) return aEven ? -1 : 1;
+    return Integer.compare(a, b);
+};
+
+// Hard 7: Natural Alphanumeric Sort (Human Sort)
+public class AlphanumericComparator implements Comparator<String> {
+    public int compare(String s1, String s2) {
+        int i = 0, j = 0;
+        while (i < s1.length() && j < s2.length()) {
+            char c1 = s1.charAt(i), c2 = s2.charAt(j);
+            if (Character.isDigit(c1) && Character.isDigit(c2)) {
+                int start1 = i, start2 = j;
+                while (i < s1.length() && Character.isDigit(s1.charAt(i))) i++;
+                while (j < s2.length() && Character.isDigit(s2.charAt(j))) j++;
+                int num1 = Integer.parseInt(s1.substring(start1, i));
+                int num2 = Integer.parseInt(s2.substring(start2, j));
+                if (num1 != num2) return Integer.compare(num1, num2);
+            } else {
+                if (c1 != c2) return Character.compare(c1, c2);
+                i++; j++;
+            }
+        }
+        return Integer.compare(s1.length(), s2.length());
     }
 }
 
-List<Version> versions = new ArrayList<>(List.of(new Version(2, 1), new Version(1, 9)));
-Collections.sort(versions);                  // uses compareTo
-new TreeSet<>(versions);                     // uses compareTo
-```
+// Hard 8: TimSort contract validator
+public static <T> boolean validateTransitivity(Comparator<T> comp, List<T> samples) {
+    for (T a : samples) {
+        for (T b : samples) {
+            for (T c : samples) {
+                int ab = comp.compare(a, b);
+                int bc = comp.compare(b, c);
+                int ac = comp.compare(a, c);
+                if (ab > 0 && bc > 0 && ac <= 0) return false;
+            }
+        }
+    }
+    return true;
+}
 
-Built-in `Comparable` types: `String`, all wrappers (`Integer`, `Double`, ...), `BigDecimal`, `BigInteger`, `LocalDate`/`LocalDateTime`, `Duration`, enums (declaration order), `Boolean`, `Character`.
-
-### The `compareTo` contract
-
-| Rule | Meaning |
-|------|---------|
-| **Antisymmetric** | `sgn(a.compareTo(b)) == -sgn(b.compareTo(a))` |
-| **Transitive** | `a > b` and `b > c` ⇒ `a > c` |
-| **Substitutive for zero** | `a.compareTo(b) == 0` ⇒ `a` and `b` compare the same way against any `c` |
-| **Consistent with `equals` (strongly recommended)** | `a.compareTo(b) == 0` ⇔ `a.equals(b)` |
-| `null` | `a.compareTo(null)` should throw `NullPointerException` |
-
-If `compareTo` and `equals` disagree, sorted collections and hash collections treat "duplicates" differently:
-
-```java
-BigDecimal a = new BigDecimal("2.0"), b = new BigDecimal("2.00");
-a.equals(b);                   // false (scale differs)
-a.compareTo(b);                // 0
-new HashSet<>(List.of(a, b)).size();   // 2
-new TreeSet<>(List.of(a, b)).size();   // 1 (TreeSet uses compareTo)
-```
-
-See [04-oop/14_equals-and-hashcode.md](../04-oop/14_equals-and-hashcode.md).
-
-## Never subtract to compare
-
-```java
-public int compareTo(Person o) { return this.age - o.age; }       // BUG: overflows for large/negative values
-public int compareTo(Person o) { return Integer.compare(age, o.age); }   // correct
-
-return (int) (a.price - b.price);                                   // BUG: 0.5 difference truncates to 0
-return Double.compare(a.price, b.price);                            // correct (handles NaN and -0.0 consistently)
-```
-
-Always use `Integer.compare`, `Long.compare`, `Double.compare`, `String.compareTo`, `Boolean.compare`, `Character.compare`.
-
-## `Comparator`: custom ordering
-
-A `Comparator` is a function of two arguments, so you can write it as a lambda or build it from helper methods.
-
-```java
-record Person(String name, int age) { }
-
-Comparator<Person> byAge = (a, b) -> Integer.compare(a.age(), b.age());      // lambda
-Comparator<Person> byAge2 = Comparator.comparingInt(Person::age);            // key extractor (preferred)
-
-people.sort(byAge2);
-Collections.sort(people, byAge2);
-Arrays.sort(array, byAge2);               // object arrays only
-people.stream().sorted(byAge2).toList();
-new TreeSet<>(byAge2);   new TreeMap<>(byAge2);   new PriorityQueue<>(byAge2);
-```
-
-### Building comparators
-
-| Factory / method | Purpose |
-|------------------|---------|
-| `Comparator.comparing(keyExtractor)` | Compare by a key (must be `Comparable`) |
-| `comparing(keyExtractor, keyComparator)` | Compare by a key using another comparator |
-| `comparingInt` / `comparingLong` / `comparingDouble` | Avoid boxing for primitive keys |
-| `.thenComparing(...)` | Tie-breaker(s); also `thenComparingInt` etc. |
-| `.reversed()` | Reverse this comparator |
-| `Comparator.naturalOrder()` / `reverseOrder()` | Natural order of `Comparable` types, and its reverse |
-| `Comparator.nullsFirst(c)` / `nullsLast(c)` | Handle `null` elements or keys |
-| `String.CASE_INSENSITIVE_ORDER` | Case-insensitive strings |
-
-```java
-// By age descending, then name ascending
-Comparator<Person> order = Comparator.comparingInt(Person::age).reversed()
-                                     .thenComparing(Person::name);
-
-// Case-insensitive name, nulls last
-Comparator<Person> byName = Comparator.comparing(Person::name,
-        Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER));
-
-// Descending natural order
-list.sort(Comparator.reverseOrder());
-list.sort(Collections.reverseOrder());          // equivalent
-```
-
-### Type-inference gotcha with `reversed()`
-
-```java
-people.sort(Comparator.comparing(p -> p.age()).reversed());              // ERROR: p inferred as Object
-people.sort(Comparator.comparing(Person::age).reversed());               // OK: method reference gives the type
-people.sort(Comparator.comparing((Person p) -> p.age()).reversed());     // OK: explicit lambda parameter type
-people.sort(Comparator.comparingInt(Person::age).reversed());            // OK
-people.sort(Comparator.comparingInt(Person::age).reversed().thenComparing(Person::name));
-```
-
-When a lambda is the first call in a chain, the compiler cannot infer `T`; use method references or declare the parameter type.
-
-### Writing a comparator by hand
-
-```java
-Comparator<Person> manual = (a, b) -> {
-    int c = Integer.compare(b.age(), a.age());          // descending age
-    return c != 0 ? c : a.name().compareTo(b.name());   // then name
-};
-```
-
-The builder style is shorter and avoids mistakes.
-
-## Sorting APIs
-
-```java
-list.sort(comparator);                       // List: in place; null comparator = natural order
-Collections.sort(list);                      // natural order
-Collections.sort(list, comparator);
-Arrays.sort(intArray);                       // primitives: natural order only
-Arrays.sort(objArray, comparator);
-Arrays.sort(objArray, from, to, comparator); // a range
-stream.sorted();  stream.sorted(comparator); // new sorted stream
-Collections.min(coll, comparator);  Collections.max(coll, comparator);
-```
-
-- Sorting objects is **stable**: elements that compare equal keep their original relative order (it uses TimSort/merge sort). This makes multi-pass sorts and `thenComparing` chains predictable
-- Primitive arrays use dual-pivot quicksort (not stable, but stability does not matter for primitives)
-- Sorting is O(n log n)
-
-## Where ordering is used
-
-| API | Uses |
-|-----|------|
-| `TreeSet`, `TreeMap` | Order **and** equality/duplicate detection ([09](./09_treemap-and-treeset.md)) |
-| `PriorityQueue` | Which element is the head ([10](./10_priorityqueue.md)) |
-| `Collections.sort`, `List.sort`, `Arrays.sort`, `stream.sorted` | Sorting |
-| `Collections.binarySearch` | The list must be sorted with the **same** ordering |
-| `Collections.max`/`min`, `stream.max`/`min` | Extremes |
-
-## Comparator consistency problems
-
-A comparator that is not a valid total order can make `sort` throw or misbehave:
-
-```
-java.lang.IllegalArgumentException: Comparison method violates its general contract!
-```
-
-Typical causes:
-
-```java
-(a, b) -> a.score > b.score ? 1 : -1                    // never returns 0: not antisymmetric for equal scores
-(a, b) -> a.x - b.x                                      // overflow
-(a, b) -> Math.random() < 0.5 ? -1 : 1                   // not even consistent: use Collections.shuffle
-// Comparing mixed-type or partially defined fields (null handling missing)
-```
-
-A comparator must be consistent: the same inputs give the same result; it is antisymmetric and transitive.
-
-## `Comparable` vs `Comparator`: which to choose
-
-| Situation | Choose |
-|-----------|--------|
-| One obvious, universal ordering you control | `Comparable` (and keep it consistent with `equals`) |
-| Several orderings (by name, by age, by date) | `Comparator`s |
-| You cannot modify the class (library or JDK type) | `Comparator` |
-| Sorting by a field of a record or DTO | `Comparator.comparing(...)` |
-| Ordering depends on context, user setting or locale | `Comparator` (or `Collator`) |
-| Used as a `TreeMap` key with no explicit comparator | The key type must be `Comparable` |
-
-You can combine both: implement `Comparable` for the default and expose named `Comparator` constants:
-
-```java
-public record Person(String name, int age) implements Comparable<Person> {
-    public static final Comparator<Person> BY_AGE = Comparator.comparingInt(Person::age);
-    private static final Comparator<Person> NATURAL = Comparator.comparing(Person::name).thenComparingInt(Person::age);
-    @Override public int compareTo(Person o) { return NATURAL.compare(this, o); }
+// Hard 9: Dynamic string sort expression parser
+public static Comparator<Map<String, Comparable>> parseSort(String expression) {
+    Comparator<Map<String, Comparable>> comp = null;
+    for (String part : expression.split(",")) {
+        String[] tokens = part.split(":");
+        String field = tokens[0];
+        boolean asc = tokens.length <= 1 || tokens[1].equalsIgnoreCase("asc");
+        Comparator<Map<String, Comparable>> fieldComp = (m1, m2) -> {
+            Comparable v1 = m1.get(field);
+            Comparable v2 = m2.get(field);
+            return asc ? v1.compareTo(v2) : v2.compareTo(v1);
+        };
+        comp = (comp == null) ? fieldComp : comp.thenComparing(fieldComp);
+    }
+    return comp;
 }
 ```
+</details>
 
-## Locale-aware text ordering
 
-`String.compareTo` compares UTF-16 code units: `"Z" < "a"` and accented letters sort after `"z"`. For user-facing sorting use a `Collator`:
+## 12. Summary / Cheat Sheet
 
-```java
-Collator collator = Collator.getInstance(Locale.FRENCH);
-names.sort(collator);                      // Collator implements Comparator<Object>
-```
+- **Comparable**: `compareTo(T o)`, natural ordering inside class.
+- **Comparator**: `compare(T o1, T o2)`, custom strategies outside class.
+- **Rules**: Negative (`<`), Zero (`==`), Positive (`>`).
+- **Safety**: Always use `Integer.compare(a, b)`, never subtraction.
+- **Combinators**: `Comparator.comparing()`, `thenComparing()`, `reversed()`, `nullsFirst()`.
+- **Primitives**: Use `comparingInt()`, `comparingDouble()` to avoid boxing penalties.
 
-See [03-strings-and-text/02_string-pool-and-comparison.md](../03-strings-and-text/02_string-pool-and-comparison.md).
+---
 
-## Generics: `Comparator<? super T>`
-
-APIs accept `Comparator<? super T>` so that a comparator for a **supertype** can sort subtypes ([07-generics/02_wildcards-and-pecs.md](../07-generics/02_wildcards-and-pecs.md)):
-
-```java
-Comparator<Object> byString = Comparator.comparing(Object::toString);
-List<Integer> ints = new ArrayList<>(List.of(10, 9, 100));
-ints.sort(byString);                      // [10, 100, 9]: compares as strings
-```
-
-## Common mistakes
-
-| Mistake | Symptom | Fix |
-|---------|---------|-----|
-| `a.x - b.x` in `compareTo`/`compare` | Wrong order for large or negative values | `Integer.compare` |
-| `(int) (a.price - b.price)` | Differences under 1 vanish | `Double.compare` |
-| Comparator never returns `0` for equal items | `Comparison method violates its general contract!` | Return 0 when equal; use `compare` helpers |
-| `compareTo` inconsistent with `equals` | `TreeSet` drops "different" objects; sets differ | Compare every field that `equals` uses |
-| `Comparator.comparing(p -> p.age()).reversed()` | Compile error | Method reference or typed lambda |
-| Natural ordering used on a type that is not `Comparable` | `ClassCastException` at runtime (in `TreeSet`, `sort`) | Provide a `Comparator` |
-| Not handling `null` | `NullPointerException` | `nullsFirst`/`nullsLast` |
-| `binarySearch` with a different comparator than the sort | Wrong result | Same ordering for both |
-| Sorting user-facing text with `compareTo` | Wrong order for accents/case | `Collator` |
-| Sorting an immutable list (`List.of`) | `UnsupportedOperationException` | Copy to a new `ArrayList` first |
-| Mutating the sort key of elements already in a `TreeSet`/`PriorityQueue` | Broken ordering | Remove, change, re-add |
-
-## Key takeaways
-
-- `Comparable` = one natural order inside the class; `Comparator` = any number of external orders
-- Use the `compare` helpers and `Comparator.comparing(...).thenComparing(...)`; never subtract
-- Keep `compareTo` consistent with `equals`; make comparators antisymmetric and transitive
-- Object sorting is stable and O(n log n); tree collections and `PriorityQueue` rely on ordering for correctness
-- Use `Collator` for human-language sorting
-
-**Next:** [ArrayList](./06_arraylist.md)
+## 13. Further Reading
+- Bloch, Joshua. *Effective Java (3rd Edition)*: Item 14 (Consider implementing Comparable).
+- Oracle Java Documentation: *The Comparator Interface*.
+- OpenJDK: *TimSort implementation analysis*.

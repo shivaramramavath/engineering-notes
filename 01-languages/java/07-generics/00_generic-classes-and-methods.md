@@ -1,324 +1,470 @@
 # Generic Classes and Methods
 
-A **generic** type or method declares one or more **type parameters** (placeholders such as `T`) that callers replace with real types. The compiler then checks that the types are used consistently.
+> Compile-time type parameterization enabling type-safe, reusable abstractions without runtime casting overhead or ClassCastException vulnerabilities.
 
-```java
-List<String> names = new ArrayList<>();
-names.add("Ada");
-String first = names.get(0);          // no cast needed
-names.add(42);                        // compile error: int cannot be converted to String
-```
+| Metadata | Value |
+|---|---|
+| **Level** | Intermediate |
+| **Prerequisites** | [04-oop/00_classes-and-objects.md](../04-oop/00_classes-and-objects.md), [04-oop/07_polymorphism.md](../04-oop/07_polymorphism.md) |
+| **Time to Read** | 22 minutes |
+| **Status** | Active |
+| **Java Version** | Java 5+ (Diamond Java 7, Target Typing Java 8, Heap Pollution Warnings Java 9+) |
 
-## The problem generics solve
+---
 
-Before Java 5, a container of "anything" had to use `Object`:
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & Usage](#4-syntax--usage)
+5. [Practical Examples](#5-practical-examples)
+6. [Best Practices](#6-best-practices)
+7. [Common Mistakes & Pitfalls](#7-common-mistakes--pitfalls)
+8. [Performance & Security Notes](#8-performance--security-notes)
+9. [Comparison / When to Use What](#9-comparison--when-to-use-what)
+10. [Interview Questions](#10-interview-questions)
+11. [Practice Exercises](#11-practice-exercises)
+12. [Summary / Cheat Sheet](#12-summary--cheat-sheet)
+13. [Further Reading](#13-further-reading)
 
-```java
-List raw = new ArrayList();           // raw type: no type information
-raw.add("Ada");
-raw.add(42);                          // nothing stops this
-String s = (String) raw.get(1);       // ClassCastException at RUNTIME
-```
+---
 
-| Without generics | With generics |
-|------------------|---------------|
-| Casts everywhere | No casts |
-| Wrong types found at **runtime** (`ClassCastException`) | Wrong types found at **compile time** |
-| Types hidden in comments | The signature documents the type: `List<String>` |
-| One class per element type, or `Object` and casts | One class for all types |
+## 1. What & Why
 
-## Generic classes
+Before Java 5, data structures like `java.util.ArrayList` stored references of type `java.lang.Object`. Developers had to explicitly cast retrieved objects to their target types. This approach suffered from two critical shortcomings:
+1. **Lack of Compile-Time Type Safety**: Any object could be added to any collection. A developer could add an `Integer` to an `ArrayList` intended for `String` objects without a compiler warning.
+2. **Runtime `ClassCastException`**: Errors were discovered at runtime in production when casting `(String) list.get(i)` encountered an unexpected type.
 
-```java
-public class Box<T> {                         // T = type parameter
-    private T value;
-
-    public Box(T value) { this.value = value; }
-
-    public T get() { return value; }
-    public void set(T value) { this.value = value; }
-}
-
-Box<String> s = new Box<>("hello");           // T = String
-String text = s.get();                        // typed as String
-Box<Integer> n = new Box<>(42);               // T = Integer
-// Box<int> bad;                              // ERROR: type arguments must be reference types
-```
+Generics introduced parameterized types to the Java programming language. Generics allow classes, interfaces, and methods to operate on objects of various types while providing compile-time type validation. The compiler inserts necessary casts automatically and proves that code will not encounter unexpected `ClassCastException` at runtime (assuming absence of unchecked warnings).
 
 ```
-class Box<T>          the template: T is a placeholder
-Box<String>           a parameterized type: T replaced by String
-Box<Integer>          another one: Box<String> and Box<Integer> are unrelated types
+Pre-Java 5 (Object-based):
+[Any Object] ---> ArrayList ---> (String) list.get(0) ---> CRASH! ClassCastException at runtime
+
+Java 5+ Generics:
+[Type String] ---> ArrayList<String> ---> list.get(0) ---> Type-safe String guaranteed at compile-time!
 ```
 
-### Naming conventions
+---
 
-| Letter | Typical meaning |
-|--------|------------------|
-| `T` | Type (the default) |
-| `E` | Element (collections) |
-| `K`, `V` | Key, value (maps) |
-| `N` | Number |
-| `R` | Result / return type |
-| `S`, `U` | Second, third types |
+## 2. Core Concepts
 
-Single capital letters distinguish type parameters from class names. Descriptive names (`<Key, Value>`) are legal but uncommon.
+### Type Parameters
+A generic type is a generic class or interface that is parameterized over types. Type parameters are specified within angle brackets `< >`.
 
-### Several type parameters
+Common naming conventions:
+- `E` - Element (used extensively by the Java Collections Framework)
+- `K` - Key (used in Maps)
+- `V` - Value (used in Maps)
+- `N` - Number
+- `T` - Type (first generic type parameter)
+- `U`, `S` - Second, third generic type parameters
+- `R` - Return type
 
-```java
-public class Pair<K, V> {
-    private final K key;
-    private final V value;
-    public Pair(K key, V value) { this.key = key; this.value = value; }
-    public K key() { return key; }
-    public V value() { return value; }
-}
-
-Pair<String, Integer> p = new Pair<>("age", 36);
-int age = p.value();                          // unboxed from Integer
-```
-
-A **record** can be generic too, which is the concise way to write pairs and tuples:
-
-```java
-public record Pair<A, B>(A first, B second) { }
-```
-
-### Generic interfaces
-
-```java
-public interface Repository<T, ID> {
-    Optional<T> findById(ID id);
-    List<T> findAll();
-}
-
-public class UserRepository implements Repository<User, Long> {     // fixes T and ID
-    public Optional<User> findById(Long id) { ... }
-    public List<User> findAll() { ... }
-}
-```
-
-Familiar examples: `Comparable<T>`, `Comparator<T>`, `Iterable<T>`, `Function<T, R>`, `Supplier<T>`.
-
-### A generic stack
-
-```java
-public class Stack<E> {
-    private final List<E> items = new ArrayList<>();
-
-    public void push(E e) { items.add(e); }
-
-    public E pop() {
-        if (items.isEmpty()) throw new NoSuchElementException("stack is empty");
-        return items.remove(items.size() - 1);
-    }
-
-    public boolean isEmpty() { return items.isEmpty(); }
-}
-
-Stack<String> stack = new Stack<>();
-stack.push("a");
-String top = stack.pop();
-```
-
-## The diamond operator `<>`
-
-The compiler can infer the type arguments of a constructor call from the target type:
-
-```java
-Map<String, List<Integer>> map = new HashMap<String, List<Integer>>();   // verbose (Java 5)
-Map<String, List<Integer>> map = new HashMap<>();                         // diamond (Java 7+)
-var map = new HashMap<String, List<Integer>>();                           // var: you must then spell the arguments
-```
-
-The diamond also works with anonymous classes since Java 9.
-
-## Generic methods
-
-A method can have its **own** type parameters, declared **before the return type**, independent of the class:
-
-```java
-public static <T> T firstOrNull(List<T> list) {
-    return list.isEmpty() ? null : list.get(0);
-}
-
-String s = firstOrNull(List.of("a", "b"));        // T inferred as String
-Integer i = firstOrNull(List.of(1, 2));           // T inferred as Integer
-```
-
-```
-public static  <T>   T      firstOrNull( List<T> list )
-                 │   │                       │
-   type parameter    return type uses T      parameter uses T
-   declaration
-```
-
-More examples:
-
-```java
-public static <T> void swap(T[] array, int i, int j) {
-    T tmp = array[i];
-    array[i] = array[j];
-    array[j] = tmp;
-}
-
-public static <T> boolean contains(T[] array, T target) {
-    for (T item : array) if (Objects.equals(item, target)) return true;
-    return false;
-}
-
-public static <K, V> Map<V, K> invert(Map<K, V> map) {
-    Map<V, K> result = new HashMap<>();
-    map.forEach((k, v) -> result.put(v, k));
-    return result;
-}
-```
-
-### Type inference
-
-The compiler infers `T` from the arguments and, if needed, from the expected return type:
-
-```java
-List<String> empty = Collections.emptyList();       // T inferred from the assignment target
-List<String> names = List.of("a", "b");             // T = String
-process(Collections.emptyList());                   // inferred from process's parameter type (Java 8+)
-```
-
-Explicit type arguments are rarely needed, but the syntax is:
-
-```java
-List<String> list = Collections.<String>emptyList();
-this.<String>helper();           // qualifier required: object, class or `this`
-```
-
-### Static methods and class type parameters
-
-A **static** method cannot use the class's `T`, because `T` belongs to an instance (`Box<String>`). It must declare its own:
-
+### Generic Classes
+A generic class declares one or more type parameters after its class name:
 ```java
 public class Box<T> {
-    // public static T create() { }              // ERROR: cannot reference non-static type variable T
-    public static <U> Box<U> of(U value) { return new Box<>(value); }    // its own <U>
+    private T value;
+    public void set(T value) { this.value = value; }
+    public T get() { return value; }
 }
 ```
 
-Static factory methods like `List.of`, `Optional.of`, `Map.entry` are generic methods.
-
-### Generic constructors
-
-Rare, but allowed:
-
+### Generic Methods
+A method can declare its own type parameters independently of whether its enclosing class is generic. The type parameter section precedes the method return type:
 ```java
-public class Converter {
-    public <T> Converter(T seed) { ... }
+public static <T> T identity(T item) {
+    return item;
 }
 ```
 
-## Inheritance with generics
+### Diamond Operator (`<>`)
+Introduced in Java 7, type inference allows omitting the explicit type arguments in the constructor call when the compiler can infer them from the context:
+```java
+Box<String> box = new Box<>(); // Inferred as Box<String>()
+```
+
+### Raw Types
+A raw type is the name of a generic class or interface without any type arguments (e.g., `Box` instead of `Box<String>`). Raw types exist strictly for backward compatibility with pre-Java 5 legacy code. Using raw types strips away compile-time safety and generates unchecked compiler warnings.
+
+---
+
+## 3. How It Works Internally
+
+### Type Erasure and Synthetic Casts
+Java implements generics using **Type Erasure**. The Java Virtual Machine (JVM) has no native knowledge of generic types for standard objects. All generic type information is checked by `javac` at compile time and then erased from the generated bytecode.
+
+In bytecode:
+1. Unbounded type parameter `T` is replaced with `java.lang.Object`.
+2. Bounded type parameter `T extends Number` is replaced with `java.lang.Number`.
+3. The compiler automatically inserts synthetic `checkcast` instructions at invocation sites where generic methods or fields are accessed.
+
+```
++------------------------------------+
+|  Source Code:                      |
+|  Box<String> box = new Box<>();    |
+|  box.set("Data");                  |
+|  String s = box.get();             |
++------------------------------------+
+                 |
+          javac compilation
+                 |
++------------------------------------+
+|  Generated Bytecode (Decompiled):  |
+|  Box box = new Box();              |
+|  box.set("Data");                  |
+|  String s = (String) box.get();    | // checkcast java/lang/String
++------------------------------------+
+```
+
+### Heap Pollution
+Heap pollution occurs when a variable of a parameterized type refers to an object that is not of that parameterized type. This typically occurs when raw types are mixed with parameterized types or when using varargs with generic types:
 
 ```java
-class IntBox extends Box<Integer> { }              // fixes T = Integer
+List<String> strings = new ArrayList<>();
+List raw = strings; // Raw type alias
+raw.add(Integer.valueOf(42)); // Unchecked warning, but compiles!
+String s = strings.get(0); // THROWS ClassCastException at runtime!
+```
 
-class NamedBox<T> extends Box<T> {                 // keeps T open
-    private final String name;
-    NamedBox(String name, T value) { super(value); this.name = name; }
+---
+
+## 4. Syntax & Usage
+
+### 1. Declaring a Generic Class with Multiple Type Parameters
+```java
+public class KeyValuePair<K, V> {
+    private final K key;
+    private final V value;
+
+    public KeyValuePair(K key, V value) {
+        this.key = key;
+        this.value = value;
+    }
+
+    public K getKey() { return key; }
+    public V getValue() { return value; }
+}
+```
+
+### 2. Generic Interface and Implementations
+```java
+public interface Repository<T, ID> {
+    void save(T entity);
+    T findById(ID id);
 }
 
-class Child<T> implements Comparable<Child<T>> { ... }
+// Option A: Concrete Type Implementation
+public class UserRepository implements Repository<User, Long> {
+    @Override
+    public void save(User entity) { /* save logic */ }
+    @Override
+    public User findById(Long id) { return null; }
+}
+
+// Option B: Generic Implementation
+public class InMemoryRepository<T, ID> implements Repository<T, ID> {
+    private final java.util.Map<ID, T> storage = new java.util.concurrent.ConcurrentHashMap<>();
+    @Override
+    public void save(T entity) { /* save logic */ }
+    @Override
+    public T findById(ID id) { return storage.get(id); }
+}
 ```
 
-### Generic types are **invariant**
+### 3. Static Generic Utility Method
+```java
+public final class ArrayUtils {
+    private ArrayUtils() {}
+
+    public static <T> void swap(T[] array, int i, int j) {
+        T temp = array[i];
+        array[i] = array[j];
+        array[j] = temp;
+    }
+}
+```
+
+---
+
+## 5. Practical Examples
+
+### Example 1: Type-Safe Generic Cache (Basic)
+```java
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+public class SimpleCache<K, V> {
+    private final Map<K, V> store = new ConcurrentHashMap<>();
+
+    public void put(K key, V value) {
+        if (key == null || value == null) {
+            throw new NullPointerException("Key and value must not be null");
+        }
+        store.put(key, value);
+    }
+
+    public V get(K key) {
+        return store.get(key);
+    }
+
+    public static void main(String[] args) {
+        SimpleCache<String, Integer> cache = new SimpleCache<>();
+        cache.put("latency_ms", 120);
+        Integer latency = cache.get("latency_ms");
+        System.out.println("Cached latency: " + latency);
+    }
+}
+```
+
+### Example 2: Generic Result Monad (Real-World)
+```java
+import java.util.Objects;
+import java.util.function.Function;
+
+public final class Result<T, E> {
+    private final T value;
+    private final E error;
+    private final boolean isSuccess;
+
+    private Result(T value, E error, boolean isSuccess) {
+        this.value = value;
+        this.error = error;
+        this.isSuccess = isSuccess;
+    }
+
+    public static <T, E> Result<T, E> ok(T value) {
+        return new Result<>(Objects.requireNonNull(value), null, true);
+    }
+
+    public static <T, E> Result<T, E> error(E error) {
+        return new Result<>(null, Objects.requireNonNull(error), false);
+    }
+
+    public boolean isSuccess() { return isSuccess; }
+    public T getValue() { return value; }
+    public E getError() { return error; }
+
+    public <U> Result<U, E> map(Function<? super T, ? extends U> mapper) {
+        if (isSuccess) {
+            return Result.ok(mapper.apply(value));
+        }
+        return Result.error(error);
+    }
+
+    public static void main(String[] args) {
+        Result<String, String> res = Result.ok("100")
+            .map(s -> "Parsed: " + Integer.parseInt(s));
+        System.out.println("Result: " + res.getValue());
+    }
+}
+```
+
+### Example 3: Edge Case - Varargs Heap Pollution and `@SafeVarargs`
+```java
+import java.util.ArrayList;
+import java.util.List;
+
+public class SafeVarargsDemo {
+    // Without @SafeVarargs, javac emits compiler warning [unchecked] Possible heap pollution
+    @SafeVarargs
+    public static <T> List<T> asListSafe(T... elements) {
+        List<T> list = new ArrayList<>(elements.length);
+        for (T element : elements) {
+            list.add(element);
+        }
+        return list;
+    }
+
+    public static void main(String[] args) {
+        List<String> list = asListSafe("alpha", "beta", "gamma");
+        System.out.println("Elements count: " + list.size());
+    }
+}
+```
+
+### Example 4: Failure Case - Generic Array Creation Failure
+```java
+public class GenericArrayFailure<T> {
+    public void illegalCreation() {
+        // T[] array = new T[10]; // COMPILE ERROR: Cannot create a generic array of T
+        // Why? Because T is erased to Object at runtime, meaning JVM cannot verify component type safety.
+    }
+
+    // Workaround: Use Array.newInstance with explicit Class<T> token
+    @SuppressWarnings("unchecked")
+    public T[] createArray(Class<T> clazz, int capacity) {
+        return (T[]) java.lang.reflect.Array.newInstance(clazz, capacity);
+    }
+}
+```
+
+---
+
+## 6. Best Practices
+
+1. **Eliminate Unchecked Warnings**: Treat unchecked warnings as errors using `-Werror -Xlint:unchecked`.
+2. **Never Use Raw Types**: Avoid raw types (`List`, `Map`) in modern Java code; use `List<Object>` or `List<?>` when the element type is genuinely unknown.
+3. **Annotate Varargs with `@SafeVarargs`**: Only apply `@SafeVarargs` to methods that do not store anything into the varargs parameter array and do not leak references to the array.
+4. **Prefer Generic Methods over Class-Level Parameters When Scoped**: If only a single method needs type parameterization, declare `<T>` on the method rather than the entire class.
+5. **Use Type Inference Consistently**: Use the diamond operator `<>` to avoid verbose duplicate type arguments.
+
+---
+
+## 7. Common Mistakes & Pitfalls
+
+| Mistake | Why Wrong | Fix |
+|---|---|---|
+| `new T()` or `new T[10]` | Type erasure erases `T` to `Object`; runtime has no constructor or component type info. | Pass `Supplier<T>` or `Class<T>` runtime token. |
+| Using raw types: `List list = new ArrayList();` | Disables compile-time type checking, leading to silent heap pollution and runtime errors. | Always provide type argument: `List<String> list = new ArrayList<>();`. |
+| Leaking varargs array with `@SafeVarargs` | Violates array type safety, allowing callers to corrupt the underlying array. | Never return or store the varargs array parameter directly. |
+| Overloading generic methods differing only by type argument | Type erasure causes both methods to have identical signatures in bytecode. | Use different method names or parameter types. |
+| Expecting `instanceof List<String>` to work | Generic type arguments are erased at runtime; JVM only knows `List`. | Use unbounded wildcard: `if (obj instanceof List<?> list)`. |
+| Mixing raw types and generic collections | Bypasses compiler type checks and pollutes the heap. | Ensure all legacy integration points are audited and strongly typed. |
+
+---
+
+## 8. Performance & Security Notes
+
+### Performance
+- **Zero Runtime Overhead for Generics**: Type checks happen at compile time. At runtime, performance matches raw types with explicit casts.
+- **Boxing Overhead**: Since type parameters only accept object reference types (`T` cannot be `int`), using `List<Integer>` introduces auto-boxing and pointer dereferencing costs. For high-throughput scenarios, use primitive collections (e.g., Eclipse Collections, Agrona, FastUtil) until Project Valhalla primitives arrive.
+
+### Security
+- **Type Injection**: Generics do not protect against reflective invocation or deserialization attacks. Attackers can inject arbitrary types into generic collections via reflection if access checks are bypassed. Always validate incoming serialized data.
+
+---
+
+## 9. Comparison / When to Use What
+
+| Feature | Generic Class | Generic Method | Raw Type | Wildcard (`?`) |
+|---|---|---|---|---|
+| **Scope** | Entire class instance | Single method invocation | Class instance | Parameter or return type |
+| **Type Safety** | High (Compile-time) | High (Compile-time) | None (Runtime crashes) | High (Read-only / write constraints) |
+| **New Instances** | `new Box<String>()` | Dependent on call | `new Box()` (Deprecated) | Cannot instantiate `new Box<?>()` |
+| **Primary Use** | Data structures, containers | Utility algorithms, factories | Legacy pre-Java 5 interop | API flexibility (PECS) |
+
+---
+
+## 10. Interview Questions
+
+<details>
+<summary>1. What is type erasure and why was it chosen for Java's generics?</summary>
+Type erasure is the process by which the Java compiler checks type constraints at compile time and then discards (erases) type parameter information from the bytecode, replacing unbounded types with `Object` and bounded types with their first bound. It was chosen to maintain 100% binary backward compatibility with pre-Java 5 legacy libraries and existing JVM bytecode specifications.
+</details>
+
+<details>
+<summary>2. Why is `List<String>` not a subtype of `List<Object>`?</summary>
+Generics are **invariant**. If `List<String>` were a subtype of `List<Object>`, you could assign `List<Object> objList = strList;` and then execute `objList.add(123);`. This would insert an `Integer` into a `List<String>`, destroying compile-time type safety.
+</details>
+
+<details>
+<summary>3. Why can't you instantiate a generic type `new T()`?</summary>
+Due to type erasure, the JVM does not know what `T` is at runtime (it is erased to `Object`). The compiler cannot verify if `T` has a no-arg constructor, or whether it is an interface or abstract class. The solution is to pass a `Supplier<T>` factory or `Class<T>` token.
+</details>
+
+<details>
+<summary>4. What is heap pollution and when can it occur?</summary>
+Heap pollution occurs when a variable of a parameterized type refers to an object that is not of that type. It typically occurs when combining raw types with parameterized types, or when using unchecked generic varargs methods.
+</details>
+
+<details>
+<summary>5. What does the `@SafeVarargs` annotation do?</summary>
+It suppresses compiler warnings about potential heap pollution at the call site of a method with a generic varargs parameter. It can only be applied to `static`, `final`, or `private` (Java 9+) methods that do not store elements into the array or leak the array reference.
+</details>
+
+<details>
+<summary>6. Why are primitive types not supported as generic type arguments in Java?</summary>
+Java generics erase type parameters to `Object`. Primitives (`int`, `double`, etc.) do not inherit from `java.lang.Object` and cannot be converted to `Object` references without boxing. Project Valhalla is working to eliminate this limitation.
+</details>
+
+<details>
+<summary>7. Can you catch or throw an instance of a generic type `T`?</summary>
+No. A generic class cannot extend `Throwable`, and you cannot write `catch (T e)`. However, you can declare `throws T` in a method signature where `T extends Throwable`.
+</details>
+
+<details>
+<summary>8. How does target typing work with generic methods in Java 8+?</summary>
+Java 8 improved type inference (JEP 101) so that the compiler uses the expected return type (the target type) to infer the type arguments of a generic method call, allowing chains like `List<String> list = Collections.emptyList();` without requiring explicit `<String>emptyList()`.
+</details>
+
+---
+
+## 11. Practice Exercises
+
+### Easy
+1. Write a generic method `swap` that exchanges the positions of two elements in any array `T[]`.
+2. Implement a generic `Pair<A, B>` record with getters and a `swap()` method returning `Pair<B, A>`.
+3. Create a generic stack interface `SimpleStack<E>` and implement it using a dynamic array.
+
+### Medium
+4. Implement a generic `Filter` utility method `public static <T> List<T> filter(List<T> list, Predicate<T> predicate)` without using Java Streams.
+5. Build a typesafe in-memory key-value repository `Repository<T, ID>` with CRUD operations.
+6. Write a generic method `findMax` that accepts an array of type `T` and returns the maximum element, enforcing compile-time comparison.
+
+### Hard
+7. Implement a generic Object Pool `Pool<T>` with acquire/release semantics and automatic expiry.
+8. Design a fluent generic Builder pattern for a hierarchical domain model that preserves concrete sub-types across chained setter calls.
+9. Construct a generic `EventBus` that permits subscribing to and publishing strongly typed events based on their `Class<T>` token.
+
+<details>
+<summary>Solutions</summary>
 
 ```java
-Box<Integer> ints = new Box<>(1);
-Box<Number> nums = ints;              // ERROR: Box<Integer> is NOT a Box<Number>
-List<Object> objs = new ArrayList<String>();   // ERROR
+// Easy 1: Swap method
+public static <T> void swap(T[] array, int i, int j) {
+    T temp = array[i];
+    array[i] = array[j];
+    array[j] = temp;
+}
+
+// Easy 2: Pair record
+public record Pair<A, B>(A first, B second) {
+    public Pair<B, A> swap() {
+        return new Pair<>(second, first);
+    }
+}
+
+// Medium 4: Filter utility
+public static <T> List<T> filter(List<T> list, java.util.function.Predicate<T> predicate) {
+    List<T> result = new ArrayList<>();
+    for (T item : list) {
+        if (predicate.test(item)) {
+            result.add(item);
+        }
+    }
+    return result;
+}
+
+// Medium 6: findMax
+public static <T extends Comparable<T>> T findMax(T[] array) {
+    if (array == null || array.length == 0) return null;
+    T max = array[0];
+    for (int i = 1; i < array.length; i++) {
+        if (array[i].compareTo(max) > 0) {
+            max = array[i];
+        }
+    }
+    return max;
+}
 ```
+</details>
 
-Even though `Integer` is a `Number`, `Box<Integer>` and `Box<Number>` are unrelated types. If it were allowed, you could put a `Double` into a box that is secretly an `Integer` box. **Wildcards** express "a box of some kind of number": [02_wildcards-and-pecs.md](./02_wildcards-and-pecs.md).
+---
 
-Arrays, by contrast, are covariant (`Number[] n = new Integer[1]` compiles) and fail at runtime with `ArrayStoreException`: one more reason generics are safer.
+## 12. Summary / Cheat Sheet
 
-## Restrictions you will run into
+- **Syntax**: `class MyClass<T> { ... }`, `public <T> T myMethod(T val) { ... }`.
+- **Diamond Operator**: `List<String> list = new ArrayList<>();` infers type arguments.
+- **Erasure**: Generic types are compile-time only. Erased to `Object` or the first bound.
+- **Invariance**: `List<String>` is NOT a subtype of `List<Object>`.
+- **Heap Pollution**: Occurs when parameterized variables hold references to invalid types via raw types or unchecked varargs. Use `@SafeVarargs`.
+- **Static Context**: Static fields and methods cannot use class-level type parameters (`T`); static generic methods must declare their own `<T>`.
 
-| You cannot... | Why | Do this |
-|---------------|-----|---------|
-| Use primitives as type arguments (`List<int>`) | Type arguments must be reference types | `List<Integer>` (boxing: [wrappers](../01-fundamentals/04_wrapper-classes-and-autoboxing.md)), or primitive streams |
-| `new T()` | Erased at runtime | Pass a `Supplier<T>` or `Class<T>` |
-| `new T[10]` | Erasure and array covariance | `List<T>`, or `(T[]) new Object[10]` with care, or `IntFunction<T[]>` |
-| `x instanceof List<String>` | The argument is erased | `x instanceof List<?>` |
-| Use `T` in a `static` field | One static field is shared by all instantiations | Do not |
-| Throw or catch generic exceptions (`class MyEx<T> extends Exception`) | Erasure | Plain exceptions |
-| Overload by type argument only (`m(List<String>)` and `m(List<Integer>)`) | Same erasure | Different names |
+---
 
-Most of these come from **type erasure**: [03_type-erasure.md](./03_type-erasure.md).
-
-## Raw types: avoid them
-
-A **raw type** is a generic type used without type arguments:
-
-```java
-List list = new ArrayList();          // raw
-list.add("x");
-list.add(1);                          // compiles, with an "unchecked" warning
-```
-
-Raw types exist for backward compatibility with pre-Java 5 code. They disable type checking and produce **unchecked warnings**. Always parameterize: `List<String>`; use `List<?>` if you genuinely do not care.
-
-## Generics in everyday APIs
-
-```java
-Map<String, List<Order>> ordersByCustomer = new HashMap<>();
-Optional<User> user = repository.findById(42L);
-Comparator<String> byLength = Comparator.comparingInt(String::length);
-Function<String, Integer> parse = Integer::parseInt;
-List<String> sorted = names.stream().sorted().toList();
-CompletableFuture<Response> future = client.sendAsync(request);
-```
-
-Reading generics is a core skill: `Map<String, List<Order>>` is "a map from String to a list of Orders". See [08-collections](../08-collections/README.md) and [09-functional-java](../09-functional-java/README.md).
-
-## Generics and `var`
-
-```java
-var names = new ArrayList<String>();      // inferred ArrayList<String>
-var list = new ArrayList<>();             // inferred ArrayList<Object>: probably not what you wanted
-```
-
-With `var` and the diamond, the compiler has no target type, so it falls back to `Object`. Spell the type argument or use an explicit type on the left ([var](../12-modern-java/05_var-and-type-inference.md)).
-
-## When to write your own generic type
-
-| Write one when | Otherwise |
-|----------------|-----------|
-| The class's logic is **independent of the element type** (containers, wrappers, caches, results) | Use the JDK's (`List`, `Map`, `Optional`) |
-| You want a **type-safe contract** across several methods (`Repository<T, ID>`) | A concrete type is simpler |
-| You are writing a **utility** that works on any type (`swap`, `max`) | Avoid generics for the sake of it |
-
-Generics add cognitive load; use them where they remove casts and duplication.
-
-## Common mistakes
-
-| Mistake | Symptom | Fix |
-|---------|---------|-----|
-| Using raw types (`List` instead of `List<String>`) | Unchecked warnings, runtime `ClassCastException` | Parameterize |
-| Expecting `List<Integer>` to be a `List<Number>` | Incompatible types | Wildcards: `List<? extends Number>` |
-| `new T()` or `new T[n]` | Compile error | `Supplier<T>`, `Class<T>`, `List<T>` |
-| Using the class's `T` in a static method | `cannot be referenced from a static context` | Declare `<U>` on the method |
-| Using `List<int>` | `unexpected type; required: reference` | `List<Integer>` |
-| `var list = new ArrayList<>();` | `ArrayList<Object>` | Give the type argument |
-| Forgetting `<T>` before the return type in a generic method | `cannot find symbol class T` | `public static <T> T foo(...)` |
-| Suppressing unchecked warnings without thinking | Hidden heap pollution | Understand each warning ([03](./03_type-erasure.md)) |
-| Making everything generic | Unreadable signatures | Use generics where they help |
-| Comparing generic values with `==` | Reference comparison, wrong for boxed values | `equals` / `Objects.equals` |
-
-## Key takeaways
-
-- Type parameters turn runtime casts into compile-time checks and let one class serve many types
-- Declare a type parameter on a class (`Box<T>`) or on a method (`<T> T first(...)`, before the return type)
-- The diamond `<>` and method calls infer type arguments; spell them out only when needed
-- Generic types are **invariant**: `List<Integer>` is not a `List<Number>`
-- No primitives, no `new T()`, no `new T[]`, no static `T`; avoid raw types
-
-**Next:** [Bounded Types](./01_bounded-types.md)
+## 13. Further Reading
+- Bloch, Joshua. *Effective Java (3rd Edition)*: Item 26 (Don't use raw types), Item 29 (Favor generic types), Item 30 (Favor generic methods), Item 32 (Combine generics and varargs judiciously).
+- Oracle Java Documentation: *The Java Tutorials - Generics*.
+- Goetz, Brian. *State of the Specialization* (Project Valhalla design documents).

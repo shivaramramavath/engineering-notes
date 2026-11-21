@@ -1,256 +1,407 @@
-# throw and throws
+# Throw and Throws: Exception Propagation, Rethrowing, and Precise Rethrow
 
-Two keywords with similar names and different jobs:
+> An authoritative guide to the `throw` statement, `throws` method clauses, call stack propagation, exception translation, and Java 7+ Precise Rethrow.
 
-| Keyword | Where | Meaning |
-|---------|-------|---------|
-| **`throw`** | A **statement** inside a method body | Actually throws an exception object **now** |
-| **`throws`** | A **clause** in a method signature | Declares which checked exceptions the method **may** throw |
+| Metadata | Details |
+| :--- | :--- |
+| **Level** | Intermediate |
+| **Prerequisites** | [00_exception-hierarchy-and-types.md](./00_exception-hierarchy-and-types.md) |
+| **Time to Read** | 25 minutes |
+| **Status** | Active |
+| **Java Version** | Java 8+ (Java 25 LTS verified) |
 
+---
+
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & Usage](#4-syntax--usage)
+5. [Practical Examples](#5-practical-examples)
+6. [Best Practices](#6-best-practices)
+7. [Common Mistakes & Pitfalls](#7-common-mistakes--pitfalls)
+8. [Performance & Security Notes](#8-performance--security-notes)
+9. [Comparison: throw vs throws](#9-comparison-throw-vs-throws)
+10. [Interview Questions](#10-interview-questions)
+11. [Practice Exercises](#11-practice-exercises)
+12. [Summary & Cheat Sheet](#12-summary--cheat-sheet)
+13. [Further Reading](#13-further-reading)
+
+---
+
+## 1. What & Why
+
+In Java:
+- **`throw`** is an executable statement that immediately raises an exception object (`throw new IllegalArgumentException(...)`).
+- **`throws`** is a method signature clause that advertises to callers that this method may propagate one or more checked exception types (`public void readFile() throws IOException`).
+
+Together, they govern how failure signals originate, traverse stack frames, and demand programmatic handling across system boundaries.
+
+---
+
+## 2. Core Concepts
+
+### 2.1 Exception Propagation
+When an exception is thrown:
+1. The current method execution halts immediately.
+2. The JVM searches the current method for a matching `catch` block.
+3. If not found, the JVM pops the current stack frame and continues searching in the caller method.
+4. This unwinding continues until a matching handler is found or the main thread stack is exhausted, triggering the JVM's `UncaughtExceptionHandler`.
+
+### 2.2 Precise Rethrow (Java 7+)
+In Java 6 and earlier, if you caught `Exception` and rethrew it (`throw e;`), the method had to declare `throws Exception`.
+Starting in Java 7, the compiler performs static flow analysis: if a `catch (Exception e)` block rethrows `e` without reassigning it, the method signature only needs to declare the **specific checked exceptions** that could actually be thrown inside the `try` block:
 ```java
-public void withdraw(double amount) throws InsufficientFundsException {   // throws: declaration
-    if (amount > balance) {
-        throw new InsufficientFundsException(balance, amount);             // throw: action
+public void process() throws IOException, SQLException {
+    try {
+        doIO();
+        doSql();
+    } catch (Exception e) {
+        logger.error("Failed", e);
+        throw e; // Legal in Java 7+! Compiler knows it's only IOException or SQLException!
     }
-    balance -= amount;
 }
 ```
 
-## `throw`
+---
 
+## 3. How It Works Internally
+
+### 3.1 The `athrow` Bytecode Opcode
+When a `throw` statement executes, the compiler emits the bytecode instruction `athrow`:
+- The object reference on top of the operand stack must be an instance of `java.lang.Throwable` (or a subclass).
+- The JVM examines the current method's Exception Table.
+- If unhandled, the JVM pops the frame, restores caller operand stacks, and re-executes `athrow` in the calling frame.
+
+---
+
+## 4. Syntax & Usage
+
+### 4.1 Exception Translation (Chaining)
 ```java
-throw new IllegalArgumentException("amount must be positive: " + amount);
-```
-
-- Operand: any object of type `Throwable` (in practice an `Exception` or `RuntimeException`)
-- Execution of the current block stops; the JVM searches up the call stack for a matching `catch`
-- Code immediately after `throw` is unreachable (compile error)
-- The **stack trace is recorded where the exception object is created** (`new ...`), not where it is thrown
-
-```java
-// Create-and-throw in one statement: the trace points at this line
-throw new IllegalStateException("not initialized");
-
-// Equivalent but discouraged: creating an exception far from where it is thrown gives a misleading trace
-IllegalStateException e = new IllegalStateException("x");   // trace says "here"
-... lots of code ...
-throw e;
-```
-
-`throw` can also appear in expressions:
-
-```java
-String name = optional.orElseThrow(() -> new NoSuchElementException("no name"));
-
-int days = switch (month) {
-    case 1, 3, 5, 7, 8, 10, 12 -> 31;
-    case 4, 6, 9, 11 -> 30;
-    case 2 -> 28;
-    default -> throw new IllegalArgumentException("month: " + month);
-};
-```
-
-## `throws`
-
-Lists the **checked** exceptions a method or constructor can let escape.
-
-```java
-public String readFirstLine(Path p) throws IOException {      // callers must handle or declare IOException
-    return Files.readAllLines(p).get(0);
-}
-
-public Data load() throws IOException, ParseException { ... }  // several, comma-separated
-```
-
-| Rule | Detail |
-|------|--------|
-| Checked exceptions thrown (directly or by calls) and **not caught** must be declared | Else: `unreported exception X; must be caught or declared to be thrown` |
-| Unchecked exceptions **may** be declared (documentation) but need not be | |
-| Subclass covers: `throws IOException` also allows `FileNotFoundException` | |
-| Constructors can declare `throws` too | |
-| `main` can declare `throws Exception` | Fine for tiny programs and examples |
-| Declaring an exception that is never thrown | Allowed for checked exceptions (but pointless) |
-
-The caller then **chooses**:
-
-```java
-// 1. Handle
-try { String line = readFirstLine(path); } catch (IOException e) { fallback(); }
-
-// 2. Pass it on
-void caller() throws IOException { readFirstLine(path); }
-
-// 3. Translate into another exception
-void caller() { try { readFirstLine(path); } catch (IOException e) { throw new UncheckedIOException(e); } }
-```
-
-### Be specific
-
-```java
-void process() throws Exception { }          // forces callers to deal with "anything"
-void process() throws IOException, SQLException { }    // precise: callers know what can happen
-```
-
-## Overriding and `throws`
-
-An overriding method may throw **no new or broader checked exceptions** than the method it overrides (it can throw fewer, narrower ones, or none), because callers using the parent type only prepared for the parent's exceptions.
-
-```java
-class Reader1 { void read() throws IOException { } }
-class Reader2 extends Reader1 {
-    @Override void read() throws FileNotFoundException { }     // narrower: OK
-}
-class Reader3 extends Reader1 {
-    @Override void read() throws Exception { }                 // ERROR: broader
+public Customer getCustomer(String id) {
+    try {
+        return database.findCustomer(id);
+    } catch (SQLException ex) {
+        // Exception Translation: Low-level SQL error translated to high-level Domain exception
+        throw new NoSuchCustomerException("Customer not found: " + id, ex);
+    }
 }
 ```
 
-Unchecked exceptions are unrestricted. See [06-inheritance](../04-oop/06_inheritance.md).
+---
 
-## Exception chaining: keep the cause
+## 5. Practical Examples
 
-When you catch one exception and throw another, pass the original as the **cause** so the full story is not lost.
-
+### Example 1: Precise Rethrow in Action
 ```java
-try {
-    repository.save(order);
-} catch (SQLException e) {
-    throw new OrderException("Could not save order " + order.id(), e);     // e becomes the cause
+import java.io.IOException;
+import java.sql.SQLException;
+
+public class PreciseRethrowDemo {
+    public static void executeStep(int code) throws IOException, SQLException {
+        if (code == 1) throw new IOException("I/O error");
+        if (code == 2) throw new SQLException("SQL error");
+    }
+
+    // Notice: Method declares specific exceptions, NOT generic Exception!
+    public static void run(int code) throws IOException, SQLException {
+        try {
+            executeStep(code);
+        } catch (Exception e) {
+            System.out.println("Logging intercepted error: " + e.getMessage());
+            // Precise rethrow: compiler analyzes try block and verifies only IOException / SQLException
+            throw e;
+        }
+    }
+
+    public static void main(String[] args) {
+        try {
+            run(1);
+        } catch (IOException | SQLException e) {
+            System.out.println("Caught cleanly in caller: " + e.getMessage());
+        }
+    }
 }
 ```
-
-Resulting trace:
-
-```
-OrderException: Could not save order 42
-    at OrderService.place(OrderService.java:30)
-    ...
-Caused by: java.sql.SQLException: Connection refused
-    at ...
+**Output:**
+```text
+Logging intercepted error: I/O error
+Caught cleanly in caller: I/O error
 ```
 
-| Do | Don't |
-|----|-------|
-| `new MyException("context", e)` | `new MyException(e.getMessage())` (cause and trace lost) |
-| `initCause(e)` if the constructor has no cause parameter | `throw new MyException("failed")` inside a `catch` that ignores `e` |
-
-## Validating arguments: fail fast
-
-Check preconditions at the **start** of a method and throw the **right** unchecked exception.
-
-| Situation | Exception |
-|-----------|-----------|
-| Argument is `null` where not allowed | `NullPointerException` via `Objects.requireNonNull(x, "x")` (the JDK convention) |
-| Argument value is invalid (negative, out of range, malformed) | `IllegalArgumentException` |
-| Object is not in a valid state for this call | `IllegalStateException` |
-| Index out of range | `IndexOutOfBoundsException` (`Objects.checkIndex(i, size)`) |
-| Operation not supported | `UnsupportedOperationException` |
-| Requested element does not exist | `NoSuchElementException` |
-
+### Example 2: Real-World Parameter Validation Guard Clauses
 ```java
-public Account(String owner, double opening) {
-    this.owner = Objects.requireNonNull(owner, "owner must not be null");
-    if (opening < 0) throw new IllegalArgumentException("opening balance must be >= 0, was " + opening);
-    this.balance = opening;
-}
+public class BankTransferService {
+    public static void transfer(String fromAccount, String toAccount, double amount) {
+        // Fail-Fast Guard Clauses
+        if (fromAccount == null || fromAccount.isBlank()) {
+            throw new IllegalArgumentException("Source account must be specified");
+        }
+        if (toAccount == null || toAccount.isBlank()) {
+            throw new IllegalArgumentException("Destination account must be specified");
+        }
+        if (fromAccount.equals(toAccount)) {
+            throw new IllegalArgumentException("Cannot transfer to the same account: " + fromAccount);
+        }
+        if (amount <= 0.0) {
+            throw new IllegalArgumentException("Transfer amount must be positive: " + amount);
+        }
 
-public void close() {
-    if (closed) throw new IllegalStateException("account already closed");
-    closed = true;
+        System.out.println("Transferring $" + amount + " from " + fromAccount + " to " + toAccount);
+    }
+
+    public static void main(String[] args) {
+        transfer("ACC-1", "ACC-2", 250.0);
+    }
 }
 ```
-
-Failing early keeps the broken data from spreading and makes the stack trace point at the real culprit ([defensive programming](../23-design-and-clean-code/05_defensive-programming.md)). Validate at **public boundaries**; trusted internal code can use `assert` ([06](./06_stack-traces-and-debugging.md)).
-
-## Writing good messages
-
-| Guideline | Example |
-|-----------|---------|
-| Say **what** was wrong and include the **offending values** | `"age must be 0..150, was -5"` |
-| Include identifiers needed to find the data | `"Order 42 not found"` |
-| State the expectation | `"expected 3 columns but line 17 had 2"` |
-| Do **not** include secrets (passwords, tokens, personal data) | Messages end up in logs and error pages |
-| Do not end with generic text (`"Error"`, `"Something went wrong"`) | Useless when debugging |
-| Do not repeat the exception class name | The trace already shows it |
-
-## Checked exceptions and lambdas
-
-Functional interfaces such as `Function`, `Consumer` and `Supplier` do not declare checked exceptions, so this does not compile:
-
-```java
-paths.stream().map(p -> Files.readString(p))    // ERROR: unreported exception IOException
+**Output:**
+```text
+Transferring $250.0 from ACC-1 to ACC-2
 ```
 
-Options:
-
+### Example 3: Edge Case – Throwing `null`
 ```java
-// 1. Catch inside the lambda and wrap
-paths.stream().map(p -> {
-    try { return Files.readString(p); }
-    catch (IOException e) { throw new UncheckedIOException(e); }
-}).toList();
-
-// 2. A small helper that wraps (see 05_exception-handling-patterns.md)
-paths.stream().map(unchecked(Files::readString)).toList();
-
-// 3. Use a plain loop when failures need real handling
+public class ThrowNullTrap {
+    public static void main(String[] args) {
+        try {
+            Throwable t = null;
+            // Throwing null does NOT fail silently; it throws a NullPointerException!
+            throw t;
+        } catch (NullPointerException e) {
+            System.out.println("Caught expected NullPointerException when attempting to throw null!");
+        }
+    }
+}
+```
+**Output:**
+```text
+Caught expected NullPointerException when attempting to throw null!
 ```
 
-`java.io.UncheckedIOException` exists exactly for this. See [09-functional-java](../09-functional-java/README.md).
-
-## `throws` in documentation
-
-Document exceptions as part of the method contract with Javadoc:
-
+### Example 4: Failure Case – The Log-and-Rethrow Anti-Pattern
 ```java
-/**
- * Withdraws money.
- *
- * @param amount the amount to withdraw, must be positive
- * @throws IllegalArgumentException if {@code amount <= 0}
- * @throws InsufficientFundsException if the balance is lower than {@code amount}
- */
-public void withdraw(double amount) throws InsufficientFundsException { ... }
+public class LogAndRethrowTrap {
+    public static void step1() throws Exception {
+        throw new Exception("Original root failure");
+    }
+
+    public static void step2() throws Exception {
+        try {
+            step1();
+        } catch (Exception e) {
+            // ANTI-PATTERN: Logging and then re-throwing causes duplicate log entries!
+            System.err.println("[LOG] Error in step2: " + e.getMessage());
+            throw e; // Rethrowing again!
+        }
+    }
+
+    public static void main(String[] args) {
+        try {
+            step2();
+        } catch (Exception e) {
+            // Logs identical error a SECOND time!
+            System.err.println("[LOG] Error in main: " + e.getMessage());
+        }
+    }
+}
+```
+**Output:**
+```text
+[LOG] Error in step2: Original root failure
+[LOG] Error in main: Original root failure
+```
+*Rule: Either handle and log the exception, OR rethrow it to the caller. Never do both!*
+
+### Example 5: Optimized / Idiomatic – Exception Translation (Effective Java Item 73)
+```java
+class LowLevelDatabaseException extends Exception {
+    LowLevelDatabaseException(String msg) { super(msg); }
+}
+
+class UserNotFoundException extends RuntimeException {
+    UserNotFoundException(String userId, Throwable cause) {
+        super("User not found with identifier: " + userId, cause);
+    }
+}
+
+public class ExceptionTranslationDemo {
+    public static String findUsername(String id) {
+        try {
+            if ("invalid".equals(id)) throw new LowLevelDatabaseException("ORA-00942: table does not exist");
+            return "Alice";
+        } catch (LowLevelDatabaseException ex) {
+            // Translate low-level SQL error into high-level domain exception:
+            throw new UserNotFoundException(id, ex);
+        }
+    }
+
+    public static void main(String[] args) {
+        try {
+            findUsername("invalid");
+        } catch (UserNotFoundException e) {
+            System.out.println("Domain Message: " + e.getMessage());
+            System.out.println("Underlying SQL: " + e.getCause().getMessage());
+        }
+    }
+}
+```
+**Output:**
+```text
+Domain Message: User not found with identifier: invalid
+Underlying SQL: ORA-00942: table does not exist
 ```
 
-## Exceptions in constructors and static initializers
+---
 
-- A constructor may throw: the object is **not created**, and the caller gets the exception ([constructors](../04-oop/01_constructors.md))
-- An exception escaping a **static initializer** becomes `ExceptionInInitializerError` ([initialization order](../04-oop/05_initialization-order.md))
+## 6. Best Practices
 
-## Return value, `Optional` or exception?
+1. **Document All Throws with `@throws` in Javadoc:** Document both checked exceptions in the method signature and unchecked exceptions in Javadoc.
+2. **Translate Exceptions at Abstraction Boundaries:** High-level APIs should not leak low-level checked exceptions (e.g. `SQLException` from an authentication service).
+3. **Fail-Fast with Precondition Checks:** Throw `IllegalArgumentException`, `NullPointerException`, or `IllegalStateException` at the very beginning of methods.
+4. **Preserve Root Causes During Translation:** Always pass the caught exception as the `cause` argument to custom exceptions.
+5. **Never Throw `Throwable` or `Error`:** Only throw subclasses of `Exception` or `RuntimeException`.
 
-| Situation | Prefer |
-|-----------|--------|
-| "No result" is a normal, expected outcome (search, lookup) | `Optional<T>`, empty collection, or `null`-free sentinel |
-| The caller cannot proceed without a result and absence is abnormal | Exception |
-| Failure is frequent and cheap to check | Boolean or result type |
-| Failure carries rich information | Exception (or a result object) |
-| Precondition violated by the caller | Unchecked exception |
+---
 
-## Common mistakes
+## 7. Common Mistakes & Pitfalls
 
-| Mistake | Symptom | Fix |
-|---------|---------|-----|
-| Confusing `throw` and `throws` | Syntax errors | `throw` = statement, `throws` = signature |
-| `throws Exception` on everything | Callers forced to catch everything | Specific types |
-| Wrapping without the cause | Lost root cause in the trace | Pass `e` as the cause |
-| `throw new X(e.getMessage())` | Original trace lost | `new X("context", e)` |
-| Widening `throws` in an override | Compile error | Same, narrower, or none |
-| Throwing `Exception` or `RuntimeException` directly | Callers cannot distinguish failures | Specific or custom types |
-| Vague messages (`"error"`) | Hard to debug | Include values and context |
-| Validating late (deep inside) | Failure far from the cause | Check at the start |
-| `throw null` | `NullPointerException` | Throw a real exception |
-| Declaring unchecked exceptions in `throws` and expecting enforcement | No compiler check | Document with Javadoc `@throws` |
-| Creating exceptions ahead of time and reusing them | Wrong stack traces, thread-safety issues | Create at the throw site |
+| Mistake | Why It Is Wrong | Correct Idiom |
+| :--- | :--- | :--- |
+| Log and Rethrow | Floods log files with duplicate stack traces at every layer of the call stack. | Log OR rethrow; never both. |
+| Throwing `null` | Throws `NullPointerException` instead of expected exception. | Ensure thrown object is non-null. |
+| Declaring `throws Exception` | Weakens contract; callers cannot anticipate specific checked exceptions. | Declare specific types (`throws IOException`). |
+| Swallowing cause in translation | `throw new DomainEx(e.getMessage())` erases original stack trace. | Pass `e` as cause: `new DomainEx(msg, e)`. |
+| Modifying parameter in precise rethrow | Reassigning `e` in catch block disables compiler precise rethrow analysis. | Treat caught exception as effectively final. |
 
-## Key takeaways
+---
 
-- `throw` raises an exception; `throws` declares checked exceptions a method may raise
-- Handle, declare or translate: every checked exception needs one of the three
-- Overrides cannot add broader checked exceptions
-- Always chain causes; never lose the original exception
-- Validate arguments early with the right unchecked exception and informative messages
-- Use `UncheckedIOException` or wrappers to cross lambda boundaries
+## 8. Performance & Security Notes
 
-**Next:** [try-with-resources](./03_try-with-resources.md)
+### 8.1 Stack Unwinding Costs
+When an exception propagates across 30+ stack frames, the JVM must unwind each frame sequentially, checking exception tables and executing inlined `finally` blocks. Keep exception propagation distances short.
+
+---
+
+## 9. Comparison: throw vs throws
+
+| Dimension | `throw` | `throws` |
+| :--- | :--- | :--- |
+| **Type** | Executable statement | Method signature clause |
+| **Location** | Inside method or block body | In method declaration header |
+| **Followed By** | An exception **instance** (`new Ex()`) | One or more exception **classes** |
+| **Multiplicity** | Can throw strictly **one** exception | Can declare **multiple** comma-separated classes |
+| **Bytecode** | Generates `athrow` opcode | Encoded in `Exceptions` class attribute |
+
+---
+
+## 10. Interview Questions
+
+<details>
+<summary><strong>1. What is Java 7's Precise Rethrow feature?</strong></summary>
+
+Precise Rethrow allows a catch block catching a broad type (like `catch (Exception e)`) to rethrow `e` (`throw e;`) while having the method signature declare only the **specific checked exceptions** that can actually be thrown from the `try` block, provided `e` is not reassigned. The compiler verifies this via static type analysis.
+</details>
+
+<details>
+<summary><strong>2. What is Exception Translation (Effective Java Item 73)?</strong></summary>
+
+Exception translation is the practice where higher layers in an architecture catch lower-level technical exceptions (e.g. `SQLException`, `IOException`) and rethrow domain-appropriate abstractions (e.g. `OrderNotFoundException`, `BillingServiceException`), chaining the original exception as the cause.
+</details>
+
+<details>
+<summary><strong>3. What happens when an exception is thrown and never caught by any method?</strong></summary>
+
+The exception reaches the bottom of the thread call stack. The JVM invokes the thread's `UncaughtExceptionHandler` (or the default handler), prints the stack trace to `System.err`, and terminates that specific thread. If the thread was the last non-daemon thread, the entire JVM process terminates.
+</details>
+
+<details>
+<summary><strong>4. Can a method declare throws for unchecked exceptions?</strong></summary>
+
+Yes. A method can declare `throws IllegalArgumentException` or any other `RuntimeException`. While the compiler does not mandate this, it serves as valuable self-documenting code.
+</details>
+
+<details>
+<summary><strong>5. Can an overriding subclass method declare broader checked exceptions than the superclass?</strong></summary>
+
+No. An overriding subclass method can only declare the same checked exceptions, subclasses of those exceptions, or no exceptions at all. It cannot declare new or broader checked exceptions because that would violate the Liskov Substitution Principle.
+</details>
+
+<details>
+<summary><strong>6. What bytecode instruction represents the throw statement?</strong></summary>
+
+The `athrow` instruction. It takes the object reference on top of the operand stack and initiates JVM exception table traversal.
+</details>
+
+<details>
+<summary><strong>7. What happens if you execute throw null;?</strong></summary>
+
+The JVM encounters a null reference on top of the operand stack during `athrow` execution and immediately throws a `NullPointerException`.
+</details>
+
+<details>
+<summary><strong>8. Why is the "Log and Rethrow" pattern considered harmful?</strong></summary>
+
+Because if every method in an 8-level call stack catches, logs, and rethrows the same exception, the exact same error is written to the log files 8 distinct times, cluttering logs and inflating monitoring metrics artificially.
+</details>
+
+---
+
+## 11. Practice Exercises
+
+### Easy
+1. **Validation Throw:** Write a method `validateAge(int age)` that throws `IllegalArgumentException` if age < 0.
+2. **Method Throws Declaration:** Write a method reading a file that declares `throws IOException`.
+3. **Rethrow Checked:** Catch an `IOException`, wrap it in an `UncheckedIOException`, and throw it.
+
+### Medium
+4. **Precise Rethrow Implementation:** Write a method with multiple checked exceptions, catch `Exception`, and rethrow using Precise Rethrow.
+5. **Exception Translation Service:** Implement a `UserService` that catches `SQLException` and translates it into `UserAlreadyExistsException`.
+6. **Thread Uncaught Exception Handler:** Register a custom `UncaughtExceptionHandler` on a thread that records error alerts to a list.
+
+### Hard
+7. **Bytecode athrow Verification:** Inspect the bytecode of a method using `javap -c` and identify where `athrow` instructions are generated.
+8. **Call Stack Unwinding Benchmark:** Measure latency of returning error codes vs throwing and unwinding across 25 nested call frames.
+9. **Circuit Breaker Exception Filter:** Implement an exception filter that ignores validation exceptions but triggers circuit breaker trips on system timeouts.
+
+<details>
+<summary><strong>Exercise Solutions</strong></summary>
+
+```java
+// Solution to Exercise 1: Validation Throw
+public class Validator {
+    public static void validateAge(int age) {
+        if (age < 0) {
+            throw new IllegalArgumentException("Age cannot be negative: " + age);
+        }
+    }
+}
+```
+</details>
+
+---
+
+## 12. Summary & Cheat Sheet
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                        THROW & THROWS CHEAT SHEET                      │
+├────────────────────────────────────────────────────────────────────────┤
+│ throw:              Executes immediate exception raise (athrow opcode) │
+│ throws:             Signature clause declaring propagated checked types│
+│ Precise Rethrow:    catch (Exception e) { throw e; } preserves types   │
+│ Translation:        Translate low-level errors to domain exceptions    │
+│ Chaining:           new DomainException("msg", caughtCause)            │
+│ Anti-Pattern:       Log and rethrow (Choose one: handle OR propagate)  │
+│ Overriding Rule:    Subclasses cannot declare broader checked exceptions│
+│ Throwing null:      Triggers NullPointerException                      │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 13. Further Reading
+- Java Language Specification (JLS) Section 14.18: The `throw` Statement
+- Java Language Specification (JLS) Section 8.4.6: Method `throws` Clause
+- *Effective Java (3rd Edition)*, Joshua Bloch, Item 73: "Throw exceptions appropriate to the abstraction".

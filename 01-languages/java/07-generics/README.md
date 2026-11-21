@@ -1,50 +1,44 @@
-# 07 - Generics
+# Java Generics (`07-generics`)
 
-**Generics** let classes, interfaces and methods work with types as **parameters**: `List<String>`, `Map<String, Integer>`, `Optional<User>`. The compiler checks the types, so you get safety without casts and without duplicating code per type. Generics are everywhere in the JDK (collections, streams, `Optional`, `Comparator`) and in every framework, so this folder is a prerequisite for most of what follows.
+> Complete guide to Java generics: compile-time type parameterization, bounded types, PECS wildcard variance, bytecode type erasure, synthetic bridge methods, and advanced architectural generic design patterns.
 
-```
-generic classes & methods ─► bounded types ─► wildcards & PECS ─► type erasure ─► generic patterns
-        (what and how)         (limit T)        (flexible APIs)     (the limits)      (real designs)
-```
+---
+
+## Module Overview
+
+Java generics provide compile-time type safety and eliminate runtime `ClassCastException` while allowing algorithms to operate polymorphically across diverse types. This module provides a rigorous, in-depth reference for generic programming in modern Java (Java 5 through Java 25 LTS).
+
+---
+
+## Notes Directory
+
+| # | Note | Description | Level | Estimated Reading Time |
+|---|---|---|---|---|
+| 00 | [Generic Classes and Methods](00_generic-classes-and-methods.md) | Parameterized classes, interfaces, generic methods, diamond operator, heap pollution, and `@SafeVarargs`. | Intermediate | 22 min |
+| 01 | [Bounded Type Parameters](01_bounded-types.md) | Single upper bounds, multiple bounds, recursive type bounds, and erasure to the first bound. | Intermediate | 24 min |
+| 02 | [Wildcards and PECS](02_wildcards-and-pecs.md) | Invariance, covariance (`? extends T`), contravariance (`? super T`), the PECS rule, and wildcard capture. | Advanced | 25 min |
+| 03 | [Type Erasure and Bytecode Mechanics](03_type-erasure.md) | Erasure mechanism, synthetic bridge methods (`ACC_BRIDGE`), reification boundaries, and Super Type Tokens. | Advanced | 24 min |
+| 04 | [Advanced Generic Design Patterns](04_generic-patterns.md) | Typesafe Heterogeneous Containers, CRTP, Phantom Types, compile-time state machines, and dynamic casting. | Advanced | 25 min |
+
+---
+
+## Core Principles Quick Reference
+
+### The PECS Rule
+- **Producer Extends**: If the container produces data to be read by your method, use `<? extends T>`.
+- **Consumer Super**: If the container consumes data written by your method, use `<? super T>`.
+- **Both**: Use exact invariant type parameter `<T>`.
+
+### Invariance vs Arrays
+- **Arrays are Covariant and Reified**: `String[]` is a `Object[]`, checked at runtime (`ArrayStoreException`).
+- **Generics are Invariant and Erased**: `List<String>` is NOT a `List<Object>`, checked strictly at compile time.
+
+### Bytecode Translation
+- Generic type variables are erased to `Object` or their first upper bound.
+- The compiler inserts synthetic `checkcast` instructions at invocation sites.
+- The compiler generates synthetic `ACC_BRIDGE` methods when overriding generic methods to preserve polymorphic dispatch.
+
+---
 
 ## Prerequisites
-
-[04-oop](../04-oop/README.md): [interfaces](../04-oop/09_interfaces.md), [inheritance](../04-oop/06_inheritance.md) and [polymorphism](../04-oop/07_polymorphism.md); [06-exceptions-and-debugging](../06-exceptions-and-debugging/README.md) (generics turn many `ClassCastException`s into compile errors).
-
-## Reading order
-
-| # | File | You will learn |
-|---|------|----------------|
-| 0 | [00_generic-classes-and-methods.md](./00_generic-classes-and-methods.md) | Type parameters, generic classes, interfaces, methods, the diamond, inference, raw types |
-| 1 | [01_bounded-types.md](./01_bounded-types.md) | `T extends X`, multiple bounds, recursive bounds like `T extends Comparable<T>` |
-| 2 | [02_wildcards-and-pecs.md](./02_wildcards-and-pecs.md) | `?`, `? extends`, `? super`, invariance, the PECS rule, wildcard capture |
-| 3 | [03_type-erasure.md](./03_type-erasure.md) | What the compiler erases, what that forbids, heap pollution, workarounds |
-| 4 | [04_generic-patterns.md](./04_generic-patterns.md) | Type tokens, self-typed builders, generic repositories, result types, API design tips |
-
-## Practice
-
-| After file | Try |
-|------------|-----|
-| 00 | Write `Pair<A, B>`, a generic `Stack<E>` backed by an `ArrayList`, and `static <T> void swap(T[] a, int i, int j)` |
-| 01 | Write `max(List<T>)` for `T extends Comparable<T>`, and `sum` for `T extends Number` |
-| 02 | Write `copy(src, dest)` with the correct wildcards and explain each `?` with PECS |
-| 03 | Show that `List<String>` and `List<Integer>` have the same `getClass()`; trigger a `ClassCastException` through heap pollution |
-| 04 | Build a type-safe `Favorites` container keyed by `Class<T>` and a generic `Repository<T, ID>` with an in-memory implementation |
-
-## You are done when you can
-
-- [ ] Explain what problem generics solve compared with `Object` and casts
-- [ ] Write a generic class and a generic method, and say when the compiler infers the type arguments
-- [ ] Explain why `List<Integer>` is **not** a `List<Number>`, and how wildcards fix the use cases
-- [ ] Apply **PECS** to choose `? extends` or `? super` without guessing
-- [ ] Explain type erasure and list four things it forbids (`new T()`, `instanceof List<String>`, `new T[]`, overloads that differ only in type arguments)
-- [ ] Recognize an unchecked warning as a real risk and say when `@SuppressWarnings("unchecked")` is justified
-
-## Key takeaways
-
-- Generics move type errors from **runtime** (`ClassCastException`) to **compile time**
-- Generic types are **invariant**; wildcards (`? extends`, `? super`) add flexibility at use sites
-- Type arguments are **erased** at runtime: that is the source of most generics restrictions
-- Prefer generic methods and bounded types over `Object` and casts; avoid raw types
-
-**Next:** [08-collections](../08-collections/README.md)
+- [04-oop](../04-oop/README.md) - Object-Oriented Programming (Classes, Inheritance, Polymorphism, Interfaces)

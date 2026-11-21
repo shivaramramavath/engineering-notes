@@ -1,230 +1,442 @@
-# try-with-resources
+# Try-With-Resources and the AutoCloseable Interface
 
-Many objects hold something that must be **released**: files, sockets, database connections, locks, native memory. **try-with-resources** (Java 7) closes them automatically, in the right order, even when exceptions occur, and without losing exceptions.
+> A comprehensive deep-dive into automated resource management (JEP 110), `AutoCloseable` vs `Closeable`, suppressed exceptions resolution, and Java 9 effectively final enhancements.
 
+| Metadata | Details |
+| :--- | :--- |
+| **Level** | Intermediate |
+| **Prerequisites** | [01_try-catch-finally.md](./01_try-catch-finally.md) |
+| **Time to Read** | 25 minutes |
+| **Status** | Active |
+| **Java Version** | Java 8+ (Effectively final resources in Java 9+) |
+
+---
+
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & Usage](#4-syntax--usage)
+5. [Practical Examples](#5-practical-examples)
+6. [Best Practices](#6-best-practices)
+7. [Common Mistakes & Pitfalls](#7-common-mistakes--pitfalls)
+8. [Performance & Security Notes](#8-performance--security-notes)
+9. [Comparison: AutoCloseable vs Closeable](#9-comparison-autocloseable-vs-closeable)
+10. [Interview Questions](#10-interview-questions)
+11. [Practice Exercises](#11-practice-exercises)
+12. [Summary & Cheat Sheet](#12-summary--cheat-sheet)
+13. [Further Reading](#13-further-reading)
+
+---
+
+## 1. What & Why
+
+Operating system resources—file streams, database connections, sockets, and native memory blocks—must be explicitly closed when an application finishes using them. Failure to close them causes **resource leaks**, eventually crashing the server with "Too many open files" or exhausting database connection pools.
+
+Prior to Java 7, closing resources required nested, verbose `try-finally` blocks:
 ```java
-try (BufferedReader reader = Files.newBufferedReader(path)) {
-    String line = reader.readLine();
-    System.out.println(line);
-}                                         // reader.close() is called here, always
+// Pre-Java 7 Verbose & Leaky Pattern:
+InputStream in = null;
+try {
+    in = new FileInputStream("file.txt");
+    in.read();
+} finally {
+    if (in != null) {
+        try { in.close(); } catch (IOException ignored) {}
+    }
+}
+```
+If `in.read()` threw an exception, and `in.close()` also threw an exception, the secondary close exception **overwrote and erased** the primary exception, destroying diagnostic history!
+
+**Try-With-Resources** (introduced in Java 7 under Project Coin / JEP 110) automates deterministic cleanup, guarantees reverse-order resource closing, and preserves all errors via suppressed exceptions.
+
+---
+
+## 2. Core Concepts
+
+### 2.1 The `AutoCloseable` Contract
+Any class that implements `java.lang.AutoCloseable` can be managed by try-with-resources:
+```java
+public interface AutoCloseable {
+    void close() throws Exception;
+}
 ```
 
-## The problem it solves
+### 2.2 Reverse Order of Closing
+When multiple resources are declared in a try-with-resources statement, they are closed in **reverse order of their creation**:
+```java
+try (Resource A = new Resource("A");
+     Resource B = new Resource("B")) {
+    // work...
+}
+// B.close() is called FIRST, then A.close()!
+```
+This is essential for wrapped streams (e.g. closing `BufferedWriter` before closing `FileWriter`).
+
+---
+
+## 3. How It Works Internally
+
+### 3.1 Bytecode Decompilation of Try-With-Resources
+When `javac` compiles try-with-resources, it expands the block into comprehensive synthetic bytecode:
 
 ```java
-// Old style: verbose and subtly wrong
-BufferedReader reader = null;
+// What the compiler generates behind the scenes:
+Resource res = new Resource();
+Throwable $primaryException = null;
 try {
-    reader = Files.newBufferedReader(path);
-    return reader.readLine();
+    res.doWork();
+} catch (Throwable t) {
+    $primaryException = t;
+    throw t;
 } finally {
-    if (reader != null) {
-        try { reader.close(); }            // close() may throw too...
-        catch (IOException ignored) { }    // ...and swallow, or mask the original exception
+    if (res != null) {
+        if ($primaryException != null) {
+            try {
+                res.close();
+            } catch (Throwable $suppressed) {
+                $primaryException.addSuppressed($suppressed); // ATTACHED SAFELY!
+            }
+        } else {
+            res.close();
+        }
+    }
+}
+```
+The primary exception is never lost. Any failure during `close()` is appended as a suppressed exception accessible via `$primaryException.getSuppressed()`.
+
+---
+
+## 4. Syntax & Usage
+
+### 4.1 Java 9 Effectively Final Resource Enhancement
+In Java 7 and 8, resources had to be declared and initialized inside the try parentheses.
+Starting in **Java 9**, any existing `final` or **effectively final** variable can be passed directly into the try statement:
+```java
+// Java 9+ Concise Syntax:
+BufferedReader reader = Files.newBufferedReader(path);
+try (reader) { // Legal in Java 9+!
+    reader.lines().forEach(System.out::println);
+}
+```
+
+---
+
+## 5. Practical Examples
+
+### Example 1: Multiple Resources Closed in Reverse Order
+```java
+class AuditResource implements AutoCloseable {
+    private final String name;
+    AuditResource(String name) {
+        this.name = name;
+        System.out.println("Opened: " + name);
+    }
+    @Override
+    public void close() {
+        System.out.println("Closed: " + name);
+    }
+}
+
+public class ReverseOrderDemo {
+    public static void main(String[] args) {
+        try (AuditResource r1 = new AuditResource("DatabaseConnection");
+             AuditResource r2 = new AuditResource("TransactionSession");
+             AuditResource r3 = new AuditResource("CursorLock")) {
+            System.out.println("Executing business transaction...");
+        }
+    }
+}
+```
+**Output:**
+```text
+Opened: DatabaseConnection
+Opened: TransactionSession
+Opened: CursorLock
+Executing business transaction...
+Closed: CursorLock
+Closed: TransactionSession
+Closed: DatabaseConnection
+```
+
+### Example 2: Real-World Multi-Channel File Copy
+```java
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+
+public class FileCopyService {
+    public static void copy(String source, String destination) throws IOException {
+        // Both streams automatically managed and closed safely:
+        try (var in = new FileInputStream(source);
+             var out = new FileOutputStream(destination)) {
+            byte[] buffer = new byte[8192];
+            int bytesRead;
+            while ((bytesRead = in.read(buffer)) != -1) {
+                out.write(buffer, 0, bytesRead);
+            }
+        }
+    }
+
+    public static void main(String[] args) {
+        System.out.println("File copy utility configured with try-with-resources.");
     }
 }
 ```
 
-Problems: noise, easy to forget, and an exception from `close()` can **replace** the original exception from the body. With several resources it nests quickly.
-
-## Syntax
-
+### Example 3: Edge Case – Suppressed Exceptions Resolution
 ```java
-try (Resource1 a = open1(); Resource2 b = open2()) {      // declared in the parentheses, separated by ;
-    // use a and b
-} catch (IOException e) {                                  // optional: also covers exceptions from opening and closing
-    ...
-} finally {                                                // optional: runs AFTER the resources are closed
-    ...
+public class SuppressedDemo {
+    static class BrokenStream implements AutoCloseable {
+        public void read() {
+            throw new IllegalStateException("Primary Read Error!");
+        }
+        @Override
+        public void close() {
+            throw new RuntimeException("Secondary Close Error!");
+        }
+    }
+
+    public static void main(String[] args) {
+        try (BrokenStream stream = new BrokenStream()) {
+            stream.read();
+        } catch (Exception ex) {
+            System.out.println("Primary Caught: " + ex.getMessage());
+            for (Throwable suppressed : ex.getSuppressed()) {
+                System.out.println("Suppressed:     " + suppressed.getMessage());
+            }
+        }
+    }
 }
 ```
+**Output:**
+```text
+Primary Caught: Primary Read Error!
+Suppressed:     Secondary Close Error!
+```
 
-| Rule | Detail |
-|------|--------|
-| Resource type | Must implement `AutoCloseable` (or its sub-interface `Closeable`) |
-| Resource variables are implicitly **`final`** | Cannot be reassigned in the block |
-| Java 9+ | You may reuse an existing **effectively final** variable: `try (reader) { ... }` |
-| `null` resources | Allowed: skipped, no `NullPointerException` on close |
-| `catch`/`finally` | Optional; if present they run **after** all resources are closed |
-
-## Order of closing
-
-Resources are closed in **reverse order** of declaration (like a stack), before any `catch` or `finally` runs.
-
+### Example 4: Failure Case – Catching Exception Before `close()` Runs
 ```java
-try (Res a = new Res("A"); Res b = new Res("B")) {
-    System.out.println("body");
-} catch (Exception e) {
-    System.out.println("catch");
-} finally {
-    System.out.println("finally");
+public class CatchOrderTimingDemo {
+    static class TrackedResource implements AutoCloseable {
+        @Override
+        public void close() {
+            System.out.println("1. Resource closed!");
+        }
+    }
+
+    public static void main(String[] args) {
+        try (TrackedResource res = new TrackedResource()) {
+            throw new RuntimeException("Error in try block");
+        } catch (RuntimeException e) {
+            // CRITICAL NOTE: close() executes BEFORE entering the catch block!
+            System.out.println("2. Handled in catch block: " + e.getMessage());
+        } finally {
+            System.out.println("3. Finally block executed!");
+        }
+    }
 }
 ```
-
-Output (assuming `Res` prints on open and close):
-
-```
-open A
-open B
-body
-close B       ◄── reverse order
-close A
-finally
+**Output:**
+```text
+1. Resource closed!
+2. Handled in catch block: Error in try block
+3. Finally block executed!
 ```
 
-If opening `B` fails, `A` is still closed. Dependencies should be declared first:
-
+### Example 5: Optimized / Idiomatic – Custom Clean AutoCloseable Lock
 ```java
-try (FileInputStream in = new FileInputStream(file);
-     BufferedInputStream buffered = new BufferedInputStream(in)) { ... }     // buffered closes first, then in
-```
+import java.util.concurrent.locks.ReentrantLock;
 
-Closing a **wrapper** (`BufferedReader`) normally closes the stream it wraps, so declaring just the outer one is usually enough: `try (BufferedReader r = new BufferedReader(new FileReader(f)))`. (Be careful if the wrapper's constructor can throw after the inner resource is opened: declaring both separately is safest.)
+public class AutoLock implements AutoCloseable {
+    private final ReentrantLock lock;
 
-## Suppressed exceptions
-
-If both the body and `close()` throw, the **body's exception is the one thrown**; the one from `close()` is attached to it as a **suppressed** exception, so nothing is lost.
-
-```java
-class Faulty implements AutoCloseable {
-    @Override public void close() { throw new IllegalStateException("close failed"); }
-}
-
-try (Faulty f = new Faulty()) {
-    throw new RuntimeException("body failed");
-} catch (RuntimeException e) {
-    System.out.println(e.getMessage());                       // body failed
-    for (Throwable s : e.getSuppressed())
-        System.out.println("suppressed: " + s.getMessage());  // suppressed: close failed
-}
-```
-
-The stack trace also prints them:
-
-```
-java.lang.RuntimeException: body failed
-    at ...
-    Suppressed: java.lang.IllegalStateException: close failed
-        at ...
-```
-
-If only `close()` throws, that exception propagates normally. With `try/finally`, the `close()` exception would have **replaced** the original one ([01](./01_try-catch-finally.md)).
-
-## `AutoCloseable` vs `Closeable`
-
-| | `AutoCloseable` | `Closeable` |
-|---|-----------------|-------------|
-| Package | `java.lang` | `java.io` |
-| `close()` throws | `Exception` | `IOException` |
-| Idempotent `close()` required | Strongly advised | **Yes**: calling twice must have no effect |
-| Extends | n/a | `AutoCloseable` |
-
-## Implementing your own
-
-```java
-public class Connection implements AutoCloseable {
-    private boolean open = true;
-
-    public void send(String msg) {
-        if (!open) throw new IllegalStateException("connection closed");
-        ...
+    public AutoLock(ReentrantLock lock) {
+        this.lock = lock;
+        this.lock.lock();
     }
 
     @Override
-    public void close() {                       // you may narrow the throws clause, even drop it
-        if (!open) return;                      // idempotent
-        open = false;
-        System.out.println("closed");
+    public void close() {
+        this.lock.unlock();
     }
-}
 
-try (Connection c = new Connection()) {
-    c.send("hello");
-}
-```
+    public static void main(String[] args) {
+        ReentrantLock rawLock = new ReentrantLock();
 
-Guidelines for `close()`:
-- Make it **idempotent**
-- Prefer **not** declaring `throws Exception`: it forces every caller to catch it. Declare only what you really throw (or nothing)
-- Avoid throwing `InterruptedException`; it is a bad fit for resources. If your cleanup can be interrupted, restore the flag instead
-- Release in a robust order, and do not let one failure skip the rest
+        // Elegant scoped locking using try-with-resources:
+        try (AutoLock ignored = new AutoLock(rawLock)) {
+            System.out.println("Thread holds lock: " + rawLock.isHeldByCurrentThread());
+        }
 
-## Common resources
-
-| Resource | Notes |
-|----------|-------|
-| `InputStream`, `OutputStream`, `Reader`, `Writer` | The classic case ([11-io-and-networking](../11-io-and-networking/README.md)) |
-| `Scanner` | Closing it closes the wrapped source (do not close one wrapping `System.in` unless done with input) |
-| `Connection`, `Statement`, `ResultSet` (JDBC) | Always twr; closing a `Connection` closes its statements ([16-jdbc-and-databases](../16-jdbc-and-databases/README.md)) |
-| Streams from `Files.lines`, `Files.walk`, `Files.list`, `Files.newDirectoryStream` | **Must** be closed: they hold file handles |
-| `ExecutorService` | `AutoCloseable` since Java 19 (waits for tasks, then shuts down) |
-| `HttpClient` | `AutoCloseable` since Java 21 |
-| `FileChannel`, `Socket`, `ServerSocket`, `ZipFile`, `JarFile` | Yes |
-| Locks | `Lock` is **not** `AutoCloseable`: use `try/finally { lock.unlock(); }` |
-
-```java
-try (Stream<String> lines = Files.lines(path)) {                  // closes the file when done
-    long count = lines.filter(l -> l.contains("ERROR")).count();
-}
-
-try (Connection con = dataSource.getConnection();
-     PreparedStatement ps = con.prepareStatement(SQL)) {
-    ps.setInt(1, id);
-    try (ResultSet rs = ps.executeQuery()) {
-        while (rs.next()) { ... }
+        System.out.println("Thread holds lock after exit: " + rawLock.isHeldByCurrentThread());
     }
 }
 ```
+**Output:**
+```text
+Thread holds lock: true
+Thread holds lock after exit: false
+```
 
-## try-with-resources and `return`
+---
 
-The resource is closed **after** the return value is computed but **before** control returns to the caller:
+## 6. Best Practices
+
+1. **Always Use Try-With-Resources for AutoCloseables:** Never write manual `try-finally` cleanup for files, sockets, connections, or streams (Effective Java Item 9).
+2. **Narrow Declared Exceptions in Custom `close()`:** The base `AutoCloseable.close()` declares `throws Exception`. In your custom classes, declare specific exceptions (e.g. `throws IOException`) or omit `throws` entirely if closing cannot fail.
+3. **Make `close()` Idempotent:** Multiple calls to `close()` should be safe and have no additional side effects.
+4. **Leverage Java 9 Effectively Final Resources:** If a resource is initialized prior to the `try` block, pass the variable directly into `try (res)`.
+5. **Remember That `close()` Runs Before `catch`:** Any `catch` block on a try-with-resources statement executes *after* all resources in the header have already been closed.
+
+---
+
+## 7. Common Mistakes & Pitfalls
+
+| Mistake | Why It Is Wrong | Correct Idiom |
+| :--- | :--- | :--- |
+| Wrapping multiple streams outside header | If second stream constructor fails, first stream leaks unclosed. | Declare each stream in try header. |
+| Reassigning resource variable in Java 9 | Disables effectively final status; compilation fails. | Do not reassign resource variable. |
+| Non-idempotent `close()` | Calling `close()` twice throws unexpected exceptions. | Set closed flag: `if (closed) return;`. |
+| Declaring `throws Exception` on custom close | Forces callers to catch broad `Exception`. | Narrow to specific exception or no-throw. |
+| Manual `.close()` inside try block | Redundant and risks closing before dependent wrapped streams flush. | Let try-with-resources manage closing. |
+
+---
+
+## 8. Performance & Security Notes
+
+### 8.1 Prevention of Resource Exhaustion DoS
+Unclosed database connections and file descriptors accumulate over time, leading to Denial of Service (DoS) conditions where the operating system rejects new socket connections. Try-with-resources guarantees deterministic cleanup even during thread interruptions, out-of-memory situations, or unhandled errors.
+
+---
+
+## 9. Comparison: AutoCloseable vs Closeable
+
+| Attribute | `java.lang.AutoCloseable` | `java.io.Closeable` |
+| :--- | :--- | :--- |
+| **Introduced** | Java 7 | Java 5 |
+| **Package** | `java.lang` | `java.io` |
+| **Hierarchy** | Root interface | Sub-interface (`extends AutoCloseable`) |
+| **`close()` Throws** | `throws Exception` (Broad) | `throws IOException` (Narrow) |
+| **Idempotency** | Recommended, not strictly required | Strictly mandated by specification |
+
+---
+
+## 10. Interview Questions
+
+<details>
+<summary><strong>1. Why is try-with-resources preferred over try-finally (Effective Java Item 9)?</strong></summary>
+
+1. **Eliminates Exception Masking:** If both the `try` block and `finally` block throw exceptions, try-finally permanently erases the primary exception. Try-with-resources preserves the primary exception and captures the secondary ones as suppressed exceptions.
+2. **Automated Reverse-Order Cleanup:** Safely closes dependent wrapped streams in reverse order of declaration.
+3. **Zero Boilerplate:** Replaces ugly 15-line nested try-finally constructs with a clean 3-line declaration.
+</details>
+
+<details>
+<summary><strong>2. In what order are resources closed in a try-with-resources statement?</strong></summary>
+
+Resources are closed in the **reverse order of their initialization** in the try header. If resources are declared as `try (A a = ...; B b = ...)`, `b.close()` will execute first, followed by `a.close()`.
+</details>
+
+<details>
+<summary><strong>3. When do the catch and finally blocks execute relative to resource closing?</strong></summary>
+
+All resources declared in the try-with-resources header are closed **before** any explicit `catch` or `finally` blocks attached to that try statement are entered.
+</details>
+
+<details>
+<summary><strong>4. What is the difference between AutoCloseable and Closeable?</strong></summary>
+
+`AutoCloseable` was introduced in Java 7 in `java.lang` and declares `void close() throws Exception`. `Closeable` was introduced in Java 5 in `java.io` and retrofitted in Java 7 to extend `AutoCloseable`, narrowing its contract to `void close() throws IOException` and strictly requiring idempotent closing.
+</details>
+
+<details>
+<summary><strong>5. What did Java 9 change regarding try-with-resources?</strong></summary>
+
+In Java 7 and 8, variables used in try-with-resources had to be freshly declared inside the parentheses (`try (Resource r = new Resource())`). Java 9 enhanced this to allow pre-existing `final` or **effectively final** variables to be referenced directly: `try (r)`.
+</details>
+
+<details>
+<summary><strong>6. Can an AutoCloseable class's close() method declare that it throws no exceptions?</strong></summary>
+
+Yes. An overriding interface method in Java can omit checked exceptions declared by the parent interface. If a class's `close()` method does not throw checked exceptions, callers using try-with-resources do not need to catch or declare `Exception`.
+</details>
+
+<details>
+<summary><strong>7. What happens if close() is invoked on a resource that threw an exception during its constructor?</strong></summary>
+
+If an exception is thrown inside the constructor while initializing a resource in the try header, that resource was never successfully constructed, so its `close()` method is **not** called. Any previously initialized resources declared before it in the header **will** be closed in reverse order.
+</details>
+
+<details>
+<summary><strong>8. Is it possible for close() to throw a NullPointerException if a resource initialized to null?</strong></summary>
+
+No. The compiler-generated bytecode explicitly performs a null check (`if (res != null) res.close();`) before invoking `close()`.
+</details>
+
+---
+
+## 11. Practice Exercises
+
+### Easy
+1. **Try-With-Resources File Reading:** Read all lines of a text file using try-with-resources with `BufferedReader`.
+2. **Custom AutoCloseable:** Implement an `AutoCloseable` database connection dummy that prints when closed.
+3. **No-Throw Close:** Implement an `AutoCloseable` timer that prints elapsed time on close without throwing checked exceptions.
+
+### Medium
+4. **Reverse-Order Verification:** Write a program with 3 custom resources that asserts they are closed in exact reverse declaration order.
+5. **Java 9 Effectively Final Test:** Initialize a stream before a try block and manage it using Java 9 `try (stream)` syntax.
+6. **Scoped Stopwatch:** Implement a scoped performance stopwatch implementing `AutoCloseable` that logs duration in milliseconds upon exiting a block.
+
+### Hard
+7. **Bytecode Decompilation Analysis:** Compile a try-with-resources class and use `javap -c` to inspect the synthetic `$primaryException` and `addSuppressed` instructions.
+8. **Fault-Tolerant Multi-Resource Coordinator:** Build an enterprise transactional coordinator that rolls back 5 distributed resources in reverse order if any resource fails.
+9. **Zero-Allocation Scoped Arena:** Implement an off-heap memory arena implementing `AutoCloseable` that frees native memory on block exit.
+
+<details>
+<summary><strong>Exercise Solutions</strong></summary>
 
 ```java
-String firstLine(Path p) throws IOException {
-    try (BufferedReader r = Files.newBufferedReader(p)) {
-        return r.readLine();           // value evaluated, then r is closed, then returned
+// Solution to Exercise 1: Try-With-Resources File Reading
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+
+public class FileReaderExample {
+    public static void printFile(String path) throws IOException {
+        try (BufferedReader reader = new BufferedReader(new FileReader(path))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                System.out.println(line);
+            }
+        }
     }
 }
 ```
+</details>
 
-Never return a lazily evaluated object that depends on a resource that gets closed (for example, returning a `Stream` from inside `try (Files.lines(...))` leaves the caller with a closed stream).
+---
 
-## When resources have no `AutoCloseable` type
+## 12. Summary & Cheat Sheet
 
-```java
-Lock lock = ...;
-lock.lock();
-try { ... } finally { lock.unlock(); }
-
-// Adapt anything with a lambda
-try (AutoCloseable cleanup = () -> restoreState()) { ... }
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                   TRY-WITH-RESOURCES CHEAT SHEET                       │
+├────────────────────────────────────────────────────────────────────────┤
+│ Contract:           Manages classes implementing AutoCloseable         │
+│ Syntax:             try (Resource a = ...; Resource b = ...)           │
+│ Java 9 Enhancement: try (effectivelyFinalVar)                         │
+│ Closing Order:      REVERSE of declaration order (b.close() then a)    │
+│ Timing:             close() runs BEFORE catch and finally blocks       │
+│ Exception Safety:   Preserves primary exception; suppresses close() err│
+│ Best Practice:      Omit throws on close() if closing cannot fail      │
+│ Recommendation:     ALWAYS use for I/O, DB, sockets, and lock scopes   │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
-Because `AutoCloseable` has a single abstract method, a lambda or method reference works as a one-off cleanup action (and `close()` still declares `Exception`, so catch or declare accordingly).
+---
 
-## Common mistakes
-
-| Mistake | Symptom | Fix |
-|---------|---------|-----|
-| Manual `close()` in `finally` | Verbose, leaks on error paths, masks exceptions | try-with-resources |
-| Not closing `Files.lines`/`walk`/`list` streams | File handle leaks, "too many open files" | `try (Stream<...> s = ...)` |
-| Declaring the resource outside and using it after the block | `IllegalStateException`/`ClosedChannelException` | Keep all use inside the block |
-| Returning a lazy object that needs the closed resource | Empty or failing results | Materialize inside (`toList()`), then return |
-| Assuming `catch` runs before the resource is closed | Resource accessed in `catch` is already closed | Resources close first; handle in the block |
-| `close()` that is not idempotent | Errors on double close | Guard with a flag |
-| `close()` declared `throws Exception` | Callers must catch `Exception` | Narrow the signature |
-| Ignoring suppressed exceptions while debugging | Missing half the story | Check `getSuppressed()` or the full trace |
-| Closing `System.in`/`System.out` by wrapping them | Later reads/writes fail | Do not close the standard streams |
-| Opening several resources in a single expression that might throw halfway | Leak of the first | Declare each as its own resource |
-| Using `Lock` in try-with-resources | Does not compile | `try/finally` with `unlock()` |
-
-## Key takeaways
-
-- Use try-with-resources for **anything** `AutoCloseable`: it closes in reverse order, on every path
-- If the body and `close()` both throw, the body's exception wins and the other is **suppressed**
-- Resources are closed **before** `catch`/`finally` run
-- Implement `AutoCloseable` for your own resource types, with an idempotent `close()`
-- Streams from `Files.lines`/`walk`/`list`, JDBC objects, executors and HTTP clients need closing too
-
-**Next:** [Custom Exceptions](./04_custom-exceptions.md)
+## 13. Further Reading
+- [JEP 110: An AutoCloseable Interface (Java 7)](https://openjdk.org/jeps/110)
+- Java Language Specification (JLS) Section 14.20.3: `try-with-resources`
+- *Effective Java (3rd Edition)*, Joshua Bloch, Item 9: "Prefer try-with-resources to try-finally".
