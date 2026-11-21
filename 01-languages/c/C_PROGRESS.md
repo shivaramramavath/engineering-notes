@@ -37,7 +37,7 @@
 ---
 
 ## Module 01: Fundamentals (`01-fundamentals/`)
-- [ ] `01-fundamentals/README.md` (Not started)
+- [x] `01-fundamentals/README.md` (Done)
 - [x] `01-fundamentals/01-program-structure.md` (Done)
 - [x] `01-fundamentals/02-data-types.md` (Done)
 - [x] `01-fundamentals/03-integer-representation.md` (Done)
@@ -46,13 +46,13 @@
 - [x] `01-fundamentals/06-type-conversions.md` (Done)
 - [x] `01-fundamentals/07-control-flow.md` (Done)
 - [x] `01-fundamentals/08-functions.md` (Done)
-- [ ] `01-fundamentals/09-input-output.md` (Not started)
-- [ ] `01-fundamentals/10-undefined-unspecified-implementation-defined.md` (Not started)
-- [ ] `01-fundamentals/11-sizeof-and-alignment-basics.md` (Not started)
-- [ ] `01-fundamentals/12-const-correctness-basics.md` (Not started)
-- [ ] `01-fundamentals/13-integer-promotions-and-usual-arithmetic-conversions.md` (Not started)
-- [ ] `01-fundamentals/14-sequence-points-and-evaluation-order.md` (Not started)
-- [ ] `01-fundamentals/15-lvalues-rvalues-and-expressions.md` (Not started)
+- [x] `01-fundamentals/09-input-output.md` (Done)
+- [x] `01-fundamentals/10-undefined-unspecified-implementation-defined.md` (Done)
+- [x] `01-fundamentals/11-sizeof-and-alignment-basics.md` (Done)
+- [x] `01-fundamentals/12-const-correctness-basics.md` (Done)
+- [x] `01-fundamentals/13-integer-promotions-and-usual-arithmetic-conversions.md` (Done)
+- [x] `01-fundamentals/14-sequence-points-and-evaluation-order.md` (Done)
+- [x] `01-fundamentals/15-lvalues-rvalues-and-expressions.md` (Done)
 
 ---
 

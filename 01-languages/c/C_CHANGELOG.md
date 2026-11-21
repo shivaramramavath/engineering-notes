@@ -156,3 +156,57 @@ All modifications, error fixes, technical corrections, and structural extensions
   - Detailed function pointers, clean `typedef` callback idioms, Tail Call Optimization (TCO), and the C23 standard change making `int f()` strictly identical to `int f(void)`.
   - Added runnable example `examples/08-functions.c` and verified real output.
   - Added 6-row common pitfalls table, 8 interview questions, and 3 practice exercises with full solutions.
+
+---
+
+## Batch 5: Module 01 Fundamentals Part 3 (Notes 09–15 + Module README)
+- **`01-fundamentals/README.md`**:
+  - Authored complete 69-line module index and roadmap covering all 15 fundamental notes with learning outcomes and prerequisites.
+- **`01-fundamentals/09-input-output.md`**:
+  - Rewritten from 185 lines to 400 lines, adhering strictly to the 13 required sections.
+  - Detailed standard stream handles (`stdin`, `stdout`, `stderr`), buffering modes (`_IOFBF`, `_IOLBF`, `_IONBF`), `setvbuf()`, and `fflush()`.
+  - Detailed format string vulnerabilities (CWE-134), `snprintf` truncation detection and dynamic allocation patterns, safe input parsing via `fgets` + `sscanf`, and newline stripping idioms.
+  - Evaluated C11 Annex K bounds-checking interfaces (`printf_s`, `scanf_s`, `gets_s`).
+  - Added runnable example `examples/09-input-output.c` and verified real output.
+  - Added 6-row common pitfalls table, 12 interview questions, and 3 practice exercises with full solutions.
+- **`01-fundamentals/10-undefined-unspecified-implementation-defined.md`**:
+  - Authored complete 412-line guide to non-deterministic behaviors in ISO C.
+  - Formalized the triad: Undefined Behavior (UB), Unspecified Behavior, and Implementation-Defined Behavior with ISO definitions.
+  - Detailed how modern optimizing compilers exploit UB via data-flow analysis to delete security checks and dead code.
+  - Detailed time-travel optimizations, `-fwrapv`, `-fno-delete-null-pointer-checks`, and runtime detection via UBSan (`-fsanitize=undefined`).
+  - Added runnable example `examples/10-undefined-unspecified-implementation-defined.c` and verified real output.
+  - Added 6-row common pitfalls table, 12 interview questions, and 3 practice exercises with full solutions.
+- **`01-fundamentals/11-sizeof-and-alignment-basics.md`**:
+  - Authored complete 402-line guide to memory alignment and `sizeof`.
+  - Detailed `sizeof` compile-time evaluation (and the VLA runtime evaluation exception), hardware bus alignment requirements, and `SIGBUS` faults.
+  - Detailed struct member padding calculations, trailing struct padding, member reordering optimization (saving 33% memory footprint), and C11 `<stdalign.h>` (`alignof`, `alignas`, `max_align_t`).
+  - Added runnable example `examples/11-sizeof-and-alignment-basics.c` and verified real output.
+  - Added 6-row common pitfalls table, 12 interview questions, and 3 practice exercises with full solutions.
+- **`01-fundamentals/12-const-correctness-basics.md`**:
+  - Authored complete 405-line guide to `const` qualification and pointer semantics.
+  - Detailed pointer-to-const vs const-pointer vs const-pointer-to-const, the clockwise / right-to-left reading rule, and transitive struct constness.
+  - Detailed ELF `.rodata` segment mapping with hardware write-protection page faults (`SIGSEGV`) when casting away constness.
+  - Explained why multi-level pointer qualification (`char **` to `const char **`) requires explicit casts in C.
+  - Added runnable example `examples/12-const-correctness-basics.c` and verified real output.
+  - Added 6-row common pitfalls table, 12 interview questions, and 3 practice exercises with full solutions.
+- **`01-fundamentals/13-integer-promotions-and-usual-arithmetic-conversions.md`**:
+  - Authored complete 403-line definitive reference on C conversion ranks and promotion rules.
+  - Detailed the conversion rank hierarchy, integer promotion to signed `int`, and the step-by-step Usual Arithmetic Conversions state machine.
+  - Detailed the signed-to-unsigned comparison vulnerability, bitwise shift undefined behavior on promoted narrow types, and C23 `_BitInt(N)` promotion semantics.
+  - Added runnable example `examples/13-integer-promotions-and-usual-arithmetic-conversions.c` and verified real output.
+  - Added 6-row common pitfalls table, 12 interview questions, and 3 practice exercises with full solutions.
+- **`01-fundamentals/14-sequence-points-and-evaluation-order.md`**:
+  - Authored complete 409-line guide to execution ordering in C.
+  - Formalized ISO C11/C17/C23 sequenced-before, unsequenced, and indeterminately sequenced relations.
+  - Cataloged all standard sequence points (`;`, `&&`, `||`, `?:`, `,`, function entry, full expressions).
+  - Detailed why `i = i++`, `a[i] = i++`, and `f(v++, v++)` invoke undefined behavior, and compiler instruction reordering boundaries.
+  - Added runnable example `examples/14-sequence-points-and-evaluation-order.c` and verified real output.
+  - Added 6-row common pitfalls table, 12 interview questions, and 4 practice exercises with full solutions.
+- **`01-fundamentals/15-lvalues-rvalues-and-expressions.md`**:
+  - Authored complete 403-line deep dive into C value categories.
+  - Formalized lvalues (locator values designating memory storage) vs rvalues (transient expression values).
+  - Detailed modifiable vs non-modifiable lvalues (const-qualified and array types), and lvalue-to-rvalue assembly conversions.
+  - Dissected array decay into rvalue pointers and the three strict exceptions (`sizeof`, `&`, string literal initializer).
+  - Detailed C99 compound literals as mutable lvalues with block-scope automatic or file-scope static storage duration.
+  - Added runnable example `examples/15-lvalues-rvalues-and-expressions.c` and verified real output.
+  - Added 6-row common pitfalls table, 12 interview questions, and 3 practice exercises with full solutions.
