@@ -7,7 +7,7 @@
 | **Module Code** | `06-build-and-tooling` |
 | **Prerequisites** | [00-setup/07-makefile-basics.md](../00-setup/07-makefile-basics.md), [04-advanced/04-linking-static-vs-shared-libraries.md](../04-advanced/04-linking-static-vs-shared-libraries.md) |
 | **Duration** | ~25 hours |
-| **Status** | In Progress (Batch 20) |
+| **Status** | Complete |
 | **Standard Baseline**| POSIX.1-2008 / GNU Make 4.x / CMake 3.20+ / Clang 12+ / GCC 9+ |
 
 ---
@@ -38,10 +38,10 @@ In this module, you will master:
 | **04** | [Code Formatting with Clang-Format](./04-clang-format.md) | Tooling | Complete | `.clang-format` specification, style inheritance, pre-commit hooks, CI style gates |
 | **05** | [Code Coverage: gcov & lcov](./05-gcov-coverage.md) | Tooling | Complete | Coverage instrumentation (`--coverage`), line/branch coverage metrics, lcov HTML reports |
 | **06** | [Git Workflow for C Projects](./06-git-workflow-for-c-projects.md) | Tooling | Complete | `.gitignore` for C artifacts, submodules, Semantic Versioning (SemVer), Git tags |
-| **07** | [Cross-Compilation Intro](./07-cross-compilation-intro.md) | Tooling | Planned | Target tuples (`x86_64-w64-mingw32`, `arm-linux-gnueabihf`), sysroots, CMake toolchains |
+| **07** | [Cross-Compilation Intro](./07-cross-compilation-intro.md) | Tooling | Complete | Target tuples (`x86_64-w64-mingw32`, `arm-linux-gnueabihf`), sysroots, CMake toolchains |
 | **08** | [pkg-config and Library Dependencies](./08-pkg-config-and-dependencies.md) | Tooling | Planned | Querying `cflags` and `libs`, authoring custom `.pc` metadata files, CMake `find_package` |
-| **09** | [Continuous Integration for C](./09-continuous-integration-for-c.md) | Tooling | Planned | GitHub Actions / GitLab CI matrices, multi-compiler testing, caching build artifacts |
-| **10** | [Doxygen API Documentation](./10-doxygen-documentation.md) | Tooling | Planned | Javadoc/Doxygen comment syntax (`@param`, `@return`), Doxyfile, generating HTML/PDF docs |
+| **09** | [Continuous Integration for C](./09-continuous-integration-for-c.md) | Tooling | Complete | GitHub Actions / GitLab CI matrices, multi-compiler testing, caching build artifacts |
+| **10** | [Doxygen API Documentation](./10-doxygen-documentation.md) | Tooling | Complete | Javadoc/Doxygen comment syntax (`@param`, `@return`), Doxyfile, generating HTML/PDF docs |
 | **11** | [Debug vs Release Builds & Sanitizer CI](./11-debug-vs-release-builds-and-sanitizer-ci.md) | Tooling | Planned | `-O0 -g3` vs `-O3 -DNDEBUG`, LTO, ASan/UBSan/TSan multi-target build matrices |
 
 ---

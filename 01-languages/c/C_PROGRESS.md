@@ -175,19 +175,19 @@
 
 ---
 
-## Module 06: Build & Tooling (`06-build-and-tooling/`)
-- [x] `06-build-and-tooling/README.md` (In progress - 58 lines)
+## Module 06: Build & Tooling (`06-build-and-tooling/`) - 100% Complete
+- [x] `06-build-and-tooling/README.md` (Complete - 58 lines)
 - [x] `06-build-and-tooling/01-make-in-depth.md` (Complete - 418 lines)
 - [x] `06-build-and-tooling/02-cmake.md` (Complete - 411 lines)
 - [x] `06-build-and-tooling/03-static-analysis-clang-tidy-cppcheck.md` (Complete - 406 lines)
 - [x] `06-build-and-tooling/04-clang-format.md` (Complete - 400 lines)
 - [x] `06-build-and-tooling/05-gcov-coverage.md` (Complete - 402 lines)
 - [x] `06-build-and-tooling/06-git-workflow-for-c-projects.md` (Complete - 411 lines)
-- [ ] `06-build-and-tooling/07-cross-compilation-intro.md` (Not started)
-- [ ] `06-build-and-tooling/08-pkg-config-and-dependencies.md` (Not started)
-- [ ] `06-build-and-tooling/09-continuous-integration-for-c.md` (Not started)
-- [ ] `06-build-and-tooling/10-doxygen-documentation.md` (Not started)
-- [ ] `06-build-and-tooling/11-debug-vs-release-builds-and-sanitizer-ci.md` (Not started)
+- [x] `06-build-and-tooling/07-cross-compilation-intro.md` (Complete - 402 lines)
+- [x] `06-build-and-tooling/08-pkg-config-and-dependencies.md` (Complete - 400 lines)
+- [x] `06-build-and-tooling/09-continuous-integration-for-c.md` (Complete - 400 lines)
+- [x] `06-build-and-tooling/10-doxygen-documentation.md` (Complete - 460 lines)
+- [x] `06-build-and-tooling/11-debug-vs-release-builds-and-sanitizer-ci.md` (Complete - 438 lines)
 
 ---
 

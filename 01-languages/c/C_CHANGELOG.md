@@ -626,3 +626,13 @@ All modifications, error fixes, technical corrections, and structural extensions
 - Authored `05-gcov-coverage.md` (402 lines): Code coverage instrumentation (`--coverage`), `.gcno` and `.gcda` files, line vs branch coverage traps, HTML reports with `lcov` and `genhtml`, 8 interview Qs, 9 exercises with full solutions.
 - Authored `06-git-workflow-for-c-projects.md` (411 lines): C-specific `.gitignore` rules, Git submodules for deterministic dependency management, Semantic Versioning (SemVer), GPG-signed release tags, 8 interview Qs, 9 exercises with full solutions.
 - Compiled and executed companion programs in scratch directory; verified stdout captured in notes.
+
+### Batch 20 Part 2: Module 06 Completion (Build & Tooling Notes 07-11)
+- **Completed Notes**:
+  - `07-cross-compilation-intro.md` (402 lines)
+  - `08-pkg-config-and-dependencies.md` (400 lines)
+  - `09-continuous-integration-for-c.md` (400 lines)
+  - `10-doxygen-documentation.md` (460 lines)
+  - `11-debug-vs-release-builds-and-sanitizer-ci.md` (438 lines)
+  - `README.md` marked Complete (58 lines)
+- **Verification**: All companion C test code executed in scratch; verified real outputs captured. All 11 notes in Module 06 meet >= 400 line standard with 13 standard sections.
