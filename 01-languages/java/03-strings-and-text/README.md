@@ -1,58 +1,68 @@
-# 03 - Strings and Text
+# 03. Strings and Text
 
-Almost every program handles text: names, messages, files, JSON, SQL, logs. This folder covers `String` and everything around it: building, comparing, formatting, searching with regular expressions, and the character-encoding issues that cause real production bugs.
+> Comprehensive reference and architecture guide to strings, text blocks, character encoding, regular expressions, and mutable sequences in modern Java.
+
+---
+
+## Module Overview
+
+Text is the universal interface of computing. In Java, strings enjoy deep compiler and JVM runtime optimizations, from the String Constant Pool and Compact Strings memory reduction to `invokedynamic` string concatenation and multi-line Text Blocks.
+
+This module provides exhaustive coverage of string mechanics, memory representations, performance trade-offs, and modern Java standard APIs.
+
+---
+
+## Document Index
+
+| # | Note | Level | Description | Key Topics |
+| :- | :--- | :--- | :--- | :--- |
+| 00 | [String Basics & Immutability](./00_string-basics.md) | Beginner | Immutability mechanics and Compact Strings | `java.lang.String`, Compact Strings (JEP 254), memory layout |
+| 01 | [String Methods](./01_string-methods.md) | Beg-Int | Inspection, search, and functional transform | `length()`, `isBlank()`, `strip()`, `lines()`, `transform()` |
+| 02 | [String Pool & Equality](./02_string-pool-and-comparison.md) | Intermediate | String constant pool and deduplication | `StringTable`, `.intern()`, `==` vs `.equals()`, `-XX:+UseStringDeduplication` |
+| 03 | [StringBuilder & StringBuffer](./03_stringbuilder-and-stringbuffer.md) | Intermediate | Mutable character sequences | `AbstractStringBuilder`, capacity growth, concurrency trade-offs |
+| 04 | [String Formatting](./04_string-formatting.md) | Intermediate | Formatter specifiers and templating | `String.format()`, `.formatted()`, `MessageFormat`, String Templates status |
+| 05 | [Text Blocks](./05_text-blocks.md) | Intermediate | Multi-line string literals (JEP 378) | Delimiters, whitespace stripping, `\s` and `\`, SQL/JSON templates |
+| 06 | [Regular Expressions](./06_regex.md) | Int-Adv | Pattern matching and ReDoS defense | `Pattern`, `Matcher`, possessive quantifiers, named groups, Stream API |
+| 07 | [Unicode & Encoding](./07_unicode-and-encoding.md) | Int-Adv | Character sets and UTF-8 by Default | Unicode code points, surrogate pairs, UTF-8 (JEP 400), BOM handling |
+
+---
+
+## Conceptual Architecture Map
 
 ```
-string basics ─► string methods ─► pool & comparison ─► StringBuilder
-                                                            │
-            unicode & encoding ◄─ regex ◄─ text blocks ◄─ formatting
+                          ┌──────────────────────────┐
+                          │   java.lang.CharSequence │
+                          └────────────┬─────────────┘
+                                       │
+            ┌──────────────────────────┴──────────────────────────┐
+            ▼                                                     ▼
+┌──────────────────────────┐                           ┌──────────────────────────┐
+│     java.lang.String     │                           │  AbstractStringBuilder   │
+├──────────────────────────┤                           ├──────────────────────────┤
+│ - Immutable              │                           │ - Mutable                │
+│ - Compact Strings (JEP254│                           │ - Dynamic capacity resize│
+│ - byte[] value           │                           │ - byte[] value           │
+│ - byte coder (LATIN1/16) │                           │ - byte coder             │
+└───────────┬──────────────┘                           └────────────┬─────────────┘
+            │                                                       │
+            ├────────────────────────┐              ┌───────────────┴───────────────┐
+            ▼                        ▼              ▼                               ▼
+┌──────────────────────┐  ┌────────────────────┐ ┌────────────────┐ ┌────────────────┐
+│ String Constant Pool │  │ Text Blocks(JEP378)│ │ StringBuilder  │ │ StringBuffer   │
+│ - JVM StringTable    │  │ - Multi-line """   │ │ - Unsynchronized│ │ - Synchronized │
+│ - Reference sharing  │  │ - Whitespace strip │ │ - High throughput│ │ - Legacy       │
+└──────────────────────┘  └────────────────────┘ └────────────────┘ └────────────────┘
 ```
 
-## Prerequisites
+---
 
-[02-methods](../02-methods/README.md). You should be comfortable with loops, arrays, methods, and the idea that variables hold references to objects ([pass-by-value](../02-methods/01_pass-by-value.md)).
+## Learning Objectives Checklist
 
-## Reading order
-
-| # | File | You will learn |
-|---|------|----------------|
-| 0 | [00_string-basics.md](./00_string-basics.md) | What a `String` is, immutability, creation, concatenation, `null` vs empty |
-| 1 | [01_string-methods.md](./01_string-methods.md) | The everyday API: search, extract, transform, split, join |
-| 2 | [02_string-pool-and-comparison.md](./02_string-pool-and-comparison.md) | The string pool, `==` vs `equals`, `intern`, ordering |
-| 3 | [03_stringbuilder-and-stringbuffer.md](./03_stringbuilder-and-stringbuffer.md) | Building strings efficiently, thread-safety, `StringJoiner` |
-| 4 | [04_string-formatting.md](./04_string-formatting.md) | `printf`/`format`/`formatted`, locales, number and currency formatting |
-| 5 | [05_text-blocks.md](./05_text-blocks.md) | Multi-line strings for JSON, SQL and HTML |
-| 6 | [06_regex.md](./06_regex.md) | `Pattern`, `Matcher`, groups, replacement, backtracking pitfalls |
-| 7 | [07_unicode-and-encoding.md](./07_unicode-and-encoding.md) | `char` vs code point, UTF-8, charsets, normalization |
-
-## Practice
-
-| After file | Try |
-|------------|-----|
-| 00-01 | Reverse a string, count vowels, check palindrome, capitalize each word, remove duplicate characters |
-| 02 | Predict the result of 8 `==` comparisons, then verify in [JShell](../00-setup/03_jshell.md) |
-| 03 | Build a CSV line from an array without a trailing comma; benchmark `+=` vs `StringBuilder` for 100,000 appends |
-| 04 | Print a right-aligned receipt table with prices to two decimals and thousands separators |
-| 05 | Embed a JSON sample and a SQL query as text blocks |
-| 06 | Extract all numbers from a sentence; parse `2026-10-03` into named groups; mask digits in a card number |
-| 07 | Print the length, code point count and UTF-8 byte count of `"héllo 😀"` |
-
-**Project:** [26-projects/01-cli-application](../26-projects/01-cli-application/) uses everything in this folder (parsing commands, formatting output).
-
-## You are done when you can
-
-- [ ] Explain why `s.toUpperCase();` alone changes nothing
-- [ ] Predict `==` vs `equals` results for literals, `new String`, `intern` and runtime concatenation
-- [ ] Choose between `+`, `StringBuilder`, `String.join` and `String.format` for a task
-- [ ] Explain why `"a.b".split(".")` returns an empty array and fix it
-- [ ] Write a regex with named groups and know why `"\\d"` needs two backslashes
-- [ ] Explain why `"😀".length()` is `2` and why you should always pass `StandardCharsets.UTF_8`
-
-## Key takeaways
-
-- `String` is immutable; every "change" returns a new string
-- Compare content with `equals`, never `==`
-- Build strings in loops with `StringBuilder`
-- Text is UTF-16 in memory and bytes on disk and the wire: always name the charset
-
-**Next:** [04-oop](../04-oop/README.md)
+- [x] Explain why `String` is immutable and how it enables security, thread safety, and hash caching.
+- [x] Describe Java 9+ Compact Strings (`byte[]` + `coder`) and measure its memory savings.
+- [x] Differentiate reference equality (`==`) from value equality (`.equals()`).
+- [x] Use `StringBuilder` with appropriate pre-sized capacity to prevent quadratic concatenation overhead in loops.
+- [x] Format text cleanly using Java 15 `.formatted()` and Text Blocks (JEP 378).
+- [x] Protect against Catastrophic Backtracking (ReDoS) in regular expressions using possessive quantifiers.
+- [x] Traverse Unicode text safely using code points instead of naive `char` indexing.
+- [x] Understand Java 18 UTF-8 by Default (JEP 400) and configure robust NIO `CharsetDecoder` error actions.

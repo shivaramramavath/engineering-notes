@@ -1,242 +1,421 @@
-# Unicode and Encoding
+# Character Encoding, Unicode, and Charset Handling in Java
 
-Text has three layers that are easy to confuse:
+> An authoritative reference on character encoding in Java, examining the Unicode Standard, Java 18 UTF-8 by Default, surrogate pairs, grapheme clusters, and robust NIO Charset transformation.
+
+| Metadata | Details |
+| :--- | :--- |
+| **Level** | Intermediate to Advanced |
+| **Prerequisites** | [00_string-basics.md](./00_string-basics.md), [01_string-methods.md](./01_string-methods.md) |
+| **Time to Read** | 25 minutes |
+| **Status** | Active |
+| **Java Version** | Java 8+ (Java 18 JEP 400 UTF-8 by Default) |
+
+---
+
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & Usage](#4-syntax--usage)
+5. [Practical Examples](#5-practical-examples)
+6. [Best Practices](#6-best-practices)
+7. [Common Mistakes & Pitfalls](#7-common-mistakes--pitfalls)
+8. [Performance & Security Notes](#8-performance--security-notes)
+9. [Comparison: UTF-8 vs UTF-16 vs ASCII vs ISO-8859-1](#9-comparison-utf-8-vs-utf-16-vs-ascii-vs-iso-8859-1)
+10. [Interview Questions](#10-interview-questions)
+11. [Practice Exercises](#11-practice-exercises)
+12. [Summary & Cheat Sheet](#12-summary--cheat-sheet)
+13. [Further Reading](#13-further-reading)
+
+---
+
+## 1. What & Why
+
+In computing, characters are abstract human symbols ('A', 'é', 'Ω', '中', '🚀'), while computers exclusively store and transmit 8-bit bytes (`0x00`–`0xFF`). A **character encoding** is the mapping between character symbols and sequences of bytes.
+
+Historically, character encoding was one of the most prolific sources of data corruption ("mojibake"), silent file truncation, and cross-platform bugs. Different operating systems defaulted to incompatible code pages: Windows used `windows-1252`, Linux used `UTF-8`, and legacy Asian systems used `Shift-JIS` or `GBK`.
+
+To resolve this permanently, **Java 18 introduced JEP 400: UTF-8 by Default**. Since Java 18 and across modern Java 21/25, the standard Java APIs default to UTF-8 regardless of the underlying operating system, locale, or environment configuration.
+
+---
+
+## 2. Core Concepts
+
+### 2.1 The Unicode Architecture
+The Unicode Standard assigns every human character, symbol, and emoji a unique 21-bit numeric value known as a **Code Point**, expressed in hexadecimal as `U+XXXX` (ranging from `U+0000` to `U+10FFFF`, totaling 1,114,112 code points).
+
+Unicode divides this space into 17 planes of $2^{16}$ (65,536) code points each:
+- **Plane 0: Basic Multilingual Plane (BMP):** `U+0000` to `U+FFFF`. Covers virtually all modern languages, punctuation, and common symbols.
+- **Planes 1–16: Supplementary Planes:** `U+010000` to `U+10FFFF`. Covers historic scripts, musical notation, mathematical symbols, and all modern emoji.
+
+### 2.2 Code Points vs Code Units vs Grapheme Clusters
+- **Code Point:** The atomic Unicode integer value (e.g. `U+1F680` for 🚀).
+- **Code Unit:** The bit unit used by an encoding format. In UTF-16 (Java `char`), a code unit is 16 bits. In UTF-8, a code unit is 8 bits.
+- **Grapheme Cluster:** What a human user perceives as a single visual character glyph on screen. A single grapheme cluster can consist of **multiple code points** combined (e.g., flag emojis or skin-tone modifiers: 👨 + 🏽 = 👨🏽).
+
+---
+
+## 3. How It Works Internally
+
+### 3.1 UTF-16 Surrogate Pairs in Java
+Because Java's primitive `char` is strictly 16 bits (`0x0000` to `0xFFFF`), it cannot represent supplementary code points ($> \text{U+FFFF}$) in a single `char`.
+
+Unicode reserves a special range of 2,048 code points in the BMP exclusively as **Surrogates**:
+- **High Surrogates:** `\uD800` to `\uDBFF` (1,024 values)
+- **Low Surrogates:** `\uDC00` to `\uDFFF` (1,024 values)
+
+Any supplementary code point $C$ ($0x10000 \le C \le 0x10FFFF$) is mathematically decomposed into a surrogate pair:
+1. $C' = C - 0x10000$ (a 20-bit number)
+2. $\text{High} = 0xD800 + (C' \gg 10)$
+3. $\text{Low} = 0xDC00 + (C' \ \& \ 0x3FF)$
 
 ```
- Characters (what humans see)         "é"   "€"   "😀"
-        │  Unicode assigns each one a number: the CODE POINT
-        ▼
- Code points                          U+00E9   U+20AC   U+1F600
-        │  an ENCODING turns code points into bytes (UTF-8, UTF-16, ...)
-        ▼
- Bytes (what files and networks carry)
+Decomposition of Rocket Emoji (🚀 U+1F680):
+1. 0x1F680 - 0x10000 = 0x0F680 (binary: 0000 1111 0110 1000 0000)
+2. High = 0xD800 + (0x0F680 >> 10) = 0xD800 + 0x003D = 0xD83D (\uD83D)
+3. Low  = 0xDC00 + (0x0F680 & 0x3FF)= 0xDC00 + 0x0280 = 0xDE80 (\uDE80)
+
+Java String Representation: "\uD83D\uDE80"
+- str.length() == 2 (2 UTF-16 code units)
+- str.codePointCount(0, 2) == 1 (1 Unicode character)
 ```
 
-In memory, Java strings are sequences of **UTF-16 code units** (`char`). On disk and on the wire, text is **bytes** in some charset. Bugs appear when these layers are mixed up.
+### 3.2 Java 18 (JEP 400) UTF-8 by Default
+Prior to Java 18, APIs like `new FileReader("file.txt")` or `new String(bytes)` used `Charset.defaultCharset()`, which inherited the host OS encoding. A file saved on Windows (`windows-1252`) would silently fail when read by an app deployed on Linux (`UTF-8`).
 
-## Unicode, code points, `char`
+Since Java 18:
+- `Charset.defaultCharset()` returns `UTF-8` on all systems.
+- You can override this only via command line: `-Dfile.encoding=COMPAT-LOCALE`.
 
-- **Unicode** assigns every character a **code point** from `U+0000` to `U+10FFFF`
-- A Java `char` is 16 bits, so it can hold code points up to `U+FFFF` (the Basic Multilingual Plane)
-- Code points above `U+FFFF` (emoji, many historic scripts, some CJK) are stored as a **surrogate pair**: two `char`s
+---
+
+## 4. Syntax & Usage
+
+### 4.1 StandardCharsets and Conversion
+```java
+import java.nio.charset.StandardCharsets;
+
+// String to byte array (Always specify Charset!)
+String text = "Java Architecture 🚀";
+byte[] utf8Bytes = text.getBytes(StandardCharsets.UTF_8);
+
+// Byte array to String
+String decoded = new String(utf8Bytes, StandardCharsets.UTF_8);
+
+// Iterating true Unicode Code Points
+text.codePoints().forEach(cp -> {
+    System.out.printf("U+%04X: %s%n", cp, Character.toString(cp));
+});
+
+// Checking surrogate halves
+char high = text.charAt(text.length() - 2);
+boolean isHigh = Character.isHighSurrogate(high); // true
+```
+
+---
+
+## 5. Practical Examples
+
+### Example 1: Robust Code Point Traversal and Reversal
+```java
+public class UnicodeTraversalDemo {
+    public static void main(String[] args) {
+        String mixed = "A\uD83D\uDE80B\uD83C\uDF0D"; // "A🚀B🌍"
+
+        System.out.println("String: " + mixed);
+        System.out.println("char length: " + mixed.length()); // 6
+        System.out.println("code points: " + mixed.codePointCount(0, mixed.length())); // 4
+
+        // Safe Reversal preserving surrogate pairs
+        int[] codePoints = mixed.codePoints().toArray();
+        int left = 0, right = codePoints.length - 1;
+        while (left < right) {
+            int tmp = codePoints[left];
+            codePoints[left] = codePoints[right];
+            codePoints[right] = tmp;
+            left++;
+            right--;
+        }
+
+        String reversed = new String(codePoints, 0, codePoints.length);
+        System.out.println("Safely reversed: " + reversed); // "🌍B🚀A"
+    }
+}
+```
+**Output:**
+```text
+String: A🚀B🌍
+char length: 6
+code points: 4
+Safely reversed: 🌍B🚀A
+```
+
+### Example 2: Real-World Safe NIO Charset Decoder with Error Actions
+```java
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
+
+public class SafeCharsetDecoderDemo {
+    public static void main(String[] args) throws Exception {
+        // Corrupted byte array: valid ASCII followed by invalid standalone UTF-8 continuation byte
+        byte[] malformedBytes = new byte[]{'H', 'e', 'l', 'l', 'o', (byte) 0xFF, '!'};
+
+        CharsetDecoder decoder = StandardCharsets.UTF_8.newDecoder()
+            .onMalformedInput(CodingErrorAction.REPLACE)     // Replace bad bytes with \uFFFD ()
+            .onUnmappableCharacter(CodingErrorAction.REPLACE)
+            .replaceWith("?");
+
+        ByteBuffer in = ByteBuffer.wrap(malformedBytes);
+        CharBuffer out = decoder.decode(in);
+
+        System.out.println("Decoded clean output: " + out.toString());
+    }
+}
+```
+**Output:**
+```text
+Decoded clean output: Hello?!
+```
+
+### Example 3: Edge Case – The UTF-8 Byte Order Mark (BOM) Trap
+```java
+import java.io.ByteArrayInputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+
+public class Utf8BomTrap {
+    public static void main(String[] args) throws Exception {
+        // UTF-8 BOM bytes: 0xEF, 0xBB, 0xBF followed by "test"
+        byte[] withBom = new byte[]{(byte) 0xEF, (byte) 0xBB, (byte) 0xBF, 't', 'e', 's', 't'};
+
+        // Standard Java InputStreamReader does NOT strip UTF-8 BOM automatically!
+        String result = new String(withBom, StandardCharsets.UTF_8);
+        System.out.println("Result length: " + result.length()); // 5! (Includes BOM character \uFEFF)
+        System.out.println("Equals 'test': " + "test".equals(result)); // false!
+
+        // Stripping BOM properly
+        if (result.startsWith("\uFEFF")) {
+            result = result.substring(1);
+        }
+        System.out.println("After strip equals 'test': " + "test".equals(result)); // true!
+    }
+}
+```
+**Output:**
+```text
+Result length: 5
+Equals 'test': false
+After strip equals 'test': true
+```
+
+### Example 4: Failure Case – Default Charset in Java 8–17 Cross-Platform Files
+```java
+import java.nio.charset.Charset;
+
+public class DefaultCharsetTrap {
+    public static void main(String[] args) {
+        // In Java 18+, this is guaranteed to be UTF-8 across all operating systems!
+        System.out.println("Default Charset: " + Charset.defaultCharset().name());
+    }
+}
+```
+**Output:**
+```text
+Default Charset: UTF-8
+```
+
+### Example 5: Optimized / Idiomatic – Regex Matching by Extended Grapheme Cluster (`\X`)
+```java
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
+
+public class GraphemeClusterRegexDemo {
+    public static void main(String[] args) {
+        // Person with skin tone modifier (2 code points, 1 visual glyph)
+        String emojiWithModifier = "Hero: \uD83D\uDC68\uD83C\uDFFD (Engineer)"; // 👨🏽
+
+        // \X matches an entire Extended Grapheme Cluster (all combined code points)
+        Pattern graphemePattern = Pattern.compile("\\X");
+        Matcher matcher = graphemePattern.matcher(emojiWithModifier);
+
+        int count = 0;
+        while (matcher.find()) {
+            count++;
+        }
+        System.out.println("Visual grapheme count: " + count);
+    }
+}
+```
+**Output:**
+```text
+Visual grapheme count: 18
+```
+
+---
+
+## 6. Best Practices
+
+1. **Always Specify `StandardCharsets.UTF_8` Explicitly:** Never call `new String(bytes)` or `str.getBytes()` without passing `StandardCharsets.UTF_8`. Explicit code is self-documenting and immune to misconfigured JVM flags.
+2. **Never Iterate Supplementary Text with `charAt()`:** Traditional `for (int i = 0; i < s.length(); i++) s.charAt(i)` splits surrogate pairs in half, corrupting emojis and non-BMP scripts. Use `s.codePoints()`.
+3. **Use `\X` in Regex for User-Perceived Character Splitting:** If tokenizing text where emoji modifiers or accented diacritics appear, use `\X` (extended grapheme cluster boundary).
+4. **Configure Explicit Error Actions on Decoders:** When decoding external network buffers, use `CharsetDecoder` with `onMalformedInput(CodingErrorAction.REPORT)` to reject invalid data immediately.
+5. **Handle UTF-8 BOM Explicitly:** If parsing files created on Windows tools (like Notepad), check for and strip the leading `\uFEFF` zero-width non-breaking space.
+
+---
+
+## 7. Common Mistakes & Pitfalls
+
+| Mistake | Why It Is Wrong | Correct Idiom |
+| :--- | :--- | :--- |
+| `str.getBytes()` without Charset | In pre-Java 18, used OS default charset, corrupting text when transferred across Windows/Linux. | `str.getBytes(StandardCharsets.UTF_8)`. |
+| `s.length()` to measure character limits | Counts 16-bit code units, rejecting 1-emoji inputs as 2 characters. | `s.codePointCount(0, s.length())`. |
+| Splitting surrogate pairs with `substring` | Slicing at an index between a high and low surrogate produces invalid dangling surrogate characters. | Use `Character.offsetByCodePoints()`. |
+| Unhandled UTF-8 BOM (`\uFEFF`) | `new String(bytes, UTF_8)` retains BOM as character 0, causing database queries or JSON parsers to fail. | Check `if (str.startsWith("\uFEFF")) str = str.substring(1);`. |
+| Using `ISO-8859-1` expecting full Unicode | ISO-8859-1 only supports characters $\le 255$; silently drops or replaces characters outside Latin-1. | Use `StandardCharsets.UTF_8`. |
+
+---
+
+## 8. Performance & Security Notes
+
+### 8.1 Validation of Malformed Byte Sequences
+Never decode raw byte arrays into `String` if the byte content determines security boundaries (e.g., path traversal checks). Attackers can send overlong UTF-8 encodings (e.g. `0xC0 0xAF` for `/`) to bypass naive string checks if decoders replace rather than reject malformed bytes. Use `CodingErrorAction.REPORT` to fail fast.
+
+---
+
+## 9. Comparison: UTF-8 vs UTF-16 vs ASCII vs ISO-8859-1
+
+| Encoding | Bytes per Character | ASCII Compatible? | Code Point Coverage | Primary Use |
+| :--- | :--- | :--- | :--- | :--- |
+| **ASCII** | 1 byte (7-bit) | ✅ Identity | 128 characters | Legacy US systems |
+| **ISO-8859-1** | 1 byte (8-bit) | ✅ Identity | 256 characters | Western Europe |
+| **UTF-8** | 1 to 4 bytes | ✅ Identity | All 1,114,112 code points | Web, JSON, Files, Default |
+| **UTF-16** | 2 or 4 bytes | ❌ Incompatible | All 1,114,112 code points | JVM runtime in-memory |
+
+---
+
+## 10. Interview Questions
+
+<details>
+<summary><strong>1. What major change did JEP 400 introduce in Java 18?</strong></summary>
+
+JEP 400 made **UTF-8 the default charset** across the entire Java platform. Prior to Java 18, `Charset.defaultCharset()` was determined by the host operating system's locale (e.g. `windows-1252` on US Windows, `Shift-JIS` on Japanese Windows). Since Java 18, standard APIs like `FileReader`, `FileWriter`, and `String.getBytes()` default to UTF-8 uniformly across all operating systems.
+</details>
+
+<details>
+<summary><strong>2. What is a Unicode Surrogate Pair in Java?</strong></summary>
+
+Java's `char` type is 16 bits (`0x0000` to `0xFFFF`), which can only directly address the Basic Multilingual Plane (BMP). To represent supplementary characters (code points from `U+010000` to `U+10FFFF`, such as emojis), Java uses a surrogate pair: two consecutive 16-bit `char` units consisting of a High Surrogate (`\uD800`–`\uDBFF`) and a Low Surrogate (`\uDC00`–`\uDFFF`).
+</details>
+
+<details>
+<summary><strong>3. What is the difference between a Code Point and a Grapheme Cluster?</strong></summary>
+
+A **Code Point** is a specific numeric value assigned by the Unicode standard (e.g., `U+1F468` for 👨).
+A **Grapheme Cluster** is a user-perceived visual character glyph. A single grapheme cluster may be composed of multiple code points combined using Zero-Width Joiners (ZWJ) or modifier code points (e.g., 👨‍💻 is composed of Man + ZWJ + Laptop = 3 code points, but 1 grapheme cluster).
+</details>
+
+<details>
+<summary><strong>4. How should you safely reverse a string that contains emoji?</strong></summary>
+
+Do not reverse using a naive `char` array or standard `StringBuilder.reverse()`, as this reverses individual surrogate halves into invalid sequences (`Low` then `High`). Instead, extract the code points using `str.codePoints().toArray()`, reverse the integer code point array, and reconstruct the string with `new String(codePoints, 0, codePoints.length)`.
+</details>
+
+<details>
+<summary><strong>5. Why does StandardCharsets.UTF_8 exist when Charset.forName("UTF-8") is available?</strong></summary>
+
+`Charset.forName("UTF-8")` requires runtime string lookup, which performs synchronized hash table checks and can throw `UnsupportedCharsetException` if misspelled. `StandardCharsets.UTF_8` is a statically initialized constant guaranteed by the JVM, avoiding runtime lookups and checked exceptions.
+</details>
+
+<details>
+<summary><strong>6. Does Java's InputStreamReader automatically strip the UTF-8 Byte Order Mark (BOM)?</strong></summary>
+
+No. Java's standard `InputStreamReader` and `String` constructors do not discard the UTF-8 BOM (`0xEF 0xBB 0xBF`). It is preserved as character `\uFEFF` (zero-width non-breaking space) at index 0 of the string. Applications parsing UTF-8 files from Windows must explicitly check for and strip `\uFEFF`.
+</details>
+
+<details>
+<summary><strong>7. How do you detect if a char is part of a surrogate pair?</strong></summary>
+
+Use `Character.isHighSurrogate(c)` and `Character.isLowSurrogate(c)`, or `Character.isSurrogate(c)`.
+</details>
+
+<details>
+<summary><strong>8. What happens if a CharsetDecoder encounters a malformed byte sequence?</strong></summary>
+
+By default, an NIO `CharsetDecoder` reports an error by returning a `CoderResult` indicating malformed input. You can configure its behavior via `.onMalformedInput(action)`:
+- `CodingErrorAction.REPORT`: Throws `MalformedInputException`.
+- `CodingErrorAction.REPLACE`: Replaces the bad sequence with a replacement character (usually `\uFFFD` ).
+- `CodingErrorAction.IGNORE`: Silently discards the invalid bytes.
+</details>
+
+---
+
+## 11. Practice Exercises
+
+### Easy
+1. **Count True Unicode Characters:** Write a function that returns the true Unicode character count of any string using `codePointCount()`.
+2. **UTF-8 Byte Length:** Measure the exact UTF-8 byte length of a string without allocating a byte array using `StandardCharsets.UTF_8.newEncoder()`.
+3. **Hex Code Point Printer:** Print each character in a string with its formal Unicode notation (`U+XXXX`).
+
+### Medium
+4. **BOM Stripper Stream:** Implement a custom `InputStream` filter that detects and strips a leading UTF-8 Byte Order Mark (`0xEF 0xBB 0xBF`) from an incoming stream.
+5. **Surrogate Pair Safe Truncator:** Implement `String truncateSafely(String text, int maxChars)` that ensures truncation never cuts a surrogate pair in half.
+6. **Diacritic Normalizer:** Normalize accented characters (e.g. `"résumé"` $\to$ `"resume"`) using `java.text.Normalizer` and Unicode decomposition (NFD).
+
+### Hard
+7. **Extended Grapheme Cluster Splitter:** Write a tokenizer that splits a string into individual user-perceived grapheme clusters without using the `\X` regex shortcut.
+8. **High-Speed UTF-8 Validator:** Implement an allocation-free UTF-8 byte validator that validates whether a byte buffer contains well-formed UTF-8 according to RFC 3629.
+9. **Zero-Copy Charset Transcoder:** Transcode a buffer from ISO-8859-1 to UTF-8 using direct off-heap NIO `ByteBuffer` channels without allocating Java heap objects.
+
+<details>
+<summary><strong>Exercise Solutions</strong></summary>
 
 ```java
-String s = "😀";                          // U+1F600
-s.length();                               // 2     two UTF-16 code units
-s.codePointCount(0, s.length());          // 1     one code point
-s.charAt(0);                              // '\uD83D' (high surrogate: not a real character)
-s.codePointAt(0);                         // 128512 (0x1F600)
+// Solution to Exercise 1: True Unicode Character Count
+public static int getTrueCharacterCount(String s) {
+    if (s == null) return 0;
+    return s.codePointCount(0, s.length());
+}
 
-String t = "A€";
-t.length();                               // 2
-t.codePointCount(0, t.length());          // 2
+// Solution to Exercise 5: Safe Truncator
+public static String truncateSafely(String text, int maxCodePoints) {
+    if (text == null) return null;
+    int totalCodePoints = text.codePointCount(0, text.length());
+    if (totalCodePoints <= maxCodePoints) return text;
+
+    int endIndex = text.offsetByCodePoints(0, maxCodePoints);
+    return text.substring(0, endIndex);
+}
+```
+</details>
+
+---
+
+## 12. Summary & Cheat Sheet
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                   UNICODE & CHARSETS CHEAT SHEET                       │
+├────────────────────────────────────────────────────────────────────────┤
+│ Java 18 Default:   UTF-8 by Default everywhere (JEP 400)               │
+│ Standard Constant: StandardCharsets.UTF_8 (Always specify explicitly)  │
+│ Char vs Code Point:char is 16-bit (BMP only). Code point is 21-bit     │
+│ Supplementary:     Code points > 0xFFFF use Surrogate Pairs            │
+│ High Surrogate:    \uD800 to \uDBFF                                    │
+│ Low Surrogate:     \uDC00 to \uDFFF                                    │
+│ Length check:      s.codePointCount(0, s.length())                     │
+│ Traversal:         s.codePoints().forEach(...)                         │
+│ Grapheme Cluster:  Visual glyphs with modifiers/ZWJ; use \\X in regex  │
+│ BOM Handling:      UTF-8 BOM is \uFEFF; must be stripped explicitly    │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
-| API | Counts / yields |
-|-----|------------------|
-| `length()`, `charAt`, `chars()` | UTF-16 code units |
-| `codePointCount`, `codePointAt`, `codePoints()` | Code points |
+---
 
-```java
-"héllo 😀".chars().count();               // 8  (code units)
-"héllo 😀".codePoints().count();          // 7  (code points)
-
-// Safe iteration over real characters
-"héllo 😀".codePoints().forEach(cp ->
-    System.out.println(new String(Character.toChars(cp))));
-```
-
-### Working with code points
-
-```java
-Character.isLetter('é');                  // true
-Character.isLetter(0x1F600);              // false: the int overload takes code points
-Character.charCount(0x1F600);             // 2: number of chars needed
-Character.toChars(0x1F600);               // char[] of length 2
-new StringBuilder().appendCodePoint(0x1F600);
-Character.getName(0x1F600);               // "GRINNING FACE"
-```
-
-`StringBuilder.reverse()` treats surrogate pairs as one character, but reversing with a manual `char` loop breaks them.
-
-### Grapheme clusters
-
-What a user sees as **one character** may be several code points: `é` written as `e` + a combining accent, a flag (two regional indicators), a family emoji (several emoji joined by zero-width joiners).
-
-```java
-String family = "👨‍👩‍👧";
-family.codePointCount(0, family.length());   // 5 code points, one visible symbol
-```
-
-For user-perceived characters use `BreakIterator.getCharacterInstance()` (or a library such as ICU4J). Truncating a string at `n` chars can cut an emoji or accent in half.
-
-## Unicode escapes in source code
-
-```java
-char c = '\u0041';                  // 'A'
-String s = "caf\u00e9";             // "café"
-```
-
-`\uXXXX` escapes are translated **before** the compiler parses the source, even inside comments. A comment such as `// path C:\users` is a compile error (`\u` followed by non-hex digits), and `// \u000a` ends the comment line. Avoid `\u` outside literals.
-
-## Normalization
-
-The same visible text can have different code point sequences:
-
-```java
-String composed   = "\u00e9";           // é as one code point
-String decomposed = "e\u0301";          // e + combining acute accent
-composed.equals(decomposed);            // false
-composed.length();                      // 1
-decomposed.length();                    // 2
-
-Normalizer.normalize(decomposed, Normalizer.Form.NFC).equals(composed);   // true
-```
-
-| Form | Meaning | Use for |
-|------|---------|---------|
-| `NFC` | Composed | Storing and comparing text (the usual default) |
-| `NFD` | Decomposed | Stripping accents |
-| `NFKC` / `NFKD` | Compatibility forms (fold ligatures, full-width letters, etc.) | Search keys, identifiers, usernames |
-
-```java
-// Remove accents
-String plain = Normalizer.normalize("café", Normalizer.Form.NFD)
-        .replaceAll("\\p{M}", "");      // "cafe"
-```
-
-Normalize **before** comparing, hashing or storing user-supplied text such as usernames, to avoid duplicate-looking identities.
-
-## Encodings (charsets)
-
-| Charset | Bytes per code point | Notes |
-|---------|----------------------|-------|
-| ASCII | 1 | 128 characters, English only |
-| ISO-8859-1 (Latin-1) | 1 | Western European, first 256 code points |
-| **UTF-8** | 1-4 | The web and modern default; ASCII-compatible |
-| UTF-16 | 2 or 4 | Java's in-memory form; has byte-order variants (BE/LE) and a BOM |
-| Windows-1252 | 1 | Windows legacy, similar to Latin-1 |
-
-UTF-8 sizes:
-
-```java
-"A".getBytes(StandardCharsets.UTF_8).length;     // 1
-"é".getBytes(StandardCharsets.UTF_8).length;     // 2
-"€".getBytes(StandardCharsets.UTF_8).length;     // 3
-"😀".getBytes(StandardCharsets.UTF_8).length;    // 4
-```
-
-Three different "lengths" of the same text are common: `length()` (UTF-16 units), `codePointCount` (code points) and `getBytes(...).length` (bytes). Database column limits and protocol headers usually count **bytes**.
-
-## Converting between `String` and bytes
-
-```java
-byte[] bytes = "café".getBytes(StandardCharsets.UTF_8);
-String back  = new String(bytes, StandardCharsets.UTF_8);       // "café"
-```
-
-**Always pass the charset explicitly**, using `StandardCharsets` constants (no checked exception, no typos).
-
-```java
-"café".getBytes();                                  // uses the default charset
-new String(bytes, "UTF-8");                         // string name: throws a checked UnsupportedEncodingException
-```
-
-### Mojibake: decoding with the wrong charset
-
-```java
-byte[] utf8 = "café".getBytes(StandardCharsets.UTF_8);
-new String(utf8, StandardCharsets.ISO_8859_1);      // "cafÃ©"   garbled
-new String(utf8, StandardCharsets.US_ASCII);        // "caf??"   undecodable bytes replaced by U+FFFD
-```
-
-The `\uFFFD` replacement character (�) in output is a sign that something decoded bytes with the wrong charset. The information is often already lost: fix the **decoding step**, not the string.
-
-### Strict decoding
-
-`String` constructors silently replace bad bytes. To fail instead:
-
-```java
-CharsetDecoder decoder = StandardCharsets.UTF_8.newDecoder()
-        .onMalformedInput(CodingErrorAction.REPORT)
-        .onUnmappableCharacter(CodingErrorAction.REPORT);
-String text = decoder.decode(ByteBuffer.wrap(bytes)).toString();   // CharacterCodingException on bad input
-```
-
-## The default charset
-
-| Java version | Default charset for APIs like `new FileReader`, `getBytes()` |
-|--------------|---------------------------------------------------------------|
-| 17 and earlier | Platform-dependent (often Windows-1252 on Windows, UTF-8 on Linux/macOS) |
-| **18 and later** | **UTF-8** on every platform (JEP 400) |
-
-Even with Java 18+, **still state the charset explicitly**: it documents intent, and code may run on older runtimes. Check the current default with `Charset.defaultCharset()`.
-
-Note that the console and some OS interfaces may use a different charset (`stdout.encoding`, `native.encoding`), so non-ASCII output can still look wrong in some Windows terminals even when your program is correct.
-
-## Where encodings must be specified
-
-| Place | How |
-|-------|-----|
-| Reading and writing text files | `Files.readString(path, UTF_8)` (UTF-8 is the default for the `Files` text methods), `new InputStreamReader(in, UTF_8)`, `new FileReader(file, UTF_8)` (11+) |
-| `String` ↔ `byte[]` | `getBytes(UTF_8)`, `new String(bytes, UTF_8)` |
-| Source files | `javac -encoding UTF-8`; Maven `<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>` |
-| HTTP | `Content-Type: text/plain; charset=UTF-8`; use `HttpResponse.BodyHandlers.ofString(UTF_8)` ([11-io-and-networking](../11-io-and-networking/04_http-client-and-networking.md)) |
-| JSON | UTF-8 by specification |
-| Databases | Database, table and connection charset (for example MySQL `utf8mb4`, not `utf8`) |
-| Properties and resource bundles | UTF-8 supported since Java 9 |
-
-See [11-io-and-networking/00_io-streams-readers-writers.md](../11-io-and-networking/00_io-streams-readers-writers.md).
-
-## Case, locales and comparisons
-
-```java
-"İ".toLowerCase(Locale.ROOT);                       // "i̇" (i + combining dot): not a 1:1 mapping
-"straße".toUpperCase(Locale.ROOT);                  // "STRASSE": length changes
-"TITLE".toLowerCase(Locale.forLanguageTag("tr"));   // "tıtle"
-```
-
-- Case conversion can change a string's length and depends on the locale
-- Use `Locale.ROOT` for non-display purposes (keys, identifiers, protocol tokens)
-- Use `Collator` for sorting text shown to users ([string pool and comparison](./02_string-pool-and-comparison.md))
-- `equalsIgnoreCase` is fine for simple cases, but not a full Unicode comparison; normalize first if it matters
-
-## Practical rules
-
-| Rule | Why |
-|------|-----|
-| Use UTF-8 everywhere (files, DB, network, source) | One encoding to reason about |
-| Always pass `StandardCharsets.UTF_8` explicitly | Independent of platform defaults |
-| Never convert between `String` and `byte[]` without a charset | Hidden platform dependence |
-| Do not treat `char` as a character | Emoji and many scripts need two `char`s |
-| Count and truncate by code points (or graphemes), not `char`s | Avoid cutting characters in half |
-| Normalize (NFC) text before comparing or storing | `é` has two representations |
-| Measure limits in the unit the limit uses | Bytes for column and header sizes |
-| Test with non-ASCII data (`é`, `ß`, `İ`, `日本語`, `😀`) | Many bugs hide in ASCII-only tests |
-
-## Common mistakes
-
-| Mistake | Symptom | Fix |
-|---------|---------|-----|
-| `getBytes()` / `new String(bytes)` without a charset | Different output per machine | Pass `StandardCharsets.UTF_8` |
-| Using `length()` as the character count | Wrong for emoji and rare scripts | `codePointCount` (or graphemes) |
-| Truncating with `substring` at a surrogate pair | Broken character (`?` or `�`) | Cut at code point boundaries |
-| Output like `cafÃ©` | UTF-8 decoded as Latin-1 | Decode with UTF-8 |
-| `?` or `�` for non-ASCII output | Wrong or missing encoding on output | Check the writer, terminal and database charset |
-| Source file saved in a legacy encoding | Garbled string literals | Save as UTF-8 and set `-encoding UTF-8` |
-| MySQL `utf8` instead of `utf8mb4` | Emoji fail to store | `utf8mb4` |
-| Comparing accented text without normalization | `equals` says different | `Normalizer` NFC |
-| `toUpperCase()` / `toLowerCase()` on identifiers with the default locale | Breaks under the Turkish locale | `Locale.ROOT` |
-| Looping `char` by `char` to reverse text | Corrupts surrogate pairs | `StringBuilder.reverse()` or code points |
-| Writing `\u` in comments | Compile error | Avoid it |
-
-## Key takeaways
-
-- Java strings are UTF-16: `char` is a code unit, not necessarily a whole character
-- Use code point APIs when text may contain emoji or rare scripts; use `BreakIterator` for what users see as one character
-- Bytes need a charset: always pass `StandardCharsets.UTF_8`
-- Java 18+ defaults to UTF-8, but explicit is still better
-- Normalize before comparing, and use `Locale.ROOT` for non-display case changes
-- Test with non-ASCII data
-
-**Next:** [04-oop](../04-oop/README.md)
+## 13. Further Reading
+- [JEP 400: UTF-8 by Default (Java 18)](https://openjdk.org/jeps/400)
+- The Unicode Standard 16.0 Specification
+- RFC 3629: UTF-8, a transformation format of ISO 10646
+- Official Java SE 25 `java.nio.charset.Charset` Documentation

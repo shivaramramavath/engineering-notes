@@ -1,284 +1,404 @@
-# Java Modules
+# Java Platform Module System (JPMS): Architecture, Directives, and Modularity
 
-The **Java Platform Module System (JPMS)**, introduced in Java 9, groups packages into **named modules** that declare what they **require** and what they **export**. It gives Java **strong encapsulation** (a `public` class can still be hidden from other modules) and **reliable configuration** (missing or conflicting modules are detected at startup).
+> An authoritative guide to the Java Platform Module System (Project Jigsaw / JEP 261), covering `module-info.java`, strong encapsulation, service providers, and migration strategies.
 
-```
-module com.example.app
-   requires ──────────►  module com.example.greetings
-                              exports com.example.greetings.api     ✅ visible
-                              (com.example.greetings.internal)      ❌ hidden, even though classes are public
-```
+| Metadata | Details |
+| :--- | :--- |
+| **Level** | Intermediate to Advanced |
+| **Prerequisites** | [00_packages-and-imports.md](./00_packages-and-imports.md), [01_classpath-and-jars.md](./01_classpath-and-jars.md) |
+| **Time to Read** | 25 minutes |
+| **Status** | Active |
+| **Java Version** | Java 9+ (Java 25 LTS verified) |
 
-## Why modules exist
+---
 
-| Problem on the classpath | JPMS answer |
-|--------------------------|-------------|
-| Every `public` class is accessible to everyone, so internals leak and get depended on | Only **exported** packages are accessible |
-| Missing JARs are discovered at runtime (`NoClassDefFoundError`) | `requires` are verified at **startup** |
-| Duplicate packages across JARs silently clash | **Split packages** are an error |
-| The JDK itself was a monolith (`rt.jar`) | The JDK is split into modules (`java.base`, `java.sql`, ...) |
-| Apps ship a full JDK | `jlink` builds a **minimal runtime** with only the modules needed |
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & Usage](#4-syntax--usage)
+5. [Practical Examples](#5-practical-examples)
+6. [Best Practices](#6-best-practices)
+7. [Common Mistakes & Pitfalls](#7-common-mistakes--pitfalls)
+8. [Performance & Security Notes](#8-performance--security-notes)
+9. [Comparison: Classpath vs Modulepath](#9-comparison-classpath-vs-modulepath)
+10. [Interview Questions](#10-interview-questions)
+11. [Practice Exercises](#11-practice-exercises)
+12. [Summary & Cheat Sheet](#12-summary--cheat-sheet)
+13. [Further Reading](#13-further-reading)
 
-## A module declaration
+---
 
-A module is described by `module-info.java` at the root of its source tree.
+## 1. What & Why
 
+Introduced in **Java 9 (Project Jigsaw / JEP 261)**, the **Java Platform Module System (JPMS)** is the most significant architectural evolution in Java's history.
+
+Prior to Java 9:
+- The JDK was a monolithic 200MB runtime file (`rt.jar`). Even a simple Hello World program required shipping the entire monolithic runtime including CORBA, Swing, and XML parsers.
+- Any `public` class on the classpath was globally accessible to all other classes, destroying internal encapsulation.
+- Dependency errors were detected lazily at runtime through `NoClassDefFoundError`.
+
+JPMS solved these problems by introducing a higher-level aggregation above packages: the **Module**. A module is a uniquely named, self-describing collection of code and data that explicitly declares:
+1. What other modules it **requires** (dependencies).
+2. What packages it **exports** (public API contract).
+3. What packages it **opens** for deep reflection.
+
+---
+
+## 2. Core Concepts
+
+### 2.1 The `module-info.java` Descriptor
+A module is defined by a `module-info.java` file placed at the root of the source hierarchy:
 ```java
-// src/module-info.java
-module com.example.app {
-    requires java.sql;                              // needs the JDK's java.sql module
-    requires com.example.greetings;                 // needs another module
-    exports com.example.app.api;                    // makes this package visible to others
+module com.company.billing {
+    // 1. Mandatory Dependencies
+    requires java.sql;
+    requires com.company.core;
+
+    // 2. Transitive Dependency (Implied Readability)
+    requires transitive java.logging;
+
+    // 3. Exported Packages (Public API)
+    exports com.company.billing.api;
+
+    // 4. Qualified Export (Restricted to specific friend modules)
+    exports com.company.billing.internal to com.company.billing.test;
+
+    // 5. Open for Deep Reflection (e.g. Jackson / Hibernate)
+    opens com.company.billing.model to com.fasterxml.jackson.databind;
+
+    // 6. Service Provider SPI
+    uses com.company.billing.spi.PaymentProvider;
+    provides com.company.billing.spi.PaymentProvider
+        with com.company.billing.provider.StripePaymentProvider;
 }
 ```
 
-| Directive | Meaning |
-|-----------|---------|
-| `requires M;` | This module needs module `M` (and can read its exported packages) |
-| `requires transitive M;` | Anyone who requires **me** also reads `M` (use when `M`'s types appear in your public API) |
-| `requires static M;` | `M` is needed at compile time, optional at runtime |
-| `exports p;` | Package `p`'s public types are accessible to all modules |
-| `exports p to A, B;` | Qualified export: only to modules `A` and `B` |
-| `opens p;` | Allows **deep reflection** (private members) on `p` at runtime |
-| `opens p to A;` | Deep reflection only for module `A` |
-| `uses S;` | This module consumes service `S` (via `ServiceLoader`) |
-| `provides S with Impl;` | This module supplies an implementation of `S` |
-| `open module m { }` | Opens **all** packages for reflection |
+### 2.2 The Three Types of Modules
+1. **Explicit (Named) Modules:** Contains a `module-info.java` file. Placed on the modulepath. Enforces strict encapsulation.
+2. **Automatic Modules:** Traditional JAR files without `module-info.java` placed on the **modulepath**. The JVM derives a module name from the JAR filename and exports all packages.
+3. **The Unnamed Module:** All JARs and classes placed on the traditional **classpath**. Exports all packages and can read all other modules.
 
-Every module implicitly `requires java.base` (core types: `String`, `List`, ...).
+---
 
-### Naming
+## 3. How It Works Internally
 
-Use a reversed-domain name, usually matching the root package: `com.example.app`. Names should be **stable**: renaming a module is a breaking change.
+### 3.1 Module Resolution Graph and Readability
+At JVM startup, the module system builds a **Module Resolution Graph** before executing `main()`:
+- If module `A` requires module `B`, a directed edge $A \longrightarrow B$ is established.
+- **Fail-Fast Startup:** If any required module is missing, or if circular dependencies occur across explicit modules, the JVM **refuses to start**, outputting a descriptive error immediately!
+- **Accessibility Formula:** Type `T` in module `M` is accessible to code in module `N` if and only if:
+  1. Module `N` **reads** module `M` (via `requires`).
+  2. Package containing `T` is **exported** by `M`.
+  3. Type `T` is declared `public`.
 
-## Readability and accessibility
+```
+Module Readability Graph:
+┌───────────────────────┐
+│ com.app.presentation  │
+└───────────┬───────────┘
+            │ requires
+┌───────────▼───────────┐
+│   com.app.service     │
+└───────────┬───────────┘
+            │ requires transitive
+┌───────────▼───────────┐
+│    com.app.model      │ (Accessible to presentation because service
+└───────────────────────┘  requires it transitively!)
+```
 
-For code in module `A` to use a class in module `B`, **three** things must hold:
+### 3.2 Strong Encapsulation vs Reflection
+In JPMS, `public` no longer means "accessible to the world":
+- Calling `setAccessible(true)` on a private field of a class in a closed module throws `java.lang.reflect.InaccessibleObjectException`.
+- To permit frameworks (Spring, Hibernate, Jackson) to inspect private fields, the module must explicitly declare `opens package.name to framework.module;`.
 
-1. `A` **requires** `B` (readability)
-2. `B` **exports** the class's package (accessibility)
-3. The class and member are `public` (normal access rules)
+---
 
+## 4. Syntax & Usage
+
+### 4.1 Compiling and Running Modular Code
+```bash
+# Compile modular source tree
+javac -d target/classes \
+      --module-path lib \
+      src/module-info.java src/com/app/*.java
+
+# Run modular application
+java --module-path target/classes:lib \
+     --module com.app/com.app.Main
+```
+
+---
+
+## 5. Practical Examples
+
+### Example 1: Defining a Clean Two-Module Architecture
 ```java
-// In module com.example.greetings
-package com.example.greetings.internal;
-public class Secret { }          // public, but package is not exported
-// com.example.app cannot use Secret: compile error "package ... is not visible"
-```
-
-**`public` no longer means "public to everyone"**: it means public to modules that can access the package.
-
-## Example: two modules
-
-```
-src/
-├── com.example.greetings/
-│   ├── module-info.java
-│   └── com/example/greetings/
-│       ├── Greeter.java
-│       └── internal/Formatter.java
-└── com.example.app/
-    ├── module-info.java
-    └── com/example/app/Main.java
-```
-
-```java
-// com.example.greetings/module-info.java
-module com.example.greetings {
-    exports com.example.greetings;               // internal is NOT exported
+// File: src/org.library/module-info.java
+module org.library {
+    exports org.library.api; // Public API
+    // org.library.internal is NOT exported -> Completely hidden from callers!
 }
-```
-```java
-// com.example.greetings/com/example/greetings/Greeter.java
-package com.example.greetings;
-import com.example.greetings.internal.Formatter;
-public class Greeter {
-    public String greet(String name) { return Formatter.shout("Hello, " + name); }
+
+// File: src/org.library/org/library/api/Calculator.java
+package org.library.api;
+import org.library.internal.MathEngine;
+
+public class Calculator {
+    public static int add(int a, int b) {
+        return MathEngine.compute(a, b);
+    }
 }
-```
-```java
-// com.example.app/module-info.java
-module com.example.app {
-    requires com.example.greetings;
+
+// File: src/org.consumer/module-info.java
+module org.consumer {
+    requires org.library;
 }
-```
-```java
-// com.example.app/com/example/app/Main.java
-package com.example.app;
-import com.example.greetings.Greeter;
+
+// File: src/org.consumer/org/consumer/Main.java
+package org.consumer;
+import org.library.api.Calculator;
+// import org.library.internal.MathEngine; // COMPILE ERROR: Package not visible!
+
 public class Main {
     public static void main(String[] args) {
-        System.out.println(new Greeter().greet("modules"));
+        System.out.println("Result: " + Calculator.add(5, 10));
     }
 }
 ```
-
-Compile and run:
-
-```bash
-# Compile every module into mods/<module-name>/
-javac -d mods --module-source-path src $(find src -name "*.java")
-
-# Run by module and main class
-java --module-path mods -m com.example.app/com.example.app.Main
+**Output:**
+```text
+Result: 15
 ```
 
-| Flag | Meaning |
-|------|---------|
-| `--module-path` / `-p` | Where to find modules (folders of exploded modules, or modular JARs) |
-| `--module-source-path` | Source layout with one folder per module |
-| `-m` / `--module` | `module/mainClass` to run |
-| `--add-modules` | Add root modules (for example, ones nobody `requires`) |
-
-Packaged as modular JARs: `jar --create --file mods/greetings.jar -C mods/com.example.greetings .`, then `java -p mods -m com.example.app/com.example.app.Main`.
-
-## Types of modules
-
-| Kind | What it is | Notes |
-|------|-----------|-------|
-| **Named / explicit** | Has `module-info.java` | The goal |
-| **Automatic** | A plain JAR placed on the **module path** | Name comes from `Automatic-Module-Name` in the manifest, or the file name; exports **everything**, reads everything |
-| **Unnamed** | Everything on the **classpath** | Reads all modules; exports everything; cannot be `required` by named modules |
-| **Platform** | Provided by the JDK | `java.base`, `java.sql`, `java.net.http`, `java.logging`, ... |
-
-Library authors should at least add an `Automatic-Module-Name` to the manifest, so users can depend on a stable name even before the library is fully modular.
-
-## Looking at modules
-
-```bash
-java --list-modules                          # all observable modules (JDK + module path)
-java --describe-module java.sql
-java -p mods --describe-module com.example.app
-jar --describe-module --file mods/app.jar
-jdeps --module-path mods -s app.jar          # analyze dependencies of a JAR or classes
-jdeps --print-module-deps app.jar            # which JDK modules does this app need?
-```
-
-`jdeps` is very useful when migrating and when deciding what to feed to `jlink`.
-
-## `jlink`: a custom runtime
-
-```bash
-jlink --module-path "$JAVA_HOME/jmods:mods" \
-      --add-modules com.example.app \
-      --output build/runtime \
-      --strip-debug --no-header-files --no-man-pages
-
-build/runtime/bin/java -m com.example.app/com.example.app.Main
-```
-
-The result contains **only** the required JDK modules plus yours: typically tens of MB instead of a full JDK, with no separate Java installation needed. Common for containers, desktop installers (`jpackage`) and CLI tools. Note that `jlink` requires **all** dependencies to be modules (automatic modules are not allowed).
-
-## Services: loose coupling across modules
-
-`provides ... with` and `uses` combine with `java.util.ServiceLoader` to find implementations without compile-time dependencies:
-
+### Example 2: Real-World Service Provider Interface (`uses` and `provides`)
 ```java
-// api module
-module com.example.payments.api { exports com.example.payments.api; }          // interface PaymentProvider
-
-// provider module
-module com.example.payments.stripe {
-    requires com.example.payments.api;
-    provides com.example.payments.api.PaymentProvider with com.example.payments.stripe.StripeProvider;
+// Module A: Defines SPI Interface
+module com.storage.spi {
+    exports com.storage.spi;
 }
 
-// consumer module
-module com.example.shop {
-    requires com.example.payments.api;
-    uses com.example.payments.api.PaymentProvider;
+// Module B: Consumes SPI Interface via java.util.ServiceLoader
+module com.app.client {
+    requires com.storage.spi;
+    uses com.storage.spi.StorageProvider; // Declares dependency on SPI implementations
+}
+
+// Module C: Implements SPI Interface
+module com.storage.s3 {
+    requires com.storage.spi;
+    provides com.storage.spi.StorageProvider
+        with com.storage.s3.S3StorageProvider; // Registers implementation
 }
 ```
+At runtime, the client discovers all registered providers dynamically:
 ```java
-ServiceLoader<PaymentProvider> loader = ServiceLoader.load(PaymentProvider.class);
-for (PaymentProvider p : loader) { ... }
-```
-
-Adding or swapping a provider only changes the module path. (On the classpath, the equivalent is `META-INF/services/` files.)
-
-## Reflection and `opens`
-
-Frameworks (JSON mappers, ORMs, dependency injection) use **deep reflection** on your classes. A package that is merely `exports`ed gives access to **public** members only; reflecting on private fields needs `opens`:
-
-```java
-module com.example.app {
-    requires com.fasterxml.jackson.databind;
-    opens com.example.app.model to com.fasterxml.jackson.databind;     // Jackson may reflect on private members
+ServiceLoader<StorageProvider> loader = ServiceLoader.load(StorageProvider.class);
+for (StorageProvider provider : loader) {
+    provider.upload(data);
 }
 ```
 
-Without it: `InaccessibleObjectException: Unable to make field private ... accessible: module ... does not "opens ..."`.
+### Example 3: Edge Case – Qualified Exports (`exports ... to ...`)
+```java
+module com.engine.core {
+    // Only com.engine.test and com.engine.admin are permitted to access diagnostics!
+    exports com.engine.core.diagnostics to
+        com.engine.test,
+        com.engine.admin;
+}
+```
+Any other module attempting to access `com.engine.core.diagnostics` will fail compilation, guaranteeing internal friend-assembly protection.
 
-### The JDK's own internals
+### Example 4: Failure Case – Reflection Blocked by Strong Encapsulation
+```java
+import java.lang.reflect.Field;
 
-Since Java 17, `sun.misc`-style internals of the JDK are **strongly encapsulated**, and the old `--illegal-access` option is gone. Old libraries that reflect into JDK internals fail on modern Java unless you pass escape hatches (use them only as a stopgap and prefer upgrading the library):
-
-```bash
-java --add-opens java.base/java.lang=ALL-UNNAMED -jar app.jar
-java --add-exports java.base/sun.nio.ch=ALL-UNNAMED -jar app.jar
+public class ReflectionBarrierDemo {
+    public static void main(String[] args) throws Exception {
+        // Attempting deep reflection into java.base internal classes:
+        try {
+            Field f = String.class.getDeclaredField("value");
+            f.setAccessible(true); // THROWS InaccessibleObjectException in Java 17+!
+        } catch (Exception ex) {
+            System.out.println("Caught: " + ex.getClass().getSimpleName() + " - " + ex.getMessage());
+        }
+    }
+}
+```
+**Output:**
+```text
+Caught: InaccessibleObjectException - Unable to make field private final byte[] java.lang.String.value accessible...
 ```
 
-See [13-advanced-language-features/01_reflection.md](../13-advanced-language-features/01_reflection.md).
+### Example 5: Optimized / Idiomatic – Open Modules for Microservices
+```java
+// An "open module" allows unrestricted runtime reflection on ALL its packages,
+// ideal for Spring Boot / Jackson entities while preserving compile-time boundaries:
+open module com.service.order {
+    requires java.net.http;
+    exports com.service.order.api;
+}
+```
 
-## Rules and restrictions
+---
 
-| Rule | Consequence |
-|------|-------------|
-| **No cyclic dependencies** between modules | Module A requires B requires A is an error |
-| **No split packages**: a package may exist in only one module | Two JARs with the same package cannot both be named modules on the module path |
-| One `module-info.java` per module | Compiled to `module-info.class` |
-| Module names are global and unique | Choose reversed-domain names |
-| Named modules cannot read the classpath | Use automatic modules or migrate dependencies |
+## 6. Best Practices
 
-## Should you use modules?
+1. **Use `requires transitive` for Return Types:** If an exported method returns a type from an external module (e.g. `java.sql.Connection`), mark that dependency `requires transitive java.sql;` so callers don't have to redundantly declare it.
+2. **Open Specifically Rather Than Open Modules:** Instead of marking the entire module `open module`, use targeted directives: `opens com.app.model to com.fasterxml.jackson.databind;`.
+3. **Decouple Modules with Services (`uses` / `provides`):** Use `ServiceLoader` to break direct compile-time coupling between modules.
+4. **Never Export Internal Implementation Packages:** Expose only API interfaces; keep concrete engines, helpers, and drivers unexported.
+5. **Use Automatic Modules During Gradual Migration:** Place third-party legacy JARs on the modulepath as automatic modules while modernizing internal modules.
 
-| Situation | Recommendation |
-|-----------|----------------|
-| Typical Spring Boot or enterprise application | **Classpath** is the norm; frameworks and fat JARs work best there |
-| Library you publish | Add `Automatic-Module-Name` at minimum; full `module-info.java` if you want strong encapsulation |
-| Large codebase that needs enforced boundaries | Modules (or Maven/Gradle modules plus an architecture-test tool such as ArchUnit) |
-| Small runtime images, CLI tools, desktop apps | `jlink` / `jpackage` with modules |
-| Learning | Understand the concepts; do one small example |
+---
 
-Strong boundaries without JPMS are also available through package-private classes, internal packages and build-tool modules ([00_packages-and-imports.md](./00_packages-and-imports.md)).
+## 7. Common Mistakes & Pitfalls
 
-### Not the same as Maven/Gradle modules
+| Mistake | Why It Is Wrong | Correct Idiom |
+| :--- | :--- | :--- |
+| Split Packages | Two modules export the same package name; JVM refuses to start. | Ensure every package is owned by strictly one module. |
+| Missing `opens` for JSON/JPA | Frameworks (Jackson/Hibernate) cannot read private fields via reflection. | Add `opens package.name to framework;`. |
+| Cyclic dependencies in explicit modules | Module A requires B, and B requires A; compilation fails immediately. | Break cycles using interfaces or events. |
+| Forgetting `requires transitive` | Callers using your API cannot see types returned by your methods. | Add `requires transitive`. |
+| Mixing modulepath and classpath carelessly | Classes on classpath cannot access non-exported classes of modules. | Move entirely to modulepath or use unnamed module. |
 
-A Maven multi-module project is just several build sub-projects. Each can become a JPMS module by adding `module-info.java`, but they are independent concepts, and a project can use either, both or neither.
+---
 
-## Migrating to modules
+## 8. Performance & Security Notes
 
-1. Run `jdeps` to learn what your code depends on
-2. Make sure dependencies have module names (automatic modules are acceptable temporarily)
-3. Migrate **bottom-up**: leaf libraries first, the application last
-4. Add `module-info.java`; export only the API packages; add `opens` for reflection users
-5. Fix split packages and cycles
-6. Test on the module path
+### 8.1 Elimination of Illegal Reflection Access
+In Java 16 and later, `--illegal-access=deny` became the permanent default. Deep reflection across module boundaries without explicit `opens` directives is completely prohibited by the JVM security architecture. This eliminates entire classes of vulnerabilities where libraries inspect or tamper with internal JVM memory structures.
 
-## Common mistakes
+---
 
-| Mistake | Symptom | Fix |
-|---------|---------|-----|
-| Forgetting `requires` | `package x is not visible (package x is declared in module y, but module z does not read it)` | Add `requires y;` |
-| Forgetting `exports` | `package x is declared in module y, which does not export it` | Add `exports x;` |
-| Missing `opens` for reflection | `InaccessibleObjectException` at runtime | `opens pkg to framework.module;` |
-| Using `requires` where `requires transitive` is needed | Callers get `package ... not visible` for your API's types | Use `requires transitive` for types exposed in your API |
-| Split packages | `Package x in both module a and module b` | Rename or merge packages |
-| Cyclic `requires` | `cyclic dependency` | Extract shared code into a third module |
-| Putting a modular JAR on the classpath | `module-info.class` ignored; everything open | Use `--module-path` |
-| Depending on automatic modules in a `jlink` build | `jlink` fails | Convert dependencies or avoid `jlink` for those |
-| Relying on JDK internals (`sun.*`) | `IllegalAccessError` / `InaccessibleObjectException` on new Java versions | Upgrade the library, use public APIs, `--add-opens` only as a stopgap |
-| Naming modules after changeable details | Breaking renames | Stable, reversed-domain names |
-| Treating JPMS as a security boundary | False sense of security | It prevents accidents; use real security controls |
-| Adding JPMS to a small app with no benefit | Extra complexity | Stay on the classpath |
+## 9. Comparison: Classpath vs Modulepath
 
-## Key takeaways
+| Feature | Classpath (`-cp`) | Modulepath (`-p`) |
+| :--- | :--- | :--- |
+| **Descriptor** | None | `module-info.java` |
+| **Encapsulation** | Public is world-accessible | Public is only accessible if exported |
+| **Missing Dependencies**| Fails at runtime (`NoClassDefFound`)| Fails at startup (Fast fail) |
+| **Split Packages** | Allowed (Silent shadowing hazard) | Prohibited (Startup error) |
+| **Custom Runtimes** | Cannot use `jlink` | Supports `jlink` custom miniature runtimes |
 
-- A module = a named set of packages with `requires` (dependencies) and `exports` (public surface)
-- `public` plus an `exports` is needed for cross-module access; `opens` is for deep reflection
-- JPMS gives strong encapsulation, startup-time dependency checks and `jlink` runtimes
-- Modules, automatic modules and the classpath coexist; most applications still run on the classpath
-- Maven/Gradle "modules" are a different concept
-- Use `jdeps` to analyze, and migrate bottom-up
+---
 
-**Next:** [06-exceptions-and-debugging](../06-exceptions-and-debugging/README.md)
+## 10. Interview Questions
+
+<details>
+<summary><strong>1. What is the fundamental difference between exports and opens in module-info.java?</strong></summary>
+
+- `exports <package>`: Grants **compile-time and runtime access** to the `public` and `protected` members of the package. Private members remain completely hidden and inaccessible to reflection.
+- `opens <package>`: Grants **deep runtime reflective access** (including `private` members via `setAccessible(true)`), but does **not** grant compile-time access.
+</details>
+
+<details>
+<summary><strong>2. What is a "Split Package" and why does JPMS forbid it?</strong></summary>
+
+A Split Package occurs when classes belonging to the exact same package name reside in two different modules. JPMS strictly forbids this to guarantee deterministic class resolution and prevent class shadowing attacks. If two modules contain the same package, the JVM aborts startup with an error.
+</details>
+
+<details>
+<summary><strong>3. What does the requires transitive directive do?</strong></summary>
+
+`requires transitive <module>` establishes **implied readability**. Any module that depends on your module will automatically gain readability on the transitively required module as well, without needing to declare an explicit `requires` statement. It is essential when a module's exported methods return types defined in another module.
+</details>
+
+<details>
+<summary><strong>4. What is an Automatic Module?</strong></summary>
+
+An Automatic Module is a traditional JAR file (lacking `module-info.class`) placed on the **modulepath**. The JVM assigns it a module name derived from its filename (or `Automatic-Module-Name` manifest header), exports all its packages, and allows it to read all other modules. It acts as a bridge for migrating legacy libraries to JPMS.
+</details>
+
+<details>
+<summary><strong>5. What is the Unnamed Module?</strong></summary>
+
+The Unnamed Module contains all classes loaded from the traditional **classpath**. To preserve backward compatibility, the unnamed module can read all loaded modules and exports all of its own packages. However, named modules on the modulepath cannot read the unnamed module.
+</details>
+
+<details>
+<summary><strong>6. How does ServiceLoader integrate with JPMS?</strong></summary>
+
+JPMS natively integrates with `ServiceLoader` through the `uses <Interface>` and `provides <Interface> with <Implementation>` directives. This eliminates the need for legacy `META-INF/services/` text files and enforces compile-time verification of service contracts.
+</details>
+
+<details>
+<summary><strong>7. What happens if a required module is missing at startup?</strong></summary>
+
+Unlike the classpath which fails lazily during execution when an unreferenced class is encountered, JPMS validates the entire module resolution graph **eagerly at JVM startup**. If a required module is missing, the JVM immediately terminates with a clear `ResolutionException`.
+</details>
+
+<details>
+<summary><strong>8. What is an "open module"?</strong></summary>
+
+An open module (`open module com.app {}`) is an explicit module that exports its packages for compile-time access according to its `exports` statements, while automatically opening **all** of its packages for deep runtime reflection to all other modules.
+</details>
+
+---
+
+## 11. Practice Exercises
+
+### Easy
+1. **Hello Module:** Create a minimal module with `module-info.java` exporting one package and execute it via `java --module-path`.
+2. **Module Inspection:** Run `java --list-modules` from the terminal and inspect core platform modules.
+3. **Describe Module:** Use `java --describe-module java.sql` to observe its exports and transitive dependencies.
+
+### Medium
+4. **Two-Module Assembly:** Build two interdependent modules where Module B requires Module A, verifying that non-exported packages cannot be imported.
+5. **JSON Model Open Directive:** Configure a module with Jackson where entity model packages are selectively opened to `com.fasterxml.jackson.databind`.
+6. **SPI ServiceLoader Implementation:** Build a modular plugin system using `uses` and `provides with`.
+
+### Hard
+7. **Modular Migration with Automatic Modules:** Place a legacy non-modular JAR on the modulepath and integrate it with an explicit module.
+8. **Qualified Export Verification:** Verify that a qualified export (`exports to`) permits access to the friend module while blocking a third module.
+9. **jlink Minimal Image Creation:** Package a modular application into a custom miniature standalone JRE using `jlink`.
+
+<details>
+<summary><strong>Exercise Solutions</strong></summary>
+
+```java
+// Solution to Exercise 1: Hello Module Descriptor
+// File: src/module-info.java
+module com.hello {
+    exports com.hello;
+}
+
+// File: src/com/hello/Main.java
+package com.hello;
+public class Main {
+    public static void main(String[] args) {
+        System.out.println("Hello Modular Java!");
+    }
+}
+```
+</details>
+
+---
+
+## 12. Summary & Cheat Sheet
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                          JPMS CHEAT SHEET                              │
+├────────────────────────────────────────────────────────────────────────┤
+│ Descriptor:         module-info.java (Root of source tree)             │
+│ requires:           Declares mandatory dependency on another module    │
+│ requires transitive:Implied readability for callers                    │
+│ exports:            Exposes public API packages at compile & runtime   │
+│ exports ... to:     Qualified export restricted to friend modules      │
+│ opens ... to:       Opens package for deep reflection (Jackson, JPA)   │
+│ uses / provides:    Declarative SPI ServiceLoader integration          │
+│ Execution:          java --module-path target --module mod.name/Class  │
+│ Split Packages:     STRICTLY FORBIDDEN (Fails startup)                 │
+│ Inaccessible:       setAccessible(true) blocked unless package is open │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 13. Further Reading
+- [JEP 261: Module System](https://openjdk.org/jeps/261)
+- [JEP 200: The Modular JDK](https://openjdk.org/jeps/200)
+- Java Language Specification (JLS) Section 7.7: Module Declarations
+- *The Java Module System*, Nicolai Parlog (Manning Publications).
