@@ -541,3 +541,13 @@ All modifications, error fixes, technical corrections, and structural extensions
 
 
 
+
+## Batch 14 - Sub-Module Data Structures Core (2026-11-21)
+- Authored sub-module overview `03-intermediate/data-structures/README.md`.
+- Rewrote and extended `01-linked-lists.md` (675 lines): singly, doubly, circular, sentinel nodes, intrusive lists, Tortoise and Hare cycle detection, reverse in-place, 8 interview Qs, 9 exercises with full solutions.
+- Rewrote and extended `02-stacks-queues.md` (583 lines): LIFO stack, FIFO queue, circular ring buffers, bitwise capacity masks, 8 interview Qs, 9 exercises with full solutions.
+- Rewrote and extended `03-trees.md` (548 lines): binary trees, binary search trees, in-order, pre-order, post-order, BFS level-order, 8 interview Qs, 9 exercises with full solutions.
+- Authored `04-hash-tables.md` (633 lines): hash functions (djb2, FNV-1a), separate chaining, linear probing, tombstones, load factor rehashing, HashDoS mitigations, 8 interview Qs, 9 exercises with full solutions.
+- Authored `05-graphs.md` (595 lines): adjacency list vs matrix, DFS, BFS, shortest hop, 3-color directed cycle detection, Kahn's topological sort, 8 interview Qs, 9 exercises with full solutions.
+- Authored `06-dynamic-array.md` (513 lines): capacity growth factors (1.5x vs 2.0x), amortized O(1), safe realloc idiom, memory compaction, 8 interview Qs, 9 exercises with full solutions.
+- Compiled and executed companion programs in scratch directory; verified stdout recorded in notes.
