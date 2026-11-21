@@ -589,3 +589,13 @@ All modifications, error fixes, technical corrections, and structural extensions
 - Authored `11-inline-assembly-and-intrinsics-intro.md` (447 lines): Extended GCC inline assembly syntax, register/memory/immediate constraints, clobber lists, volatile side-effects, compiler barrier vs CPU fence, 8 interview Qs, 9 exercises with full solutions.
 - Authored `12-object-files-and-the-linker-in-depth.md` (434 lines): Relocation entries (`R_X86_64_PC32`, `R_X86_64_64`), global symbol tables, weak symbols (`__attribute__((weak))`), Link-Time Optimization (`-flto`), linker scripts, 8 interview Qs, 9 exercises with full solutions.
 - Updated `04-advanced/README.md` to 100% Complete status (all 12 notes verified).
+
+## Batch 19 Part 1 - Module 05 Systems Programming Foundations (2026-11-21)
+- Created module directory `05-systems-programming/` and authored `05-systems-programming/README.md`.
+- Authored `01-file-descriptors-and-posix-io.md` (461 lines): Kernel file descriptor tables, open file descriptions, inodes, `open`/`read`/`write`/`close`/`lseek`, descriptor duplication via `dup2()`, non-blocking I/O (`O_NONBLOCK`), atomic appending, 8 interview Qs, 9 exercises with full solutions.
+- Authored `02-processes-fork-exec-wait.md` (462 lines): Unix process model, parent/child relationships, Copy-on-Write (COW) memory mechanics, program image replacement with `execve()`, child reaping with `waitpid()`, zombie and orphan lifecycles, 8 interview Qs, 9 exercises with full solutions.
+- Authored `03-signals.md` (419 lines): Kernel signal delivery and stack frames, reliable handling with `sigaction`, signal masks with `sigprocmask`, asynchronous signal safety rules, clean shutdown with `volatile sig_atomic_t`, self-pipe trick, 8 interview Qs, 9 exercises with full solutions.
+- Authored `04-pipes-and-ipc.md` (433 lines): Anonymous pipes (`pipe()`), kernel ring buffer mechanics, multi-stage pipeline construction, named FIFOs (`mkfifo`), atomic writes with `PIPE_BUF`, `SIGPIPE` and `EPIPE` defense, 8 interview Qs, 9 exercises with full solutions.
+- Authored `05-pthreads.md` (417 lines): POSIX multi-threading (`pthread_create`, `pthread_join`, `pthread_detach`), thread stack sizing and attributes, thread-local storage, cancellation cleanup handlers (`pthread_cleanup_push`), 8 interview Qs, 9 exercises with full solutions.
+- Authored `06-mutex-condvar-semaphores.md` (500 lines): Mutual exclusion (`pthread_mutex_t`), fast userspace mutexes (futex), spurious wakeups and condition variable predicate loops (`pthread_cond_wait`), POSIX counting semaphores (`sem_t`), deadlock prevention, 8 interview Qs, 9 exercises with full solutions.
+- Compiled and executed companion programs in scratch directory; verified stdout captured in notes.
