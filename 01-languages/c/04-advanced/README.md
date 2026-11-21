@@ -7,7 +7,7 @@
 | **Module Code** | `04-advanced` |
 | **Prerequisites** | [02-core-concepts/08-memory-management.md](../02-core-concepts/08-memory-management.md), [03-intermediate/13-opaque-pointers-and-adts.md](../03-intermediate/13-opaque-pointers-and-adts.md), [03-intermediate/18-strict-aliasing-and-type-punning.md](../03-intermediate/18-strict-aliasing-and-type-punning.md) |
 | **Duration** | ~25 hours |
-| **Status** | In Progress (Batches 17–18) |
+| **Status** | Complete (12 Notes) |
 | **Standard Baseline**| ISO C11 / C17 / C23 (POSIX.1-2008 & Win32 compatibility) |
 
 ---
@@ -35,12 +35,12 @@ In this module, you will master:
 | **04** | [Linking: Static vs Shared Libraries](./04-linking-static-vs-shared-libraries.md) | Advanced | Complete | Archive `.a` vs shared `.so`/`.dll`, PIC (`-fPIC`), runtime dynamic linking |
 | **05** | [ABI and Calling Conventions](./05-abi-and-calling-conventions.md) | Advanced | Complete | System V vs MS x64, caller vs callee saved registers, stack frames, 16-byte alignment |
 | **06** | [Endianness and Serialization](./06-endianness-and-serialization.md) | Advanced | Complete | Big-endian vs little-endian, byte swapping, safe network packet serialization |
-| **07** | [Interfacing with Assembly](./07-interfacing-with-assembly.md) | Advanced | Planned | Calling NASM/GAS assembly from C, symbol naming, stack setup, return values |
-| **08** | [Writing a Small C Library](./08-writing-a-small-library.md) | Advanced | Planned | Header design, public vs private symbols, semantic versioning, distribution |
-| **09** | [Dynamic Loading with dlopen](./09-dynamic-loading-dlopen.md) | Advanced | Planned | Runtime plugin architecture, `dlopen`, `dlsym`, `dlerror`, Win32 `LoadLibrary` |
-| **10** | [Symbol Visibility and ELF Basics](./10-symbol-visibility-and-elf-basics.md) | Advanced | Planned | ELF sections (`.text`, `.data`, `.bss`, `.rodata`), `-fvisibility=hidden` |
-| **11** | [Inline Assembly and Intrinsics Intro](./11-inline-assembly-and-intrinsics-intro.md) | Advanced | Planned | GCC extended asm (`asm volatile`), register constraints, clobbers, CPUID |
-| **12** | [Object Files and the Linker In-Depth](./12-object-files-and-the-linker-in-depth.md) | Advanced | Planned | Relocations, symbol resolution, weak symbols, link-time optimization (LTO) |
+| **07** | [Interfacing with Assembly](./07-interfacing-with-assembly.md) | Advanced | Complete | Calling NASM/GAS assembly from C, symbol naming, stack setup, return values |
+| **08** | [Writing a Small C Library](./08-writing-a-small-library.md) | Advanced | Complete | Header design, public vs private symbols, semantic versioning, distribution |
+| **09** | [Dynamic Loading with dlopen](./09-dynamic-loading-dlopen.md) | Advanced | Complete | Runtime plugin architecture, `dlopen`, `dlsym`, `dlerror`, Win32 `LoadLibrary` |
+| **10** | [Symbol Visibility and ELF Basics](./10-symbol-visibility-and-elf-basics.md) | Advanced | Complete | ELF sections (`.text`, `.data`, `.bss`, `.rodata`), `-fvisibility=hidden` |
+| **11** | [Inline Assembly and Intrinsics Intro](./11-inline-assembly-and-intrinsics-intro.md) | Advanced | Complete | GCC extended asm (`asm volatile`), register constraints, clobbers, CPUID |
+| **12** | [Object Files and the Linker In-Depth](./12-object-files-and-the-linker-in-depth.md) | Advanced | Complete | Relocations, symbol resolution, weak symbols, link-time optimization (LTO) |
 
 ---
 

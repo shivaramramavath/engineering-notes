@@ -580,3 +580,12 @@ All modifications, error fixes, technical corrections, and structural extensions
 - Authored `05-abi-and-calling-conventions.md` (427 lines): System V AMD64 vs Microsoft x64, register parameter passing, 16-byte stack alignment rule, 32-byte shadow space, struct return in registers, 8 interview Qs, 9 exercises with full solutions.
 - Authored `06-endianness-and-serialization.md` (489 lines): Big-Endian network byte order vs Little-Endian host order, explicit bit-shift packing/unpacking, struct padding traps, hardware bswap intrinsics, 8 interview Qs, 9 exercises with full solutions.
 - Compiled and executed companion programs in scratch directory; verified stdout captured in notes.
+
+## Batch 18 - Module 04 Advanced Systems Programming Completion (2026-11-21)
+- Authored `07-interfacing-with-assembly.md` (465 lines): NASM/GAS calling conventions, C symbol mangling and leading underscore rules, stack frame pointer alignment, SIMD scalar calling, 8 interview Qs, 9 exercises with full solutions.
+- Authored `08-writing-a-small-library.md` (488 lines): Public vs private header separation, opaque struct handles, dynamic library export macros (`DLL_EXPORT`/`__attribute__((visibility))`), semantic versioning soname policies, 8 interview Qs, 9 exercises with full solutions.
+- Authored `09-dynamic-loading-dlopen.md` (460 lines): POSIX `dlopen`/`dlsym`/`dlerror` vs Win32 `LoadLibrary`/`GetProcAddress`, runtime plugin architecture, symbol resolution modes (`RTLD_NOW` vs `RTLD_LAZY`), 8 interview Qs, 9 exercises with full solutions.
+- Authored `10-symbol-visibility-and-elf-basics.md` (409 lines): ELF binary layout (`.text`, `.data`, `.rodata`, `.bss`), `-fvisibility=hidden`, GNU visibility attributes, version scripts, stripping local symbols, 8 interview Qs, 9 exercises with full solutions.
+- Authored `11-inline-assembly-and-intrinsics-intro.md` (447 lines): Extended GCC inline assembly syntax, register/memory/immediate constraints, clobber lists, volatile side-effects, compiler barrier vs CPU fence, 8 interview Qs, 9 exercises with full solutions.
+- Authored `12-object-files-and-the-linker-in-depth.md` (434 lines): Relocation entries (`R_X86_64_PC32`, `R_X86_64_64`), global symbol tables, weak symbols (`__attribute__((weak))`), Link-Time Optimization (`-flto`), linker scripts, 8 interview Qs, 9 exercises with full solutions.
+- Updated `04-advanced/README.md` to 100% Complete status (all 12 notes verified).

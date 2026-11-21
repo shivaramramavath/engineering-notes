@@ -144,12 +144,12 @@
 - [x] `04-advanced/04-linking-static-vs-shared-libraries.md` (Complete - 423 lines)
 - [x] `04-advanced/05-abi-and-calling-conventions.md` (Complete - 427 lines)
 - [x] `04-advanced/06-endianness-and-serialization.md` (Complete - 489 lines)
-- [ ] `04-advanced/07-interfacing-with-assembly.md` (Not started)
-- [ ] `04-advanced/08-writing-a-small-library.md` (Not started)
-- [ ] `04-advanced/09-dynamic-loading-dlopen.md` (Not started)
-- [ ] `04-advanced/10-symbol-visibility-and-elf-basics.md` (Not started)
-- [ ] `04-advanced/11-inline-assembly-and-intrinsics-intro.md` (Not started)
-- [ ] `04-advanced/12-object-files-and-the-linker-in-depth.md` (Not started)
+- [x] `04-advanced/07-interfacing-with-assembly.md` (Complete - 465 lines)
+- [x] `04-advanced/08-writing-a-small-library.md` (Complete - 488 lines)
+- [x] `04-advanced/09-dynamic-loading-dlopen.md` (Complete - 460 lines)
+- [x] `04-advanced/10-symbol-visibility-and-elf-basics.md` (Complete - 409 lines)
+- [x] `04-advanced/11-inline-assembly-and-intrinsics-intro.md` (Complete - 447 lines)
+- [x] `04-advanced/12-object-files-and-the-linker-in-depth.md` (Complete - 434 lines)
 
 ---
 
