@@ -1,0 +1,6 @@
+{
+  "09-preprocessor.c": "=== C Preprocessor Demo ===\nAfter SWAP: x=20, y=10\nx + y * 2 = 40\nToken-pasted math_add result: 70\n[INFO] Status code: 200, Message: OK",
+  "10-command-line-arguments.c": "=== C Command-Line Arguments Demo ===\nArgument count (argc): 3\nVerified: argv[argc] is NULL\nargv[0] = E:\\Learning\\engineering-notes\\01-languages\\c\\02-core-concepts\\examples\\10-command-line-arguments.exe\nargv[1] = 42\nargv[2] = verbose\nParsed valid numeric argument: 42",
+  "11-file-io.c": "=== C File I/O Demo ===\nReading text file:\n  Read: [Line 1: ISO C17 Standard]\n  Read: [Line 2: Systems Programming]\nBinary read verified: ID=101, Name=Alice Engineer, Score=98.5",
+  "12-pointer-arithmetic.c": "=== C Pointer Arithmetic Demo ===\nForward traversal: 10 20 30 40 50 \np2 - p1 difference: 3 elements\nByte distance: 12 bytes (diff * sizeof(int) = 3 * 4 = 12)\nmid[0]=30, mid[-1]=20, mid[1]=40"
+}

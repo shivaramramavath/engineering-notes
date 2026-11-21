@@ -271,4 +271,35 @@ All modifications, error fixes, technical corrections, and structural extensions
   - Added runnable example `examples/08-memory-management.c` with verified real output in `real_outputs_batch7.json`.
   - Added 6-row common pitfalls table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
 
+---
+
+## Batch 8: Module 02 Core Concepts (Notes 09–12)
+- **`02-core-concepts/09-preprocessor.md`**:
+  - Completely restructured into all 13 required sections (424 lines).
+  - Detailed preprocessor translation phases 1–4, object-like vs function-like macros, stringification `#`, token pasting `##`, and variadic macros (`__VA_ARGS__`, C23 `__VA_OPT__`).
+  - Formalized the `do { ... } while(0)` safe multi-statement macro idiom, standard header include guards vs `#pragma once`, and ISO C23 `#embed` and `__has_include`.
+  - Added runnable example `examples/09-preprocessor.c` with verified real output in `real_outputs_batch8.json`.
+  - Added 6-row common pitfalls table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+- **`02-core-concepts/10-command-line-arguments.md`**:
+  - Completely restructured into all 13 required sections (411 lines).
+  - Detailed `main(int argc, char *argv[])` kernel process stack initialization, pointer vector structure, and guaranteed `argv[argc] == NULL` sentinel.
+  - Analyzed shell tokenization (quoting, globbing), why `atoi` must be strictly avoided, and safe integer parsing with `strtol` checking `errno` and `endptr`.
+  - Contrasted POSIX `getopt`/`getopt_long` with Windows command-line processing, process argument inspection via `/proc`, and argument injection security vulnerabilities.
+  - Added runnable example `examples/10-command-line-arguments.c` with verified real output in `real_outputs_batch8.json`.
+  - Added 6-row common pitfalls table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+- **`02-core-concepts/11-file-io.md`**:
+  - Completely restructured into all 13 required sections (476 lines).
+  - Detailed the `FILE *` standard I/O stream abstraction, user-space buffering modes (`_IOFBF`, `_IOLBF`, `_IONBF`) via `setvbuf`, and kernel system call boundaries.
+  - Examined open modes (`"r"`, `"w"`, `"a"`, `"r+"`, `"w+"`, `"a+"`, and C11 exclusive `"wx"`), Windows CRLF text vs binary translation mechanics, and formatted line reading via `fgets`.
+  - Formalized binary serialization with `fwrite`/`fread`, file seeking (`fseek`/`ftell` vs 64-bit `fgetpos`/`fsetpos`), and why `while(!feof(f))` is a fatal anti-pattern.
+  - Added runnable example `examples/11-file-io.c` with verified real output in `real_outputs_batch8.json`.
+  - Added 6-row common pitfalls table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+- **`02-core-concepts/12-pointer-arithmetic.md`**:
+  - Authored complete 413-line comprehensive reference on C pointer arithmetic mechanics.
+  - Detailed address scaling by `sizeof(*p)`, pointer difference yielding signed `ptrdiff_t` in `<stddef.h>`, and the `a[i] == *(a + i)` duality.
+  - Formalized ISO C object boundary rules, the one-past-the-end sentinel rule (`arr + N`), interior pointers, negative indexing (`p[-1]`), and 2D row-stride traversal.
+  - Added runnable example `examples/12-pointer-arithmetic.c` with verified real output in `real_outputs_batch8.json`.
+  - Added 6-row common pitfalls table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+
+
 
