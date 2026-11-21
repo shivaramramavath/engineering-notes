@@ -243,3 +243,32 @@ All modifications, error fixes, technical corrections, and structural extensions
   - Added runnable example `examples/04-declarations-typedef.c` with verified real output in `real_outputs_batch6.json`.
   - Added 6-row common pitfalls table, 12 interview questions, and 3 practice exercises with full solutions.
 
+---
+
+## Batch 7: Module 02 Core Concepts (Notes 05–08)
+- **`02-core-concepts/05-type-qualifiers.md`**:
+  - Completely restructured into all 13 required sections (473 lines).
+  - Detailed the four ISO qualifiers (`const`, `volatile`, `restrict`, `_Atomic`) and modern C23 additions (`constexpr`, `typeof_unqual`).
+  - Explained virtual memory mapping (`.rodata` write faults vs mutable stack constness), MMIO register polling, and non-aliasing SIMD optimizations.
+  - Added runnable example `examples/05-type-qualifiers.c` with verified real output in `real_outputs_batch7.json`.
+  - Added 6-row common pitfalls table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+- **`02-core-concepts/06-structs-unions-enums.md`**:
+  - Completely restructured into all 13 required sections (507 lines).
+  - Detailed member alignment padding, trailing padding calculations, `offsetof` introspection, and designated initializers.
+  - Analyzed discriminated (tagged) unions, ISO C type-punning semantics vs C++ UB, flexible array members (FAMs), and C23 fixed-underlying-type enums.
+  - Added runnable example `examples/06-structs-unions-enums.c` with verified real output in `real_outputs_batch7.json`.
+  - Added 6-row common pitfalls table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+- **`02-core-concepts/07-scope-storage-classes.md`**:
+  - Completely restructured into all 13 required sections (407 lines).
+  - Dissected the 4 lexical scopes (block, file, prototype, function), the 4 storage durations (automatic, static, allocated, thread), and linkages (external, internal, none).
+  - Detailed static local state persistence in `.data`/`.bss`, `static inline` header functions, tentative definitions, and C23 `auto` type inference.
+  - Added runnable example `examples/07-scope-storage-classes.c` with verified real output in `real_outputs_batch7.json`.
+  - Added 6-row common pitfalls table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+- **`02-core-concepts/08-memory-management.md`**:
+  - Completely restructured into all 13 required sections (516 lines).
+  - Detailed system heap architecture (glibc chunk headers, alignment padding, `brk`/`mmap`), `malloc`, `calloc`, `realloc`, and `free`.
+  - Emphasized defensive patterns: temporary pointer with `realloc`, pointer nullification, integer multiplication wrap-around checks, C11 `aligned_alloc`, and C23 sized deallocations.
+  - Added runnable example `examples/08-memory-management.c` with verified real output in `real_outputs_batch7.json`.
+  - Added 6-row common pitfalls table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+
+
