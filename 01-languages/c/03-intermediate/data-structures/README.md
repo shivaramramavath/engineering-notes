@@ -33,13 +33,13 @@ In this module, you will master:
 | **04** | [Hash Tables](./04-hash-tables.md) | Intermediate | Complete | MurmurHash3/djb2, separate chaining, open addressing (linear probing) |
 | **05** | [Graphs](./05-graphs.md) | Intermediate | Complete | Adjacency list vs matrix, BFS, DFS, memory representation |
 | **06** | [Dynamic Array](./06-dynamic-array.md) | Intermediate | Complete | Growth factor, amortized $O(1)$ push, safe `realloc`, generic vector |
-| **07** | [Queues & Circular Buffers](./07-queues-circular-buffer.md) | Intermediate | Planned | Fixed-size ring buffer for embedded systems & lock-free queues |
-| **08** | [Heaps & Priority Queues](./08-heaps-and-priority-queues.md) | Intermediate | Planned | Binary min/max heap, sift-up, sift-down, `heapify`, priority queue |
-| **09** | [Binary Search Trees](./09-binary-search-trees.md) | Intermediate | Planned | BST insertion, deletion, search, AVL rotation, Red-Black theory |
-| **10** | [Tries](./10-tries.md) | Intermediate | Planned | Prefix tree for fast dictionary lookups and IP routing |
-| **11** | [Union-Find](./11-union-find.md) | Intermediate | Planned | Disjoint-set data structure, path compression, union by rank |
-| **12** | [Sorting Algorithms](./12-sorting-algorithms.md) | Intermediate | Planned | Quicksort, mergesort, heapsort, insertion sort, hybrid sort |
-| **13** | [Searching Algorithms](./13-searching-algorithms.md) | Intermediate | Planned | Binary search, interpolation search, exponential search |
+| **07** | [Queues & Circular Buffers](./07-queues-circular-buffer.md) | Intermediate | Complete | Fixed-size ring buffer for embedded systems & lock-free queues |
+| **08** | [Heaps & Priority Queues](./08-heaps-and-priority-queues.md) | Intermediate | Complete | Binary min/max heap, sift-up, sift-down, `heapify`, priority queue |
+| **09** | [Binary Search Trees](./09-binary-search-trees.md) | Intermediate | Complete | BST insertion, deletion, search, AVL rotation, Red-Black theory |
+| **10** | [Tries](./10-tries.md) | Intermediate | Complete | Prefix tree for fast dictionary lookups and IP routing |
+| **11** | [Union-Find](./11-union-find.md) | Intermediate | Complete | Disjoint-set data structure, path compression, union by rank |
+| **12** | [Sorting Algorithms](./12-sorting-algorithms.md) | Intermediate | Complete | Quicksort, mergesort, heapsort, insertion sort, hybrid sort |
+| **13** | [Searching Algorithms](./13-searching-algorithms.md) | Intermediate | Complete | Binary search, interpolation search, exponential search |
 | **14** | [Algorithm Complexity](./14-algorithm-complexity.md) | Intermediate | Planned | Big-O, Big-Omega, Big-Theta, amortized analysis, cache complexity |
 | **15** | [Skip Lists](./15-skip-lists.md) | Intermediate | Planned | Probabilistic balance, multi-level pointer skips, concurrent lookups |
 | **16** | [Bloom Filters](./16-bloom-filters.md) | Intermediate | Planned | Space-efficient probabilistic set membership, false positive math |

@@ -551,3 +551,13 @@ All modifications, error fixes, technical corrections, and structural extensions
 - Authored `05-graphs.md` (595 lines): adjacency list vs matrix, DFS, BFS, shortest hop, 3-color directed cycle detection, Kahn's topological sort, 8 interview Qs, 9 exercises with full solutions.
 - Authored `06-dynamic-array.md` (513 lines): capacity growth factors (1.5x vs 2.0x), amortized O(1), safe realloc idiom, memory compaction, 8 interview Qs, 9 exercises with full solutions.
 - Compiled and executed companion programs in scratch directory; verified stdout recorded in notes.
+
+## Batch 15 - Sub-Module Data Structures Core Expansion (2026-11-21)
+- Authored `07-queues-circular-buffer.md` (526 lines): power-of-two ring buffers, bitwise index masking, lock-free SPSC mechanics, cache line alignment, 8 interview Qs, 9 exercises with full solutions.
+- Authored `08-heaps-and-priority-queues.md` (508 lines): binary min/max heaps in flat arrays, sift-up, sift-down, O(N) heapify, priority queues, 8 interview Qs, 9 exercises with full solutions.
+- Authored `09-binary-search-trees.md` (533 lines): balanced BSTs, AVL tree rotations (LL/RR/LR/RL), Red-Black properties, range queries, 8 interview Qs, 9 exercises with full solutions.
+- Authored `10-tries.md` (556 lines): prefix trees, radix compression, IP routing longest prefix match, wildcard search, 8 interview Qs, 9 exercises with full solutions.
+- Authored `11-union-find.md` (536 lines): Disjoint Set Union, path compression, union by rank and size, inverse Ackermann O(alpha(N)) bounds, cycle detection, Kruskal's MST, 8 interview Qs, 9 exercises with full solutions.
+- Authored `12-sorting-algorithms.md` (506 lines): Quicksort (Lomuto vs Hoare), Mergesort, Heapsort, Insertion sort, standard library qsort() comparator contracts, 8 interview Qs, 9 exercises with full solutions.
+- Authored `13-searching-algorithms.md` (472 lines): overflow-safe binary search `low + (high - low)/2`, branch-free binary search, interpolation search, exponential search, standard bsearch(), 8 interview Qs, 9 exercises with full solutions.
+- Compiled and executed companion programs in scratch directory; verified stdout captured in notes.
