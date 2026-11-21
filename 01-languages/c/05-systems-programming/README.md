@@ -38,12 +38,12 @@ In this module, you will master:
 | **04** | [Pipes and IPC](./04-pipes-and-ipc.md) | Systems | Complete | Anonymous `pipe()`, named FIFOs, `SIGPIPE` defense, multi-stage pipelines |
 | **05** | [POSIX Threads (pthreads)](./05-pthreads.md) | Systems | Complete | `pthread_create`, `pthread_join`, thread attributes, stack sizing, cleanup handlers |
 | **06** | [Mutexes, Condition Variables & Semaphores](./06-mutex-condvar-semaphores.md) | Systems | Complete | `pthread_mutex`, spurious wakeups, `pthread_cond_wait`, POSIX named/unnamed semaphores |
-| **07** | [C11 Atomics and Memory Model](./07-c11-atomics-and-memory-order.md) | Systems | Planned | `<stdatomic.h>`, CAS loops, relaxed vs acquire-release vs seq_cst memory orders |
-| **08** | [C11 Standard Threads](./08-c11-threads-h.md) | Systems | Planned | ISO C11 `<threads.h>`, `thrd_create`, `mtx_t`, `cnd_t`, `tss_t` thread-local storage |
-| **09** | [Network Sockets: TCP and UDP](./09-sockets-tcp-udp.md) | Systems | Planned | Berkeley sockets, `sockaddr_in`, `bind`, `listen`, `accept`, non-blocking client/server |
-| **10** | [I/O Multiplexing: select, poll, epoll](./10-io-multiplexing-select-poll-epoll.md) | Systems | Planned | Event notification, `FD_SETSIZE` limits, `pollfd`, Linux `epoll` Edge vs Level triggered |
-| **11** | [Memory Mapping (mmap) & Shared Memory](./11-mmap-and-shared-memory.md) | Systems | Planned | Virtual memory, `mmap`, `munmap`, `MAP_SHARED`, `shm_open`, zero-copy IPC |
-| **12** | [Daemons and Direct System Calls](./12-daemons-and-system-calls.md) | Systems | Planned | Unix daemonization, double-fork, `setsid`, `/dev/null` redirection, `syslog`, `syscall()` |
+| **07** | [C11 Atomics and Memory Model](./07-c11-atomics-and-memory-order.md) | Systems | Complete | `<stdatomic.h>`, CAS loops, relaxed vs acquire-release vs seq_cst memory orders |
+| **08** | [C11 Standard Threads](./08-c11-threads-h.md) | Systems | Complete | ISO C11 `<threads.h>`, `thrd_create`, `mtx_t`, `cnd_t`, `tss_t` thread-local storage |
+| **09** | [Network Sockets: TCP and UDP](./09-sockets-tcp-udp.md) | Systems | Complete | Berkeley sockets, `sockaddr_in`, `bind`, `listen`, `accept`, non-blocking client/server |
+| **10** | [I/O Multiplexing: select, poll, epoll](./10-io-multiplexing-select-poll-epoll.md) | Systems | Complete | Event notification, `FD_SETSIZE` limits, `pollfd`, Linux `epoll` Edge vs Level triggered |
+| **11** | [Memory Mapping (mmap) & Shared Memory](./11-mmap-and-shared-memory.md) | Systems | Complete | Virtual memory, `mmap`, `munmap`, `MAP_SHARED`, `shm_open`, zero-copy IPC |
+| **12** | [Daemons and Direct System Calls](./12-daemons-and-system-calls.md) | Systems | Complete | Unix daemonization, double-fork, `setsid`, `/dev/null` redirection, `syslog`, `syscall()` |
 | **13** | [Terminals and termios](./13-terminals-and-termios.md) | Systems | Planned | Canonical vs raw mode, `tcgetattr`/`tcsetattr`, ANSI escape codes, terminal TUIs |
 | **14** | [Filesystem APIs: stat & dirent](./14-filesystem-apis-stat-dirent.md) | Systems | Planned | `stat`, `lstat`, inode metadata, recursive directory traversal (`opendir`/`readdir`) |
 | **15** | [System Error Handling & errno](./15-errno-and-system-error-handling.md) | Systems | Planned | Thread-local `errno`, `strerror_r`, `EINTR` restart loops, error propagation idioms |
