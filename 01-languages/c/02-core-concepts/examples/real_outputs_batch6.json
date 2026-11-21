@@ -1,0 +1,6 @@
+{
+  "01-arrays.c": "=== Arrays & Memory Layout Demo ===\nArray element count: 5\nBase address &arr[0]: 0061ff0c\nNext address &arr[1]: 0061ff10 (Step offset: 4 bytes)\nRow-major element matrix[1][0] at 0061ff00\nAdjacent element matrix[0][2] at 0061fefc (Directly precedes matrix[1][0] in RAM!)\n",
+  "02-strings.c": "=== Safe String Mechanics Demo ===\nString: 'Hello, Systems C!' (Length: 17, Size with null: 18)\nFormatted: 'Kernel -> v6' (Written: 12, Cap: 24)\n",
+  "03-pointers.c": "=== Pointer Operations & Provenance Demo ===\nOriginal value: 100\nAfter mutate_via_pointer(*ptr): 150\nAfter double-pointer dereference (**dptr = 300): 300\nPointer virtual address via uintptr_t: 0x61ff14\n",
+  "04-declarations-typedef.c": "=== Declarations & Complex Typedefs Demo ===\nsquare(3) = 9\ncube(3) = 27\n"
+}

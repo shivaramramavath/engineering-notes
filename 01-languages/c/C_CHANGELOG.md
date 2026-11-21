@@ -210,3 +210,36 @@ All modifications, error fixes, technical corrections, and structural extensions
   - Detailed C99 compound literals as mutable lvalues with block-scope automatic or file-scope static storage duration.
   - Added runnable example `examples/15-lvalues-rvalues-and-expressions.c` and verified real output.
   - Added 6-row common pitfalls table, 12 interview questions, and 3 practice exercises with full solutions.
+
+---
+
+## Batch 6: Module 02 Core Concepts (Notes 01–04)
+- **`02-core-concepts/01-arrays.md`**:
+  - Completely restructured into all 13 required sections (401 lines).
+  - Detailed contiguous memory layout, base address offset calculations, and duality of `a[i]` and `*(a + i)`.
+  - Clarified array-to-pointer decay mechanisms and the three ISO exceptions (`sizeof`, address-of `&`, string literal initialization).
+  - Analyzed Variable Length Arrays (VLAs): stack overflow vulnerabilities, C11 optional status (`__STDC_NO_VLA__`), and safe dynamic alternatives.
+  - Added runnable example `examples/01-arrays.c` with verified real output in `real_outputs_batch6.json`.
+  - Added 6-row common pitfalls table, 12 interview questions, and 3 practice exercises with full solutions.
+- **`02-core-concepts/02-strings.md`**:
+  - Completely restructured into all 13 required sections (406 lines).
+  - Detailed Null-Terminated Byte Strings (NTBS), memory layouts, string literal placement in read-only `.rodata`, and `SIGSEGV` on mutation.
+  - Analyzed standard string functions: `strlen`, `strcpy`, `strncpy`, `strlcpy`, and bounds-safe `snprintf`.
+  - Examined UTF-8 encoding considerations, multi-byte character traversal, and ASCII vs code point byte counts.
+  - Added runnable example `examples/02-strings.c` with verified real output in `real_outputs_batch6.json`.
+  - Added 6-row common pitfalls table, 12 interview questions, and 3 practice exercises with full solutions.
+- **`02-core-concepts/03-pointers.md`**:
+  - Completely restructured into all 13 required sections (420 lines).
+  - Detailed virtual address spaces, byte addressing, pointer types, alignment requirements, and dereference mechanics.
+  - Examined multi-level indirection (pointer-to-pointer `T**`) for dynamic reallocation and out-parameter mutations.
+  - Covered ISO C pointer rules: pointer subtraction (`ptrdiff_t`), object boundary rules, strict aliasing, pointer provenance, and C23 `nullptr` / `nullptr_t`.
+  - Added runnable example `examples/03-pointers.c` with verified real output in `real_outputs_batch6.json`.
+  - Added 6-row common pitfalls table, 12 interview questions, and 3 practice exercises with full solutions.
+- **`02-core-concepts/04-declarations-typedef.md`**:
+  - Completely restructured into all 13 required sections (415 lines).
+  - Detailed C declaration grammar, declarator priority, and the Clockwise/Spiral reading algorithm for complex types.
+  - Dissected complex function pointer types, arrays of function pointers, and `signal()` handler signatures.
+  - Contrasted `typedef` type aliasing with `#define` textual substitution, opaque handle patterns, and C23 `typeof` / `typeof_unqual`.
+  - Added runnable example `examples/04-declarations-typedef.c` with verified real output in `real_outputs_batch6.json`.
+  - Added 6-row common pitfalls table, 12 interview questions, and 3 practice exercises with full solutions.
+
