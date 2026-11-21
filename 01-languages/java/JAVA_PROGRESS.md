@@ -40,25 +40,25 @@
   - [x] `11-io-and-networking` (5 concept notes + README expanded to 410-614 lines, JEP 290 filters, HTTP/2 HttpClient)
   - [x] Verification on JDK 25 LTS via `scratch/Batch5Verification.java`
   - [x] Git commit Batch 5
-- [ ] **Batch 5: Functional & Systems I/O (Modules 09, 10, 11)**
-  - [ ] `09-functional-java` (10 notes)
-  - [ ] `10-date-and-time` (7 notes)
-  - [ ] `11-io-and-networking` (6 notes)
-- [ ] **Batch 6: Modern Java & JVM Internals (Modules 12, 13, 14, 15)**
-  - [ ] `12-modern-java` (7 notes)
-  - [ ] `13-advanced-language-features` (4 notes)
-  - [ ] `14-concurrency` (17 notes)
-  - [ ] `15-jvm-internals` (8 notes)
-- [ ] **Batch 7: Persistence, Formats, Build & Testing (Modules 16, 17, 18, 19)**
-  - [ ] `16-jdbc-and-databases` (9 notes)
-  - [ ] `17-json-and-data-formats` (6 notes)
-  - [ ] `18-build-and-dependencies` (5 notes)
-  - [ ] `19-testing` (7 notes: 4 expanded, 3 authored from scratch)
-- [ ] **Batch 8: Enterprise Engineering (Modules 20, 21, 22, 23)**
-  - [ ] `20-performance` (7 notes authored from scratch)
-  - [ ] `21-security` (8 notes authored from scratch)
-  - [ ] `22-production-engineering` (7 notes authored from scratch)
-  - [ ] `23-design-and-clean-code` (9 notes authored from scratch)
+- [x] **Batch 5: Functional & Systems I/O (Modules 09, 10, 11)** (Committed: `e2508cb`)
+- [x] **Batch 6: Modern Java & JVM Internals (Modules 12, 13, 14, 15)** (Committed: `2c97c37`)
+  - [x] `12-modern-java` (7 notes + README)
+  - [x] `13-advanced-language-features` (4 notes + README)
+  - [x] `14-concurrency` (17 notes + README)
+  - [x] `15-jvm-internals` (8 notes + README)
+  - [x] Verified on JDK 25 LTS via `Batch6Verification.java`
+- [x] **Batch 7: Persistence, Formats, Build & Testing (Modules 16, 17, 18, 19)** (Committed: `42ef59a`)
+  - [x] `16-jdbc-and-databases` (8 notes + README)
+  - [x] `17-json-and-data-formats` (5 notes + README)
+  - [x] `18-build-and-dependencies` (4 notes + README)
+  - [x] `19-testing` (6 notes + README)
+  - [x] Verified on JDK 25 LTS via `Batch7Verification.java`
+- [x] **Batch 8: Enterprise Engineering (Modules 20, 21, 22, 23)** (COMPLETE)
+  - [x] `20-performance` (6 notes + README, 400-440 lines each)
+  - [x] `21-security` (7 notes + README, 432-569 lines each)
+  - [x] `22-production-engineering` (6 notes + README, 405-508 lines each)
+  - [x] `23-design-and-clean-code` (8 notes + README, 406-487 lines each)
+  - [x] Verified on JDK 25 LTS via `Batch8Verification.java`
 - [ ] **Batch 9: Design & Real-World Patterns (Modules 24, 25)**
   - [ ] `24-design-patterns` (23 notes authored from scratch)
   - [ ] `25-real-world-patterns` (8 notes authored from scratch)

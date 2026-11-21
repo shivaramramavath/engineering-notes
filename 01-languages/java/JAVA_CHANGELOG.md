@@ -188,3 +188,48 @@ All notable changes, structural migrations, and note creations in the Java learn
 
 ### Verification
 - Tested and verified on JDK 25 LTS via `scratch/Batch5Verification.java`.
+
+---
+
+## [Batch 6] - 2026-11-21
+### Added & Expanded
+- **12-modern-java (7 concept notes + README, 400-502 lines each):**
+  - Records (JEP 395), Sealed Classes (JEP 409), Pattern Matching for instanceof (JEP 394), Pattern Matching for switch (JEP 441), Record Patterns (JEP 440), Text Blocks (JEP 378), Foreign Function & Memory API (JEP 454).
+- **13-advanced-language-features (4 concept notes + README, 402-421 lines each):**
+  - Annotations, Reflection, Method Handles & VarHandles, Dynamic Proxies.
+- **14-concurrency (17 concept notes + README, 400-475 lines each):**
+  - Thread lifecycle, JMM happens-before, Virtual Threads (JEP 444), Structured Concurrency (JEP 480), Scoped Values (JEP 481), Locks, Atomics, Concurrent Collections, Executors, ForkJoin, CompletableFuture, Reactive Flow, Deadlock detection.
+- **15-jvm-internals (8 concept notes + README, 400-452 lines each):**
+  - ClassLoader hierarchy, JVM memory layout, Bytecode & class files, JIT Tiered Compilation, GC algorithms (Serial, Parallel, G1, ZGC), Safepoints, JVM options, JFR.
+### Verification
+- Tested and verified on JDK 25 LTS via `scratch/Batch6Verification.java`.
+
+---
+
+## [Batch 7] - 2026-11-21
+### Added & Expanded
+- **16-jdbc-and-databases (8 concept notes + README, 400-505 lines each):**
+  - SQL & indexing essentials, JDBC fundamentals, Statements & PreparedStatements, ResultSet data mapping, Transactions & isolation levels, Connection pooling (HikariCP), JDBC patterns, Transitioning from JDBC to ORM.
+- **17-json-and-data-formats (5 concept notes + README, 405-418 lines each):**
+  - JSON basics, Jackson databind, Gson, JSON patterns & security pitfalls, Data formats comparison (JSON vs Protobuf vs Avro vs YAML).
+- **18-build-and-dependencies (4 concept notes + README, 402-418 lines each):**
+  - Maven, Gradle, Dependency management, CI/CD pipelines.
+- **19-testing (6 concept notes + README, 402-460 lines each):**
+  - Unit testing fundamentals, JUnit 5, Mocking with Mockito, Integration testing with Testcontainers, Testing patterns (TDD/BDD), Code coverage & Mutation testing (Pitest).
+### Verification
+- Tested and verified on JDK 25 LTS via `scratch/Batch7Verification.java`.
+
+---
+
+## [Batch 8] - 2026-11-21: Enterprise Engineering
+### Added & Expanded
+- **20-performance (6 concept notes + README, 400-440 lines each):**
+  - JVM profiling (async-profiler, JFR, Flame Graphs, Safepoint bias), JMH microbenchmarking (DCE, Blackholes), Memory optimization (Compressed OOPs, @Contended, FFM), GC tuning (Generational ZGC, G1), Concurrency performance (LongAdder striping, Carrier pinning), Common performance pitfalls.
+- **21-security (7 concept notes + README, 432-569 lines each):**
+  - Input validation & injection defense (SQLi, Command, Path traversal, Log forging), Modern cryptography with JCA/JCE (AES-256-GCM, Ed25519, constant-time MessageDigest.isEqual), Password hashing (Argon2id, PBKDF2-HMAC-SHA512), Secrets management (char[] wiping, Vault, PKCS12), Insecure deserialization defense (JEP 290/415 allow-list filters), Dependency security & supply chain (OWASP Dependency-Check, CycloneDX SBOM), Production security checklist (non-root distroless containers, TLS 1.3, HSTS).
+- **22-production-engineering (6 concept notes + README, 405-508 lines each):**
+  - Structured asynchronous logging (SLF4J, Logback, JSON stdout, MDC context propagation), Configuration management (12-Factor App, hierarchy resolution, immutable records, fail-fast), Packaging and deployment (Layered Dockerfiles, jlink custom JREs, AppCDS fast startup), Observability (Micrometer metrics, OpenTelemetry distributed tracing, W3C traceparent, Kubernetes liveness/readiness probes), JVM diagnostics (jcmd, jstack, jmap, jstat, NMT, hs_err_pid crash logs), Production troubleshooting playbooks (High CPU triage, Memory leaks, Deadlocks, DB connection pool exhaustion).
+- **23-design-and-clean-code (8 concept notes + README, 406-487 lines each):**
+  - SOLID principles modernized with Java 21 features (Records, Sealed Interfaces, Pattern Matching), Core design principles (KISS, YAGNI, DRY, Composition over Inheritance, Law of Demeter), Clean code idioms (naming, method decomposition, parameter bounds, null-safety), Refactoring and code smells (Primitive obsession, Feature envy, Data clumps, Polymorphism), Deep immutability (JMM final field freeze, List.copyOf(), withers, thread safety), Defensive programming (Preconditions, postconditions, fail-fast, TOCTOU prevention), Common Java mistakes (String == vs equals, BigDecimal double constructor, ConcurrentModificationException, Integer cache quirks), Production code review checklist.
+### Verification
+- Tested and verified on Oracle JDK 25.0.1 LTS via `scratch/Batch8Verification.java` with assertions enabled.
