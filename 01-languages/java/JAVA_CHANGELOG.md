@@ -233,3 +233,25 @@ All notable changes, structural migrations, and note creations in the Java learn
   - SOLID principles modernized with Java 21 features (Records, Sealed Interfaces, Pattern Matching), Core design principles (KISS, YAGNI, DRY, Composition over Inheritance, Law of Demeter), Clean code idioms (naming, method decomposition, parameter bounds, null-safety), Refactoring and code smells (Primitive obsession, Feature envy, Data clumps, Polymorphism), Deep immutability (JMM final field freeze, List.copyOf(), withers, thread safety), Defensive programming (Preconditions, postconditions, fail-fast, TOCTOU prevention), Common Java mistakes (String == vs equals, BigDecimal double constructor, ConcurrentModificationException, Integer cache quirks), Production code review checklist.
 ### Verification
 - Tested and verified on Oracle JDK 25.0.1 LTS via `scratch/Batch8Verification.java` with assertions enabled.
+
+---
+
+## [Batch 9] - 2026-11-21: Design & Real-World Patterns
+### Added & Expanded
+- **24-design-patterns (22 concept notes + 2 root guides + README, 402-446 lines each):**
+  - **Creational (5 notes):** Singleton (Double-Checked Locking, Enum, Reflection/Serialization immunity), Factory Method, Abstract Factory, Builder (Fluent Step Builder), Prototype (Deep vs Shallow clone).
+  - **Structural (5 notes):** Adapter (Class vs Object adapter), Decorator (Streaming I/O wrappers), Facade (Subsystem orchestration), Proxy (JDK Dynamic Proxy vs CGLIB, Transactional/Security interception), Composite (Hierarchical part-whole tree traversals).
+  - **Behavioral (7 notes):** Strategy (Interchangeable algorithms via functional interfaces), Observer (Publisher-subscriber, event dispatching), Command (Encapsulated actions, undo/redo buffers), Template Method (Framework lifecycle hooks vs Lambdas), Iterator (Fail-fast modCount semantics vs Fail-safe), State (Polymorphic state machines, connection transitions), Chain of Responsibility (Interception pipelines, servlet filters).
+  - **Architecture (3 notes):** Dependency Injection (Inversion of control, Three-level cache circular dependency resolution, Bean lifecycle), Layered Architecture (Presentation -> Service -> Persistence, Ports & Adapters Hexagonal comparison, ArchUnit boundary rules), Repository & DAO (Data access decoupling, Unit of Work pattern, Specification pattern dynamic querying).
+  - **Root Guides (2 notes + README):** Pattern Selection Guide (Full GoF decision tree, anti-smell heuristics, end-to-end refactoring recipes), Anti-Patterns (God Object, Anemic Domain, Primitive Obsession, Lava Flow, Shotgun Surgery, ArchUnit and SonarQube automated detection rules), Module README.
+- **25-real-world-patterns (7 concept notes + README, 438-519 lines each):**
+  - Caching (`00_caching.md`): Cache-aside, Read/Write-through, Eviction (W-TinyLFU, LRU), Cache stampede mutex locking, Penetration defense via Bloom filters & null sentinels, Multi-tier L1/L2 sync.
+  - Pagination (`01_pagination.md`): The Offset cliff, Keyset/Cursor-based pagination, B-Tree index seeking, Opaque Base64 tokens, HMAC-SHA256 signature verification.
+  - Retry & Backoff (`02_retry-and-backoff.md`): Exponential backoff math, Full Jitter, Equal Jitter, Decorrelated Jitter, Transient vs non-transient error classification, `Retry-After` header compliance, Interruption safety.
+  - Rate Limiting (`03_rate-limiting.md`): Token Bucket, Leaky Bucket, Sliding Window Counter, Lock-free atomic CAS replenishment math, Distributed Redis Lua scripts (ZSET), Standard RFC 6585 headers (`429 Too Many Requests`).
+  - Idempotency (`04_idempotency.md`): At-least-once delivery, Idempotency keys (`Idempotency-Key` header), SHA-256 payload fingerprinting, Database deduplication tables with unique constraints, Lock recovery timeouts.
+  - Background Jobs (`05_background-jobs.md`): Asynchronous worker pools, Java 21 Virtual Threads, Priority blocking queues, Dead Letter Queues (DLQ), Poison pill task isolation, Graceful shutdown lifecycle.
+  - Circuit Breaker & Resilience (`06_circuit-breaker-and-resilience.md`): State machine (CLOSED -> OPEN -> HALF-OPEN), Sliding window ring buffer failure rate threshold, Bulkhead isolation (Semaphore vs Thread Pool), Graceful fallbacks.
+  - Module README with pattern selection matrix.
+### Verification
+- Tested and verified on Oracle JDK 25.0.1 LTS via `scratch/Batch9Verification.java` (6/6 test suites passed with assertions enabled).

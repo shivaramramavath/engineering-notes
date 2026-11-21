@@ -59,9 +59,10 @@
   - [x] `22-production-engineering` (6 notes + README, 405-508 lines each)
   - [x] `23-design-and-clean-code` (8 notes + README, 406-487 lines each)
   - [x] Verified on JDK 25 LTS via `Batch8Verification.java`
-- [ ] **Batch 9: Design & Real-World Patterns (Modules 24, 25)**
-  - [ ] `24-design-patterns` (23 notes authored from scratch)
-  - [ ] `25-real-world-patterns` (8 notes authored from scratch)
+- [x] **Batch 9: Design & Real-World Patterns (Modules 24, 25)** (COMPLETE)
+  - [x] `24-design-patterns` (22 concept notes + 2 root guides + README, all 402-446 lines)
+  - [x] `25-real-world-patterns` (7 concept notes + README, all 438-519 lines)
+  - [x] Verified on JDK 25 LTS via `Batch9Verification.java` (6/6 test suites passed)
 - [ ] **Batch 10: 15 Production Projects (Module 26)**
   - [ ] `26-projects` (15 production projects authored from scratch)
 - [ ] **Batch 11: Data Structures & Algorithms (Module 27)**
