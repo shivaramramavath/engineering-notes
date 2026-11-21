@@ -671,3 +671,13 @@ All modifications, error fixes, technical corrections, and structural extensions
   - `11-exploit-mitigations-explained.md` (408 lines)
   - `README.md` marked Complete (56 lines)
 - **Verification**: All companion C test code executed in scratch; verified real outputs captured in `real_outputs_b21_p2.json`. All 11 notes in Module 08 meet >= 400 line standard with 13 standard sections.
+
+### Batch 21 Part 3: Module 09 Performance & Optimization (Notes 01-05 + README)
+- **Completed Notes**:
+  - `README.md` (56 lines)
+  - `01-cache-and-memory-hierarchy.md` (405 lines)
+  - `02-profiling-perf-gprof-valgrind-callgrind.md` (402 lines)
+  - `03-compiler-optimizations.md` (407 lines)
+  - `04-branch-prediction-and-data-layout.md` (419 lines)
+  - `05-simd-intrinsics-intro.md` (401 lines)
+- **Verification**: All companion C test code executed in scratch; verified real outputs captured in `real_outputs_b21_p3.json`. All 5 notes meet >= 400 line standard with 13 standard sections.
