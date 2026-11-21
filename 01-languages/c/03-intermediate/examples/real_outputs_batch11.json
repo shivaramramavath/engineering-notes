@@ -1,6 +1,0 @@
-{
-  "01-function-pointers.c": "=== C Function Pointers & Callbacks Demo ===\nAccumulated sum via callback: 150\nSorted array: 10 20 30 40 50 \nbsearch for 30: FOUND",
-  "02-multi-file-programs.c": "=== C Multi-File Modular Compilation Demo ===\nGCD(24, 36) = 12\nLCM(24, 36) = 72\nTotal math operations tracked: 2",
-  "03-error-handling.c": "=== C Error Handling & Goto Cleanup Demo ===\nOperation status code: 0 (SUCCESS)\nResult data: [0, 10, 20, 30]",
-  "04-assertions-defensive-coding.c": "=== C Assertions and Defensive Coding Demo ===\nCalculated mean: 25.00\nStatic assertions verified successfully at compile time."
-}

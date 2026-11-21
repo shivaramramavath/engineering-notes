@@ -1,6 +1,0 @@
-{
-  "01-program-structure.c": "=== Translation Unit & Linkage Structure Demo ===\n[Internal Linkage] Hello from translation unit private function!\n[External Linkage] Public API function invoked.\n",
-  "02-data-types.c": "=== C Data Types & Widths Verification ===\nsizeof(char):        1 byte  (Bits: 8)\nsizeof(short):       2 bytes\nsizeof(int):         4 bytes\nsizeof(long):        4 bytes\nsizeof(long long):   8 bytes\nsizeof(size_t):      4 bytes\nsizeof(ptrdiff_t):   4 bytes\nsizeof(intptr_t):    4 bytes\nsizeof(double):      8 bytes\nuint32_t value:      0xDEADBEEF\nint64_t max value:   9223372036854775807\n",
-  "03-integer-representation.c": "=== Integer Representation & Two's Complement ===\nValue  1 in memory (hex bytes): 01 00 00 00 \nValue -1 in memory (hex bytes): FF FF FF FF \nINT32_MIN in memory (hex bytes): 00 00 00 80 \nUINT32_MAX (4294967295) + 1 = 0 (Defined modular wrap)\nHost Byte Ordering: Little-Endian\n",
-  "04-variables-constants.c": "=== Storage Duration & Constant Demonstration ===\nAutomatic variable 'auto_val' = 5\nCall #1: call_count = 1, g_counter = 10\nCall #2: call_count = 2, g_counter = 20\nCall #3: call_count = 3, g_counter = 30\nCompile-time enum constant MAX_ITEMS = 128\n"
-}

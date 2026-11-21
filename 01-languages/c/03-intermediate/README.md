@@ -38,19 +38,19 @@ Module 03 elevates your C programming from single-file scripts to modular, produ
 | **08** | [Unicode & Locale](./08-unicode-locale.md) | Intermediate | Complete | UTF-8, multi-byte encodings, `wchar_t` pitfalls |
 | **09** | [Time and Randomness](./09-time-and-random.md) | Intermediate | Complete | `time.h`, high-res clocks, PRNGs, seeding |
 | **10** | [Undefined Behavior & Sanitizers](./10-undefined-behavior-and-sanitizers.md) | Intermediate | Complete | **Slot 10 Filled!** ASan, UBSan, TSan, compiler traps |
-| **11** | [Standard Library Overview](./11-standard-library.md) | Intermediate | Planned | POSIX vs ISO standard library catalog |
-| **12** | [Generic Programming](./12-generic-programming.md) | Intermediate | Planned | `_Generic` macros, type-agnostic containers |
-| **13** | [Opaque Pointers & ADTs](./13-opaque-pointers-and-adts.md) | Intermediate | Planned | Encapsulation, opaque handles, information hiding |
-| **14** | [Callbacks & Dispatch Tables](./14-callbacks-and-function-pointer-tables.md) | Intermediate | Planned | Jump tables, event loops, plugin systems |
-| **15** | [setjmp & longjmp](./15-setjmp-longjmp.md) | Intermediate | Planned | Non-local jumps, coroutine basics, exception emulation |
-| **16** | [Inline, Restrict, Volatile](./16-inline-restrict-volatile.md) | Intermediate | Planned | Optimization qualifiers deep dive |
-| **17** | [X-Macros & Advanced Preprocessor](./17-x-macros-and-advanced-preprocessor.md) | Intermediate | Planned | Code generation, enum synchronization |
-| **18** | [Strict Aliasing & Type Punning](./18-strict-aliasing-and-type-punning.md) | Intermediate | Planned | TBAA rules, union punning, fast bit reinterpretation |
-| **19** | [Integer Overflow & Checked Arithmetic](./19-integer-overflow-and-checked-arithmetic.md) | Intermediate | Planned | `<stdckdint.h>`, saturation, wrap-around guards |
-| **20** | [Floating-Point Pitfalls](./20-floating-point-pitfalls.md) | Intermediate | Planned | IEEE-754 precision, epsilon comparisons, NaNs |
-| **21** | [Signals Basics](./21-signals-basics-portable.md) | Intermediate | Planned | POSIX signals, `sig_atomic_t`, async-signal safety |
-| **22** | [stdint, inttypes & Limits](./22-stdint-inttypes-and-limits.md) | Intermediate | Planned | Exact-width integers, format specifiers |
-| **23** | [Locale & Wide Chars](./23-locale-and-wide-chars-deep-dive.md) | Intermediate | Planned | Internationalization, code pages, UTF-8 conversion |
+| **11** | [Standard Library Overview](./11-standard-library.md) | Intermediate | Complete | POSIX vs ISO standard library catalog |
+| **12** | [Generic Programming](./12-generic-programming.md) | Intermediate | Complete | `_Generic` macros, type-agnostic containers |
+| **13** | [Opaque Pointers & ADTs](./13-opaque-pointers-and-adts.md) | Intermediate | Complete | Encapsulation, opaque handles, information hiding |
+| **14** | [Callbacks & Dispatch Tables](./14-callbacks-and-function-pointer-tables.md) | Intermediate | Complete | Jump tables, event loops, plugin systems |
+| **15** | [setjmp & longjmp](./15-setjmp-longjmp.md) | Intermediate | Complete | Non-local jumps, coroutine basics, exception emulation |
+| **16** | [Inline, Restrict, Volatile](./16-inline-restrict-volatile.md) | Intermediate | Complete | Optimization qualifiers deep dive |
+| **17** | [X-Macros & Advanced Preprocessor](./17-x-macros-and-advanced-preprocessor.md) | Intermediate | Complete | Code generation, enum synchronization |
+| **18** | [Strict Aliasing & Type Punning](./18-strict-aliasing-and-type-punning.md) | Intermediate | Complete | TBAA rules, union punning, fast bit reinterpretation |
+| **19** | [Integer Overflow & Checked Arithmetic](./19-integer-overflow-and-checked-arithmetic.md) | Intermediate | Complete | `<stdckdint.h>`, saturation, wrap-around guards |
+| **20** | [Floating-Point Pitfalls](./20-floating-point-pitfalls.md) | Intermediate | Complete | IEEE-754 precision, epsilon comparisons, NaNs |
+| **21** | [Signals Basics](./21-signals-basics-portable.md) | Intermediate | Complete | POSIX signals, `sig_atomic_t`, async-signal safety |
+| **22** | [stdint, inttypes & Limits](./22-stdint-inttypes-and-limits.md) | Intermediate | Complete | Exact-width integers, format specifiers |
+| **23** | [Locale & Wide Chars](./23-locale-and-wide-chars-deep-dive.md) | Intermediate | Complete | Internationalization, code pages, UTF-8 conversion |
 
 ### Sub-Module: Data Structures (`data-structures/`)
 Complete reference implementations with tests under [`data-structures/`](./data-structures/):

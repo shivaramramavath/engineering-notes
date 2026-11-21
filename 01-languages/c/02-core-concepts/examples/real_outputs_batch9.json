@@ -1,7 +1,0 @@
-{
-  "13-multi-dimensional-arrays.c": "=== C Multi-Dimensional Arrays Demo ===\nTotal matrix sizeof: 48 bytes (12 elements * 4 bytes)\nRow 0 sizeof: 16 bytes\nFlat traversal: 1 2 3 4 5 6 7 8 9 10 11 12 \nRow 0:  1  2  3  4 \nRow 1:  5  6  7  8 \nRow 2:  9 10 11 12",
-  "14-dynamic-arrays-and-realloc.c": "=== C Dynamic Arrays and Realloc Demo ===\nInitial vector capacity: 2\nVector populated: size=7, capacity=8\nElements: 11 22 33 44 55 66 77 \nVector cleanly freed: YES",
-  "15-string-h-functions-and-safe-alternatives.c": "=== C string.h Functions and Safe Alternatives Demo ===\nDestination buffer (cap 16): [Standard C Syst]\nDetected truncation! Needed 30 chars (including null terminator: 31)\nFound substring 'recovery' at offset: 13\nParsing CSV tokens:\n  Token: [alice]\n  Token: [admin]\n  Token: [1001]\n  Token: [active]",
-  "16-bit-fields.c": "=== C Bit-Fields Demo ===\nPacketHeader sizeof: 4 bytes\nHeader fields: Version=4, IHL=5, DSCP=46, ECN=1, Length=1500\n4-bit version masked from 17: 1",
-  "17-enums-and-flags.c": "=== C Enums and Flags Demo ===\nPermissions bitmask: 0x03\nHas READ: YES\nHas WRITE: YES\nHas EXECUTE: NO\nAfter granting EXECUTE: 0x07 (Has EXECUTE: YES)\nAfter revoking WRITE: 0x05 (Has WRITE: NO)"
-}

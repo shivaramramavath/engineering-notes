@@ -466,6 +466,75 @@ All modifications, error fixes, technical corrections, and structural extensions
   - Verified runnable code in `examples/10-undefined-behavior-and-sanitizers.c` with real output in `real_outputs_batch12.json`.
   - Added 6-row common pitfalls table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
 
+---
+
+## Batch 13: Module 03 Intermediate (Notes 11–23)
+- **`03-intermediate/11-standard-library.md`**:
+  - Rewritten into all 13 required sections (404 lines).
+  - Detailed hosted vs freestanding environments, standard header taxonomy, C runtime startup (`_start`), and CRT layers.
+  - Demonstrated standard sorting/searching (`qsort`/`bsearch`), `<math.h>`, and exact-width integer formatting.
+  - Added 6-row common mistakes table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+- **`03-intermediate/12-generic-programming.md`**:
+  - Authored new comprehensive guide (404 lines).
+  - Detailed C11 `_Generic` selection keyword, compile-time AST resolution, type matching rules, and type-generic macros.
+  - Contrasted `_Generic` with `void *` type erasure and token-pasting macro templates.
+  - Added 6-row common mistakes table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+- **`03-intermediate/13-opaque-pointers-and-adts.md`**:
+  - Authored new comprehensive guide (542 lines).
+  - Formalized incomplete types vs complete types, header/implementation compilation boundaries, and ABI stability.
+  - Implemented dynamic stack ADT with encapsulated lifecycle management (`create`, `push`, `pop`, `destroy`).
+  - Added 6-row common mistakes table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+- **`03-intermediate/14-callbacks-and-function-pointer-tables.md`**:
+  - Authored new comprehensive guide (505 lines).
+  - Formalized the context carrier pattern (`void *user_data`), table-driven command dispatch, and finite state machines.
+  - Detailed CPU indirect branch prediction (Branch Target Buffer) and placing tables in `.rodata` for security.
+  - Added 6-row common mistakes table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+- **`03-intermediate/15-setjmp-longjmp.md`**:
+  - Authored new comprehensive guide (426 lines).
+  - Detailed non-local stack unwinding, CPU register preservation in `jmp_buf`, and the mandatory `volatile` variable rule.
+  - Constructed structured exception handling (`TRY`, `CATCH`, `THROW`) and analyzed POSIX `sigsetjmp`/`siglongjmp`.
+  - Added 6-row common mistakes table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+- **`03-intermediate/16-inline-restrict-volatile.md`**:
+  - Authored new comprehensive guide (404 lines).
+  - Analyzed `inline` function semantics (`static inline` in headers), `restrict` pointer aliasing contract, and `volatile` hardware semantics.
+  - Demonstrated SIMD auto-vectorization enablement via `restrict` and deconstructed the myth of `volatile` for multithreading.
+  - Added 6-row common mistakes table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+- **`03-intermediate/17-x-macros-and-advanced-preprocessor.md`**:
+  - Authored new comprehensive guide (447 lines).
+  - Detailed X-Macros for single-source-of-truth code generation, multi-pass expansions, stringification (`#`), and token pasting (`##`).
+  - Demonstrated synchronizing enums, hex tables, string lookup arrays, and switch statements.
+  - Added 6-row common mistakes table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+- **`03-intermediate/18-strict-aliasing-and-type-punning.md`**:
+  - Authored new comprehensive guide (403 lines).
+  - Analyzed Type-Based Alias Analysis (TBAA) rules and demonstrated why casting `*(int *)&float` causes undefined behavior.
+  - Demonstrated safe, standard-compliant type punning using `memcpy` and `union` reinterpretation.
+  - Added 6-row common mistakes table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+- **`03-intermediate/19-integer-overflow-and-checked-arithmetic.md`**:
+  - Authored new comprehensive guide (403 lines).
+  - Contrasted defined unsigned modulo wrapping with undefined signed integer overflow.
+  - Detailed two's complement asymmetry (`-INT_MIN`, `INT_MIN / -1` traps), defensive pre-condition boundary checks, and C23 `<stdckdint.h>`.
+  - Added 6-row common mistakes table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+- **`03-intermediate/20-floating-point-pitfalls.md`**:
+  - Authored new comprehensive guide (412 lines).
+  - Analyzed IEEE-754 representation (sign, biased exponent, mantissa), binary representation error, and catastrophic cancellation.
+  - Implemented safe relative epsilon comparisons, sentinels (`NaN`, `INFINITY`), and examined `<fenv.h>` rounding modes.
+  - Added 6-row common mistakes table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+- **`03-intermediate/21-signals-basics-portable.md`**:
+  - Authored new comprehensive guide (418 lines).
+  - Analyzed kernel software interrupts, signal frame redirection, and the strict Async-Signal-Safe principle.
+  - Implemented graceful shutdown coordination using `volatile sig_atomic_t` flags.
+  - Added 6-row common mistakes table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+- **`03-intermediate/22-stdint-inttypes-and-limits.md`**:
+  - Authored new comprehensive guide (405 lines).
+  - Detailed platform data models (ILP32, LP64, LLP64), exact-width integers, pointer-sized integers (`uintptr_t`, `size_t`, `ptrdiff_t`), and `<inttypes.h>` format macros.
+  - Added 6-row common mistakes table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+- **`03-intermediate/23-locale-and-wide-chars-deep-dive.md`**:
+  - Authored new comprehensive guide (400 lines).
+  - Detailed stateful multibyte-to-wide character streaming with `mbstate_t`, `mbrtowc`, and `wcrtomb`.
+  - Analyzed shift states, POSIX thread-safe locale objects (`uselocale`), and cross-platform wide character pitfalls.
+  - Added 6-row common mistakes table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+
+
 
 
 

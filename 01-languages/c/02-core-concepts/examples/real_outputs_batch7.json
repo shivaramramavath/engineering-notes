@@ -1,6 +1,0 @@
-{
-  "05-type-qualifiers.c": "=== C Type Qualifiers Demo ===\nPointer-to-const points to value: 42\nMutated through const pointer: 200\nRestrict vector add result: [11, 22, 33, 44]\nSimulated hardware status initial: 0x0000\nPeripheral ready bit detected: 0x0001\nConst volatile value read: 12345",
-  "06-structs-unions-enums.c": "=== C Structs, Unions, and Enums Demo ===\nEnum Status value: 1\nHeader sizeof: 12 bytes\nHeader.magic offset: 0\nHeader.payload_len offset: 4\nHeader.checksum offset: 8\nHeader initialized: magic=0xAA, len=1024, sum=0xF00D\nDynamicValue sizeof: 24 bytes\nv1 integer: 9876543210\nv2 string: Hello Union\nPacket header base sizeof: 4 bytes",
-  "07-scope-storage-classes.c": "=== C Scope and Storage Classes Demo ===\nOuter block x: 50\nInner nested block x (shadowed): 999\nOuter block x restored: 50\nSequence ID 1: 1001\nSequence ID 2: 1002\nSequence ID 3: 1003\nGlobal counter (external linkage): 10\nFile private counter (internal linkage): 100\nInline square(9): 81",
-  "08-memory-management.c": "=== C Memory Management Demo ===\nBuffer allocated with capacity: 2\nBuffer populated: size=6, capacity=8\nContents: 10 20 30 40 50 60 \ncalloc zero-check: VERIFIED (all 0)\nBuffer safely freed, pointer is NULL: TRUE"
-}

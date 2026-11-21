@@ -1,9 +1,0 @@
-{
-  "09-input-output.c": "=== Standard I/O & Formatting Demo ===\nFormatted buffer: 'DeviceID: 042A, State: READY' (Bytes needed: 28, Buffer capacity: 32)\nParsed 3 fields -> Sensor: SensorAlpha, Temp: 24.5 C, Pressure: 1013 hPa\n",
-  "10-undefined-unspecified-implementation-defined.c": "=== The Triad of Non-Deterministic Behaviors ===\n[Implementation-Defined] 'char' is SIGNED on this target\n[Implementation-Defined] sizeof(int) = 4 bytes, sizeof(long) = 4 bytes\n[Unspecified] Evaluation order of operands in expressions is compiler-dependent\n[Defined Guard] INT_MAX is 2147483647; adding 1 without check would be Undefined Behavior!\n",
-  "11-sizeof-and-alignment-basics.c": "=== Sizeof & Memory Alignment Verification ===\nsizeof(struct Unoptimized): 12 bytes (Alignment: 4)\nsizeof(struct Optimized):   8 bytes (Alignment: 4)\nalignof(max_align_t):       8 bytes\n",
-  "12-const-correctness-basics.c": "=== Const-Correctness & Pointer Semantics ===\nInspecting data: [10, 20, 30, 40]\nValue via ptr_to_const: 99\nMutated value via const_ptr: 200\n",
-  "13-integer-promotions-and-usual-arithmetic-conversions.c": "=== Integer Promotions & Conversions Tree ===\nuint8_t expression (u8_a - u8_b) = 240\nUsual arithmetic conversion: -5 becomes 4294967291 (> 10)\n",
-  "14-sequence-points-and-evaluation-order.c": "=== Sequence Points & Sequenced Execution ===\nSequenced statement evaluation: i = 1, next_val = 1\nShort-circuit guarantee: res = 0, evaluated = 0\n",
-  "15-lvalues-rvalues-and-expressions.c": "=== Lvalues, Rvalues, and Expressions ===\nModifiable lvalue x = 100\nCompound literal mutated first element: 10\nNon-modifiable lvalue 'ro': 50 (has address: 0061ff08)\n"
-}
