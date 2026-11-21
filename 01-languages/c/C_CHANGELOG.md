@@ -414,6 +414,59 @@ All modifications, error fixes, technical corrections, and structural extensions
   - Added runnable example `examples/04-assertions-defensive-coding.c` with verified real output in `real_outputs_batch11.json`.
   - Added 6-row common pitfalls table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
 
+---
+
+## Batch 12: Module 03 Intermediate (Notes 05–10)
+- **`03-intermediate/05-bit-manipulation.md`**:
+  - Completely rewritten into all 13 required sections (459 lines).
+  - Detailed the six bitwise operators, unsigned vs signed rules, shift UB when count $\ge$ width, logical vs arithmetic right shifts, and the 4 fundamental mask idioms (set, clear, toggle, test).
+  - Detailed bit-twiddling hacks: power-of-two check `x & (x - 1)`, isolating lowest set bit `x & (-x)`, and Brian Kernighan's population count.
+  - Added C23 `<stdbit.h>` catalog (`stdc_count_ones`, `stdc_leading_zeros`, `stdc_has_single_bit`).
+  - Verified runnable code in `examples/05-bit-manipulation.c` with real output in `real_outputs_batch12.json`.
+  - Added 6-row common pitfalls table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+- **`03-intermediate/06-variadic-functions.md`**:
+  - Completely rewritten into all 13 required sections (500 lines).
+  - Detailed `<stdarg.h>` primitives (`va_list`, `va_start`, `va_arg`, `va_end`, `va_copy`).
+  - Detailed default argument promotions (`char`/`short` -> `int`, `float` -> `double`) and ABI calling conventions (System V AMD64 register save area vs 32-bit stack).
+  - Added custom logging framework and safe `vsnprintf` dynamic string duplicator with `va_copy`.
+  - Covered C23 parameterless ellipsis (`void f(...)`) and GCC `__attribute__((format(printf, ...)))`.
+  - Verified runnable code in `examples/06-variadic-functions.c` with real output in `real_outputs_batch12.json`.
+  - Added 6-row common pitfalls table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+- **`03-intermediate/07-text-processing-parsing.md`**:
+  - Completely rewritten into all 13 required sections (559 lines).
+  - Analyzed string scanning (`strchr`, `strstr`), span functions (`strspn`, `strcspn`), and non-destructive pointer walking.
+  - Explaining why `strtok` is inherently thread-unsafe and comparing with `strtok_r` / `strtok_s`.
+  - Detailed strict numeric conversion using `strtol`/`strtod` with `errno == ERANGE` and `endptr` validation, explaining why `atoi`/`atof` must be banned.
+  - Implemented non-destructive CSV tokenizer and full recursive-descent math parser.
+  - Verified runnable code in `examples/07-text-processing-parsing.c` with real output in `real_outputs_batch12.json`.
+  - Added 6-row common pitfalls table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+- **`03-intermediate/08-unicode-locale.md`**:
+  - Completely rewritten into all 13 required sections (446 lines).
+  - Contrasted code points, code units, grapheme clusters, string byte length vs terminal display width.
+  - Detailed UTF-8 variable-length byte layout (1 to 4 bytes), self-synchronization, and defensive decoding.
+  - Addressed critical security risks: rejecting overlong UTF-8 encodings and UTF-16 surrogate halves (`U+D800`–`U+DFFF`).
+  - Analyzed `<locale.h>`, the hazards of `setlocale(LC_ALL, "")` on decimal numbers in serialization, and C11 `<uchar.h>` (`char16_t`, `char32_t`).
+  - Verified runnable code in `examples/08-unicode-locale.c` with real output in `real_outputs_batch12.json`.
+  - Added 6-row common pitfalls table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+- **`03-intermediate/09-time-and-random.md`**:
+  - Completely rewritten into all 13 required sections (458 lines).
+  - Contrasted calendar wall-clock time (`time_t`, `struct tm`, `strftime`) with monotonic time for profiling.
+  - Detailed C11 high-precision `timespec_get(TIME_UTC)` and CPU profiling with `clock()`.
+  - Addressed the Year 2038 problem (Y2038) with 32-bit `time_t` overflow.
+  - Deconstructed flaws of `rand()` and implemented high-performance Xoroshiro64* PRNG and rejection sampling to eliminate modulo bias.
+  - Verified runnable code in `examples/09-time-and-random.c` with real output in `real_outputs_batch12.json`.
+  - Added 6-row common pitfalls table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+- **`03-intermediate/10-undefined-behavior-and-sanitizers.md`**:
+  - **Authored new comprehensive guide filling the Missing Slot 10 gap!** (435 lines).
+  - Formalized the 4 ISO C behavior classes: Defined, Implementation-Defined, Unspecified, and Undefined Behavior.
+  - Cataloged major UB categories: signed overflow, out-of-bounds, use-after-free, double-free, uninitialized reads, strict aliasing violations, bad shifts.
+  - Analyzed how modern optimizing compilers exploit UB axioms (dead code removal, "time-travel" null check elimination).
+  - Detailed the modern sanitizer suite: AddressSanitizer (ASan shadow memory architecture), UBSan, TSan, and Valgrind Memcheck.
+  - Introduced C23 checked arithmetic (`<stdckdint.h>`).
+  - Verified runnable code in `examples/10-undefined-behavior-and-sanitizers.c` with real output in `real_outputs_batch12.json`.
+  - Added 6-row common pitfalls table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+
+
 
 
 

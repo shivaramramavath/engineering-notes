@@ -33,11 +33,11 @@ Module 03 elevates your C programming from single-file scripts to modular, produ
 | **03** | [Error Handling](./03-error-handling.md) | Intermediate | Complete | Status codes, `errno`, `strerror_r`, `goto cleanup` |
 | **04** | [Assertions & Defensive Coding](./04-assertions-defensive-coding.md) | Intermediate | Complete | `assert`, `NDEBUG`, `static_assert`, invariants |
 | **05** | [Bit Manipulation](./05-bit-manipulation.md) | Intermediate | Complete | Bitwise operators, bitmask flags, bit hacks |
-| **06** | [Variadic Functions](./06-variadic-functions.md) | Intermediate | Planned | `va_list`, `va_start`, `va_arg`, `vsnprintf` |
-| **07** | [Text Processing & Parsing](./07-text-processing-parsing.md) | Intermediate | Planned | Tokenizers, lexers, AST parsing, regex intro |
-| **08** | [Unicode & Locale](./08-unicode-locale.md) | Intermediate | Planned | UTF-8, multi-byte encodings, `wchar_t` pitfalls |
-| **09** | [Time and Randomness](./09-time-and-random.md) | Intermediate | Planned | `time.h`, high-res clocks, PRNGs, seeding |
-| **10** | [Undefined Behavior & Sanitizers](./10-undefined-behavior-and-sanitizers.md) | Intermediate | Planned | **Slot 10 Filled!** ASan, UBSan, TSan, compiler traps |
+| **06** | [Variadic Functions](./06-variadic-functions.md) | Intermediate | Complete | `va_list`, `va_start`, `va_arg`, `vsnprintf` |
+| **07** | [Text Processing & Parsing](./07-text-processing-parsing.md) | Intermediate | Complete | Tokenizers, lexers, AST parsing, regex intro |
+| **08** | [Unicode & Locale](./08-unicode-locale.md) | Intermediate | Complete | UTF-8, multi-byte encodings, `wchar_t` pitfalls |
+| **09** | [Time and Randomness](./09-time-and-random.md) | Intermediate | Complete | `time.h`, high-res clocks, PRNGs, seeding |
+| **10** | [Undefined Behavior & Sanitizers](./10-undefined-behavior-and-sanitizers.md) | Intermediate | Complete | **Slot 10 Filled!** ASan, UBSan, TSan, compiler traps |
 | **11** | [Standard Library Overview](./11-standard-library.md) | Intermediate | Planned | POSIX vs ISO standard library catalog |
 | **12** | [Generic Programming](./12-generic-programming.md) | Intermediate | Planned | `_Generic` macros, type-agnostic containers |
 | **13** | [Opaque Pointers & ADTs](./13-opaque-pointers-and-adts.md) | Intermediate | Planned | Encapsulation, opaque handles, information hiding |
