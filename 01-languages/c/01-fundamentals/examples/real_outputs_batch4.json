@@ -1,0 +1,6 @@
+{
+  "05-operators.c": "=== Operators & Bitwise Precedence Demo ===\nFlags after setting bit 1: 0x07\nShort-circuit: side_effect = 0 (should be 0)\nTernary result: 15\n",
+  "06-type-conversions.c": "=== Type Conversions & Integer Promotion Demo ===\nUnsigned char sum promoted to int: 300\nCaution: (uint32_t)-1 (4294967295) > 1 is TRUE via unsigned conversion\nDouble 3.1416 explicitly cast to int: 3\n",
+  "07-control-flow.c": "=== Control Flow & Switch Demonstration ===\nAction: START\nAction: RESUME (falling through to STOP)\nAction: STOP\nProcessing completed successfully without error.\n",
+  "08-functions.c": "=== Function Semantics & Call Dispatch Demo ===\nAfter swap_by_value: x = 10, y = 20 (Unchanged!)\nAfter swap_by_pointer: x = 20, y = 10 (Swapped!)\nFunction pointer dispatch add(4, 5) = 9\nFunction pointer dispatch multiply(4, 5) = 20\n"
+}

@@ -121,3 +121,38 @@ All modifications, error fixes, technical corrections, and structural extensions
   - Clarified why `const` variables are not compile-time constants in C11/C17 (creating VLAs if used in array bounds), demonstrated enum constant idiom, and detailed C23 `constexpr` objects.
   - Added runnable example `examples/04-variables-constants.c` and verified real output.
   - Added 6-row common pitfalls table, 8 interview questions, and 3 practice exercises with full solutions.
+
+---
+
+## Batch 4: Module 01 Fundamentals Part 2 (Notes 05–08)
+- **`01-fundamentals/05-operators.md`**:
+  - Rewritten from 126 lines to 406 lines, adhering strictly to the 13 required sections.
+  - Detailed the complete 15-tier operator precedence and associativity table.
+  - Clarified sequence points vs modern ISO C11/C17/C23 "sequenced-before" partial-order relations, detailing why expressions like `i = i++`, `a[i] = i++`, and `f(v++, v++)` invoke undefined behavior.
+  - Detailed short-circuit evaluation guarantees in `&&` and `||`, safe bitwise manipulation macros, and the sequenced comma operator.
+  - Added C23 `typeof` and `typeof_unqual` operators and their application to type-safe generic macro design.
+  - Added runnable example `examples/05-operators.c` and verified real output.
+  - Added 6-row common pitfalls table, 12 interview questions, and 3 practice exercises with full solutions.
+- **`01-fundamentals/06-type-conversions.md`**:
+  - Rewritten from 130 lines to 400 lines, adhering strictly to the 13 required sections.
+  - Detailed integer promotion rank rules and the 7-step Usual Arithmetic Conversions algorithm.
+  - Explained why `(unsigned short)a + (unsigned short)b` produces a signed `int`.
+  - Detailed the sign-conversion trap (`-1 < 1U` evaluating to `false`), float-to-integer truncation toward zero, and the strict aliasing rule with `memcpy` bit reinterpretation.
+  - Added C23 `<stdckdint.h>` checked conversion functions (`ckd_add`, `ckd_mul`).
+  - Added runnable example `examples/06-type-conversions.c` and verified real output.
+  - Added 7-row common pitfalls table, 12 interview questions, and 3 practice exercises with full solutions.
+- **`01-fundamentals/07-control-flow.md`**:
+  - Rewritten from 147 lines to 452 lines, adhering strictly to the 13 required sections.
+  - Detailed branch prediction architecture (BTB), pipeline flush penalties, and compiler branch hints (`likely`/`unlikely`).
+  - Detailed `switch` statement compilation strategies ($O(1)$ jump tables vs binary search trees), and the C23 `[[fallthrough]]` attribute.
+  - Detailed the canonical `goto cleanup` single-exit resource teardown pattern used in the Linux kernel.
+  - Dissected Tom Duff's Device for loop unrolling and its syntactic validity under the ISO C grammar.
+  - Added runnable example `examples/07-control-flow.c` and verified real output.
+  - Added 6-row common pitfalls table, 8 interview questions, and 3 practice exercises with full solutions.
+- **`01-fundamentals/08-functions.md`**:
+  - Rewritten from 155 lines to 419 lines, adhering strictly to the 13 required sections.
+  - Detailed strict pass-by-value semantics, simulating pass-by-reference via pointers, stack frame activation records, prologue/epilogue sequences, and caller-saved vs callee-saved registers.
+  - Detailed ABI calling conventions (System V AMD64 vs Microsoft x64 32-byte shadow space).
+  - Detailed function pointers, clean `typedef` callback idioms, Tail Call Optimization (TCO), and the C23 standard change making `int f()` strictly identical to `int f(void)`.
+  - Added runnable example `examples/08-functions.c` and verified real output.
+  - Added 6-row common pitfalls table, 8 interview questions, and 3 practice exercises with full solutions.
