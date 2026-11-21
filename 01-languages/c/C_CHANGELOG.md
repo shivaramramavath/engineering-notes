@@ -570,3 +570,13 @@ All modifications, error fixes, technical corrections, and structural extensions
 - Authored `18-graph-algorithms.md` (467 lines): Dijkstra's shortest path, Bellman-Ford negative cycle detection, Floyd-Warshall all-pairs, Tarjan's strongly connected components, 8 interview Qs, 9 exercises with full solutions.
 - Authored `19-string-algorithms.md` (489 lines): Knuth-Morris-Pratt (KMP) failure table, Rabin-Karp polynomial rolling hash, Boyer-Moore bad character heuristic, 8 interview Qs, 9 exercises with full solutions.
 - Completed full Data Structures sub-module: 19 concept notes + README, 100% complete with verified companion code outputs.
+
+## Batch 17 - Module 04 Advanced Systems Foundations (2026-11-21)
+- Created module directory `04-advanced/` and authored `04-advanced/README.md`.
+- Authored `01-custom-allocators-and-arenas.md` (461 lines): bump/linear allocators, power-of-two alignment arithmetic, temp/scratch arenas, mmap virtual memory backing, 8 interview Qs, 9 exercises with full solutions.
+- Authored `02-memory-pools.md` (477 lines): fixed-size block pools, union embedded freelists, zero fragmentation, O(1) alloc/dealloc, ABA defense with tagged pointers, 8 interview Qs, 9 exercises with full solutions.
+- Authored `03-memory-debugging-valgrind-asan.md` (429 lines): AddressSanitizer shadow memory mapping, Valgrind Memcheck binary instrumentation, UBsan, leak suppressions, 8 interview Qs, 9 exercises with full solutions.
+- Authored `04-linking-static-vs-shared-libraries.md` (423 lines): static archives (.a), shared objects (.so/.dll), Position Independent Code (-fPIC), GOT/PLT lazy dynamic binding, Full RELRO, 8 interview Qs, 9 exercises with full solutions.
+- Authored `05-abi-and-calling-conventions.md` (427 lines): System V AMD64 vs Microsoft x64, register parameter passing, 16-byte stack alignment rule, 32-byte shadow space, struct return in registers, 8 interview Qs, 9 exercises with full solutions.
+- Authored `06-endianness-and-serialization.md` (489 lines): Big-Endian network byte order vs Little-Endian host order, explicit bit-shift packing/unpacking, struct padding traps, hardware bswap intrinsics, 8 interview Qs, 9 exercises with full solutions.
+- Compiled and executed companion programs in scratch directory; verified stdout captured in notes.
