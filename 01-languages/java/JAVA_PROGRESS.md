@@ -66,8 +66,9 @@
 - [x] **Batch 10: 15 Production Projects (Module 26)** (COMPLETE)
   - [x] `26-projects` (15 production projects + README, all 401-594 lines)
   - [x] Verified on JDK 25 LTS via `Batch10Verification.java`
-- [ ] **Batch 11: Data Structures & Algorithms (Module 27)**
-  - [ ] `27-dsa` (28 notes authored/expanded with LeetCode solutions)
+- [x] **Batch 11: Data Structures & Algorithms (Module 27)** (COMPLETE)
+  - [x] `27-dsa` (28 notes authored/expanded with LeetCode solutions, all 401–697 lines + README)
+  - [x] Verified on JDK 25 LTS via `Batch11Verification.java` (7/7 test suites passed)
 - [ ] **Batch 12: Interview Mastery & Cheatsheets (Modules 28, 29)**
   - [ ] `28-interview` (15 notes authored from scratch)
   - [ ] `29-cheatsheets` (11 notes authored from scratch)

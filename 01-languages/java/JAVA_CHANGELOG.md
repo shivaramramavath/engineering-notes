@@ -279,3 +279,40 @@ All notable changes, structural migrations, and note creations in the Java learn
   - **`README.md` (61 lines):** Complete project catalog, architectural highlights, and technology matrix.
 ### Verification
 - Tested and verified on Oracle JDK 25.0.1 LTS via `scratch/Batch10Verification.java` (4/4 test suites passed with assertions enabled).
+
+---
+
+## [Batch 11] - 2026-11-21: Data Structures & Algorithms Curriculum (27-dsa)
+### Added & Expanded
+- **27-dsa (28 comprehensive concept notes + README, all 401–697 lines each):**
+  - **`00_complexity-analysis.md` (403 lines):** Asymptotic notations ($O, \Omega, \Theta$), Master Theorem mathematical proofs, amortized analysis (Aggregate, Accounting, Potential methods), JVM memory models, and 5 verified LeetCode solutions.
+  - **`01_arrays-and-strings.md` (436 lines):** Contiguous primitive arrays, Compact Strings (LATIN1/UTF16), Two Pointers, Sliding Window, 3Sum, Trapping Rain Water, and Median of Two Sorted Arrays.
+  - **`02_linked-lists.md` (514 lines):** Singly, Doubly, and Circular Linked Lists, Floyd's Tortoise and Hare cycle detection, in-place list reversal, LRU Cache, and Merge K Sorted Lists.
+  - **`03_stacks-and-queues.md` (435 lines):** Circular buffer `ArrayDeque` internals, Monotonic Stacks, Sliding Window Maximum, Daily Temperatures, and Largest Rectangle in Histogram.
+  - **`04_hash-tables-and-hashing.md` (471 lines):** HotSpot `HashMap` internals, Treeification thresholds (Red-Black trees), Open Addressing with Linear/Quadratic Probing, HashDoS defense, and Consistent Hashing.
+  - **`05_recursion-and-backtracking.md` (440 lines):** HotSpot call stack execution models, state pruning, N-Queens, Sudoku Solver, Permutations, and Word Search.
+  - **`06_binary-search.md` (420 lines):** Binary search invariants, left/right boundary discovery, Search in Rotated Sorted Array, and Binary Search on Answer Space (Koko Eating Bananas).
+  - **`07_trees-binary-and-bst.md` (407 lines):** Tree traversals (In/Pre/Post/Level), tree reconstruction from Inorder & Postorder, Lowest Common Ancestor (LCA), and Validate BST.
+  - **`08_self-balancing-trees.md` (401 lines):** AVL Tree rotations (LL, RR, LR, RL), Red-Black Tree balancing invariants, and `java.util.TreeMap` source analysis.
+  - **`09_trie.md` (663 lines):** Prefix tree design, lowercase alphabet array optimization, WordDictionary wildcard search (LeetCode 211), Word Search II (212), and Bitwise Trie for Maximum XOR (421).
+  - **`10_heaps-and-priority-queues.md` (545 lines):** Min/Max binary heaps, mathematical proof of $O(N)$ `buildHeap`, `PriorityQueue` source analysis, Top K Frequent Elements (347), and Dual-Heap MedianFinder (295).
+  - **`11_graphs-bfs-dfs.md` (631 lines):** Adjacency list representation, level-order BFS shortest path in unweighted graphs, 3-coloring directed cycle DFS, Clone Graph (133), and Bidirectional BFS Word Ladder (127).
+  - **`12_topological-sort.md` (651 lines):** Kahn's algorithm (BFS in-degrees), DFS post-order reversal, DAG cycle check, Course Schedule I & II (207, 210), and Alien Dictionary (269).
+  - **`13_shortest-path-algorithms.md` (625 lines):** Dijkstra's SSSP with Min-Heap, Bellman-Ford negative edge relaxation, Floyd-Warshall APSP $O(V^3)$ dynamic programming, and Network Delay Time (743).
+  - **`14_minimum-spanning-tree.md` (697 lines):** Cut Property theorem, Kruskal's algorithm with DSU, Prim's algorithm with priority queues, Min Cost to Connect All Points (1584), and Virtual Node optimization.
+  - **`15_disjoint-set-union.md` (629 lines):** Forest of trees, Path Compression, Union by Rank, Inverse Ackermann function $\alpha(N) \le 4$, Number of Provinces (547), and Redundant Connection (684).
+  - **`16_dynamic-programming-1d.md` (477 lines):** Optimal substructure, overlapping subproblems, memoization vs bottom-up tabulation, $O(1)$ rolling state space, and $O(N \log N)$ Patience Sorting for LIS (300).
+  - **`17_dynamic-programming-2d.md` (526 lines):** 2D DP matrices, Longest Common Subsequence (1143), Edit Distance (72), Maximal Square (221), and $O(N)$ rolling space compression.
+  - **`18_dynamic-programming-advanced.md` (524 lines):** Bitmask DP (Traveling Salesperson), Burst Balloons (312 Interval DP), House Robber III (337 Tree DP), and Digit DP (233).
+  - **`19_greedy-algorithms.md` (492 lines):** Exchange argument proofs, Activity Selection, Interval Scheduling, Jump Game I & II (55, 45), Gas Station (134), and Two-Pass Greedy Candy (135).
+  - **`20_bit-manipulation.md` (424 lines):** Two's complement binary arithmetic, Brian Kernighan's bit-clearing `n & (n - 1)`, single-cycle HotSpot intrinsics (`POPCNT`, `LZCNT`), and Single Number I/II/III.
+  - **`21_math-and-number-theory.md` (514 lines):** Euclidean GCD/LCM, Sieve of Eratosthenes ($O(N \log \log N)$), Binary Modular Exponentiation, Fermat's Little Theorem modular inverse, and Pow(x, n) (50).
+  - **`22_string-algorithms.md` (581 lines):** Knuth-Morris-Pratt (KMP) with LPS table, Rabin-Karp polynomial rolling hash, Z-Algorithm, and Manacher's linear-time palindrome finder (LeetCode 5).
+  - **`23_segment-trees-and-fenwick.md` (676 lines):** Fenwick Tree (Binary Indexed Tree / BIT) point update & prefix query in $O(\log N)$, Segment Tree with Lazy Propagation in $4N$ space, and Count of Smaller Numbers After Self (315).
+  - **`24_intervals.md` (505 lines):** Interval overlap conditions, Merge Intervals (56), Insert Interval (57), Meeting Rooms II (253 Chronological Sweep-Line), and Interval Intersections (986).
+  - **`25_matrix-and-grid-algorithms.md` (533 lines):** In-place $90^\circ$ clockwise rotation (Transpose + Reverse), Spiral Matrix (54), $O(1)$ space Set Matrix Zeroes (73), Staircase Search (240), and CPU row-major cache locality.
+  - **`26_dsa-patterns-index.md` (436 lines):** Master taxonomy of 16 core algorithmic patterns, problem signature triggers, time-space complexity trade-off matrix, decision flowchart, and production invariants.
+  - **`27_leetcode-patterns-mastery.md` (530 lines):** Blind 75 and NeetCode 150 category breakdown, 45-minute live interview pacing budget, technical communication protocols, LRU Cache, and Median of Two Sorted Arrays.
+  - **`README.md` (78 lines):** Curriculum roadmap, pedagogical progression, module matrix, and verification standards.
+### Verification
+- Tested and verified on Oracle JDK 25.0.1 LTS via `scratch/Batch11Verification.java` (7/7 test suites passed with assertions enabled).
