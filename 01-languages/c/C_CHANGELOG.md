@@ -301,5 +301,40 @@ All modifications, error fixes, technical corrections, and structural extensions
   - Added runnable example `examples/12-pointer-arithmetic.c` with verified real output in `real_outputs_batch8.json`.
   - Added 6-row common pitfalls table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
 
+---
+
+## Batch 9: Module 02 Core Concepts (Notes 13–17)
+- **`02-core-concepts/13-multi-dimensional-arrays.md`**:
+  - Authored complete 431-line deep dive into multi-dimensional arrays.
+  - Detailed row-major contiguous memory layout, flat stride index formula `r * COLS + c`, pointer decay to array pointers `int (*)[COLS]` vs illegal `int **`, and VLA function parameters.
+  - Analyzed CPU cache impacts: row-major spatial locality vs column-major cache thrashing penalties.
+  - Added runnable example `examples/13-multi-dimensional-arrays.c` with verified real output in `real_outputs_batch9.json`.
+  - Added 6-row common pitfalls table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+- **`02-core-concepts/14-dynamic-arrays-and-realloc.md`**:
+  - Authored complete 447-line comprehensive engineering guide to dynamic arrays (vectors).
+  - Formalized size vs capacity, mathematical proof of geometric capacity growth yielding amortized $O(1)$ push time, and the 1.5x vs 2.0x growth factor memory reuse debate.
+  - Detailed the defensive temporary pointer `realloc` idiom, pointer invalidation risks, shrink-to-fit considerations, and arithmetic overflow protection during capacity scaling.
+  - Added runnable example `examples/14-dynamic-arrays-and-realloc.c` with verified real output in `real_outputs_batch9.json`.
+  - Added 6-row common pitfalls table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+- **`02-core-concepts/15-string-h-functions-and-safe-alternatives.md`**:
+  - Authored complete 435-line reference on `<string.h>` operations and secure boundaries.
+  - Dissected classic pitfalls: `strcpy` buffer overflows, `strncpy` missing null terminators and zero-padding penalties, and quadratic $O(N^2)$ `strlen` inside loop conditions.
+  - Detailed bounds-safe alternatives: `snprintf` truncation detection (`ret >= size`), BSD `strlcpy`/`strlcat` reference implementations, constant-time `safe_memcmp_const_time`, and reentrant `strtok_r` vs non-reentrant `strtok`.
+  - Added runnable example `examples/15-string-h-functions-and-safe-alternatives.c` with verified real output in `real_outputs_batch9.json`.
+  - Added 6-row common pitfalls table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+- **`02-core-concepts/16-bit-fields.md`**:
+  - Authored complete 432-line technical guide to C bit-fields.
+  - Detailed bit-field syntax, memory packing, signed 1-bit `-1` overflow traps, the address-of `&` compilation restriction, and zero-width boundary aligners (`: 0`).
+  - Analyzed endianness and ABI non-portability: why bit-fields must never define network packets or disk formats, hardware MMIO register unions, and portable bitwise shift-and-mask alternatives.
+  - Added runnable example `examples/16-bit-fields.c` with verified real output in `real_outputs_batch9.json`.
+  - Added 6-row common pitfalls table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+- **`02-core-concepts/17-enums-and-flags.md`**:
+  - Authored complete 415-line guide to enumerations and bitmask flags in C.
+  - Contrasted discrete state modeling with power-of-two bitmask combinations (`1 << N`), bitwise set (`|=`), clear (`&= ~`), toggle (`^=`), and query (`(& MASK) == MASK`) idioms.
+  - Examined ISO C enum type-safety realities (assignment of arbitrary integers), `-Wswitch-enum` exhaustiveness checking, operator precedence pitfalls, and ISO C23 fixed underlying type syntax (`enum Color : uint8_t`).
+  - Added runnable example `examples/17-enums-and-flags.c` with verified real output in `real_outputs_batch9.json`.
+  - Added 6-row common pitfalls table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+
+
 
 
