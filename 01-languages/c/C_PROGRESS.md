@@ -191,15 +191,15 @@
 
 ---
 
-## Module 07: Testing (`07-testing/`)
-- [ ] `07-testing/README.md` (Not started)
-- [ ] `07-testing/01-unit-testing-with-unity-or-cmocka.md` (Not started)
-- [ ] `07-testing/02-test-doubles-and-mocking-in-c.md` (Not started)
-- [ ] `07-testing/03-fuzzing-with-libfuzzer-afl.md` (Not started)
-- [ ] `07-testing/04-test-driven-c.md` (Not started)
-- [ ] `07-testing/05-property-testing-ideas-in-c.md` (Not started)
-- [ ] `07-testing/06-testing-with-sanitizers-and-valgrind.md` (Not started)
-- [ ] `07-testing/07-code-coverage-targets.md` (Not started)
+## Module 07: Testing (`07-testing/`) - 100% Complete
+- [x] `07-testing/README.md` (Complete - 52 lines)
+- [x] `07-testing/01-unit-testing-with-unity-or-cmocka.md` (Complete - 494 lines)
+- [x] `07-testing/02-test-doubles-and-mocking-in-c.md` (Complete - 486 lines)
+- [x] `07-testing/03-fuzzing-with-libfuzzer-afl.md` (Complete - 466 lines)
+- [x] `07-testing/04-test-driven-c.md` (Complete - 442 lines)
+- [x] `07-testing/05-property-testing-ideas-in-c.md` (Complete - 416 lines)
+- [x] `07-testing/06-testing-with-sanitizers-and-valgrind.md` (Complete - 401 lines)
+- [x] `07-testing/07-code-coverage-targets.md` (Complete - 413 lines)
 
 ---
 
