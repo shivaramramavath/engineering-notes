@@ -203,14 +203,14 @@
 
 ---
 
-## Module 08: Security & Safety (`08-security-and-safety/`)
-- [ ] `08-security-and-safety/README.md` (Not started)
-- [ ] `08-security-and-safety/01-buffer-overflows.md` (Not started)
-- [ ] `08-security-and-safety/02-format-string-vulnerabilities.md` (Not started)
-- [ ] `08-security-and-safety/03-integer-overflow-and-wraparound.md` (Not started)
-- [ ] `08-security-and-safety/04-use-after-free-and-double-free.md` (Not started)
-- [ ] `08-security-and-safety/05-secure-coding-cert-c.md` (Not started)
-- [ ] `08-security-and-safety/06-misra-c-overview.md` (Not started)
+## Module 08: Security & Safety (`08-security-and-safety/`) - In Progress (Batch 21 Part 1)
+- [x] `08-security-and-safety/README.md` (Complete - 56 lines)
+- [x] `08-security-and-safety/01-buffer-overflows.md` (Complete - 429 lines)
+- [x] `08-security-and-safety/02-format-string-vulnerabilities.md` (Complete - 405 lines)
+- [x] `08-security-and-safety/03-integer-overflow-and-wraparound.md` (Complete - 426 lines)
+- [x] `08-security-and-safety/04-use-after-free-and-double-free.md` (Complete - 439 lines)
+- [x] `08-security-and-safety/05-secure-coding-cert-c.md` (Complete - 416 lines)
+- [x] `08-security-and-safety/06-misra-c-overview.md` (Complete - 424 lines)
 - [ ] `08-security-and-safety/07-hardening-flags.md` (Not started)
 - [ ] `08-security-and-safety/08-race-conditions-and-toctou.md` (Not started)
 - [ ] `08-security-and-safety/09-safe-string-handling-patterns.md` (Not started)

@@ -649,3 +649,14 @@ All modifications, error fixes, technical corrections, and structural extensions
   - `06-testing-with-sanitizers-and-valgrind.md` (401 lines)
   - `07-code-coverage-targets.md` (413 lines)
 - **Verification**: All companion C test code executed in scratch; verified real outputs captured in `real_outputs_b20_p3.json`. All 7 notes meet >= 400 line standard with 13 standard sections.
+
+### Batch 21 Part 1: Module 08 Security & Safety (Notes 01-06 + README)
+- **Completed Notes**:
+  - `README.md` (56 lines)
+  - `01-buffer-overflows.md` (429 lines)
+  - `02-format-string-vulnerabilities.md` (405 lines)
+  - `03-integer-overflow-and-wraparound.md` (426 lines)
+  - `04-use-after-free-and-double-free.md` (439 lines)
+  - `05-secure-coding-cert-c.md` (416 lines)
+  - `06-misra-c-overview.md` (424 lines)
+- **Verification**: All companion C test code executed in scratch; verified real outputs captured in `real_outputs_b21_p1.json`. All 6 notes meet >= 400 line standard with 13 standard sections.
