@@ -1,41 +1,51 @@
-# Project Name
+# Project XX: [Project Name] (`[slug]`)
 
-> Brief summary of the project, its architectural goals, and system programming capabilities demonstrated.
+> [One-line summary of project architecture, protocol, and features.]
 
-| Project Metric | Value |
-|---|---|
-| **Complexity** | Intermediate / Advanced |
-| **Lines of Code** | ~500–1,500 LOC |
-| **Dependencies** | Standard ISO C11 Library (POSIX APIs where noted) |
-| **Build System** | GNU Make / CMake |
-| **Testing** | Unity Test Framework / Custom Test Harness |
+| Metadata | Details |
+| :--- | :--- |
+| **Project Code** | `XX-slug` |
+| **Language Baseline** | C11 / POSIX.1-2008 |
+| **Complexity** | [Intermediate / Advanced] |
+| **Core Systems Concepts** | [Concepts ...] |
 
 ---
 
-## Project Structure
-```
-project-name/
-├── README.md               # Architecture, specification, build instructions
-├── Makefile                # Automated targets: all, debug, test, clean
-├── include/
-│   └── project_api.h       # Public interface definitions
-├── src/
-│   ├── main.c              # Application entry point
-│   └── project_impl.c      # Modular implementation (no global state)
-└── tests/
-    └── test_suite.c        # Automated unit and integration tests
+## 1. Architectural Overview & Component Breakdown
+[Component breakdown and ASCII/Mermaid architecture diagram...]
+
+---
+
+## 2. Complete Project Source Code
+### Header: `include/[project].h`
+```c
+// Complete header declarations
 ```
 
+### Source: `src/[component].c`
+```c
+// Complete implementation
+```
+
+### Source: `src/main.c`
+```c
+// Interactive test harness or CLI driver
+```
+
 ---
 
-## Functional Specification & Architecture
-Detailed component diagram, state machine, data structures, and memory ownership contracts.
+## 3. Build Configuration (`Makefile`)
+```makefile
+# Fully functional Makefile
+```
 
 ---
 
-## Building and Testing
+## 4. Verification & Sample Session
 ```bash
-make clean
-make
-make test
+# Compilation commands and verified runtime outputs
 ```
+
+---
+
+[← Return to Projects Index](../README.md)
