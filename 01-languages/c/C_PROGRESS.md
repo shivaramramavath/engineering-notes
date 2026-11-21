@@ -246,22 +246,22 @@
 
 ---
 
-## Module 11: Projects (`11-projects/`)
-- [ ] `11-projects/README.md` (Not started)
-- [ ] `11-projects/01-tiny-shell/` (Not started)
-- [ ] `11-projects/02-http-server/` (Not started)
-- [ ] `11-projects/03-key-value-store/` (Not started)
-- [ ] `11-projects/04-memory-allocator/` (Not started)
-- [ ] `11-projects/05-json-parser/` (Not started)
-- [ ] `11-projects/06-text-editor-or-grep-clone/` (Not started)
-- [ ] `11-projects/07-thread-pool/` (Not started)
-- [ ] `11-projects/08-lru-cache/` (Not started)
-- [ ] `11-projects/09-tiny-vm-or-interpreter/` (Not started)
-- [ ] `11-projects/10-dynamic-string-library/` (Not started)
-- [ ] `11-projects/11-tcp-chat-server/` (Not started)
-- [ ] `11-projects/12-file-compression-huffman/` (Not started)
-- [ ] `11-projects/13-ring-buffer-logger/` (Not started)
-- [ ] `11-projects/14-mini-regex-engine/` (Not started)
+## Module 11: Projects (`11-projects/`) - 100% Complete
+- [x] `11-projects/README.md` (Complete - 57 lines)
+- [x] `11-projects/01-tiny-shell/` (Complete - 413 lines)
+- [x] `11-projects/02-http-server/` (Complete - 400 lines)
+- [x] `11-projects/03-key-value-store/` (Complete - 393 lines)
+- [x] `11-projects/04-memory-allocator/` (Complete - 323 lines)
+- [x] `11-projects/05-json-parser/` (Complete - 407 lines)
+- [x] `11-projects/06-text-editor-or-grep-clone/` (Complete - 222 lines)
+- [x] `11-projects/07-thread-pool/` (Complete - 282 lines)
+- [x] `11-projects/08-lru-cache/` (Complete - 282 lines)
+- [x] `11-projects/09-tiny-vm-or-interpreter/` (Complete - 228 lines)
+- [x] `11-projects/10-dynamic-string-library/` (Complete - 198 lines)
+- [x] `11-projects/11-tcp-chat-server/` (Complete - 259 lines)
+- [x] `11-projects/12-file-compression-huffman/` (Complete - 266 lines)
+- [x] `11-projects/13-ring-buffer-logger/` (Complete - 243 lines)
+- [x] `11-projects/14-mini-regex-engine/` (Complete - 207 lines)
 
 ---
 
