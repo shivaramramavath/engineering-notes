@@ -7,7 +7,7 @@
 | **Module Code** | `09-performance` |
 | **Prerequisites** | [02-core-concepts/03-pointers.md](../02-core-concepts/03-pointers.md), [02-core-concepts/06-structs-unions-enums.md](../02-core-concepts/06-structs-unions-enums.md), [05-systems-programming/05-pthreads.md](../05-systems-programming/05-pthreads.md) |
 | **Duration** | ~30 hours |
-| **Status** | In Progress (Batch 21 Part 3) |
+| **Status** | Complete |
 | **Standard Baseline**| C99 / C11 / C17 / POSIX.1-2008 / GCC 9+ / Clang 12+ / x86_64 / ARMv8 |
 
 ---
@@ -37,11 +37,11 @@ Writing high-performance C requires understanding how source code maps to physic
 | **03** | [Compiler Optimizations](./03-compiler-optimizations.md) | Advanced | Complete | Optimization flags (`-O2`, `-O3`), vectorization passes, loop unrolling |
 | **04** | [Branch Prediction and Data Layout](./04-branch-prediction-and-data-layout.md) | Advanced | Complete | Branch predictors, pipeline bubbles, branchless programming, `likely`/`unlikely` |
 | **05** | [SIMD Intrinsics Intro](./05-simd-intrinsics-intro.md) | Advanced | Complete | AVX/SSE/NEON vector types, data parallelism, packed vector math |
-| **06** | [Benchmarking Correctly](./06-benchmarking-correctly.md) | Advanced | Planned | Monotonic clocks, warm-up runs, statistical variance, compiler optimization clobbers |
-| **07** | [Struct of Arrays vs Array of Structs](./07-struct-of-arrays-vs-array-of-structs.md) | Advanced | Planned | AoS vs SoA memory layout, SIMD vectorization friendliness, cache utilization |
-| **08** | [False Sharing and Concurrency Tuning](./08-false-sharing-and-concurrency-performance.md) | Advanced | Planned | Multi-core MESI protocol, cache line bouncing, `alignas(64)` padding |
-| **09** | [Link-Time Optimization (LTO) & PGO](./09-link-time-optimization-and-pgo.md) | Advanced | Planned | Cross-TU inlining, feedback-directed optimization (`-fprofile-generate`), branch layout |
-| **10** | [Inlining and Code Size Trade-offs](./10-inlining-and-code-size.md) | Advanced | Planned | `inline` vs `__attribute__((always_inline))`, instruction cache pressure, `-Os` |
+| **06** | [Benchmarking Correctly](./06-benchmarking-correctly.md) | Advanced | Complete | Monotonic clocks, warm-up runs, statistical variance, compiler optimization clobbers |
+| **07** | [Struct of Arrays vs Array of Structs](./07-struct-of-arrays-vs-array-of-structs.md) | Advanced | Complete | AoS vs SoA memory layout, SIMD vectorization friendliness, cache utilization |
+| **08** | [False Sharing and Concurrency Tuning](./08-false-sharing-and-concurrency-performance.md) | Advanced | Complete | Multi-core MESI protocol, cache line bouncing, `alignas(64)` padding |
+| **09** | [Link-Time Optimization (LTO) & PGO](./09-link-time-optimization-and-pgo.md) | Advanced | Complete | Cross-TU inlining, feedback-directed optimization (`-fprofile-generate`), branch layout |
+| **10** | [Inlining and Code Size Trade-offs](./10-inlining-and-code-size.md) | Advanced | Complete | `inline` vs `__attribute__((always_inline))`, instruction cache pressure, `-Os` |
 
 ---
 
