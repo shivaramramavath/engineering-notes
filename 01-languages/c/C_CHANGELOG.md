@@ -385,6 +385,36 @@ All modifications, error fixes, technical corrections, and structural extensions
   - Added runnable example `examples/25-linked-structures-with-pointers-intro.c` with verified real output in `real_outputs_batch10.json`.
   - Added 6-row common pitfalls table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
 
+---
+
+## Batch 11: Module 03 Intermediate (Notes 01–04 + Module README)
+- **`03-intermediate/README.md`**: Created module roadmap, comprehensive table of all 24 intermediate notes and 19 data structure notes, learning outcomes, and prerequisites.
+- **`03-intermediate/01-function-pointers.md`**:
+  - Completely restructured into all 13 required sections (444 lines).
+  - Detailed function pointer declaration syntax, automatic address decay, invocation mechanics, and the universal `void *user_data` callback pattern.
+  - Analyzed standard `qsort` and `bsearch` comparators (highlighting the `a - b` overflow vulnerability and the safe `(a > b) - (a < b)` idiom), dynamic dispatch tables, and object-oriented polymorphism/vtable emulation in C.
+  - Added runnable example `examples/01-function-pointers.c` with verified real output in `real_outputs_batch11.json`.
+  - Added 6-row common pitfalls table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+- **`03-intermediate/02-multi-file-programs.md`**:
+  - Completely restructured into all 13 required sections (473 lines).
+  - Detailed translation units, header interfaces vs source implementations, standard include guards vs `#pragma once`, circular dependency breaking via forward declarations (`typedef struct B B;`), and `extern` variables.
+  - Analyzed internal linkage (`static`) for translation-unit encapsulation, `static inline` header functions, and incremental compilation pipelines.
+  - Added fully working, compilable companion code in `examples/02-multi-file/` (`mathutil.h`, `mathutil.c`, `main.c`) with verified real output in `real_outputs_batch11.json`.
+  - Added 6-row common pitfalls table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+- **`03-intermediate/03-error-handling.md`**:
+  - Completely restructured into all 13 required sections (461 lines).
+  - Formalized the 4 C error reporting strategies (sentinels, status codes + out parameters, thread-local `errno`, and error enums).
+  - Detailed thread-local `errno` rules, `strerror_r` thread safety, cascading cleanup rollback architectures, and the canonical `goto cleanup;` resource management idiom.
+  - Added runnable example `examples/03-error-handling.c` with verified real output in `real_outputs_batch11.json`.
+  - Added 6-row common pitfalls table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+- **`03-intermediate/04-assertions-defensive-coding.md`**:
+  - Completely restructured into all 13 required sections (407 lines).
+  - Formalized the boundary between programmer bugs (invariant violations caught by assertions) and expected runtime errors (handled by status codes).
+  - Detailed runtime `assert()`, release build disabling via `-DNDEBUG`, the strict prohibition against side-effects in assertions, and compile-time static assertions (`_Static_assert` / C23 `static_assert`).
+  - Added runnable example `examples/04-assertions-defensive-coding.c` with verified real output in `real_outputs_batch11.json`.
+  - Added 6-row common pitfalls table, 8 interview questions with `<details>`, and 3 practice exercises with full solutions.
+
+
 
 
 

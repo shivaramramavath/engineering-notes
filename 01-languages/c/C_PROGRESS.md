@@ -87,11 +87,11 @@
 ---
 
 ## Module 03: Intermediate (`03-intermediate/`)
-- [ ] `03-intermediate/README.md` (Not started)
-- [ ] `03-intermediate/01-function-pointers.md` (Not started)
-- [ ] `03-intermediate/02-multi-file-programs.md` (Not started)
-- [ ] `03-intermediate/03-error-handling.md` (Not started)
-- [ ] `03-intermediate/04-assertions-defensive-coding.md` (Not started)
+- [x] `03-intermediate/README.md` (Done)
+- [x] `03-intermediate/01-function-pointers.md` (Done)
+- [x] `03-intermediate/02-multi-file-programs.md` (Done)
+- [x] `03-intermediate/03-error-handling.md` (Done)
+- [x] `03-intermediate/04-assertions-defensive-coding.md` (Done)
 - [ ] `03-intermediate/05-bit-manipulation.md` (Not started)
 - [ ] `03-intermediate/06-variadic-functions.md` (Not started)
 - [ ] `03-intermediate/07-text-processing-parsing.md` (Not started)
