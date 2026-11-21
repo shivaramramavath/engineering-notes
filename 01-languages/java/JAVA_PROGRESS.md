@@ -2,7 +2,7 @@
 
 > **Last Updated:** 2026-11-21  
 > **Overall Status:** In Progress  
-> **Completed Batches:** Batches 1, 2, 3, 4 (4 / 13)
+> **Completed Batches:** Batches 1, 2, 3, 4, 5 (5 / 13)
 
 ---
 
@@ -33,6 +33,13 @@
   - [x] `07-generics` (5 concept notes + README expanded to 423-470 lines)
   - [x] `08-collections` (16 concept notes + README expanded to 403-560 lines, featuring Java 21 Sequenced Collections JEP 431)
   - [x] Verification on JDK 25 LTS via `scratch/Batch4Verification.java`
+  - [x] Git commit Batch 4 (`a792a2e`)
+- [x] **Batch 5: Functional & Systems I/O (Modules 09, 10, 11)**
+  - [x] `09-functional-java` (9 concept notes + README expanded to 400-475 lines, Stream Gatherers JEP 485)
+  - [x] `10-date-and-time` (6 concept notes + README expanded to 400-465 lines, java.time immutable domain models)
+  - [x] `11-io-and-networking` (5 concept notes + README expanded to 410-614 lines, JEP 290 filters, HTTP/2 HttpClient)
+  - [x] Verification on JDK 25 LTS via `scratch/Batch5Verification.java`
+  - [x] Git commit Batch 5
 - [ ] **Batch 5: Functional & Systems I/O (Modules 09, 10, 11)**
   - [ ] `09-functional-java` (10 notes)
   - [ ] `10-date-and-time` (7 notes)

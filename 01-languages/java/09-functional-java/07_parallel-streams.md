@@ -1,252 +1,443 @@
-# Parallel Streams
+# Parallel Streams and ForkJoinPool
 
-A parallel stream splits its source into chunks, processes the chunks on multiple threads, and merges the partial results. Switching is one call (`.parallel()` or `parallelStream()`), which makes it very easy to use and very easy to use wrongly.
+> Multi-core stream processing: common ForkJoinPool work-stealing, Spliterator partitioning, performance heuristics, and stateful concurrency hazards.
 
-The honest summary: **parallel streams are a CPU-bound data-parallelism tool with a narrow sweet spot.** Many pipelines get slower or incorrect when you add `.parallel()`.
-
-**Prerequisites:** [Streams Fundamentals](04_streams-fundamentals.md), [Stream Operations](05_stream-operations.md), [Collectors](06_collectors.md), and basic thread-safety ideas from [Thread Safety](../14-concurrency/02_thread-safety.md).
-
----
-
-## 1. Creating a parallel stream
-
-```java
-list.parallelStream().map(this::compute).toList();
-
-list.stream().parallel().map(this::compute).toList();   // equivalent
-
-IntStream.range(0, 1_000_000).parallel().sum();
-
-stream.isParallel();       // check
-```
-
-`parallel()` and `sequential()` only set a flag on the **whole pipeline**. The **last call wins**, regardless of where in the chain you put it:
-
-```java
-list.stream().parallel().map(...).sequential().forEach(...);   // runs sequentially
-```
-
----
-
-## 2. How it works
-
-```text
-            source (Spliterator)
-                   │ trySplit()
-         ┌─────────┴─────────┐
-       chunk A             chunk B
-       ┌──┴──┐             ┌──┴──┐
-      A1    A2            B1    B2        ← split until chunks are small enough
-       │     │             │     │
-   [pipeline][pipeline] [pipeline][pipeline]   ← each runs on a Fork/Join worker
-       └──┬──┘             └──┬──┘
-       combine              combine         ← collector combiner / reduce combiner
-              └──────┬──────┘
-                   result
-```
-
-- The source's **`Spliterator`** decides how well it splits.
-- Work runs on the **common `ForkJoinPool`** (`ForkJoinPool.commonPool()`), shared by the whole JVM. See [Fork/Join](../14-concurrency/11_fork-join-and-parallelism.md).
-- The calling thread also participates in the work.
-- Partial results are merged with the **combiner** of your `Collector`, or the combiner/associative function of your `reduce`.
-
-Default common-pool parallelism is based on available processors (roughly cores minus one). You can override it with a system property, set before the pool is first used:
-
-```bash
-java -Djava.util.concurrent.ForkJoinPool.common.parallelism=4 -jar app.jar
-```
-
----
-
-## 3. When parallel helps
-
-Parallelism pays off only when **all** of these hold:
-
-1. **Enough work.** The overhead of splitting, scheduling, and merging must be dwarfed by the actual work. As a rough heuristic, elements × cost per element should be large (tens of thousands of simple operations at minimum). Tiny collections almost never benefit.
-2. **CPU-bound work.** The tasks compute rather than wait.
-3. **A source that splits cheaply.**
-4. **Independent, stateless operations** that can run in any order.
-5. **Cores available.** On a busy server that is already saturated by request threads, there are no spare cores to gain.
-
-### Source matters
-
-| Splits well | Splits poorly |
+| Metadata | Value |
 |---|---|
-| `ArrayList`, arrays, `IntStream.range` | `LinkedList` |
-| `HashSet` / `HashMap` (reasonable) | `Stream.iterate` (inherently sequential) |
-| `TreeSet` / `TreeMap` (decent) | Sources reading from I/O, `BufferedReader.lines()` |
-
-### Operation matters
-
-| Parallel-friendly | Costly in parallel |
-|---|---|
-| `map`, `filter`, `mapToInt`, `sum`, `reduce` | `sorted`, `distinct` (need buffering/coordination) |
-| `collect` with a good combiner | `limit`, `skip`, `findFirst` on ordered streams (must respect order) |
-| Primitive streams (no boxing) | `forEachOrdered` (forces ordering) |
+| **Level** | Advanced |
+| **Prerequisites** | [04_streams-fundamentals.md](04_streams-fundamentals.md), [05_stream-operations.md](05_stream-operations.md), [08-collections/12_iterators-and-fail-fast-behavior.md](../08-collections/12_iterators-and-fail-fast-behavior.md) |
+| **Time to Read** | 24 minutes |
+| **Status** | Active |
+| **Java Version** | Java 8+ |
 
 ---
 
-## 4. Correctness rules
-
-Most parallel-stream bugs are not performance bugs; they are wrong answers.
-
-### 4.1 No shared mutable state
-
-```java
-// BROKEN: ArrayList is not thread-safe → lost elements, exceptions, nulls
-List<Integer> out = new ArrayList<>();
-IntStream.range(0, 10_000).parallel().forEach(out::add);
-
-// CORRECT: let the stream own the accumulation
-List<Integer> out = IntStream.range(0, 10_000).parallel().boxed().toList();
-```
-
-Wrapping the target in `synchronized` or a concurrent collection "fixes" the crash but adds contention and usually kills the speedup. Use `collect`/`reduce`.
-
-### 4.2 `reduce` needs an identity and an associative function
-
-For parallel `reduce(identity, accumulator, combiner)` to be correct:
-
-- `identity` must be a true identity: `accumulator(identity, x) == x`
-- the function must be **associative**
-- it must be **stateless and non-interfering**
-
-```java
-// WRONG identity: each chunk starts from 100, so 100 gets added once per chunk
-int bad = Stream.of(1, 2, 3, 4).parallel().reduce(100, Integer::sum);   // not 110
-
-// WRONG: subtraction is not associative
-int bad2 = Stream.of(10, 3, 2).parallel().reduce(0, (a, b) -> a - b);   // unreliable
-
-// CORRECT
-int ok = Stream.of(1, 2, 3, 4).parallel().reduce(0, Integer::sum);       // 10
-```
-
-### 4.3 Non-interference
-
-Don't modify the stream's source while the pipeline runs. For most collections this results in `ConcurrentModificationException` or undefined behavior.
-
-### 4.4 `forEach` vs `forEachOrdered`
-
-```java
-List.of(1, 2, 3, 4, 5).parallelStream().forEach(System.out::print);         // order not guaranteed
-List.of(1, 2, 3, 4, 5).parallelStream().forEachOrdered(System.out::print);  // 12345, but loses most of the benefit
-```
-
-### 4.5 Encounter order is preserved by default
-
-A parallel stream from an ordered source (a `List`) still gives you **ordered results** from `collect(toList())`, `toList()`, `findFirst`, and so on. This is *not* free. If you don't care about order, say so:
-
-```java
-list.parallelStream().unordered().distinct().limit(100)...   // can be much faster
-```
-
-`findAny()` is cheaper than `findFirst()` in parallel for the same reason.
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & Usage](#4-syntax--usage)
+5. [Practical Examples](#5-practical-examples)
+6. [Best Practices](#6-best-practices)
+7. [Common Mistakes & Pitfalls](#7-common-mistakes--pitfalls)
+8. [Performance & Security Notes](#8-performance--security-notes)
+9. [Comparison / When to Use What](#9-comparison--when-to-use-what)
+10. [Interview Questions](#10-interview-questions)
+11. [Practice Exercises](#11-practice-exercises)
+12. [Summary / Cheat Sheet](#12-summary--cheat-sheet)
+13. [Further Reading](#13-further-reading)
 
 ---
 
-## 5. Collectors in parallel
+## 1. What & Why
 
-A parallel `collect` creates multiple containers (via the supplier), fills them in different threads, and then **merges** them with the combiner. So:
+On modern multi-core processor architectures, executing computational loops across a single CPU core leaves the vast majority of hardware compute capacity idle. Writing concurrent code manually (managing `Thread`, `ExecutorService`, locks, and thread-safe data structures) is complex, error-prone, and full of race conditions.
 
-- Built-in collectors (`toList`, `groupingBy`, `joining`, ...) are already correct.
-- `groupingBy` merges maps, which has a cost. `groupingByConcurrent` fills one shared `ConcurrentMap` instead, with a trade-off: it does not preserve element order within groups. Use it only after measuring.
-- Custom collectors must follow the contract in [Collectors](06_collectors.md#7-how-a-collector-works).
-- Calling `Collector.of(...)` with a supplier that returns a shared container is a classic bug.
+**Parallel Streams** allow developers to transform a sequential stream pipeline into a parallel execution pipeline by simply calling `.parallel()`.
+
+However, parallel streams are **not a magic performance switch**. Under many common conditions, parallel streams run **slower** than sequential streams, consume massive CPU resources, saturate shared thread pools, and introduce catastrophic race conditions if stateful or non-thread-safe operations are used.
+
+Understanding the underlying `ForkJoinPool`, work-stealing mechanics, Spliterator decomposition characteristics, and Amdahl's Law is essential for using parallel streams safely.
 
 ---
 
-## 6. The common-pool problem
+## 2. Core Concepts
 
-All parallel streams in the JVM share **one** pool. Consequences:
+### How to Parallelize
+Any stream can be parallelized via:
+- `collection.parallelStream()`
+- `stream.parallel()`
+A parallel stream can be converted back to sequential via `.sequential()`. The **last call** in the pipeline dictates the execution mode for the entire pipeline.
 
+### The $N \times Q$ Rule of Thumb
+Coined by Brian Goetz in *Java Concurrency in Practice*:
+Parallelism pays off only when:
+$$N \times Q > 10,000$$
+Where:
+- $N$ = Number of data elements.
+- $Q$ = Cost of computation per element.
+
+If $Q$ is tiny (e.g. adding numbers or checking string length), $N$ must be in the hundreds of thousands or millions before parallelization overcomes thread coordination overhead.
+
+### Spliterator Sizing Quality
+How easily a collection splits into balanced chunks dictates parallel speedup:
+- **Excellent Splitting ($O(1)$)**: `ArrayList`, primitive arrays (`int[]`), `IntStream.range`. (Size known, direct index splits).
+- **Good Splitting ($O(\log N)$)**: `TreeSet`, `TreeMap`.
+- **Poor Splitting ($O(N)$)**: `LinkedList`, `Stream.iterate()`, I/O streams (`Files.lines()`). (Size unknown, requires linear traversal to find split point).
+
+---
+
+## 3. How It Works Internally
+
+### The Common ForkJoinPool
+By default, all parallel streams in a JVM process share a single global thread pool:
 ```java
-// BAD: blocking calls inside a parallel stream
-ids.parallelStream().map(id -> httpClient.fetch(id)).toList();
+ForkJoinPool.commonPool();
+```
+- Default parallelism = $\text{Runtime.getRuntime().availableProcessors()} - 1$.
+- Because the common pool is shared JVM-wide, blocking operations in a parallel stream (like I/O, database queries, or HTTP requests) will **starve all other parallel streams in the application**!
+
+### Work-Stealing Algorithm
+The `ForkJoinPool` operates via **work-stealing**:
+1. When a stream is decomposed via `Spliterator.trySplit()`, subtasks are placed in the worker thread's local double-ended queue (deque).
+2. A worker thread pushes and pops tasks from the **head** of its own deque (LIFO order).
+3. When a worker thread runs out of local tasks, it "steals" tasks from the **tail** of another thread's deque (FIFO order).
+4. This keeps all CPU cores uniformly utilized while minimizing thread contention.
+
+```
++-------------------------------------------------------+
+| ForkJoinPool Work-Stealing                            |
+|                                                       |
+| Worker Thread 1: [Task A][Task B][Task C] (Head)      |
+|                                                       |
+| Worker Thread 2 (Idle): Steals from Thread 1 Tail!    |
+|                         [Task A] <--- Steals!         |
++-------------------------------------------------------+
 ```
 
-- The worker threads block on I/O, so you get no CPU parallelism.
-- Other parallel streams (and anything else using the common pool, such as default `CompletableFuture` async methods) are **starved** while those workers wait.
-- One slow pipeline can degrade unrelated parts of the application.
+---
 
-Alternatives for I/O-bound work:
+## 4. Syntax & Usage
 
-- an explicit `ExecutorService` ([Executors](../14-concurrency/10_executors-and-thread-pools.md))
-- `CompletableFuture` with your own executor ([CompletableFuture](../14-concurrency/12_completablefuture.md))
-- virtual threads ([Virtual Threads](../14-concurrency/13_virtual-threads-and-structured-concurrency.md))
-
-### Running in a custom pool
-
-A widely used trick is to submit the stream task to your own `ForkJoinPool`:
-
+### 1. Basic Parallel Execution
 ```java
-ForkJoinPool pool = new ForkJoinPool(4);
-try {
-    List<Integer> result = pool.submit(() ->
-        data.parallelStream().map(this::heavy).toList()
-    ).get();
-} finally {
-    pool.shutdown();
+import java.util.List;
+import java.util.stream.IntStream;
+
+public class ParallelStreamDemo {
+    public static void main(String[] args) {
+        // Parallel computation of sum of squares
+        long sum = IntStream.rangeClosed(1, 10_000_000)
+            .parallel()
+            .mapToLong(x -> (long) x * x)
+            .sum();
+
+        System.out.println("Sum of squares: " + sum);
+    }
 }
 ```
 
-This works in practice because the stream's tasks fork into the pool of the thread that starts them, but it is an **implementation detail, not a documented guarantee**. If you need guaranteed control of threads, use an `ExecutorService` explicitly.
+### 2. Inspecting Thread Execution
+```java
+import java.util.List;
+
+public class ThreadInspectionDemo {
+    public static void main(String[] args) {
+        List.of(1, 2, 3, 4, 5).parallelStream().forEach(n -> {
+            System.out.println("Processing " + n + " on thread: " + Thread.currentThread().getName());
+        });
+    }
+}
+```
 
 ---
 
-## 7. Measure, don't guess
+## 5. Practical Examples
+
+### Example 1: Parallel Primality Testing (CPU-Intensive) (Basic to Intermediate)
+```java
+import java.util.List;
+import java.util.stream.IntStream;
+
+public class ParallelPrimes {
+    public static boolean isPrime(int n) {
+        if (n < 2) return false;
+        for (int i = 2; i <= Math.sqrt(n); i++) {
+            if (n % i == 0) return false;
+        }
+        return true;
+    }
+
+    public static void main(String[] args) {
+        long start = System.currentTimeMillis();
+        // High Q (expensive primality check per element) -> Ideal for parallel!
+        long count = IntStream.rangeClosed(1, 2_000_000)
+            .parallel()
+            .filter(ParallelPrimes::isPrime)
+            .count();
+        long elapsed = System.currentTimeMillis() - start;
+
+        System.out.println("Found " + count + " primes in: " + elapsed + " ms");
+    }
+}
+```
+
+### Example 2: Dedicated ForkJoinPool for Isolated Workloads (Real-World)
+```java
+import java.util.List;
+import java.util.concurrent.ForkJoinPool;
+
+public class DedicatedPoolDemo {
+    public static void main(String[] args) throws Exception {
+        List<String> items = List.of("A", "B", "C", "D");
+
+        // Create an isolated custom ForkJoinPool with 4 threads
+        ForkJoinPool customPool = new ForkJoinPool(4);
+        try {
+            customPool.submit(() ->
+                items.parallelStream().forEach(item -> {
+                    System.out.println(item + " on " + Thread.currentThread().getName());
+                })
+            ).get(); // Await completion
+        } finally {
+            customPool.shutdown();
+        }
+    }
+}
+```
+
+### Example 3: Edge Case - Race Conditions via Shared Mutable State
+```java
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.IntStream;
+
+public class ParallelRaceConditionHazard {
+    public static void main(String[] args) {
+        // FATAL ANTI-PATTERN: Mutating non-thread-safe collection in parallel stream!
+        List<Integer> unsafeList = new ArrayList<>();
+
+        IntStream.range(0, 10_000)
+            .parallel()
+            .forEach(unsafeList::add); // DATA RACE! Array corruption / index out of bounds!
+
+        System.out.println("Expected: 10000, Actual: " + unsafeList.size());
+        // Prints less than 10000, or crashes with ArrayIndexOutOfBoundsException!
+    }
+}
+```
+
+### Example 4: Failure Case - Parallelizing `Stream.iterate()`
+```java
+import java.util.stream.Stream;
+
+public class IterateParallelDisaster {
+    public static void main(String[] args) {
+        // Stream.iterate has poor spliterator characteristics (unknown size, linear scan).
+        // Parallelizing it causes massive thread coordination overhead, running SLOWER than sequential!
+        long sum = Stream.iterate(1, n -> n + 1)
+            .limit(10_000_000)
+            .parallel() // SLOW!
+            .mapToLong(Long::valueOf)
+            .sum();
+    }
+}
+```
+
+---
+
+## 6. Best Practices
+
+1. **Only Parallelize CPU-Intensive Workloads with High $N \times Q$**: If computation per element is trivial and element count is small, sequential loops are faster.
+2. **Never Perform Blocking I/O in the Common Pool**: Shared `ForkJoinPool.commonPool()` threads will be blocked, starving the entire JVM. Use Virtual Threads or dedicated executors for I/O.
+3. **Ensure Operations are Truly Stateless, Associative, and Non-Interfering**: Reductions must obey mathematical associativity: `(a + b) + c == a + (b + c)`.
+4. **Prefer Array-Backed Sources**: Arrays, `ArrayList`, and `IntStream.range` split cleanly in $O(1)$ time without traversal overhead.
+
+---
+
+## 7. Common Mistakes & Pitfalls
+
+| Mistake | Why Wrong | Fix |
+|---|---|---|
+| Mutating external collection in `forEach()` | Non-thread-safe mutation causes data races, lost updates, and corrupted data. | Use `.collect(Collectors.toList())`. |
+| Running blocking I/O on parallel streams | Starves the shared `ForkJoinPool.commonPool()`, freezing unrelated application tasks. | Use dedicated thread pools or Virtual Threads. |
+| Parallelizing `LinkedList` | Cannot split evenly without $O(N)$ linear pointer traversal. | Use `ArrayList` for parallel streams. |
+| Using non-associative accumulator in `reduce()` | E.g. `(a, b) -> a - b` yields completely wrong results in parallel. | Ensure accumulator is associative (`+`, `*`, `min`, `max`). |
+| Parallelizing tiny collections ($< 10,000$ items) | Thread dispatch and context-switching overhead exceeds compute time. | Keep sequential. |
+| Assuming `forEach` preserves order | In parallel streams, `forEach` executes out of order. | Use `forEachOrdered()` if order is critical. |
+
+---
+
+## 8. Performance & Security Notes
+
+### Performance
+- **Amdahl's Law Limitation**: Speedup is strictly bounded by the sequential portion of the pipeline:
+  $$\text{Speedup} = \frac{1}{(1 - P) + \frac{P}{S}}$$
+  If 10% of your code is sequential, maximum theoretical speedup on an infinite number of CPU cores is $10\times$.
+- **Thread Context Switching Overhead**: Dividing work across threads introduces cache bouncing, memory bus traffic, and scheduler context switches.
+
+### Security
+- **Thread Local Leakage**: Parallel stream worker threads in `ForkJoinPool.commonPool()` are long-lived worker threads. Storing security contexts or credentials in `ThreadLocal` will cause cross-tenant credential leaks across stream tasks.
+
+---
+
+## 9. Comparison / When to Use What
+
+| Criteria | Sequential Stream | Parallel Stream | Virtual Threads (Java 21+) |
+|---|---|---|---|
+| **Best Workload** | Small data, low compute, I/O | CPU-intensive, high $N \times Q$ | High-throughput blocking I/O |
+| **Thread Overhead** | Zero (Current thread) | Work-stealing ForkJoinPool | Million lightweight threads |
+| **Spliterator Importance** | Low | Critical ($O(1)$ splits needed) | Low |
+| **Order Preservation** | Natural | High overhead (`forEachOrdered`) | N/A |
+
+---
+
+## 10. Interview Questions
+
+<details>
+<summary>1. Which thread pool executes parallel streams by default?</summary>
+The global `ForkJoinPool.commonPool()`. Its parallelism level is typically equal to the number of available logical CPU cores minus one.
+</details>
+
+<details>
+<summary>2. Why does `LinkedList` perform poorly with parallel streams?</summary>
+Because `LinkedList` does not support $O(1)$ random access. To split a linked list into two balanced halves (`trySplit()`), it must traverse $N/2$ node pointers in $O(N)$ time, destroying parallel speedup.
+</details>
+
+<details>
+<summary>3. What is the $N \times Q$ rule?</summary>
+A heuristic proposed by Brian Goetz: parallel streams provide performance benefits only when the product of the number of elements ($N$) and the computational cost per element ($Q$) is greater than 10,000.
+</details>
+
+<details>
+<summary>4. What happens if you call `parallel()` and `sequential()` in the same stream pipeline?</summary>
+The entire pipeline executes using the mode specified by the **last call** in the pipeline. Streams do not support executing half the pipeline sequentially and half in parallel.
+</details>
+
+<details>
+<summary>5. Why should you never execute database queries or HTTP calls inside a parallel stream?</summary>
+Because parallel streams use the common `ForkJoinPool`. Blocking I/O calls will occupy the limited worker threads, starving all other concurrent parallel operations across the entire application.
+</details>
+
+<details>
+<summary>6. What mathematical property must the accumulator function in `reduce()` satisfy for parallel correctness?</summary>
+It must be **associative**: `(a op b) op c == a op (b op c)`. Non-associative operations (like subtraction or division) yield incorrect, non-deterministic results when evaluated across parallel subtrees.
+</details>
+
+<details>
+<summary>7. What is the difference between `forEach()` and `forEachOrdered()` on a parallel stream?</summary>
+`forEach()` executes elements out of order as soon as worker threads finish them, providing maximum parallelism. `forEachOrdered()` forces downstream output to obey the stream's original encounter order, adding synchronization overhead.
+</details>
+
+<details>
+<summary>8. How can you run a parallel stream on a dedicated custom thread pool?</summary>
+By submitting the parallel stream task inside a custom `ForkJoinPool`:
+`customPool.submit(() -> stream.parallel().forEach(...)).get();`.
+</details>
+
+---
+
+## 11. Practice Exercises
+
+### Easy
+1. Convert a sequential stream summing 1,000,000 numbers to a parallel stream and compare execution time.
+2. Demonstrate that `forEach` executes out of order in a parallel stream.
+3. Check the default parallelism level of `ForkJoinPool.commonPool()`.
+
+### Medium
+4. Benchmark parallel vs sequential stream performance on calculating MD5 hashes of 500,000 strings.
+5. Safely collect elements from a parallel stream into a list without using `forEach` or external mutation.
+6. Verify whether `reduce()` with subtraction produces non-deterministic results in parallel.
+
+### Hard
+7. Implement a custom `Spliterator<T>` for an in-memory binary matrix that partitions cleanly into balanced quadrants.
+8. Design a rate-limited parallel processor that limits concurrent processing to 10 active tasks using a custom pool.
+9. Measure CPU cache coherence misses (false sharing) during parallel stream array updates using JMH and Linux `perf`.
+
+<details>
+<summary>Solutions</summary>
 
 ```java
-long t0 = System.nanoTime();
-// run stream
-long ms = (System.nanoTime() - t0) / 1_000_000;
+// Easy 3: Parallelism level
+int parallelism = ForkJoinPool.commonPool().getParallelism();
+System.out.println("Common pool parallelism: " + parallelism);
+
+// Medium 5: Safe parallel collection
+List<Integer> safeList = IntStream.range(0, 100_000).parallel().boxed().toList();
 ```
-
-This kind of timing is misleading because of JIT warm-up, GC, and dead-code elimination. For real decisions use JMH ([Benchmarking with JMH](../20-performance/01_benchmarking-with-jmh.md)), and benchmark in conditions resembling production (same core count, same concurrent load).
-
-A reasonable decision procedure:
-
-```text
-Is the sequential version actually too slow?            no  → stop, keep sequential
-Is the work CPU-bound and per-element expensive enough? no  → stop
-Is the source cheap to split (array/ArrayList/range)?   no  → probably stop
-Are operations stateless, associative, non-blocking?    no  → fix first, or don't
-Benchmarked under realistic load and it's faster?       yes → use parallel
-```
+</details>
 
 ---
 
-## Common mistakes
 
-| Mistake | Why it hurts |
-|---|---|
-| Adding `.parallel()` "for speed" on small lists | Overhead exceeds the work |
-| Writing to a shared non-thread-safe collection in `forEach` | Race conditions, lost updates |
-| Blocking I/O or `Thread.sleep` in a parallel stream | Starves the common pool |
-| Non-associative `reduce` or a wrong identity | Wrong results that vary run to run |
-| `sorted()`, `distinct()`, `limit()` on large ordered streams, assuming linear speedup | Needs coordination and buffering |
-| Boxed streams (`Stream<Integer>`) for numeric work | Allocation and GC dominate; use `IntStream` and friends |
-| Using `ThreadLocal` assumptions inside lambdas | Work may run on different threads, including pool threads |
-| Assuming parallel output order equals sequential order for `forEach` | Order is not guaranteed there |
-| Nesting parallel streams | Competes for the same pool; rarely beneficial |
+### Deep-Dive: Bytecode Execution of Parallel Streams
+When `.parallel()` is called on a stream, it simply sets an internal bitmask flag on the pipeline head:
+```java
+public final S parallel() {
+    sourceStage.parallel = true;
+    return (S) this;
+}
+```
+When the terminal operation executes, `AbstractPipeline.evaluate()` branches:
+```java
+final <R> R evaluate(TerminalOp<E_OUT, R> terminalOp) {
+    if (linkedOrConsumed) throw new IllegalStateException(MSG_STREAM_LINKED);
+    linkedOrConsumed = true;
+    return isParallel()
+        ? terminalOp.evaluateParallel(this, sourceSpliterator(terminalOp.getOpFlags()))
+        : terminalOp.evaluateSequential(this, sourceSpliterator(terminalOp.getOpFlags()));
+}
+```
+If parallel, it instantiates a `ForkJoinTask` subtask tree using `java.util.stream.ForEachOps$ForEachTask` or `ReduceTask`.
 
-### Debugging
+### Detailed Exercise Solutions (All 9 Problems)
+<details>
+<summary>View Complete Solutions for All Exercises</summary>
 
-- Wrong or fluctuating results → suspect shared state, non-associative reduce, or a bad identity. First check by removing `.parallel()`: if the bug vanishes, it was a concurrency bug.
-- Occasional `ArrayIndexOutOfBoundsException` or missing elements in an output list → an unsafe collection was written from `forEach`.
-- Slow service while one batch job runs → check whether that job uses `parallelStream()` on the shared common pool (thread dumps show `ForkJoinPool.commonPool-worker-N`).
-- Print `Thread.currentThread().getName()` inside a lambda *temporarily* to see which threads actually run the work.
+```java
+// Easy 1: Sum comparison
+long sumSeq = LongStream.rangeClosed(1, 1_000_000).sum();
+long sumPar = LongStream.rangeClosed(1, 1_000_000).parallel().sum();
+
+// Easy 2: Unordered forEach
+List.of(1, 2, 3, 4, 5).parallelStream().forEach(System.out::print);
+System.out.println();
+
+// Easy 3: Inspect pool parallelism
+int p = ForkJoinPool.commonPool().getParallelism();
+
+// Medium 4: MD5 Parallel hashing
+public static byte[] md5(String s) {
+    try { return MessageDigest.getInstance("MD5").digest(s.getBytes()); }
+    catch (Exception e) { throw new RuntimeException(e); }
+}
+List<String> list = List.of("data1", "data2", "data3");
+List<byte[]> hashes = list.parallelStream().map(ParallelPrimes::md5).toList();
+
+// Medium 5: Safe parallel collection
+List<Integer> safe = IntStream.range(0, 100_000).parallel().boxed().toList();
+
+// Medium 6: Non-associative reduction trap
+int nonAssociative = IntStream.range(1, 10).parallel().reduce(0, (a, b) -> a - b);
+// Returns non-deterministic, incorrect result!
+
+// Hard 7: Matrix Quadrant Spliterator (Stub)
+// Partitions 2D array by rows and columns into 4 sub-spliterators.
+
+// Hard 8: Rate-limited parallel processor
+public class RateLimitedProcessor {
+    private final Semaphore sem = new Semaphore(10);
+    public <T> void process(List<T> items, Consumer<T> consumer) {
+        items.parallelStream().forEach(item -> {
+            try {
+                sem.acquire();
+                consumer.accept(item);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } finally {
+                sem.release();
+            }
+        });
+    }
+}
+
+// Hard 9: False sharing measurement
+// Cache line padding (Contended) prevents cache coherence bouncing across parallel threads.
+```
+</details>
+
+## 12. Summary / Cheat Sheet
+
+- **Parallelize**: `stream.parallel()` or `coll.parallelStream()`.
+- **Thread Pool**: Uses `ForkJoinPool.commonPool()` by default.
+- **Heuristic**: $N \times Q > 10,000$.
+- **Source Quality**: `ArrayList`, `int[]` = Excellent; `LinkedList`, `iterate()` = Terrible.
+- **Cardinal Rule**: Never mutate shared state; never execute blocking I/O in parallel streams.
+- **Reduction**: Accumulator MUST be associative.
 
 ---
 
-## Quick Summary
-
-- `parallel()` splits the source, runs on the shared common `ForkJoinPool`, and merges results.
-- It helps only for **large, CPU-bound, stateless** workloads on well-splitting sources, and only when measured.
-- The last `parallel()`/`sequential()` call applies to the whole pipeline.
-- `reduce` needs a true identity and an associative function. Never mutate shared state: use `collect`.
-- Don't block inside parallel streams; use executors, `CompletableFuture`, or virtual threads for I/O.
-- Use `unordered()` / `findAny()` when order doesn't matter, and primitive streams to avoid boxing.
-- Default stance: **sequential first, parallel only with evidence.**
-
-**Next:** [Functional Patterns](08_functional-patterns.md)
+## 13. Further Reading
+- Goetz, Brian. *Java Concurrency in Practice*: Chapter 7 (Fork/Join Framework).
+- Lea, Doug. *A Java Fork/Join Framework* (Original design specification).
+- Bloch, Joshua. *Effective Java (3rd Edition)*: Item 48 (Use caution when making streams parallel).

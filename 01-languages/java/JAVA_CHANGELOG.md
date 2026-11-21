@@ -112,3 +112,79 @@ All notable changes, structural migrations, and note creations in the Java learn
 
 ### Verification
 - All code examples verified and test-compiled against Java 25 LTS via `javac --release 25 -Xlint:all` in scratch directory.
+
+---
+
+## [Batch 4] - 2026-11-21
+### Added & Expanded
+- **06-exceptions-and-debugging (7 concept notes + README, 405-458 lines each):**
+  - Expanded `00_exception-hierarchy-and-types.md`: Throwable, Error, Exception, RuntimeException, checked vs unchecked debate.
+  - Expanded `01_try-catch-finally.md`: Multi-catch, finally execution semantics, return in finally hazard, exception swallowing.
+  - Expanded `02_throw-and-throws.md`: Method contract specification, rethrowing, exception chaining, cause preservation.
+  - Expanded `03_try-with-resources.md`: AutoCloseable, suppressed exceptions (`getSuppressed()`), effectively final resources in Java 9.
+  - Expanded `04_custom-exceptions.md`: Domain-specific exceptions, constructor overloads, serialization safety, hierarchy design.
+  - Expanded `05_exception-handling-patterns.md`: Fault barriers, translation, circuit breaking, retry with backoff, anti-patterns.
+  - Expanded `06_stack-traces-and-debugging.md`: StackWalker API (JEP 259), filtering stack frames, memory leak diagnosis, thread dumps.
+  - Updated `README.md` with complete curriculum map.
+- **07-generics (5 concept notes + README, 423-470 lines each):**
+  - Expanded `00_generic-classes-and-methods.md`: Type parameters, generic constructors, diamond operator `<>`, compile-time type safety.
+  - Expanded `01_bounded-types.md`: Upper bounds (`extends`), multiple bounds (`T extends A & B`), recursive type bounds.
+  - Expanded `02_wildcards-and-pecs.md`: PECS rule (Producer Extends, Consumer Super), unbounded wildcards, wildcard capture helper idiom.
+  - Expanded `03_type-erasure.md`: Bridge methods, synthetic methods, heap pollution, reification limits, runtime type loss.
+  - Expanded `04_generic-patterns.md`: Typesafe Heterogeneous Container (Joshua Bloch), generic DAO, fluent builder generics.
+  - Updated `README.md` with complete curriculum map.
+- **08-collections (16 concept notes + README, 403-560 lines each):**
+  - Expanded `00_collection-hierarchy.md`: Core hierarchy + Sequenced Collections (JEP 431 in Java 21): `SequencedCollection`, `SequencedSet`, `SequencedMap`.
+  - Expanded `01_list.md`: List contract, positional access, subList structural modification hazards.
+  - Expanded `02_set.md`: Set mathematical properties, uniqueness, hash-based vs tree-based sets.
+  - Expanded `03_map.md`: Map mechanics, `computeIfAbsent`, `merge`, `putIfAbsent`, SequencedMap first/last entry access.
+  - Expanded `04_queue-and-deque.md`: FIFO queues, double-ended deques, offer/poll vs add/remove, ArrayDeque vs LinkedList.
+  - Expanded `05_comparable-and-comparator.md`: Natural ordering vs custom comparison, `Comparator.comparing()`, chained comparators, null-safe sorting.
+  - Expanded `06_arraylist.md`: Dynamic array growth (1.5x), amortized O(1), arraycopy mechanics.
+  - Expanded `07_linkedlist.md`: Doubly linked nodes, cache locality disadvantages, why ArrayDeque outperforms it as a queue/stack.
+  - Expanded `08_hashmap-and-hashset.md`: Internal bucket array, load factor 0.75, treeification threshold 8 (Red-Black tree conversion).
+  - Expanded `09_treemap-and-treeset.md`: Red-Black self-balancing BST, O(log n) performance, Range views (`subMap`, `tailMap`).
+  - Expanded `10_priorityqueue.md`: Binary min-heap, sift-up/sift-down mechanics, priority task scheduling.
+  - Expanded `11_specialized-collections.md`: `EnumSet` (bit vector), `EnumMap` (dense array), `IdentityHashMap`, `WeakHashMap`.
+  - Expanded `12_iterators-and-fail-fast-behavior.md`: ModCount, `ConcurrentModificationException`, fail-fast vs fail-safe.
+  - Expanded `13_immutable-and-unmodifiable-collections.md`: `List.of()`, `Set.of()`, `Map.of()` (compact, space-efficient, truly immutable) vs `Collections.unmodifiable*`.
+  - Expanded `14_collections-and-arrays-utilities.md`: Binary search, shuffling, reversing, frequency counting, parallel sorting.
+  - Expanded `15_collection-performance-and-selection.md`: Time complexity decision matrix, memory footprints, selection guide.
+  - Updated `README.md` with complete curriculum map.
+
+### Verification
+- Tested and verified on JDK 25 LTS via `scratch/Batch4Verification.java`.
+
+---
+
+## [Batch 5] - 2026-11-21
+### Added & Expanded
+- **09-functional-java (9 concept notes + README, 400-475 lines each):**
+  - Expanded `00_lambda-expressions.md`: Syntax variants, lexical scoping, variable capture (effectively final), `invokedynamic` bootstrap call sites.
+  - Expanded `01_functional-interfaces.md`: `@FunctionalInterface`, standard library specializations (`Function`, `Predicate`, `Supplier`, `Consumer`, primitive specializations).
+  - Expanded `02_method-references.md`: 4 categories (static, bound instance, unbound instance, constructor), bytecode compilation.
+  - Expanded `03_optional.md`: Anti-null safety, monadic chaining (`flatMap`, `filter`, `or`), anti-patterns (fields, method parameters, get without isPresent).
+  - Expanded `04_streams-fundamentals.md`: Stream pipeline lifecycle, intermediate vs terminal operations, spliterators, fused loops.
+  - Expanded `05_stream-operations.md`: Stateless vs stateful operations, flatMap, takeWhile/dropWhile, Stream Gatherers (JEP 485) custom intermediate operations (`windowFixed`, `windowSliding`, `fold`).
+  - Expanded `06_collectors.md`: Downstream collectors, `groupingBy`, `partitioningBy`, `teeing` (Java 12), custom `Collector` implementation.
+  - Expanded `07_parallel-streams.md`: ForkJoinPool.commonPool(), parallel spliterators, false sharing, when to use parallel streams.
+  - Expanded `08_functional-patterns.md`: Function composition, currying, partial application, monads, loan pattern.
+  - Updated `README.md` with complete curriculum map.
+- **10-date-and-time (6 concept notes + README, 400-465 lines each):**
+  - Expanded `00_java-time-overview.md`: JSR 310 architecture, immutability, thread-safety, ISO-8601 calendar system.
+  - Expanded `01_local-date-time.md`: `LocalDate`, `LocalTime`, `LocalDateTime`, human-scale date math, temporal adjusters.
+  - Expanded `02_instant-and-zoned-date-time.md`: Machine timeline (`Instant`), `ZonedDateTime`, `ZoneId`, `ZoneOffset`, daylight saving transitions (gap/overlap).
+  - Expanded `03_duration-and-period.md`: Machine-based `Duration` (seconds/nanos) vs date-based `Period` (years/months/days).
+  - Expanded `04_date-time-formatting-and-parsing.md`: `DateTimeFormatter`, thread-safe parsing, localized patterns, custom pattern letters.
+  - Expanded `05_date-time-best-practices.md`: Storage standards (UTC Instant), conversion rules, legacy `java.util.Date` migration bridges.
+  - Updated `README.md` with complete curriculum map.
+- **11-io-and-networking (5 concept notes + README, 410-614 lines each):**
+  - Expanded `00_io-streams-readers-writers.md`: InputStream, OutputStream, Reader, Writer, buffering, decorators, UTF-8 platform default (JEP 400), transferTo.
+  - Expanded `01_nio-paths-and-files.md`: NIO.2 Path, Files, directory streams, walkFileTree, memory-mapped buffers (FileChannel), WatchService.
+  - Expanded `02_file-processing-patterns.md`: Zero-allocation streaming transformations, memory-safe file reading, atomic replacements.
+  - Expanded `03_java-serialization.md`: `Serializable`, `Externalizable`, `serialVersionUID`, gadget chain RCE vulnerabilities, `ObjectInputFilter` (JEP 290/415), Serialization Proxy Pattern.
+  - Expanded `04_http-client-and-networking.md`: Modern `java.net.http.HttpClient` (JEP 321), HTTP/2 multiplexing, reactive BodyPublishers/BodyHandlers, CompletableFuture async requests, WebSockets, TCP sockets.
+  - Updated `README.md` with complete curriculum map.
+
+### Verification
+- Tested and verified on JDK 25 LTS via `scratch/Batch5Verification.java`.

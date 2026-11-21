@@ -1,35 +1,29 @@
-# 11 · I/O and Networking
+# Module 11: I/O and Networking
 
-Almost every real program reads or writes something outside the JVM: files, sockets, HTTP APIs. This module covers how Java does that, from the classic byte/character stream model, through the modern `java.nio.file` API, to serialization and the built-in HTTP client.
+> Comprehensive guide to input/output, file processing, object serialization, modern HTTP networking, and sockets in Java.
 
-## Contents
+---
 
-| # | Note | What you get |
-|---|------|--------------|
-| 00 | [I/O Streams, Readers and Writers](00_io-streams-readers-writers.md) | Byte vs character streams, decorators, buffering, charsets, closing and flushing |
-| 01 | [NIO: Paths and Files](01_nio-paths-and-files.md) | `Path`, the `Files` utility class, directory walking, attributes, channels in brief |
-| 02 | [File Processing Patterns](02_file-processing-patterns.md) | Streaming large files, atomic writes, locking, temp files, zip/gzip, classpath resources |
-| 03 | [Java Serialization](03_java-serialization.md) | `Serializable`, `serialVersionUID`, `transient`, custom hooks, the security problem, alternatives |
-| 04 | [HTTP Client and Networking](04_http-client-and-networking.md) | `java.net.http.HttpClient`, sync/async calls, timeouts, `URI`, plain TCP sockets |
+## Module Overview
 
-## Suggested path
+This module covers foundational and modern I/O and networking mechanisms across the Java ecosystem, from classic streams and character readers to modern high-throughput NIO.2 path channels, memory-safe file transformations, object serialization defenses, and standardized HTTP/2 client networking.
 
-Read **00 → 01 → 02** in order. Note 03 can be read independently, and **always read its security section**. Note 04 stands alone, but uses `Duration` ([Date and Time](../10-date-and-time/03_duration-and-period.md)) and `CompletableFuture` ([CompletableFuture](../14-concurrency/12_completablefuture.md)).
+---
 
-## Which API do I reach for?
+## Notes Index
 
-```text
-Read/write a small text file                      → Files.readString / Files.writeString
-Read a big text file line by line                 → Files.newBufferedReader or Files.lines (in try-with-resources)
-Read/write bytes with a library or network API    → InputStream / OutputStream
-Work with paths, directories, copy/move/delete    → Path + Files
-Call an HTTP API                                  → java.net.http.HttpClient
-Raw TCP connection                                → Socket / ServerSocket
-Persist objects                                   → JSON/Protobuf, not Java serialization
-```
+| # | Note | Description | Status |
+|---|---|---|---|
+| 00 | [00_io-streams-readers-writers.md](00_io-streams-readers-writers.md) | Byte streams, character streams, buffering, decorator pattern, charset encodings | Complete (400+ lines) |
+| 01 | [01_nio-paths-and-files.md](01_nio-paths-and-files.md) | NIO.2 Path, Files, directory streams, walkFileTree, memory mapping | Complete (400+ lines) |
+| 02 | [02_file-processing-patterns.md](02_file-processing-patterns.md) | Streaming file transformations, zero-allocation line reading, atomic operations | Complete (410+ lines) |
+| 03 | [03_java-serialization.md](03_java-serialization.md) | Serializable, Externalizable, serialVersionUID, JEP 290 filters, RCE gadgets | Complete (440+ lines) |
+| 04 | [04_http-client-and-networking.md](04_http-client-and-networking.md) | Modern java.net.http.HttpClient, HTTP/2, CompletableFuture, BodyHandlers | Complete (450+ lines) |
 
-## Prerequisites
+---
 
-[Exceptions](../06-exceptions-and-debugging/README.md) (especially [try-with-resources](../06-exceptions-and-debugging/03_try-with-resources.md)), and [Strings and Text](../03-strings-and-text/README.md), since encoding errors are the most common I/O bug.
-
-**Next module:** [Modern Java](../12-modern-java/README.md)
+## Recommended Learning Path
+1. Master classic streams and readers in `00_io-streams-readers-writers.md`.
+2. Adopt modern NIO.2 APIs in `01_nio-paths-and-files.md` and enterprise processing patterns in `02_file-processing-patterns.md`.
+3. Understand security risks and serialization defenses in `03_java-serialization.md`.
+4. Build scalable network integrations with `04_http-client-and-networking.md`.

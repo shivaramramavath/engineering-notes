@@ -1,218 +1,404 @@
-# Optional
+# Optional Deep Dive and Monadic Design
 
-`Optional<T>` is a container that holds **either one value or nothing**. It exists to make "this method might not return a result" **visible in the type**, instead of returning `null` and hoping every caller remembers to check. Tony Hoare called the null reference his "billion-dollar mistake"; `Optional` is Java's partial answer for return values.
+> Value-based container semantics, avoiding anti-patterns, monadic composition pipelines, and primitive Optional specializations.
 
+| Metadata | Value |
+|---|---|
+| **Level** | Intermediate |
+| **Prerequisites** | [00_lambda-expressions.md](00_lambda-expressions.md), [01_functional-interfaces.md](01_functional-interfaces.md) |
+| **Time to Read** | 24 minutes |
+| **Status** | Active |
+| **Java Version** | Java 8+ (or, ifPresentOrElse, stream Java 9+) |
+
+---
+
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & Usage](#4-syntax--usage)
+5. [Practical Examples](#5-practical-examples)
+6. [Best Practices](#6-best-practices)
+7. [Common Mistakes & Pitfalls](#7-common-mistakes--pitfalls)
+8. [Performance & Security Notes](#8-performance--security-notes)
+9. [Comparison / When to Use What](#9-comparison--when-to-use-what)
+10. [Interview Questions](#10-interview-questions)
+11. [Practice Exercises](#11-practice-exercises)
+12. [Summary / Cheat Sheet](#12-summary--cheat-sheet)
+13. [Further Reading](#13-further-reading)
+
+---
+
+## 1. What & Why
+
+Tony Hoare, inventor of the null pointer in 1965, famously referred to it as his **"billion-dollar mistake"**. In Java, returning `null` to signify the absence of a value has historically been a rampant source of bugs:
+- Methods returning `null` force callers to remember to write null-checks.
+- Forgetting a null-check results in the notorious `NullPointerException` (NPE) at runtime.
+- `null` is silent and untyped: a method signature `User findUser(String id)` provides no indication of whether the return value could be missing.
+
+Introduced in Java 8, `java.util.Optional<T>` is a single-element container that either contains a non-null value (present) or contains nothing (empty).
+
+`Optional` was **expressly designed as a method return type** to communicate possible absence clearly in method signatures and force callers to explicitly handle presence or absence through monadic operations (`map`, `flatMap`, `filter`, `orElseThrow`).
+
+---
+
+## 2. Core Concepts
+
+### Value-Based Class Semantics
+`Optional` is a **Value-Based Class**:
+- It has no public constructors; instances are created via factory methods: `Optional.of(val)`, `Optional.ofNullable(val)`, `Optional.empty()`.
+- It does not support identity-sensitive operations: synchronizing on an `Optional`, using `==` identity comparison, or relying on its identity hash code is strictly discouraged and may produce compiler warnings.
+
+### Factory Methods
+- `Optional.empty()`: Returns the shared singleton empty `Optional` instance.
+- `Optional.of(value)`: Returns an `Optional` holding `value`. Throws `NullPointerException` immediately if `value == null`!
+- `Optional.ofNullable(value)`: Returns an `Optional` holding `value` if non-null, or `Optional.empty()` if null.
+
+### The Monadic Pipeline
+Rather than extracting values using `get()` and writing procedural `if (opt.isPresent())` checks, `Optional` exposes fluent monadic functional transformations:
+- `map(Function<? super T, ? extends U> mapper)`
+- `flatMap(Function<? super T, ? extends Optional<? extends U>> mapper)`
+- `filter(Predicate<? super T> predicate)`
+- `or(Supplier<? extends Optional<? extends T>> supplier)` (Java 9+)
+- `ifPresentOrElse(Consumer<? super T> action, Runnable emptyAction)` (Java 9+)
+- `stream()`: Converts `Optional` to a 0- or 1-element `Stream` (Java 9+)
+
+---
+
+## 3. How It Works Internally
+
+### Memory Layout
+Inside OpenJDK, `Optional<T>` is a standard object holding a single reference field:
 ```java
-Optional<User> findUser(long id) { ... }                // the signature says: there may be no user
+public final class Optional<T> {
+    private static final Optional<?> EMPTY = new Optional<>(null);
+    private final T value;
 
-String name = findUser(42)
-        .map(User::name)
-        .filter(n -> !n.isBlank())
-        .orElse("anonymous");                           // no null checks anywhere
-```
-
-## The problem
-
-```java
-User user = repository.findById(id);
-String city = user.getAddress().getCity();              // NullPointerException if user or address is null
-
-// Defensive code: correct but noisy
-String city = "unknown";
-if (user != null && user.getAddress() != null && user.getAddress().getCity() != null) {
-    city = user.getAddress().getCity();
-}
-```
-
-With `Optional` return types the compiler **forces** you to acknowledge absence, and you can chain transformations safely.
-
-## Creating
-
-```java
-Optional<String> a = Optional.of("x");                  // value must be non-null: Optional.of(null) → NullPointerException
-Optional<String> b = Optional.ofNullable(maybeNull);    // empty if the argument is null
-Optional<String> c = Optional.empty();                  // no value
-```
-
-| Factory | Use when |
-|---------|----------|
-| `of(value)` | The value is guaranteed non-null (a null would be a bug) |
-| `ofNullable(value)` | Wrapping something that might be null (map lookup, legacy API) |
-| `empty()` | Returning "nothing found" |
-
-## Getting the value out
-
-| Method | Behavior | When to use |
-|--------|----------|-------------|
-| `orElse(default)` | Value, or the default | A **cheap, constant** default |
-| `orElseGet(supplier)` | Value, or the supplier's result | A default that is **expensive** or has side effects |
-| `orElseThrow()` | Value, or `NoSuchElementException` (Java 10+) | Absence is a bug |
-| `orElseThrow(supplier)` | Value, or the supplied exception | Absence is a **domain error** (`OrderNotFoundException`) |
-| `get()` | Value, or `NoSuchElementException` | **Avoid**: it hides the check; prefer `orElseThrow()` for the same behavior with a clear name |
-| `isPresent()` / `isEmpty()` (Java 11) | `boolean` | Rarely needed; usually a smell (see below) |
-| `ifPresent(consumer)` | Runs the action if present | Side effect on a present value |
-| `ifPresentOrElse(consumer, runnable)` (Java 9) | Action or fallback | Both branches are side effects |
-
-```java
-User user = findUser(id).orElseThrow(() -> new UserNotFoundException(id));
-findUser(id).ifPresent(u -> log.info("found {}", u));
-findUser(id).ifPresentOrElse(u -> greet(u), () -> log.warn("no user {}", id));
-```
-
-### `orElse` vs `orElseGet`: eager vs lazy
-
-```java
-String v1 = opt.orElse(expensiveDefault());             // expensiveDefault() runs EVERY time, even if opt has a value
-String v2 = opt.orElseGet(() -> expensiveDefault());    // runs only when opt is empty
-String v3 = opt.orElse("n/a");                          // fine: a constant costs nothing
-```
-
-`orElse` evaluates its argument **before** the call, so it is wrong for expensive or side-effecting defaults (database calls, object creation, logging).
-
-## Transforming: `map`, `flatMap`, `filter`, `or`
-
-```java
-Optional<String> name = findUser(id).map(User::name);               // Optional<String>: empty if user is empty
-Optional<Integer> len = name.map(String::length);
-
-Optional<String> adult = findUser(id).filter(u -> u.age() >= 18).map(User::name);
-
-// flatMap: when the mapper itself returns an Optional (avoids Optional<Optional<T>>)
-Optional<Address> address = findUser(id).flatMap(User::address);    // User.address() returns Optional<Address>
-
-// or (Java 9): fall back to another Optional
-Optional<User> u = cache.find(id).or(() -> database.find(id));
-
-// stream (Java 9): 0 or 1 element, perfect for flatMap in streams
-List<String> names = ids.stream().map(this::findUser).flatMap(Optional::stream).map(User::name).toList();
-```
-
-| Method | Signature (simplified) | Behavior |
-|--------|------------------------|----------|
-| `map` | `Function<T, R>` | If present, apply; result wrapped (a `null` result becomes empty) |
-| `flatMap` | `Function<T, Optional<R>>` | If present, apply and **flatten** |
-| `filter` | `Predicate<T>` | Keep the value only if it matches, else empty |
-| `or` | `Supplier<Optional<T>>` | This, or the alternative when empty |
-
-### A chain replacing nested null checks
-
-```java
-// Before
-String zip = null;
-if (order != null) {
-    Customer c = order.getCustomer();
-    if (c != null) {
-        Address a = c.getAddress();
-        if (a != null) zip = a.getZip();
+    private Optional(T value) {
+        this.value = value;
     }
 }
+```
+Because `EMPTY` is a static singleton, `Optional.empty()` never allocates heap memory. However, `Optional.of(value)` allocates an `Optional` wrapper object (16 bytes on a 64-bit JVM with compressed OOPs).
 
-// After (getters return Optional<...>)
-String zip = order.customer()
-                  .flatMap(Customer::address)
-                  .map(Address::zip)
-                  .orElse("unknown");
+### Primitive Specializations
+To prevent auto-boxing primitives into wrapper objects (`Optional<Integer>`), Java provides:
+- `OptionalInt`: holds `int` directly with `boolean isPresent`.
+- `OptionalLong`: holds `long` directly.
+- `OptionalDouble`: holds `double` directly.
+
+```
+Optional<Integer>:
+Optional Object (16B) ---> Boxed Integer Object (16B) = 32 bytes overhead!
+
+OptionalInt:
+OptionalInt Object (16B with primitive int field)     = 16 bytes (50% savings!)
 ```
 
-## Primitive optionals
+---
 
-`OptionalInt`, `OptionalLong`, `OptionalDouble` avoid boxing and are returned by stream terminal operations such as `IntStream.max()`, `average()`:
+## 4. Syntax & Usage
+
+### 1. Constructing Optionals
+```java
+import java.util.Optional;
+
+public class CreationDemo {
+    public static void main(String[] args) {
+        // 1. Explicitly empty
+        Optional<String> empty = Optional.empty();
+
+        // 2. Non-null (throws NPE if null passed)
+        Optional<String> nonNull = Optional.of("Hello");
+
+        // 3. Nullable (safe conversion)
+        String nullableVal = getNullableString();
+        Optional<String> safe = Optional.ofNullable(nullableVal);
+    }
+
+    static String getNullableString() { return null; }
+}
+```
+
+### 2. Monadic Data Transformation
+```java
+import java.util.Optional;
+
+public class MonadicPipelineDemo {
+    record Address(String city, String zipCode) {}
+    record User(String name, Address address) {}
+
+    public static void main(String[] args) {
+        User user = new User("Alice", new Address("Seattle", "98101"));
+
+        // Extract zip code safely without nested null checks!
+        String zip = Optional.ofNullable(user)
+            .map(User::address)
+            .map(Address::zipCode)
+            .filter(z -> z.startsWith("98"))
+            .orElse("UNKNOWN");
+
+        System.out.println("Zip: " + zip); // 98101
+    }
+}
+```
+
+---
+
+## 5. Practical Examples
+
+### Example 1: Database Repository Return (Basic to Intermediate)
+```java
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+
+public class UserRepository {
+    private final Map<Long, String> users = new HashMap<>();
+
+    public UserRepository() {
+        users.put(1L, "Alice");
+        users.put(2L, "Bob");
+    }
+
+    // Communicates to callers that user may not exist!
+    public Optional<String> findById(Long id) {
+        return Optional.ofNullable(users.get(id));
+    }
+
+    public static void main(String[] args) {
+        UserRepository repo = new UserRepository();
+
+        // Safe consumption with orElseThrow
+        String username = repo.findById(1L)
+            .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        System.out.println("User: " + username);
+
+        // Safe action with ifPresentOrElse
+        repo.findById(99L).ifPresentOrElse(
+            u -> System.out.println("Found: " + u),
+            () -> System.out.println("User 99 does not exist")
+        );
+    }
+}
+```
+
+### Example 2: FlatMapping Nested Optionals (Real-World)
+```java
+import java.util.Optional;
+
+public class FlatMapDemo {
+    record Order(String id, Optional<String> trackingNumber) {}
+
+    public static void main(String[] args) {
+        Order order = new Order("ORD-101", Optional.of("TRK-9999"));
+
+        // If map() were used, result would be Optional<Optional<String>>!
+        // flatMap flattens the nested Optional!
+        Optional<String> tracking = Optional.of(order)
+            .flatMap(Order::trackingNumber);
+
+        System.out.println("Tracking: " + tracking.orElse("Pending"));
+    }
+}
+```
+
+### Example 3: Edge Case - `orElse` vs `orElseGet` Performance Trap
+```java
+import java.util.Optional;
+
+public class OrElsePerformanceTrap {
+    public static void main(String[] args) {
+        Optional<String> cached = Optional.of("CachedData");
+
+        // DANGEROUS: orElse() ALWAYS executes the fallback method, even if value is present!
+        System.out.println("Testing orElse:");
+        String res1 = cached.orElse(expensiveNetworkCall());
+
+        // SAFE: orElseGet() executes lazily ONLY if the value is empty!
+        System.out.println("Testing orElseGet:");
+        String res2 = cached.orElseGet(() -> expensiveNetworkCall());
+    }
+
+    static String expensiveNetworkCall() {
+        System.out.println("--> Executing EXPENSIVE fallback call!");
+        return "FallbackData";
+    }
+}
+```
+Output:
+```
+Testing orElse:
+--> Executing EXPENSIVE fallback call!
+Testing orElseGet:
+(Notice: expensiveNetworkCall is NOT executed!)
+```
+
+### Example 4: Failure Case - Using `Optional.get()` Without Checking
+```java
+import java.util.Optional;
+
+public class GetWithoutCheckFailure {
+    public static void main(String[] args) {
+        Optional<String> empty = Optional.empty();
+
+        try {
+            // SEVERE ANTI-PATTERN: Calling get() directly reproduces NPE as NoSuchElementException!
+            // In Java 10+, opt.orElseThrow() is preferred over opt.get() to make the exception explicit.
+            String val = empty.get();
+        } catch (Exception e) {
+            System.out.println("Caught: " + e.getClass().getSimpleName()); // NoSuchElementException
+        }
+    }
+}
+```
+
+---
+
+## 6. Best Practices
+
+1. **Use `Optional` ONLY as a Method Return Type**: Do not use `Optional` as class fields, method parameters, or collection elements.
+2. **Never Call `Optional.get()` Directly**: Use `orElse()`, `orElseGet()`, or `orElseThrow()`. If calling without default in Java 10+, use `orElseThrow()`.
+3. **Always Prefer `orElseGet()` Over `orElse()` When Fallback is Expensive**: `orElse(val)` evaluates eagerly; `orElseGet(() -> val)` evaluates lazily.
+4. **Never Return `null` from a Method Returning `Optional`**: Always return `Optional.empty()`. Returning `null` defeats the entire purpose of `Optional`.
+5. **Never Wrap Collections in `Optional`**: Return an empty collection (`List.of()`, `Set.of()`) rather than `Optional<List<T>>`.
+
+---
+
+## 7. Common Mistakes & Pitfalls
+
+| Mistake | Why Wrong | Fix |
+|---|---|---|
+| Returning `null` from method returning `Optional` | Causes `NullPointerException` on caller's monadic chain. | Always return `Optional.empty()`. |
+| Calling `opt.get()` unconditionally | Throws `NoSuchElementException` if empty. | Use `orElseGet()` or `orElseThrow()`. |
+| Writing `if (opt.isPresent()) opt.get()` | Replaces `if (x != null)` with verbose wrapper checks. | Use monadic `opt.ifPresent()`, `map()`, etc. |
+| Using `orElse(expensiveCompute())` | Computes fallback eagerly every single time even when value is present. | Use `orElseGet(() -> expensiveCompute())`. |
+| Using `Optional<T>` as a class field | Not serializable; incurs 16-24 bytes wrapper overhead per field. | Use null fields with `Optional` getters. |
+| Returning `Optional<List<T>>` | Creates two layers of emptiness checks. | Return empty `List<T>`. |
+
+---
+
+## 8. Performance & Security Notes
+
+### Performance
+- **Object Allocation Overhead**: `Optional` creates a short-lived heap allocation. While HotSpot Escape Analysis frequently scalar-replaces `Optional` instances within local method scopes, returning them across non-inlined methods retains the allocation overhead.
+- **Project Valhalla (Future Java)**: When Project Valhalla value classes arrive, `Optional` will become a primitive value class with zero heap pointer overhead.
+
+### Security
+- **Defensive API Contracts**: `Optional` forces callers to acknowledge that a resource (user, session, security token) may not exist, eliminating silent null propagation security flaws.
+
+---
+
+## 9. Comparison / When to Use What
+
+| Scenario | Anti-Pattern | Recommended Solution |
+|---|---|---|
+| Method might return missing value | Return `null` | Return `Optional<T>` |
+| Method might return empty collection | Return `Optional<List<T>>` | Return empty `List<T>` |
+| Domain model entity field | `private Optional<String> bio;` | `private String bio;` (getter returns `Optional`) |
+| Method parameter | `void process(Optional<String> opt)` | Overloaded methods or nullable parameter |
+| Primitive return | `Optional<Integer>` | `OptionalInt` |
+
+---
+
+## 10. Interview Questions
+
+<details>
+<summary>1. What was the explicit design intent of `Optional` in Java?</summary>
+`Optional` was designed exclusively as a method return type to represent the potential absence of a value, forcing API consumers to handle absence explicitly and eliminating silent `NullPointerException` bugs.
+</details>
+
+<details>
+<summary>2. Why should `Optional` not be used as a field in a class?</summary>
+`Optional` does not implement `java.io.Serializable`. Using it as a field breaks standard Java serialization. Furthermore, it adds 16-24 bytes of heap overhead per field. The standard idiom is to store a nullable field and return `Optional.ofNullable(field)` in the getter.
+</details>
+
+<details>
+<summary>3. What is the difference between `orElse()` and `orElseGet()`?</summary>
+`orElse(T other)` accepts an already-evaluated object; the expression is executed eagerly even if the `Optional` contains a value. `orElseGet(Supplier<T> supplier)` accepts a lazy supplier function executed only if the `Optional` is empty.
+</details>
+
+<details>
+<summary>4. Why was `Optional.get()` deprecated in favor of `orElseThrow()` in Java 10?</summary>
+Because calling `.get()` conveys the illusion that retrieving the value is always safe, leading to unexpected `NoSuchElementException` crashes. `orElseThrow()` explicitly communicates that the call throws an exception if empty.
+</details>
+
+<details>
+<summary>5. How does `Optional.flatMap()` differ from `Optional.map()`?</summary>
+`map()` wraps the return value of the mapper function in a new `Optional`. If the mapper function already returns an `Optional`, `map()` produces `Optional<Optional<T>>`. `flatMap()` flattens the result into a single `Optional<T>`.
+</details>
+
+<details>
+<summary>6. Why should you never return `Optional<List<T>>`?</summary>
+A collection already has a natural, standard representation of emptiness: an empty collection (`Collections.emptyList()`, `List.of()`). Returning `Optional<List<T>>` forces callers to check both whether the optional is present and whether the list is empty.
+</details>
+
+<details>
+<summary>7. What does `Optional.stream()` do (Java 9+)?</summary>
+It transforms the `Optional` into a `Stream` containing either zero elements (if empty) or one element (if present). This enables seamless stream pipeline filtering: `stream.map(this::find).flatMap(Optional::stream)`.
+</details>
+
+<details>
+<summary>8. What happens if you pass `null` to `Optional.of()`?</summary>
+It immediately throws `NullPointerException`. Use `Optional.ofNullable()` if the argument might be `null`.
+</details>
+
+---
+
+## 11. Practice Exercises
+
+### Easy
+1. Create an `Optional` containing a string and print its value in uppercase using `ifPresent()`.
+2. Wrap a potentially null string in an `Optional` and provide a default value "GUEST" using `orElse()`.
+3. Check if an `Optional` contains a value greater than 50 using `filter()`.
+
+### Medium
+4. Given a nested object hierarchy `Company -> Department -> Manager -> Email`, write an `Optional` pipeline to extract the manager's email safely.
+5. Convert a `List<Optional<String>>` into a `List<String>` containing only the present values using `Optional.stream()`.
+6. Implement a configuration lookup method `getConfig(String key)` that checks memory cache, falls back to environment variable, then to a default value using `Optional.or()`.
+
+### Hard
+7. Implement a custom monadic `Result<T, E>` class that models either a Success(T) or a Failure(E) with complete monadic map/flatMap operations.
+8. Design a JSON path query evaluator that traverses untyped JSON tree nodes using monadic `Optional` flatMap chains.
+9. Measure and compare heap allocation differences between 100,000 method returns using `Optional<T>` vs nullable references under JMH.
+
+<details>
+<summary>Solutions</summary>
 
 ```java
-OptionalDouble avg = IntStream.of(1, 2, 3).average();
-double a = avg.orElse(0.0);
-OptionalInt max = IntStream.empty().max();               // empty
-max.getAsInt();                                          // NoSuchElementException
+// Easy 1: ifPresent
+Optional.of("antigravity").ifPresent(s -> System.out.println(s.toUpperCase()));
+
+// Medium 5: Flatten List of Optionals
+public static List<String> extractPresent(List<Optional<String>> list) {
+    return list.stream()
+        .flatMap(Optional::stream)
+        .toList();
+}
+
+// Medium 6: Chained fallbacks with Optional.or
+public static Optional<String> resolveConfig(String key, Map<String, String> cache) {
+    return Optional.ofNullable(cache.get(key))
+        .or(() -> Optional.ofNullable(System.getenv(key)))
+        .or(() -> Optional.of("DEFAULT_VALUE"));
+}
 ```
+</details>
 
-They have fewer methods (no `map`/`filter`).
+---
 
-## When to use `Optional`
+## 12. Summary / Cheat Sheet
 
-**Design intent** (from the JDK authors): `Optional` is for **method return types** where "no result" is a normal, expected outcome and `null` would be error-prone.
+- **Creation**: `Optional.of(val)` (non-null), `Optional.ofNullable(val)`, `Optional.empty()`.
+- **Transformation**: `map()`, `flatMap()`, `filter()`.
+- **Extraction**: `orElse(val)` (eager), `orElseGet(supplier)` (lazy), `orElseThrow()`.
+- **Conditionals**: `ifPresent(consumer)`, `ifPresentOrElse(consumer, runnable)`.
+- **Stream**: `opt.stream()` yields 0 or 1 element.
+- **Cardinal Rule**: Use as return type only; never as fields, parameters, or collections.
 
-| Good use | Example |
-|----------|---------|
-| Return type of a lookup that may find nothing | `Optional<User> findByEmail(String e)` |
-| Result of a stream terminal operation that may be empty | `stream.findFirst()`, `max()`, `reduce(op)` |
-| Chaining safe transformations | `map`, `flatMap`, `filter` |
+---
 
-## When NOT to use `Optional`
-
-| Don't | Why | Instead |
-|-------|-----|---------|
-| **Fields** (`private Optional<String> nickname;`) | Not `Serializable`; overhead; wasteful in every instance; breaks JavaBeans/ORM conventions | A nullable field plus a getter returning `Optional<String>` |
-| **Method parameters** (`void send(Optional<String> cc)`) | Callers must wrap; three states (`null`, empty, present) | Overloads, `@Nullable`, or a default value |
-| **Collection elements** (`List<Optional<T>>`) | Clutter | Filter out missing values; use an empty collection |
-| **Return type collections** (`Optional<List<T>>`) | Two ways to say "nothing" | Return an **empty** collection |
-| **Replace every null** | Not a general null replacement | Design to avoid `null` where possible |
-| **Wrapping primitives** (`Optional<Integer>` in hot code) | Boxing | `OptionalInt` |
-| **As the type of a stream element for performance-critical paths** | Allocation | Filter earlier |
-| `Optional.of(...)` when the value may be null | `NullPointerException` | `ofNullable` |
-
-```java
-// Wrong ways to use it: they reintroduce null-style checks
-if (opt.isPresent()) { use(opt.get()); }                  // same as: if (x != null) use(x)
-opt.get();                                                // unguarded: could throw
-
-// Right: express the intent
-opt.ifPresent(this::use);
-opt.map(this::transform).orElse(fallback);
-```
-
-An `Optional` variable itself must **never be `null`**. That defeats the whole idea.
-
-## `Optional` is a value-based class
-
-- Do not synchronize on it, or compare with `==` (use `equals`)
-- `equals`/`hashCode`/`toString` are based on the contained value (`Optional[x]`, `Optional.empty`)
-- It is **not `Serializable`**, so avoid it in fields of serializable classes and in DTOs/JSON models (Jackson supports it via a module, but a plain nullable field is simpler)
-- Overhead: one small object per call; usually optimized away; irrelevant outside very hot paths
-
-## Optional vs null vs exceptions vs empty collections
-
-| Situation | Best choice |
-|-----------|-------------|
-| Lookup that may legitimately find nothing | `Optional<T>` |
-| Missing value is a **bug** or violated precondition | Exception (`orElseThrow`, `requireNonNull`) |
-| A "list of things" that may be empty | An **empty collection**, never `null`/`Optional` |
-| Optional parameter | Overload or a default |
-| Rarely-set field | Nullable field + `Optional` getter |
-| Performance-critical numeric code | Primitive value + sentinel, or `OptionalInt` |
-
-See [06-exceptions-and-debugging/02_throw-and-throws.md](../06-exceptions-and-debugging/02_throw-and-throws.md) and [05_exception-handling-patterns.md](../06-exceptions-and-debugging/05_exception-handling-patterns.md).
-
-## Working with legacy `null`s
-
-```java
-Optional<String> v = Optional.ofNullable(map.get(key));                  // wrap a possibly-null return
-String s = Optional.ofNullable(legacyApi()).map(String::trim).orElse("");
-map.getOrDefault(key, fallback);                                         // simpler than Optional for map lookups
-Objects.requireNonNullElse(x, defaultValue);                             // null-safe default without Optional
-```
-
-## Common mistakes
-
-| Mistake | Symptom | Fix |
-|---------|---------|-----|
-| `opt.get()` without checking | `NoSuchElementException` | `orElseThrow()`, `orElse`, `ifPresent` |
-| `if (opt.isPresent()) opt.get()...` | Verbose; defeats the purpose | `map`/`ifPresent`/`orElse` |
-| `orElse(expensiveCall())` | Always executes the call | `orElseGet(() -> expensiveCall())` |
-| `Optional.of(maybeNull)` | `NullPointerException` | `ofNullable` |
-| Returning `null` from a method declared to return `Optional` | `NullPointerException` at the caller | Return `Optional.empty()` |
-| `Optional` as a field or parameter | Serialization issues, awkward APIs | Nullable field, overloads |
-| `Optional<List<T>>` | Two kinds of "empty" | An empty list |
-| `map` with a function that returns `Optional` | `Optional<Optional<T>>` | `flatMap` |
-| Using `Optional` for everything | Over-engineering | Use for return values with real absence |
-| Comparing optionals with `==` | Wrong (identity) | `equals` |
-| Wrapping and unwrapping in the same method | Pointless | Use plain `null` checks internally |
-
-## Key takeaways
-
-- `Optional<T>` makes "maybe no result" part of a method's signature; use it as a **return type**
-- Extract values with `orElse`/`orElseGet`/`orElseThrow`; avoid bare `get()` and `isPresent()`+`get()`
-- Transform with `map`, `flatMap`, `filter`, `or`, `stream`; chains replace nested null checks
-- `orElse` is eager, `orElseGet` is lazy
-- Not for fields, parameters, collection elements or `Optional<List<T>>`; never assign `null` to an `Optional`
-
-**Next:** [Streams Fundamentals](./04_streams-fundamentals.md)
+## 13. Further Reading
+- Bloch, Joshua. *Effective Java (3rd Edition)*: Item 55 (Return optionals judiciously).
+- Oracle Java Documentation: `java.util.Optional` API specification.
+- Goetz, Brian. *Design Considerations for Java Optional*.
