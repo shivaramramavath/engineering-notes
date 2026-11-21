@@ -1,167 +1,402 @@
-# Java Release Timeline
+# Java Release Timeline and Cadence
 
-Java ships a new version **every six months** (March and September). Knowing how that works, which versions are LTS, and when each feature became *final* tells you which syntax you can use, what a framework's "requires Java 17" really means, and which version to put in your build file.
+> Comprehensive architectural analysis of Java's modern 6-month release cadence, Long-Term Support (LTS) roadmap from Java 8 through Java 25 LTS, JEP incubation/preview lifecycle, and enterprise migration strategies.
 
-> **Status snapshot (October 2026):** Java 27 reached general availability on 15 September 2026. The latest LTS is **Java 25** (September 2025). The next LTS is **Java 29** (September 2027). Verify against [openjdk.org](https://openjdk.org/projects/jdk/) before relying on this: it will age.
-
-**Prerequisites:** [How Java Works](../00-setup/02_how-java-works.md), [Java Version Management](../00-setup/01_java-version-management.md).
+| Metadata | Value |
+|---|---|
+| **Level** | Intermediate |
+| **Prerequisites** | [00-setup/00_installing-jdk.md](../00-setup/00_installing-jdk.md), [05-packages-and-modules/02_java-modules.md](../05-packages-and-modules/02_java-modules.md) |
+| **Time to Read** | 25 minutes |
+| **Status** | Active |
+| **Java Version** | Java 8 to Java 25 LTS (Oracle JDK 25 LTS baseline) |
 
 ---
 
-## 1. The release model
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & Usage](#4-syntax--usage)
+5. [Practical Examples](#5-practical-examples)
+6. [Best Practices](#6-best-practices)
+7. [Common Mistakes & Pitfalls](#7-common-mistakes--pitfalls)
+8. [Performance & Security Notes](#8-performance--security-notes)
+9. [Comparison / When to Use What](#9-comparison--when-to-use-what)
+10. [Interview Questions](#10-interview-questions)
+11. [Practice Exercises](#11-practice-exercises)
+12. [Summary / Cheat Sheet](#12-summary--cheat-sheet)
+13. [Further Reading](#13-further-reading)
 
-- **Feature releases every 6 months** since Java 10 (March 2018): 10, 11, 12, … Each is a complete JDK.
-- **LTS (Long-Term Support)** releases get years of updates from vendors. Everything else ("non-LTS" or short-term) is supported only until the next release, about six months.
-- **LTS cadence:** 8 (2014) → 11 (2018) → 17 (2021) → **21 (2023)** → **25 (2025)** → 29 (2027). Starting with Java 21, an LTS arrives every **two years** (earlier gaps were three).
-- Updates and support are provided by several OpenJDK vendors (Oracle, Eclipse Temurin, Amazon Corretto, Azul Zulu, Microsoft, and others). Terms and dates differ, so check your vendor.
+---
 
-```text
- 8 ─────── 11 ─────── 17 ─────── 21 ─────── 25 ─────── 29
- LTS       LTS        LTS        LTS        LTS        LTS (Sep 2027)
-        (3 years)  (3 years)  (2 years)  (2 years)  (2 years)
-           with 12,13,14,15,16, 18,19,20, 22,23,24, 26,27,28 ... in between
+## 1. What & Why
+
+### The Legacy Release Dilemma
+Historically, Java releases arrived on irregular, multi-year cycles. Java 6 launched in 2006, Java 7 in 2011 (5 years), and Java 8 in 2014 (3 years). Major releases carried massive backlogs of deferred features. If an ambitious feature missed the release window, it was delayed for half a decade. This sluggish cadence hindered Java's ability to compete with rapidly iterating ecosystems like Go, Rust, and Node.js.
+
+### The Six-Month Modern Cadence
+Starting after Java 9 (March 2018), Oracle and the OpenJDK governing board transitioned to a **strict, time-driven six-month release cadence** (every March and September). Features ship when they are ready. If a feature misses a ship date, it simply rolls into the next release six months later.
+
+### The LTS Model
+To balance rapid developer innovation with enterprise stability requirements, specific releases are designated as **Long-Term Support (LTS)**:
+- **Java 8 LTS** (March 2014) — Extended community support.
+- **Java 11 LTS** (September 2018) — First modern modular LTS.
+- **Java 17 LTS** (September 2021) — 3-year cadence LTS.
+- **Java 21 LTS** (September 2023) — Cadence shifted to every **2 years** for LTS releases.
+- **Java 25 LTS** (September 2025) — Current enterprise standard baseline.
+
+---
+
+## 2. Core Concepts
+
+### JEP (JDK Enhancement Proposal)
+A JEP is the formal mechanism for proposing, drafting, reviewing, and tracking significant enhancements to the JDK. Every major feature in modern Java is assigned a permanent JEP number (e.g., JEP 444 for Virtual Threads).
+
+### Feature Lifecycle Stages
+1. **Draft / Candidate**: Proposed concept undergoing design discussions on OpenJDK mailing lists.
+2. **Incubator Module (`jdk.incubator.*`)**: Experimental APIs packaged in isolated non-standard modules to solicit feedback (e.g., Vector API).
+3. **Preview Feature (`--enable-preview`)**: Fully specified, fully implemented compiler and JVM features shipped in standard packages, but requiring explicit opt-in flags. Preview features can evolve or change based on community feedback.
+4. **Final / Permanent Feature**: Standardized, permanent part of the Java SE platform specification with backward compatibility guarantees.
+5. **Deprecated for Removal**: APIs flagged with `@Deprecated(forRemoval = true)` slated for permanent deletion in upcoming releases.
+
+### LTS vs Non-LTS Feature Releases
+- **Feature Releases (e.g., 22, 23, 24)**: Supported for 6 months until the subsequent release. Perfect for early adoption, experimentation, and modern containerized services that upgrade frequently.
+- **LTS Releases (e.g., 17, 21, 25)**: Backed by multi-year commercial and community security patches (Oracle, Adoptium/Eclipse Temurin, Amazon Corretto, Red Hat, Azul Zulu).
+
+---
+
+## 3. How It Works Internally
+
+### JDK Release Pipeline & Branching
+```
+OpenJDK Mainline (Tip of Trunk)
+  │
+  ├────── Fork JDK 24 (Dec 2024) ─── Rampdown Phase 1/2 ─── GA (March 2025)
+  │
+  ├────── Fork JDK 25 LTS (June 2025) ─ Stabilization ───── GA (Sept 2025)
+  │
+  ▼
+OpenJDK Mainline (Development for JDK 26+)
 ```
 
-Most production systems run an LTS and upgrade between LTS versions. Non-LTS releases are useful for trying features early.
+### The `--enable-preview` Flag Architecture
+Preview features alter bytecode verification and class file versioning:
+- Standard class files compiled for Java 25 have major version `69.0`.
+- Preview class files have major version `69.65535` (minor version `65535`).
+- The JVM refuses to load a class compiled with minor version `65535` unless the JVM itself is launched with the `--enable-preview` command-line argument. This prevents accidental deployment of unstable preview bytecodes into production runtimes.
 
 ---
 
-## 2. Incubator, preview, final
+## 4. Syntax & Usage
 
-New features don't appear all at once. They go through stages so the community can give feedback:
-
-| Stage | Meaning | Rules |
-|---|---|---|
-| **Incubator** (APIs) | An API in a separate module for early feedback | Needs `--add-modules`; may change or vanish |
-| **Preview** | Complete language/API feature, **not yet permanent** | Needs `--enable-preview`; can change or be removed |
-| **Final** | Part of the standard platform | Works normally; compatible going forward |
-
+### Compiling and Running with Preview Features
 ```bash
-javac --release 25 --enable-preview Main.java
-java --enable-preview Main
+# Compiling Java 25 preview features
+javac --release 25 --enable-preview App.java
+
+# Running the compiled preview bytecode
+java --enable-preview App
 ```
 
-Practical rules:
-
-- Code compiled with preview features **only runs on the exact Java version that compiled it**, with `--enable-preview`. Don't ship libraries that depend on preview features.
-- Features often go through two to five preview rounds. Some change substantially between rounds, and some are withdrawn (string templates were previewed and then removed).
-- "Final" in version N means usable without flags from N on.
+### Checking Active Runtime Version Programmatically
+```java
+public class VersionChecker {
+    public static void main(String[] args) {
+        Runtime.Version version = Runtime.version();
+        System.out.println("Feature version: " + version.feature());
+        System.out.println("Interim: " + version.interim());
+        System.out.println("Update: " + version.update());
+        System.out.println("Patch: " + version.patch());
+        System.out.println("Full version: " + version);
+    }
+}
+```
 
 ---
 
-## 3. Version-by-version highlights
+## 5. Practical Examples
 
-Only the changes that matter to day-to-day development. **LTS versions are in bold.**
+### Example 1: Chronological Evolution of a Data Carrier
+```java
+// Goal: Compare Java 8 boilerplate vs Java 16+ Record
+// Java 8: 40+ lines of equals, hashCode, getters, constructors
+// Java 16+ Record:
+public record CustomerDto(long id, String name, String email) {}
+```
+*Explanation:* Demonstrates how modern Java has transformed verbose enterprise boilerplate into concise, readable, high-performance domain definitions.
 
-| Version | Released | Highlights |
+### Example 2: Inspecting Java Version Features Dynamically
+```java
+// Goal: Programmatically verify if current runtime satisfies LTS requirements
+public class JavaLtsValidator {
+    public static void main(String[] args) {
+        int currentFeature = Runtime.version().feature();
+        System.out.println("Detected Java Feature: " + currentFeature);
+
+        boolean isModernLts = (currentFeature == 17 || currentFeature == 21 || currentFeature == 25);
+        System.out.println("Is recognized modern LTS: " + isModernLts);
+
+        if (currentFeature < 21) {
+            System.out.println("WARNING: Runtime is older than Java 21 LTS. Virtual threads not available.");
+        } else {
+            System.out.println("SUCCESS: Modern concurrency (Virtual Threads) supported.");
+        }
+    }
+}
+```
+*Output (on JDK 25):*
+```
+Detected Java Feature: 25
+Is recognized modern LTS: true
+SUCCESS: Modern concurrency (Virtual Threads) supported.
+```
+*Explanation:* Enterprise libraries use `Runtime.version()` to dynamically adapt execution strategies based on available JVM features.
+
+### Example 3: Edge Case: ClassFile Version Rejection on Preview Code
+```java
+// Goal: Understand what happens when running preview bytecode without the flag
+// Scenario: App compiled with 'javac --enable-preview --release 25 App.java'
+// Executing: 'java App'
+// Output:
+// Error: LinkageError occurred while loading main class App
+//   java.lang.UnsupportedClassVersionError: Preview features are not enabled for App
+//   (class file version 69.65535). Try running with '--enable-preview'
+```
+*Explanation:* The JVM prevents accidental execution of preview APIs in production by validating class version headers against the `--enable-preview` JVM flag.
+
+### Example 4: Multi-Release JAR (MR-JAR) File Structure
+```
+// Goal: Distribute one JAR file that runs on Java 17, 21, and 25 using optimal APIs
+myapp.jar
+├── META-INF
+│   ├── MANIFEST.MF (Multi-Release: true)
+│   └── versions
+│       ├── 21
+│       │   └── com/corp/Engine.class (uses Virtual Threads)
+│       └── 25
+│           └── com/corp/Engine.class (uses Compact Source / Module imports)
+└── com
+    └── corp
+        └── Engine.class (Java 17 baseline implementation)
+```
+*Explanation:* Multi-Release JARs (JEP 238) allow libraries to exploit modern Java features on newer JVMs while maintaining backwards compatibility for older runtimes.
+
+---
+
+### Long-Term Support Enterprise Matrix
+Enterprise organizations require clear stability roadmaps when provisioning virtual machines and container images. The OpenJDK ecosystem provides predictable support commitments across major enterprise vendors:
+
+| LTS Release | GA Date | Oracle Premier Support | Adoptium / Temurin Community Support | Primary Runtime Innovations |
+|---|---|---|---|---|
+| **Java 8** | March 2014 | Dec 2030 (Extended) | May 2026+ | Lambdas, Streams, java.time |
+| **Java 11** | September 2018 | Jan 2032 (Extended) | Oct 2027+ | JPMS Modules, HttpClient, var |
+| **Java 17** | September 2021 | Sep 2029 | Oct 2027+ | Records, Sealed Classes, G1 optimizations |
+| **Java 21** | September 2023 | Sep 2031 | Dec 2029+ | Virtual Threads, Sequenced Collections |
+| **Java 25** | September 2025 | Sep 2033 | Oct 2031+ | Flexible Constructors, Module Imports |
+
+Transitioning between LTS versions is simplified when builds avoid internal `sun.misc.*` APIs and adhere strictly to standard Java SE contracts.
+
+## 6. Best Practices
+1. **Target LTS as Production Anchors**: Enterprise applications should standardize production clusters on LTS releases (Java 21 or Java 25 LTS).
+2. **Never Deploy `--enable-preview` to Production**: Preview APIs are subject to breaking syntax and binary changes in subsequent versions. Use them for prototyping only.
+3. **Automate Continuous JDK Testing**: Test continuous integration (CI) builds against both the current LTS and the latest feature release to detect regressions early.
+4. **Use `javac --release N`**: Avoid `--source` and `--target` alone. `--release N` configures the compiler to cross-compile against the exact standard library signature of version N.
+5. **Monitor Deprecation Warnings**: Treat `-Xlint:deprecation` warnings seriously in build pipelines, especially those marked `forRemoval = true`.
+
+---
+
+## 7. Common Mistakes & Pitfalls
+
+| Mistake | Why Wrong | Fix |
 |---|---|---|
-| **8** | Mar 2014 | Lambdas, streams, `Optional`, `java.time`, default methods |
-| 9 | Sep 2017 | Modules (JPMS), JShell, `List.of`/`Map.of`, `Stream.takeWhile`, private interface methods |
-| 10 | Mar 2018 | **`var`** (local variable type inference) |
-| **11** | Sep 2018 | Standard `HttpClient`, `String.isBlank/strip/lines/repeat`, `Files.readString`, run a single file with `java Hello.java`, `var` in lambda params |
-| 12 | Mar 2019 | `Collectors.teeing`; switch expressions (preview) |
-| 13 | Sep 2019 | Text blocks (preview) |
-| 14 | Mar 2020 | **Switch expressions** (final), helpful `NullPointerException` messages, records & pattern `instanceof` (preview) |
-| 15 | Sep 2020 | **Text blocks** (final), sealed classes (preview) |
-| 16 | Mar 2021 | **Records**, **pattern matching for `instanceof`** (final), `Stream.toList()` |
-| **17** | Sep 2021 | **Sealed classes** (final), strong encapsulation of JDK internals, Security Manager deprecated for removal |
-| 18 | Mar 2022 | **UTF-8 by default**, `jwebserver` |
-| 19-20 | 2022-23 | Virtual threads, record patterns, and pattern `switch` in preview |
-| **21** | Sep 2023 | **Virtual threads**, **pattern matching for `switch`**, **record patterns**, sequenced collections (all final) |
-| 22 | Mar 2024 | **Unnamed variables and patterns (`_`)**, Foreign Function & Memory API final, launch multi-file source programs |
-| 23 | Sep 2024 | Markdown doc comments, generational ZGC by default |
-| 24 | Mar 2025 | **Stream Gatherers**, Class-File API, Security Manager permanently disabled, AOT class loading/linking |
-| **25** | Sep 2025 | Scoped values, module import declarations, compact source files and instance `main`, flexible constructor bodies (all final); compact object headers (opt-in), Generational Shenandoah |
-| 26 | Mar 2026 | HTTP/3 in `HttpClient`, AOT cache improvements, warnings when `final` fields are mutated through reflection (JEP 500, "prepare to make final mean final"), applet API removed |
-| 27 | Sep 2026 | G1 default GC in all environments, compact object headers on by default, post-quantum hybrid key exchange for TLS 1.3 |
+| Using `--enable-preview` in production | Bytecode version `65535` is locked to that exact compiler build and APIs may break or be dropped. | Only use permanent standardized features in production builds. |
+| Using `-source` / `-target` instead of `--release` | Compiles for older bytecode but accidentally links against modern JDK runtime methods, crashing older JVMs at runtime. | Always use `--release <version>`. |
+| Assuming non-LTS releases are unstable | Non-LTS releases undergo the identical rigorous TCK (Technology Compatibility Kit) testing as LTS releases. | Deploy non-LTS releases if team can upgrade every 6 months. |
+| Neglecting JVM GC defaults across versions | Java 8 defaulted to Parallel GC; Java 9+ defaults to G1 GC; Java 21+ includes Generational ZGC. | Profile application memory profile when upgrading LTS releases. |
+| Confusing Incubator modules with Preview features | Incubator modules are separate JARs (`jdk.incubator.*`); Preview features reside inside core packages (`java.lang.*`). | Understand the distinct opt-in flags (`--add-modules` vs `--enable-preview`). |
+| Missing the 2-year LTS shift | Assuming 3-year cycles (expecting Java 23 LTS instead of Java 21 and 25). | Plan upgrades according to the official 2-year cadence adopted since Java 17. |
 
-Features still in **preview or incubation as of Java 27**: primitive types in patterns (fifth preview), structured concurrency (seventh preview), lazy constants (third preview), PEM encodings (third preview), and the Vector API (twelfth incubator). Treat them as "try, don't depend".
+---
 
-### When each language feature became final
+## 8. Performance & Security Notes
 
-```text
-var .................. 10        switch expressions .... 14      text blocks ........ 15
-records .............. 16        instanceof patterns ... 16      sealed classes ..... 17
-switch patterns ...... 21        record patterns ....... 21      unnamed vars (_) ... 22
+### Garbage Collection Evolution Across LTS Releases
+- **Java 8**: Parallel GC default. High throughput, long stop-the-world (STW) pauses.
+- **Java 11**: G1 GC default. Low pause times for multi-gigabyte heaps.
+- **Java 17**: Highly optimized G1 GC and introduction of production-ready ZGC.
+- **Java 21**: **Generational ZGC (JEP 439)** introduced, delivering sub-millisecond pauses across multi-terabyte heaps.
+- **Java 25**: Generational ZGC made the default for low-latency profiles, near-zero pause times.
+
+### Compact Strings & Memory Footprint
+Java 9 replaced the internal `char[]` (2 bytes per character) in `java.lang.String` with `byte[]` plus an encoding flag (Latin-1 vs UTF-16). Upgrading from Java 8 to modern LTS immediately reduces application heap footprint by 15% to 30% without changing a single line of code.
+
+---
+
+## 9. Comparison / When to Use What
+
+| Java Version | Release Date | Support Type | Key Highlights |
+|---|---|---|---|
+| **Java 8** | Mar 2014 | Legacy LTS | Lambdas, Streams, java.time |
+| **Java 11** | Sep 2018 | Modern LTS | JPMS Modules, HttpClient, var, String methods |
+| **Java 17** | Sep 2021 | Modern LTS | Records, Sealed Classes, Pattern Matching instanceof |
+| **Java 21** | Sep 2023 | Modern LTS | Virtual Threads, Sequenced Collections, Record Patterns |
+| **Java 25** | Sep 2025 | Current LTS | Flexible Constructors, Module Imports, Compact Source |
+
+---
+
+## 10. Interview Questions
+
+<details>
+<summary>1. Describe Java's modern release cadence and LTS roadmap.</summary>
+Since Java 9, Java releases arrive every 6 months (March and September). Releases undergo strict time-based feature docking. LTS releases occur every 2 years (Java 17, 21, 25). LTS versions receive long-term commercial and enterprise support, whereas interim releases are supported for 6 months.
+</details>
+
+<details>
+<summary>2. What is the difference between an Incubator API and a Preview Feature?</summary>
+An Incubator API lives in isolated non-standard modules (`jdk.incubator.*`) and tests experimental APIs without affecting standard libraries. A Preview Feature is fully implemented in standard packages and language syntax, but requires `--enable-preview` to prevent deployment of non-final bytecode.
+</details>
+
+<details>
+<summary>3. Why was `--release` introduced to replace `-source` and `-target`?</summary>
+When compiling with `-source 8 -target 8` on a Java 17 JDK, the compiler generated Java 8 bytecode but linked against the Java 17 standard library. If code invoked a method added in Java 9+, the application compiled but threw `NoSuchMethodError` on Java 8 JVMs. `--release 8` cross-compiles against the exact signature data of Java 8.
+</details>
+
+<details>
+<summary>4. What are the major architectural milestones between Java 8 and Java 25?</summary>
+Java 9 (Modules & Compact Strings), Java 11 (HttpClient & var), Java 16 (Records), Java 17 (Sealed Classes), Java 21 (Virtual Threads & Sequenced Collections), Java 25 (Flexible Constructors & Module Imports).
+</details>
+
+<details>
+<summary>5. What is a Multi-Release JAR (MR-JAR)?</summary>
+A JAR file containing different class file versions under `META-INF/versions/N/`. Modern JVMs load the optimized version matching their feature release, while older JVMs load the baseline root class files.
+</details>
+
+<details>
+<summary>6. How does the JVM enforce preview feature restrictions?</summary>
+Class files compiled with `--enable-preview` are tagged with minor version `65535`. The JVM refuses to load them unless started with `--enable-preview`, preventing preview bytecode from running in unintended production environments.
+</details>
+
+<details>
+<summary>7. Why did the OpenJDK board reduce the LTS cadence from 3 years to 2 years?</summary>
+To allow enterprises to consume major language and runtime innovations (like Project Loom Virtual Threads and Project Panama) at a faster, predictable pace without waiting 3 to 4 years.
+</details>
+
+<details>
+<summary>8. What happens to deprecated APIs marked `forRemoval = true`?</summary>
+They are actively removed in subsequent releases. Examples include `Thread.stop()`, the `finalize()` method (deprecated in Java 9, removed in JEP 421), and the Security Manager (deprecated in Java 17, permanently disabled in Java 24/25).
+</details>
+
+---
+
+## 11. Practice Exercises
+
+### Exercise 1 (Easy): Parsing Runtime Versions
+- **Task**: Write a program that extracts the major, minor, and security numbers from `Runtime.version()` and prints whether the JVM supports Virtual Threads (Java 21+).
+<details>
+<summary>Solution</summary>
+
+```java
+public class VersionCheckExercise {
+    public static void main(String[] args) {
+        Runtime.Version ver = Runtime.version();
+        int feature = ver.feature();
+        System.out.println("Java Feature Version: " + feature);
+        if (feature >= 21) {
+            System.out.println("Virtual Threads supported!");
+        } else {
+            System.out.println("Virtual Threads NOT supported.");
+        }
+    }
+}
+```
+</details>
+
+### Exercise 2 (Medium): Simulating JEP Evolution Tracking
+- **Task**: Model a `JEP` record containing `int id`, `String title`, `JepStatus status` (DRAFT, PREVIEW, FINAL), and `int targetVersion`. Filter a list of JEPs to find all finalized features in Java 21 and Java 25.
+<details>
+<summary>Solution</summary>
+
+```java
+import java.util.List;
+
+public class JepTrackerDemo {
+    public enum JepStatus { DRAFT, PREVIEW, FINAL }
+    public record Jep(int id, String title, JepStatus status, int version) {}
+
+    public static void main(String[] args) {
+        List<Jep> jeps = List.of(
+            new Jep(444, "Virtual Threads", JepStatus.FINAL, 21),
+            new Jep(431, "Sequenced Collections", JepStatus.FINAL, 21),
+            new Jep(454, "Foreign Function & Memory API", JepStatus.FINAL, 22),
+            new Jep(513, "Flexible Constructor Bodies", JepStatus.FINAL, 25),
+            new Jep(512, "Compact Source Files", JepStatus.FINAL, 25)
+        );
+
+        List<Jep> ltsFeatures = jeps.stream()
+            .filter(j -> j.status() == JepStatus.FINAL && (j.version() == 21 || j.version() == 25))
+            .toList();
+
+        ltsFeatures.forEach(System.out::println);
+    }
+}
+```
+</details>
+
+### Exercise 3 (Hard): Dynamic Feature-Adaptive Dispatcher
+- **Task**: Implement a class that inspects the runtime environment and dynamically invokes a high-performance modern API if running on Java 21+ (e.g. Virtual Threads), or falls back to traditional thread pools on older JVMs.
+<details>
+<summary>Solution</summary>
+
+```java
+import java.util.concurrent.*;
+
+public class AdaptiveExecutor {
+    public static ExecutorService createOptimalExecutor() {
+        int feature = Runtime.version().feature();
+        if (feature >= 21) {
+            try {
+                // Use reflection or direct call to VirtualThreadPerTaskExecutor
+                return (ExecutorService) Executors.class
+                    .getMethod("newVirtualThreadPerTaskExecutor")
+                    .invoke(null);
+            } catch (Exception e) {
+                // fallback
+            }
+        }
+        return Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() * 2);
+    }
+
+    public static void main(String[] args) {
+        try (ExecutorService executor = createOptimalExecutor()) {
+            executor.submit(() -> System.out.println("Executed on: " + Thread.currentThread()));
+        }
+    }
+}
+```
+</details>
+
+---
+
+## 12. Summary / Cheat Sheet
+
+```
++-----------------------------------------------------------------------------------------+
+|                               JAVA RELEASE TIMELINE CHEAT SHEET                         |
++-----------------------------------------------------------------------------------------+
+| Release Cadence          | Every 6 months (March & September)                           |
+| LTS Cadence              | Every 2 years (17 in 2021, 21 in 2023, 25 in 2025)           |
+| Cross-compilation        | javac --release <N> App.java (Strict signature validation)   |
+| Preview Flag             | --enable-preview (Sets minor version 65535)                  |
+| Incubator Modules        | --add-modules jdk.incubator.<name>                           |
+| String Optimization      | Compact Strings (Latin-1 byte[] vs char[]) since Java 9      |
+| Low-latency GC           | Generational ZGC (JEP 439) in Java 21, Default low-latency 25|
++-----------------------------------------------------------------------------------------+
 ```
 
-These are the notes in this module: [Records](01_records.md), [Sealed Classes](02_sealed-classes.md), [Switch Expressions](03_switch-expressions.md), [Pattern Matching](04_pattern-matching.md), [`var`](05_var-and-type-inference.md). Text blocks are in [Text Blocks](../03-strings-and-text/05_text-blocks.md).
-
 ---
 
-## 4. Which version should I target?
-
-| Situation | Guidance |
-|---|---|
-| New application | The **latest LTS** (25 today), unless a framework or platform dictates otherwise |
-| Existing app on 8 or 11 | Plan the move to 17, 21, or 25. Older LTS versions get fewer fixes and the ecosystem is dropping them |
-| Library meant for wide use | Choose the lowest Java version your users really have, and compile with `--release N` |
-| Experimenting | Latest release (27), with preview flags if you like |
-
-Considerations:
-
-- **Frameworks and libraries set a minimum Java version.** Check your framework's documentation: a dependency that requires 17+ forces your whole build to 17+.
-- Use **`--release N`** (Maven: `maven.compiler.release`) rather than `-source/-target`. It also restricts the APIs you can call to those that exist in version N, which prevents "compiled fine on JDK 25, crashes on Java 17 at runtime".
-- Language level and runtime are separate. You can compile with `--release 17` using JDK 25, and run on any JDK ≥ 17.
-
-```xml
-<!-- Maven -->
-<properties>
-    <maven.compiler.release>21</maven.compiler.release>
-</properties>
-```
-
----
-
-## 5. Upgrading between LTS versions: what usually breaks
-
-| Upgrade | Typical friction |
-|---|---|
-| 8 → 11 | Modules and removed Java EE/CORBA APIs (JAXB, `javax.annotation` must now be added as dependencies); illegal reflective access warnings; old libraries |
-| 11 → 17 | **Strong encapsulation**: reflection into `java.*` internals now fails without `--add-opens`; older bytecode-manipulating libraries (ASM, Mockito, Lombok, etc.) need newer versions |
-| 17 → 21 | Mostly smooth; update tooling; consider virtual threads |
-| 21 → 25 | Mostly smooth; the Security Manager is gone; 32-bit x86 support was removed; check agents and bytecode libraries |
-
-Upgrade checklist: bump build tool and plugins first, update dependencies, run the test suite on the new JDK, scan logs for warnings (deprecations, illegal access), then switch the runtime. Container base images and CI agents often move first, so test early.
-
----
-
-## 6. Beyond the language: platform changes worth knowing
-
-- **Garbage collection:** G1 is the default collector (and, as of 27, in every environment, including small containers that used to fall back to Serial). ZGC is generational by default since 23. See [Garbage Collection](../15-jvm-internals/04_garbage-collection.md).
-- **Concurrency:** virtual threads (21) change how you write blocking server code ([Virtual Threads](../14-concurrency/13_virtual-threads-and-structured-concurrency.md)).
-- **Startup and footprint:** AOT cache work (Project Leyden) and compact object headers reduce start time and heap size without code changes.
-- **Defaults get safer over time:** UTF-8 default charset (18), strong encapsulation (17), Security Manager removal (24).
-
----
-
-## Common mistakes
-
-| Mistake | Fix |
-|---|---|
-| Using preview features in production or in shared libraries | Wait for the final release |
-| `-source`/`-target` instead of `--release` | `--release N` |
-| Assuming "latest" means "LTS" | Check: 26 and 27 are not LTS |
-| Upgrading the runtime but not the build plugins/agents | Update Maven/Gradle plugins and bytecode tools first |
-| Copy-pasting syntax from a blog without checking the version | Check the table: `case Circle(double r)` needs 21+ |
-| Believing a feature "exists" because it compiles in an IDE with a newer language level | Match the IDE language level to the build's `release` |
-
-### Debugging
-
-- `Unsupported class file major version N` → a class was compiled for a newer Java than the JVM or tool reading it supports (or an old tool such as ASM is reading a newer class).
-- `error: records are not supported in -source 11` (or similar) → your `release`/language level is lower than the feature's version.
-- `java.lang.UnsupportedClassVersionError: ... compiled by a more recent version` → run on a newer JVM, or compile with a lower `--release`.
-- `InaccessibleObjectException` / "module does not open" → strong encapsulation; upgrade the library or, as a last resort, add `--add-opens`.
-- `Preview features are not enabled` → compile **and** run with `--enable-preview` (and the same JDK version).
-
----
-
-## Quick Summary
-
-- New Java every **6 months**; **LTS every 2 years**: 17, 21, **25**, next is 29 (Sep 2027). 26 and 27 are short-term releases.
-- Features go **incubator/preview → final**. Preview code needs `--enable-preview` and ties you to one JDK version.
-- Language features in this module became final at: `var` 10, switch expressions 14, records 16, `instanceof` patterns 16, sealed classes 17, switch/record patterns 21, `_` 22.
-- Target the latest LTS for new work and compile with `--release N`.
-- Most upgrade pain comes from strong encapsulation and old bytecode tooling, not from the language.
-
-**Next:** [Records](01_records.md)
+## 13. Further Reading
+- [JEP 223: New Version-String Scheme](https://openjdk.org/jeps/223)
+- [OpenJDK Release Process Guidelines](https://openjdk.org/projects/jdk/releases/)
+- [Oracle Java SE Support Roadmap](https://www.oracle.com/java/technologies/java-se-support-roadmap.html)
+- [Adoptium Eclipse Temurin Support Documentation](https://adoptium.net/support/)

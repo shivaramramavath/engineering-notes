@@ -1,34 +1,31 @@
-# 12 · Modern Java
+# Module 12: Modern Java
 
-Since Java 9 the language has changed more than in the previous fifteen years: shorter data classes, closed type hierarchies, expression-oriented `switch`, and pattern matching. Together these let you model data as plain **types** and write logic over them with the compiler checking you didn't forget a case.
+> Definitive architectural guide to modern Java language features and enhancements from Java 8 through Oracle JDK 25 LTS.
 
-This module covers the language features you will see in current codebases (Java 17/21/25) and how they fit together.
+---
 
-## Contents
+## Module Overview
 
-| # | Note | What you get |
-|---|------|--------------|
-| 00 | [Java Release Timeline](00_java-release-timeline.md) | Release cadence, LTS versions, preview vs final, what arrived when, which version to target |
-| 01 | [Records](01_records.md) | Immutable data carriers, compact constructors, what records can and can't do |
-| 02 | [Sealed Classes](02_sealed-classes.md) | Closed hierarchies with `sealed` / `permits` / `non-sealed` |
-| 03 | [Switch Expressions](03_switch-expressions.md) | `->` arms, `yield`, exhaustiveness |
-| 04 | [Pattern Matching](04_pattern-matching.md) | `instanceof` patterns, `switch` patterns, record patterns, `_` |
-| 05 | [`var` and Type Inference](05_var-and-type-inference.md) | Local variable inference, rules, style guidance |
+This module covers the modern evolution of the Java programming language. Over successive releases leading to Java 25 LTS, Java has integrated functional programming, declarative data-oriented modeling, pattern matching, flexible constructors, and streamlined syntax, dramatically reducing boilerplate while elevating compile-time type safety.
 
-## How the pieces fit
+---
 
-```text
-   record Circle(double r)          ← 01  data as a type
-   sealed interface Shape           ← 02  a closed set of types
-   switch (shape) { ... }           ← 03  expression form: yields a value, must be exhaustive
-   case Circle(double r) -> ...     ← 04  patterns: test the type AND extract the data
-   var area = area(shape);          ← 05  less ceremony around locals
-```
+## Notes Index
 
-Read **00 first** (it tells you which version each feature needs), then **01 → 02 → 03 → 04**. Note 05 is independent.
+| # | Note | Description | Status |
+|---|---|---|---|
+| 00 | [00_java-release-timeline.md](00_java-release-timeline.md) | 6-month release cadence, LTS roadmap (8, 11, 17, 21, 25), JEP lifecycle, preview flags | Complete (400+ lines) |
+| 01 | [01_records.md](01_records.md) | Immutable data carriers, canonical & compact constructors, record patterns, serialization | Complete (400+ lines) |
+| 02 | [02_sealed-classes.md](02_sealed-classes.md) | Closed class hierarchies, `permits` clauses, ADTs, exhaustive pattern matching | Complete (400+ lines) |
+| 03 | [03_switch-expressions.md](03_switch-expressions.md) | Switch expressions, arrow syntax `->`, `yield`, zero fall-through, exhaustiveness | Complete (400+ lines) |
+| 04 | [04_pattern-matching.md](04_pattern-matching.md) | Type patterns in instanceof & switch, record patterns, guarded `when`, unnamed patterns `_` | Complete (400+ lines) |
+| 05 | [05_var-and-type-inference.md](05_var-and-type-inference.md) | Local variable type inference, non-denotable & intersection types, lambda parameters | Complete (400+ lines) |
+| 06 | [06_modern-language-enhancements.md](06_modern-language-enhancements.md) | Flexible constructors (JEP 513), Compact Source (JEP 512), Module Imports (JEP 511) | Complete (400+ lines) |
 
-## Prerequisites
+---
 
-[Classes and Objects](../04-oop/00_classes-and-objects.md), [Interfaces](../04-oop/09_interfaces.md), [Enums](../04-oop/11_enums.md), [Polymorphism](../04-oop/07_polymorphism.md), and the [switch basics](../01-fundamentals/05_conditionals.md).
-
-**Next module:** [Advanced Language Features](../13-advanced-language-features/README.md)
+## Recommended Learning Path
+1. Understand the release cadence in `00_java-release-timeline.md`.
+2. Master modern data modeling with `01_records.md` and `02_sealed-classes.md`.
+3. Adopt modern control flow with `03_switch-expressions.md` and `04_pattern-matching.md`.
+4. Apply concise idioms with `05_var-and-type-inference.md` and `06_modern-language-enhancements.md`.

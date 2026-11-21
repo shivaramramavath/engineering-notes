@@ -1,239 +1,417 @@
 # Records
 
-A **record** is a concise way to declare a class whose only job is to **carry immutable data**. You list the components, and the compiler generates the constructor, accessors, `equals`, `hashCode`, and `toString`.
+> Deep dive into Java Records (JEP 395): transparent carriers for immutable data, canonical and compact constructors, record patterns (JEP 440), JVM bytecode representation, and serialization guarantees.
 
-```java
-public record Point(int x, int y) {}
-```
-
-That one line replaces roughly 30 lines of class boilerplate (private final fields, constructor, getters, `equals`, `hashCode`, `toString`), and unlike generated or Lombok-style code, the semantics are **defined by the language**: records are *transparent* carriers of their components.
-
-Records became final in **Java 16** (preview in 14 and 15).
-
-**Prerequisites:** [Classes and Objects](../04-oop/00_classes-and-objects.md), [Constructors](../04-oop/01_constructors.md), [equals and hashCode](../04-oop/14_equals-and-hashcode.md), [Immutability](../23-design-and-clean-code/04_immutability.md).
-
----
-
-## 1. What you get
-
-```java
-var p = new Point(3, 4);
-
-p.x();                          // 3        accessor: x(), not getX()
-p.y();                          // 4
-p.toString();                   // Point[x=3, y=4]
-p.equals(new Point(3, 4));      // true     component-wise equality
-p.hashCode() == new Point(3, 4).hashCode();   // true
-```
-
-What the compiler generates for `record Point(int x, int y)`:
-
-| Member | Behavior |
+| Metadata | Value |
 |---|---|
-| `private final int x, y` | One field per component |
-| Canonical constructor `Point(int x, int y)` | Assigns every field |
-| Accessors `x()`, `y()` | Return the field (same name as the component) |
-| `equals` / `hashCode` | Based on all components |
-| `toString` | `Point[x=3, y=4]` |
-
-The record class itself is implicitly `final` and extends `java.lang.Record`.
+| **Level** | Intermediate |
+| **Prerequisites** | [04-oop/00_classes-and-objects.md](../04-oop/00_classes-and-objects.md), [04-oop/01_constructors.md](../04-oop/01_constructors.md), [04-oop/14_equals-and-hashcode.md](../04-oop/14_equals-and-hashcode.md) |
+| **Time to Read** | 26 minutes |
+| **Status** | Active |
+| **Java Version** | Java 14/15 Preview, Java 16 Final (JEP 395), Java 21 Record Patterns (JEP 440) |
 
 ---
 
-## 2. Validating and normalizing: the compact constructor
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & Usage](#4-syntax--usage)
+5. [Practical Examples](#5-practical-examples)
+6. [Best Practices](#6-best-practices)
+7. [Common Mistakes & Pitfalls](#7-common-mistakes--pitfalls)
+8. [Performance & Security Notes](#8-performance--security-notes)
+9. [Comparison / When to Use What](#9-comparison--when-to-use-what)
+10. [Interview Questions](#10-interview-questions)
+11. [Practice Exercises](#11-practice-exercises)
+12. [Summary / Cheat Sheet](#12-summary--cheat-sheet)
+13. [Further Reading](#13-further-reading)
 
-To check or adjust values, write a **compact constructor**: the parameter list is omitted, and the field assignments happen automatically at the end.
+---
+
+## 1. What & Why
+
+### The Boilerplate Tax of Data Carriers
+In traditional Java, writing a simple data-transfer object (DTO) or value carrier required dozens of lines of repetitive ceremony: private final fields, a verbose constructor assigning each field, accessor getters (`getX()`), an `equals()` implementation checking every component, a matching `hashCode()`, and a `toString()` method.
+
+Lombok (`@Value`, `@Data`) emerged as a popular workaround, but relied on non-standard annotation processing and internal compiler hacking.
+
+### The Solution: Records (JEP 395)
+Introduced as final in Java 16, a **Record** is a nominal, transparent carrier of immutable data. By declaring `record Point(int x, int y) {}`, the language guarantees:
+- All fields are `private final`.
+- A canonical constructor initializing all components.
+- Accessor methods with names matching the components (`x()`, not `getX()`).
+- Correct, reflexive, symmetric `equals()`, matching `hashCode()`, and readable `toString()`.
+- Built-in reflection metadata and special, secure serialization protocols.
+
+---
+
+## 2. Core Concepts
+
+### Transparent Carriers
+A record's state description is part of its public API contract. There is no encapsulation hiding what fields a record contains. The record header `record User(String id, String name)` explicitly states that the entire identity and state of a `User` consists of `id` and `name`.
+
+### Record Class Restrictions
+1. **Implicitly Final**: Records cannot be extended (`final class`).
+2. **Superclass is `java.lang.Record`**: Records cannot extend any class (they implicitly extend `Record`), but they can implement arbitrary interfaces.
+3. **No Additional Instance Fields**: A record cannot declare instance fields other than the components in its header. Static fields are permitted.
+4. **Shallow Immutability**: The record's component references are `final`. However, if a component is a mutable object (e.g. `java.util.List`), the referenced object itself can still be modified unless defensively copied.
+
+### Constructors: Canonical, Compact, and Custom
+- **Canonical Constructor**: Matches the record header signature (`Point(int x, int y)`). Automatically provided if omitted.
+- **Compact Constructor**: Has no parameter list in parentheses (`Point { ... }`). Variables `x` and `y` are implicitly in scope. Used for validation and normalization before field assignment.
+- **Custom / Overloaded Constructor**: Secondary constructors must delegate to another constructor using `this(...)`.
+
+---
+
+## 3. How It Works Internally
+
+### Bytecode Decompilation of `record Point(int x, int y)`
+When compiled, `Point` produces the following bytecode equivalent:
 
 ```java
-public record Range(int lo, int hi) {
-    public Range {                                   // no parentheses
-        if (lo > hi) {
-            throw new IllegalArgumentException("lo > hi: " + lo + " > " + hi);
+public final class Point extends java.lang.Record {
+    private final int x;
+    private final int y;
+
+    public Point(int x, int y) {
+        this.x = x;
+        this.y = y;
+    }
+
+    public int x() { return this.x; }
+    public int y() { return this.y; }
+
+    @Override
+    public final boolean equals(Object o) { /* invokedynamic bootstrap to ObjectMethods */ }
+
+    @Override
+    public final int hashCode() { /* invokedynamic bootstrap to ObjectMethods */ }
+
+    @Override
+    public final String toString() { /* invokedynamic bootstrap to ObjectMethods */ }
+}
+```
+
+### Dynamic Method Bootstrapping
+Rather than emitting static bytecodes for `equals`, `hashCode`, and `toString`, the compiler emits an `invokedynamic` call site targeting `java.lang.runtime.ObjectMethods.bootstrap`. This defers implementation to the JVM runtime, optimizing performance and reducing class file size.
+
+### Secure Deserialization Semantics
+Standard Java serialization allocates uninitialized heap memory and bypasses constructors. **Records are completely different**:
+- Deserialization of a record **always** invokes the canonical constructor!
+- The stream unpacks component values and passes them into the constructor, ensuring that validations in compact constructors cannot be bypassed by malicious binary payloads.
+
+---
+
+## 4. Syntax & Usage
+
+### Compact Constructor for Validation and Normalization
+```java
+public record Range(int start, int end) {
+    // Compact constructor: no parameter list!
+    public Range {
+        if (start > end) {
+            throw new IllegalArgumentException("start (" + start + ") > end (" + end + ")");
+        }
+        // Fields are automatically assigned: this.start = start; this.end = end;
+    }
+}
+```
+
+### Defensive Copying in Compact Constructor
+```java
+import java.util.List;
+
+public record TaskGroup(String name, List<String> tasks) {
+    public TaskGroup {
+        // Defensive copy guarantees true immutability!
+        tasks = List.copyOf(tasks);
+    }
+}
+```
+
+---
+
+## 5. Practical Examples
+
+### Example 1: Basic Record with Accessors
+```java
+// Goal: Model 2D coordinate with distance calculation
+public record Coordinate(double x, double y) {
+    public double distanceTo(Coordinate other) {
+        double dx = this.x - other.x;
+        double dy = this.y - other.y;
+        return Math.hypot(dx, dy);
+    }
+}
+
+public class CoordinateDemo {
+    public static void main(String[] args) {
+        Coordinate c1 = new Coordinate(0, 0);
+        Coordinate c2 = new Coordinate(3, 4);
+
+        System.out.println("Distance: " + c1.distanceTo(c2));
+        System.out.println("ToString: " + c1);
+        System.out.println("Equals: " + c1.equals(new Coordinate(0, 0)));
+    }
+}
+```
+*Output:*
+```
+Distance: 5.0
+ToString: Coordinate[x=0.0, y=0.0]
+Equals: true
+```
+
+### Example 2: Real-World Record Pattern Matching (Java 21 JEP 440)
+```java
+// Goal: Deconstruct records directly in switch patterns
+sealed interface Shape permits Circle, Rectangle {}
+record Circle(double radius) implements Shape {}
+record Rectangle(double width, double height) implements Shape {}
+
+public class ShapeCalculator {
+    public static double calculateArea(Shape shape) {
+        return switch (shape) {
+            case Circle(double r) -> Math.PI * r * r;
+            case Rectangle(double w, double h) -> w * h;
+        };
+    }
+
+    public static void main(String[] args) {
+        Shape s = new Rectangle(5, 10);
+        System.out.println("Calculated Area: " + calculateArea(s));
+    }
+}
+```
+*Output:*
+```
+Calculated Area: 50.0
+```
+*Explanation:* Java 21 Record Patterns deconstruct the record components directly in the case clause, eliminating manual casting and accessor calls.
+
+### Example 3: Edge Case: Local Records Inside Methods
+```java
+// Goal: Use records as intermediate, zero-cost data carriers within stream pipelines
+import java.util.*;
+
+public class LocalRecordDemo {
+    public static void main(String[] args) {
+        List<String> words = List.of("apple", "banana", "cherry", "date");
+
+        // Local record scoped only inside main!
+        record WordStats(String word, int length) {}
+
+        WordStats longest = words.stream()
+            .map(w -> new WordStats(w, w.length()))
+            .max(Comparator.comparingInt(WordStats::length))
+            .orElseThrow();
+
+        System.out.println("Longest word: " + longest.word() + " (" + longest.length() + ")");
+    }
+}
+```
+*Output:*
+```
+Longest word: banana (6)
+```
+*Explanation:* Local records provide clean, type-safe tuple replacements without polluting package namespaces.
+
+### Example 4: Failure Case: Assuming Mutable Collections inside Records are Immutable
+```java
+// Goal: Illustrate shallow immutability hazard
+import java.util.*;
+
+record FlawedTeam(String name, List<String> members) {}
+
+public class ShallowImmutabilityHazard {
+    public static void demonstrate() {
+        List<String> list = new ArrayList<>(List.of("Alice", "Bob"));
+        FlawedTeam team = new FlawedTeam("Alpha", list);
+
+        // MUTATION HAZARD:
+        list.add("Mallory"); // Modifies team's internal state!
+        System.out.println("Team members: " + team.members()); // Alice, Bob, Mallory
+    }
+}
+```
+*Explanation:* Records are shallowly immutable. Always use `List.copyOf()` or `Collections.unmodifiableList()` in compact constructors.
+
+---
+
+## 6. Best Practices
+1. **Defensively Copy Collections**: Always wrap mutable collection parameters with `List.copyOf()`, `Set.copyOf()`, or `Map.copyOf()` in compact constructors.
+2. **Use Compact Constructors for Invariant Checks**: Prefer compact constructors (`public RecordName { ... }`) over full canonical constructors to eliminate redundant assignments.
+3. **Keep Records As Pure Data Carriers**: Avoid adding complex business workflow logic into records. Use them for DTOs, API payloads, query results, and composite keys.
+4. **Leverage Local Records**: Use local records inside method bodies and stream transformations instead of `Map.Entry` or ad-hoc arrays.
+5. **Combine with Sealed Interfaces**: Pair records with sealed interfaces to construct robust Algebraic Data Types (ADTs).
+
+---
+
+## 7. Common Mistakes & Pitfalls
+
+| Mistake | Why Wrong | Fix |
+|---|---|---|
+| Attempting to extend a record | Records are implicitly `final` and extend `java.lang.Record`. | Use composition or implement interfaces instead. |
+| Declaring additional instance fields | Records only permit instance fields defined in their header. | Put extra state into header or use `static` fields. |
+| Calling accessors as `getX()` | Record accessors match the component name directly (`x()`, not `getX()`). | Call `record.x()` instead of JavaBean getters. |
+| Forgetting defensive copying on collections | External callers can mutate the collection, breaking immutability. | Use `tasks = List.copyOf(tasks);` in compact constructor. |
+| Overriding `equals`/`hashCode` improperly | Defeats the compiler's optimized dynamic bootstrapping and can break record patterns. | Rely on the compiler-generated `equals` and `hashCode`. |
+| Using records for JPA entities | JPA/Hibernate requires mutable no-arg constructors, proxying, and dirty tracking incompatible with final records. | Keep JPA entities as classes; use records for read-only projection DTOs. |
+
+---
+
+## 8. Performance & Security Notes
+
+### Memory Footprint & Escape Analysis
+Because records have known, immutable component fields, the HotSpot C2 compiler aggressively applies **Scalar Replacement**. If a local record instance does not escape the calling method, the JVM allocates its components directly into CPU registers or stack memory, entirely bypassing heap allocation and GC pressure.
+
+### Serialization Security
+Unlike traditional classes, records cannot be deserialized into corrupted states via stream tampering. The Java deserialization mechanism reads the stream fields and passes them directly to the record's canonical constructor, ensuring all validation rules execute unconditionally.
+
+---
+
+## 9. Comparison / When to Use What
+
+| Feature | Java Record | Lombok `@Value` | Traditional Class |
+|---|---|---|---|
+| **Language Standard** | Official Java 16+ SE | Third-party plugin | Standard Java 1.0+ |
+| **Immutability** | Enforced by JVM | Compile-time bytecode rewrite | Manual discipline |
+| **Extensible** | No (Final) | No (Final) | Yes (unless final) |
+| **Constructor Validation** | Compact Constructor | Custom constructor | Manual boilerplate |
+| **Pattern Matching** | Native Record Patterns | Not supported natively | Not supported natively |
+| **Reflection Metadata** | `Class.isRecord()` | Regular class reflection | Regular reflection |
+
+---
+
+## 10. Interview Questions
+
+<details>
+<summary>1. What is a Java Record and what does the compiler generate for it?</summary>
+A record is a concise declaration of a class whose purpose is to carry immutable data. The compiler generates private final fields, canonical constructor, component-named accessors, `equals()`, `hashCode()`, `toString()`, and extends `java.lang.Record`.
+</details>
+
+<details>
+<summary>2. What is a Compact Constructor?</summary>
+A special constructor syntax without parameter parentheses (`public Point { ... }`). It runs before instance fields are assigned, allowing validation and normalization of arguments without boilerplate `this.x = x;` statements.
+</details>
+
+<details>
+<summary>3. Can a record extend another class or be extended?</summary>
+No. Records are implicitly `final` and implicitly extend `java.lang.Record`. They cannot extend any class, nor can any class extend them. They can, however, implement interfaces.
+</details>
+
+<details>
+<summary>4. Are records deeply immutable?</summary>
+No. Records are shallowly immutable. Their references cannot be reassigned, but if a component refers to a mutable object (like `ArrayList`), that object's contents can be mutated unless defensively copied.
+</details>
+
+<details>
+<summary>5. How does record deserialization differ from standard class deserialization?</summary>
+Standard class deserialization allocates memory and populates fields directly, bypassing constructors. Record deserialization mandates invoking the canonical constructor with stream values, guaranteeing invariant enforcement.
+</details>
+
+<details>
+<summary>6. How do Record Patterns work in Java 21 (JEP 440)?</summary>
+Record patterns allow matching and deconstructing a record's components directly inside `switch` expressions or `instanceof` checks (e.g., `case Point(int x, int y)`).
+</details>
+
+<details>
+<summary>7. Can records declare instance fields or static fields?</summary>
+Records cannot declare additional instance fields beyond those in the record header. However, they are permitted to declare `static` fields, methods, initializers, and constants.
+</details>
+
+<details>
+<summary>8. Why are records unsuitable as JPA/Hibernate entities?</summary>
+JPA requires a non-private no-arg constructor, mutable getters/setters for dirty-checking and proxy subclassing (lazy loading), none of which are compatible with records.
+</details>
+
+---
+
+## 11. Practice Exercises
+
+### Exercise 1 (Easy): Basic Record with Invariant Check
+- **Task**: Declare a record `Email(String address)` with a compact constructor that validates the address contains an `'@'` character and is not null.
+<details>
+<summary>Solution</summary>
+
+```java
+public record Email(String address) {
+    public Email {
+        if (address == null || !address.contains("@")) {
+            throw new IllegalArgumentException("Invalid email: " + address);
         }
     }
 }
+```
+</details>
 
-public record Email(String value) {
-    public Email {
-        value = value.strip().toLowerCase();         // reassign the PARAMETER; the field gets it afterwards
-        if (!value.contains("@")) throw new IllegalArgumentException("Invalid email: " + value);
+### Exercise 2 (Medium): Deeply Immutable Container
+- **Task**: Implement a record `ShoppingCart(String customerId, List<String> items)` that guarantees deep immutability against outside modification.
+<details>
+<summary>Solution</summary>
+
+```java
+import java.util.List;
+
+public record ShoppingCart(String customerId, List<String> items) {
+    public ShoppingCart {
+        if (customerId == null || customerId.isBlank()) {
+            throw new IllegalArgumentException("Customer ID required");
+        }
+        items = (items == null) ? List.of() : List.copyOf(items);
     }
 }
 ```
+</details>
 
-Rules:
-
-- Inside a compact constructor you assign to the **parameters** (`value = ...`), never to `this.value`. Direct field assignment is a compile error.
-- Validation here means *every* way of creating the record is checked, including deserialization (a big advantage over ordinary classes; see [Serialization](../11-io-and-networking/03_java-serialization.md)).
-
-### Other constructors
-
-Any additional constructor must delegate to another constructor, ultimately the canonical one:
+### Exercise 3 (Hard): Record Patterns in Nested Domain Hierarchies
+- **Task**: Model `Address(String city, String country)` and `Person(String name, Address address)`. Write a method using Java 21 Record Patterns to extract and print the city of any person living in "Japan".
+<details>
+<summary>Solution</summary>
 
 ```java
-public record Point(int x, int y) {
-    public Point() { this(0, 0); }                    // convenience constructor
+public class NestedRecordPatternDemo {
+    public record Address(String city, String country) {}
+    public record Person(String name, Address address) {}
 
-    public static Point origin() { return new Point(0, 0); }   // static factory
-}
-```
-
-You can also write the full canonical constructor explicitly (with a parameter list), but then you must assign every field yourself. The compact form is almost always better.
-
----
-
-## 3. Adding behavior
-
-Records can have methods, static members, and implement interfaces:
-
-```java
-public record Point(int x, int y) implements Comparable<Point> {
-
-    public static final Point ORIGIN = new Point(0, 0);
-
-    public double distanceTo(Point other) {
-        return Math.hypot(x - other.x, y - other.y);
+    public static void printJapaneseCities(Object obj) {
+        if (obj instanceof Person(String name, Address(String city, String country)) && "Japan".equalsIgnoreCase(country)) {
+            System.out.println(name + " lives in " + city + ", Japan");
+        }
     }
 
-    public Point withX(int newX) { return new Point(newX, y); }   // "wither": records have no built-in one
-
-    @Override public int compareTo(Point o) { return Integer.compare(x * x + y * y, o.x * o.x + o.y * o.y); }
-}
-```
-
-You can **override** accessors, `equals`, `hashCode`, and `toString`, but an accessor must be `public`, have the same name and return type, and normally just return the component. Don't override them to return something different; that breaks the "transparent carrier" contract.
-
-### Generic and nested records
-
-```java
-public record Pair<A, B>(A first, B second) {}
-
-Pair<String, Integer> p = new Pair<>("age", 30);
-```
-
-```java
-List<String> topNames(List<Person> people) {
-    record Scored(String name, int score) {}         // a local record: declared inside the method, before use
-
-    return people.stream()
-        .map(pe -> new Scored(pe.name(), score(pe))) // a tiny ad-hoc tuple
-        .sorted(Comparator.comparingInt(Scored::score).reversed())
-        .map(Scored::name)
-        .toList();
-}
-```
-
-Records declared inside another class (or inside a method) are **implicitly `static`**: they can't capture the outer instance.
-
----
-
-## 4. What records cannot do
-
-| Restriction | Why |
-|---|---|
-| Can't `extend` another class | They already extend `java.lang.Record` |
-| Can't be `abstract` or have non-`final` fields | A record *is* its components |
-| No instance fields other than the components | The state is fully described by the header |
-| No instance initializer blocks | Use the compact constructor |
-| Can't be subclassed (`final`) | Equality must mean "same components" |
-
-Records **can** implement interfaces (including `sealed` ones: see [Sealed Classes](02_sealed-classes.md)), carry annotations, and have static fields and methods.
-
----
-
-## 5. Immutability is shallow
-
-The *fields* of a record are final, but a component that refers to a mutable object is still mutable:
-
-```java
-public record Team(String name, List<String> members) {}
-
-var members = new ArrayList<>(List.of("Asha", "Ravi"));
-var team = new Team("Core", members);
-
-members.add("Intruder");
-team.members().add("Another");        // both modify the record's state!
-```
-
-Make the record truly immutable by copying in the compact constructor:
-
-```java
-public record Team(String name, List<String> members) {
-    public Team {
-        members = List.copyOf(members);   // unmodifiable copy (also rejects null elements)
+    public static void main(String[] args) {
+        Person p = new Person("Yuki", new Address("Kyoto", "Japan"));
+        printJapaneseCities(p);
     }
 }
 ```
-
-`List.copyOf` returns an unmodifiable list, so both the caller's later changes and `team.members().add(...)` are prevented. For mutable types without an immutable equivalent (arrays, `Date`), copy defensively in the constructor *and* in the accessor ([Defensive Programming](../23-design-and-clean-code/05_defensive-programming.md)).
-
-**Arrays are especially bad components:** record `equals` uses `equals` on each component, and arrays use reference equality, so two records holding equal-content arrays are *not* equal, and `toString` prints `[I@1b6d3586`. Use a `List` instead.
+</details>
 
 ---
 
-## 6. Equality details
+## 12. Summary / Cheat Sheet
 
-- Reference components are compared with `Objects.equals`, so they need good `equals` themselves. Primitive components are compared by value (floating-point values via `Double.compare`/`Float.compare` semantics, so `NaN` equals `NaN`).
-- `hashCode` is consistent with `equals`, but the exact algorithm is unspecified. Don't depend on specific hash values.
-- Because equality is purely by value, records work well as `Map` keys and `Set` elements, provided their components are themselves stable.
-
----
-
-## 7. Practical usage
-
-**Good fits**
-
-- **DTOs and API responses**: `record UserDto(long id, String name)`
-- **Value objects**: `Money(BigDecimal amount, Currency currency)`, `Email`, `OrderId`, with validation in the compact constructor
-- **Multiple return values**: instead of a one-off class or `Map.Entry`
-- **Map keys / composite keys**: `record CacheKey(String tenant, long id)`
-- **Algebraic data types** with sealed interfaces: [Sealed Classes](02_sealed-classes.md)
-- **Pattern matching and deconstruction**: [Pattern Matching](04_pattern-matching.md)
-
-**Poor fits**
-
-- Objects with **mutable state or identity**, such as entities with lifecycle and setters.
-- **JPA/Hibernate entities** (they need non-final classes and mutable state). Records are fine for query projections and DTOs.
-- Types that need **inheritance** or a hidden representation different from the constructor arguments.
-- Classes with lots of optional parameters. A record has no builder or default values, so you need a builder or factory methods.
-
-### Library support
-
-- **Jackson** supports records (2.12+) for both serialization and deserialization ([Jackson](../17-json-and-data-formats/01_jackson.md)).
-- **Java serialization** treats records specially: only components are serialized and the canonical constructor runs on read ([Serialization](../11-io-and-networking/03_java-serialization.md)).
-- **Reflection:** `Class.isRecord()` and `Class.getRecordComponents()` ([Reflection](../13-advanced-language-features/01_reflection.md)).
+```
++-----------------------------------------------------------------------------------------+
+|                                    JAVA RECORD CHEAT SHEET                              |
++-----------------------------------------------------------------------------------------+
+| Declaration              | public record Point(int x, int y) {}                         |
+| Inheritance              | Extends java.lang.Record, implicitly final, can implement IF |
+| Accessors                | point.x(), point.y() (no 'get' prefix)                       |
+| Compact Constructor      | public Point { if (x < 0) throw ...; }                       |
+| Custom Constructor       | public Point(int v) { this(v, v); } (Must delegate)          |
+| Java 21 Record Pattern   | case Point(int x, int y) -> x + y;                           |
+| Defensive Copy           | items = List.copyOf(items);                                  |
+| Serialization Security   | Always invokes canonical constructor during deserialization  |
++-----------------------------------------------------------------------------------------+
+```
 
 ---
 
-## Common mistakes
-
-| Mistake | Fix |
-|---|---|
-| Calling `p.getX()` | Accessors are `x()` |
-| Assuming a record is deeply immutable | `List.copyOf` / defensive copies in the compact constructor |
-| `this.x = x` in a compact constructor | Assign the parameter: `x = ...` |
-| Array components | Use `List` (arrays break `equals`/`toString`) |
-| Putting heavy logic or mutable state into a record | Use a regular class |
-| Using a record as a JPA entity | Use a class for the entity, a record for the DTO |
-| Expecting a "copy with one field changed" | Write `withX(...)` methods yourself |
-| Overriding accessors to compute something different | Add a separate method instead |
-| Adding a field in the body (`private int cache;`) | Not allowed: derive values in methods, or use a class |
-
-### Debugging
-
-- `error: field declaration must be static` → you tried to add an instance field. Only static fields are allowed in the body.
-- Compiler complains about an "invalid canonical constructor" → an explicit canonical constructor must be at least as accessible as the record itself (make it `public` for a `public` record).
-- Jackson can't deserialize a record → check the Jackson version (2.12+), and that parameter names are available (compile with `-parameters` or use `@JsonProperty`), per your setup.
-- Two "equal-looking" records not equal → check for array components or mutable components with weak `equals`.
-
----
-
-## Quick Summary
-
-- `record Name(Type a, Type b) {}` gives you a final class with final fields, a canonical constructor, accessors (`a()`), `equals`, `hashCode`, and `toString`.
-- Customize with a **compact constructor** (validate, normalize) and add methods, statics, and interfaces. No other instance fields and no inheritance.
-- Immutability is **shallow**. Copy mutable components in the constructor. Avoid arrays.
-- Records are ideal for DTOs, value objects, composite keys, tuples, and sealed hierarchies; they are a poor fit for mutable, identity-based objects like JPA entities.
-- Final since Java 16.
-
-**Next:** [Sealed Classes](02_sealed-classes.md)
+## 13. Further Reading
+- [JEP 395: Records (Standardized in Java 16)](https://openjdk.org/jeps/395)
+- [JEP 440: Record Patterns (Java 21)](https://openjdk.org/jeps/440)
+- Java Language Specification — Section 8.10 (Record Classes)
+- Inside Java Podcast: Episode on Records and Sealed Classes

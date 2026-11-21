@@ -1,259 +1,403 @@
-# Concurrency Patterns
+# Concurrency Design Patterns
 
-The earlier notes covered the *tools*. This one covers the *designs* that use them: recurring shapes of concurrent programs that are known to work. Most of them share one theme: **reduce what is shared, and make the sharing explicit and bounded**.
+> Architectural catalog of essential concurrency patterns in Java: Producer-Consumer, Thread Pool, Reader-Writer, Work Stealing, Future / Promise, Guarded Suspension, Active Object, and Double-Checked Locking.
 
-**Prerequisites:** the rest of this module, especially [Thread Safety](02_thread-safety.md), [Concurrent Collections](08_concurrent-collections.md), [Executors](10_executors-and-thread-pools.md), and [Deadlock, Livelock, Starvation](14_deadlock-livelock-starvation.md).
-
----
-
-## Pattern overview
-
-| Pattern | Problem it solves | Main tools |
-|---|---|---|
-| Immutable snapshot + atomic swap | Many readers, rare updates, no locks on reads | `volatile` / `AtomicReference` + immutable objects |
-| Thread confinement / single writer | Shared mutable state without locks | Single-thread executor, queue |
-| Producer-consumer | Decouple producing from processing | `BlockingQueue` |
-| Pipeline | Multi-stage processing in parallel | Queues + one pool per stage |
-| Fan-out / fan-in | Run independent calls in parallel, combine | `CompletableFuture`, structured scope, virtual threads |
-| Bulkhead | One slow dependency must not sink everything | Separate pools/semaphores |
-| Backpressure | Fast producers overwhelm slow consumers | Bounded queues, `CallerRunsPolicy`, semaphores |
-| Timeout + deadline | Never wait forever | `tryLock`, `get(timeout)`, `orTimeout` |
-| Graceful shutdown | Stop without losing or corrupting work | `shutdown`, poison pill, interrupts, hooks |
-| Safe lazy initialization | Create an expensive object once | Holder idiom, `volatile` DCL, `computeIfAbsent` |
-
----
-
-## 1. Immutable snapshot + atomic swap
-
-Readers need a consistent view; updates are rare. Make the shared state **immutable**, and replace the whole thing with one atomic reference write.
-
-```java
-record Config(String host, int port, Duration timeout) {}
-
-private volatile Config config = loadConfig();              // or AtomicReference<Config>
-
-void reload() { config = loadConfig(); }                    // writers publish a NEW object
-
-void call() {
-    Config c = config;                                      // read ONCE, then use the local copy
-    connect(c.host(), c.port());                            // always a consistent host+port pair
-}
-```
-
-No locks, no torn reads, no visibility bugs ([note 04](04_memory-model-and-volatile.md)). For read-modify-write from several writers, use `AtomicReference.updateAndGet` ([note 06](06_atomic-classes.md)). It scales to many readers and works for routing tables, feature flags, and caches of derived data.
-
----
-
-## 2. Thread confinement and the single-writer principle
-
-If one thread owns a piece of state, nothing needs locking. Other threads **send it requests** instead of touching the state.
-
-```java
-class Ledger {
-    private final ExecutorService owner = Executors.newSingleThreadExecutor(
-            Thread.ofPlatform().name("ledger-owner").factory());
-    private long balance;                                    // touched ONLY by the owner thread
-
-    CompletableFuture<Long> deposit(long amount) {
-        return CompletableFuture.supplyAsync(() -> balance += amount, owner);
-    }
-    CompletableFuture<Long> balance() {
-        return CompletableFuture.supplyAsync(() -> balance, owner);
-    }
-}
-```
-
-All operations run one at a time on `ledger-owner`, in submission order. This is the essence of the **actor model** and of event-loop designs. Trade-offs: the owner thread is a throughput limit and a single point of blocking (never do slow I/O on it), but correctness is easy to reason about.
-
----
-
-## 3. Producer-consumer
-
-Producers put work on a **bounded `BlockingQueue`**, and consumers take from it. The queue handles waiting, visibility, and handoff ([note 08](08_concurrent-collections.md) has full code with a poison pill).
-
-Why it matters: it decouples *rate* and *failure* of producers from consumers, smooths bursts, and lets you scale consumers independently. The bound is what gives you backpressure (section 6).
-
----
-
-## 4. Pipeline
-
-Split a job into stages, each with its own worker(s), connected by queues. Stages run concurrently on different items:
-
-```text
-  read ──queue──► parse ──queue──► enrich ──queue──► write
- (1 thread)      (4 threads)      (8 threads, I/O)   (1 thread)
-```
-
-```java
-BlockingQueue<String> raw    = new ArrayBlockingQueue<>(1_000);
-BlockingQueue<Record> parsed = new ArrayBlockingQueue<>(1_000);
-
-pool.submit(() -> { for (String line : lines) raw.put(line); raw.put(EOF); return null; });
-pool.submit(() -> {
-    for (String l = raw.take(); !l.equals(EOF); l = raw.take()) parsed.put(parse(l));
-    parsed.put(Record.END);
-    return null;
-});
-pool.submit(() -> { for (Record r = parsed.take(); r != Record.END; r = parsed.take()) save(r); return null; });
-```
-
-Size each stage to its bottleneck (CPU-bound stages by cores, I/O stages higher). Bounded queues stop a fast stage from flooding a slow one. On Java 21+, virtual threads can make I/O-heavy stages much simpler ([note 13](13_virtual-threads-and-structured-concurrency.md)).
-
----
-
-## 5. Fan-out / fan-in
-
-Start independent calls in parallel, then combine, with explicit handling for required and optional parts:
-
-```java
-CompletableFuture<User>        user   = supplyAsync(() -> users.find(id), io).orTimeout(1, SECONDS);
-CompletableFuture<List<Offer>> offers = supplyAsync(() -> offerSvc.forUser(id), io)
-        .completeOnTimeout(List.of(), 300, MILLISECONDS);        // optional: degrade gracefully
-
-Page page = user.thenCombine(offers, Page::new).join();
-```
-
-See [CompletableFuture](12_completablefuture.md) for details and [Virtual Threads](13_virtual-threads-and-structured-concurrency.md) for the structured-scope form with automatic cancellation of siblings.
-
----
-
-## 6. Backpressure: say "slow down" instead of falling over
-
-When producers outpace consumers, something has to give. Without a limit, the "something" is memory (`OutOfMemoryError`). With a limit, the producer slows down or the work is rejected, which is a **decision you make**.
-
-| Mechanism | Behavior when full |
+| Metadata | Value |
 |---|---|
-| Bounded `BlockingQueue` + `put` | Producer **blocks** until space is free |
-| `queue.offer(item, timeout)` | Producer waits a bit, then gets `false` and can shed load |
-| `ThreadPoolExecutor` + bounded queue + `CallerRunsPolicy` | The submitting thread does the work itself (slows the caller) |
-| `Semaphore` around the resource | Excess callers wait or fail fast with `tryAcquire` |
-| HTTP `429` / queue length limits at the edge | Reject early, with a clear error to clients |
-
-Rule: **every queue and every pool needs a bound and a documented overflow behavior.** See [Rate Limiting](../25-real-world-patterns/03_rate-limiting.md).
+| **Level** | Advanced |
+| **Prerequisites** | [08_concurrent-collections.md](08_concurrent-collections.md), [10_executors-and-thread-pools.md](10_executors-and-thread-pools.md), [12_completablefuture.md](12_completablefuture.md) |
+| **Time to Read** | 28 minutes |
+| **Status** | Active |
+| **Java Version** | Java 5.0+ |
 
 ---
 
-## 7. Bulkhead: isolate failure domains
-
-Ship compartments keep one leak from sinking the ship. Likewise, give each dependency its **own pool or semaphore**, so a slow service can only exhaust *its* resources:
-
-```java
-ExecutorService paymentPool   = boundedPool("payments", 10, 50);
-ExecutorService inventoryPool = boundedPool("inventory", 20, 200);
-ExecutorService emailPool     = boundedPool("email", 2, 1_000);       // low-priority, can queue a lot
-
-// If the payment gateway hangs, only paymentPool saturates. Inventory and email keep working.
-```
-
-With a single shared pool, one hung dependency can occupy every thread and stop unrelated features (a form of starvation, [note 14](14_deadlock-livelock-starvation.md)). Combine with timeouts and a circuit breaker ([Circuit Breaker and Resilience](../25-real-world-patterns/06_circuit-breaker-and-resilience.md)).
-
----
-
-## 8. Timeouts and deadlines everywhere
-
-Any call that can block should have a timeout, and the *overall* request should carry a **deadline** that subcalls respect:
-
-```java
-Instant deadline = Instant.now().plusSeconds(2);
-
-Duration remaining = Duration.between(Instant.now(), deadline);
-if (remaining.isNegative()) throw new TimeoutException("deadline exceeded");
-future.get(remaining.toMillis(), TimeUnit.MILLISECONDS);
-```
-
-Per-call timeouts that each allow 2 s can add up to far more than the user is willing to wait. Pass the remaining budget downward. Timeouts only abandon the *wait*, so make the underlying work cancellable too (client timeouts, interruption).
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & Usage](#4-syntax--usage)
+5. [Practical Examples](#5-practical-examples)
+6. [Best Practices](#6-best-practices)
+7. [Common Mistakes & Pitfalls](#7-common-mistakes--pitfalls)
+8. [Performance & Security Notes](#8-performance--security-notes)
+9. [Comparison / When to Use What](#9-comparison--when-to-use-what)
+10. [Interview Questions](#10-interview-questions)
+11. [Practice Exercises](#11-practice-exercises)
+12. [Summary / Cheat Sheet](#12-summary--cheat-sheet)
+13. [Further Reading](#13-further-reading)
 
 ---
 
-## 9. Graceful shutdown
+## 1. What & Why
 
-Stopping a concurrent system badly loses work or leaves things half-written. A reliable sequence:
+### The Value of Battle-Tested Architectural Patterns
+Concurrency problems (race conditions, starvation, deadlocks) are notoriously difficult to debug and reproduce. Designing ad-hoc multi-threaded synchronization leads to fragile, unmaintainable software.
+**Concurrency Design Patterns** represent proven, reusable architectural blueprints developed over decades by systems engineers to decouple tasks, maximize hardware throughput, and eliminate synchronization hazards.
 
-```text
-1. Stop accepting new work           (close the listener / flip a flag / shutdown() the executor)
-2. Let in-flight work finish         (awaitTermination with a deadline)
-3. Interrupt stragglers              (shutdownNow(); tasks must respond to interrupts)
-4. Flush and close resources         (queues drained, files, connections)
+---
+
+## 2. Core Concepts
+
+### Catalog of Essential Patterns
+1. **Producer-Consumer**: Decouples components producing work from components consuming work via a shared buffer (`BlockingQueue`).
+2. **Thread Pool (Worker Threads)**: Manages a pool of reusable worker threads to execute incoming tasks, avoiding thread creation overhead.
+3. **Reader-Writer**: Allows concurrent multiple readers while enforcing exclusive access for writers (`ReentrantReadWriteLock`).
+4. **Work Stealing**: Idle worker threads steal tasks from busy workers' deques (`ForkJoinPool`).
+5. **Future / Promise**: Represents the eventual result of an asynchronous operation (`CompletableFuture`).
+6. **Guarded Suspension**: Suspends execution until a precondition is met (`while (!condition) wait()`).
+7. **Active Object**: Decouples method execution from method invocation by packaging requests into message queues processed by a private thread.
+8. **Double-Checked Locking (DCL)**: Lazily initializes a shared resource safely while avoiding synchronization overhead on subsequent reads.
+
+---
+
+## 3. How It Works Internally
+
+### Active Object Pattern Architecture
+The Active Object pattern transforms synchronous method calls into asynchronous messages:
+```mermaid
+flowchart LR
+    A[Client Code] -->|Method Call| B[Proxy]
+    B -->|Create MethodRequest| C[Scheduler / Activation Queue]
+    C -->|Dispatch| D[Servant / Execution Thread]
+    B -.->|Return immediately| E[Future / Promise]
+    D -->|Fulfill Result| E
+```
+The client calls a method on the proxy, which encapsulates the call into a `MethodRequest` object and enqueues it. A single background servant thread processes requests sequentially, **completely eliminating synchronization inside domain objects**.
+
+---
+
+## 4. Syntax & Usage
+
+### Producer-Consumer Pattern with Poison Pill
+```java
+import java.util.concurrent.*;
+
+public class PoisonPillProducerConsumer {
+    private static final String POISON_PILL = "END_OF_WORK_SIGNAL";
+
+    public static void main(String[] args) throws Exception {
+        BlockingQueue<String> queue = new LinkedBlockingQueue<>(10);
+
+        // Producer
+        Thread producer = Thread.ofPlatform().start(() -> {
+            try {
+                for (int i = 1; i <= 5; i++) {
+                    queue.put("ITEM-" + i);
+                }
+                queue.put(POISON_PILL); // Send shutdown sentinel
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+
+        // Consumer
+        Thread consumer = Thread.ofPlatform().start(() -> {
+            try {
+                while (true) {
+                    String item = queue.take();
+                    if (POISON_PILL.equals(item)) {
+                        System.out.println("Poison pill received. Consumer shutting down.");
+                        break;
+                    }
+                    System.out.println("Processed: " + item);
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+
+        producer.join();
+        consumer.join();
+    }
+}
 ```
 
+---
+
+## 5. Practical Examples
+
+### Example 1: Active Object Pattern Implementation
 ```java
-Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-    acceptor.stop();                                         // 1
-    workers.shutdown();
-    try {
-        if (!workers.awaitTermination(20, TimeUnit.SECONDS)) {   // 2
-            workers.shutdownNow();                               // 3
+// Goal: Decouple service invocation from execution using an Active Object queue
+import java.util.concurrent.*;
+
+public class ActiveOrderService {
+    private final BlockingQueue<Runnable> dispatchQueue = new LinkedBlockingQueue<>();
+    private final Thread servantThread;
+    private volatile boolean running = true;
+
+    public ActiveOrderService() {
+        servantThread = Thread.ofPlatform().name("OrderServant").start(() -> {
+            while (running || !dispatchQueue.isEmpty()) {
+                try {
+                    Runnable task = dispatchQueue.poll(100, TimeUnit.MILLISECONDS);
+                    if (task != null) task.run();
+                } catch (InterruptedException ignored) {}
+            }
+        });
+    }
+
+    // Client invokes method asynchronously; returns a CompletableFuture
+    public CompletableFuture<String> processOrder(String orderId) {
+        CompletableFuture<String> promise = new CompletableFuture<>();
+        dispatchQueue.offer(() -> {
+            // Executed strictly sequentially by servant thread! Zero race conditions!
+            System.out.println("Servant executing order: " + orderId);
+            promise.complete("ORDER_PROCESSED_" + orderId);
+        });
+        return promise;
+    }
+}
+```
+
+### Example 2: Guarded Suspension Pattern (Wait for Network Connection)
+```java
+// Goal: Suspend caller until a network link becomes available
+public class NetworkGuardedSuspension {
+    private boolean connected = false;
+
+    public synchronized void send(String payload) throws InterruptedException {
+        // Guarded suspension: check precondition in while loop
+        while (!connected) {
+            System.out.println("Link down; suspending send call...");
+            wait();
         }
-    } catch (InterruptedException e) {
-        workers.shutdownNow();
-        Thread.currentThread().interrupt();
+        System.out.println("Payload sent over active link: " + payload);
     }
-}, "shutdown-hook"));
-```
 
-Details: use **poison pills** to end consumers that wait on queues ([note 08](08_concurrent-collections.md)); make tasks **idempotent** so work interrupted mid-way can safely be re-run ([Idempotency](../25-real-world-patterns/04_idempotency.md)); keep shutdown hooks short and don't start threads that need other hooks to finish. Frameworks normally provide lifecycle callbacks that are better than raw hooks.
+    public synchronized void onConnected() {
+        this.connected = true;
+        notifyAll(); // Wake up suspended senders
+    }
+}
+```
 
 ---
 
-## 10. Safe lazy initialization and memoization
+### The Disruptor Pattern: High-Throughput Lock-Free Ring Buffer
+Pioneered by LMAX Exchange, the Disruptor pattern replaces traditional `BlockingQueue` implementations in low-latency trading systems. Instead of queue head/tail pointers requiring locks or atomic contention, the Disruptor uses a pre-allocated circular ring buffer where multiple producers and consumers coordinate using cache-line padded sequence counters and memory barriers, achieving millions of operations per second with near-zero latency jitter.
+
+### Half-Sync/Half-Async Pattern
+The Half-Sync/Half-Async pattern structures concurrent systems into two distinct layers:
+1. **Asynchronous Layer**: Handles incoming external socket I/O non-blockingly using selectors or epoll events.
+2. **Synchronous Layer**: Dispatches decoded request messages to dedicated worker threads that execute business operations synchronously.
+This pattern cleanly decouples network multiplexing from complex business workflow logic.
+
+## 6. Best Practices
+1. **Prefer `BlockingQueue` for Producer-Consumer**: Avoid manual `wait()`/`notify()` coordination; `BlockingQueue` handles capacity, blocking, and backpressure out of the box.
+2. **Use Sentinel / Poison Pill for Graceful Shutdown**: Pass a recognizable marker object to notify consumer threads to exit cleanly.
+3. **Keep Shared Mutexes Minimal**: Use Active Object or Actor patterns to confine state mutations to a single thread rather than synchronizing shared state across dozens of threads.
+4. **Use ReadWriteLock for 90%+ Read Ratios**: If write frequency is high, ReadWriteLock performs worse than simple ReentrantLock due to bookkeeping overhead.
+5. **Always Make DCL Fields `volatile`**: Double-Checked Locking without `volatile` is fundamentally broken.
+
+---
+
+## 7. Common Mistakes & Pitfalls
+
+| Mistake | Why Wrong | Fix |
+|---|---|---|
+| Unbounded queue in Producer-Consumer | Memory consumption grows without bound if producers outpace consumers. | Use bounded queue (`ArrayBlockingQueue(N)`). |
+| Using `notify()` instead of `notifyAll()` in Guarded Suspension | Can wake the wrong thread, stalling the pipeline. | Always use `notifyAll()`. |
+| Missing `volatile` in Double-Checked Locking | Reordering leads to reading partially constructed objects. | Add `volatile` to the singleton instance field. |
+| Forgetting Poison Pill for all consumers | If multiple consumers exist, sending one poison pill stops only one consumer. | Send one poison pill per consumer thread. |
+
+---
+
+## 8. Performance & Security Notes
+
+### Backpressure Enforcement
+In Producer-Consumer architectures, if producers generate 100,000 tasks per second but consumers process only 10,000, unbounded buffers will exhaust system heap memory. Bounded queues apply backpressure by blocking producers until consumers catch up, stabilizing production memory footprints.
+
+---
+
+## 9. Comparison / When to Use What
+
+| Pattern | Concurrency Mechanism | Best Suited For |
+|---|---|---|
+| **Producer-Consumer** | Bounded `BlockingQueue` | Task decoupling, backpressure |
+| **Active Object** | Single-thread message queue | Complex stateful services |
+| **Reader-Writer** | `ReentrantReadWriteLock` | High-frequency read caches |
+| **Work Stealing** | Dual-ended deques | Recursive divide-and-conquer math |
+| **Guarded Suspension** | `wait()` / `notifyAll()` | State precondition waiting |
+
+---
+
+## 10. Interview Questions
+
+<details>
+<summary>1. What is the Producer-Consumer pattern and how is it implemented in Java?</summary>
+A pattern that decouples work submission from work processing using a shared buffer. In Java, it is implemented using `BlockingQueue` implementations like `ArrayBlockingQueue` or `LinkedBlockingQueue`.
+</details>
+
+<details>
+<summary>2. What is a Poison Pill in Producer-Consumer architectures?</summary>
+A special sentinel object placed onto the queue by the producer to signal to consumer threads that no more data will arrive, allowing consumers to terminate cleanly.
+</details>
+
+<details>
+<summary>3. What is the Active Object Pattern?</summary>
+A pattern that decouples method execution from method invocation by encapsulating method calls into objects enqueued onto an activation queue and processed by a dedicated scheduler thread, returning a Future.
+</details>
+
+<details>
+<summary>4. What is Guarded Suspension?</summary>
+A pattern where a method suspends execution (via `wait()` in a while loop) until a specific precondition or state condition becomes true.
+</details>
+
+<details>
+<summary>5. How many poison pills must be submitted if there are $N$ consumer threads?</summary>
+Exactly $N$ poison pills. Each consumer consumes one poison pill and terminates; subsequent consumers need their own poison pill.
+</details>
+
+<details>
+<summary>6. When should you avoid using `ReentrantReadWriteLock`?</summary>
+When write contention is frequent or the read duration is very short. The bookkeeping overhead of maintaining read/write lock counters can make it slower than a standard `ReentrantLock`.
+</details>
+
+<details>
+<summary>7. How does the Thread Pool pattern prevent OutOfMemory errors?</summary>
+By capping the maximum number of simultaneously executing threads and bounding the task queue, insulating the JVM from traffic spikes.
+</details>
+
+<details>
+<summary>8. How does the Actor Model relate to the Active Object pattern?</summary>
+Both patterns rely on message passing and thread confinement: state is never shared; actors/active objects communicate exclusively by exchanging asynchronous messages.
+</details>
+
+---
+
+## 11. Practice Exercises
+
+### Exercise 1 (Easy): Multi-Consumer Poison Pill
+- **Task**: Implement a producer-consumer setup with 3 consumers and 1 producer. Submit 10 items, followed by 3 poison pills, and verify all consumers exit.
+<details>
+<summary>Solution</summary>
 
 ```java
-// Holder idiom: lazy, thread-safe, lock-free after init
-class Services {
-    private static class Holder { static final HeavyService INSTANCE = new HeavyService(); }
-    static HeavyService get() { return Holder.INSTANCE; }
-}
+import java.util.concurrent.*;
 
-// Per-key, compute once, safely shared
-private final ConcurrentHashMap<String, Report> reports = new ConcurrentHashMap<>();
-Report report(String key) { return reports.computeIfAbsent(key, this::generate); }   // keep generate() short and non-recursive
+public class MultiConsumerPoisonPill {
+    private static final String POISON = "SHUTDOWN";
+
+    public static void main(String[] args) throws Exception {
+        BlockingQueue<String> queue = new LinkedBlockingQueue<>();
+        int consumers = 3;
+
+        // Start consumers
+        for (int i = 1; i <= consumers; i++) {
+            final int id = i;
+            Thread.ofPlatform().start(() -> {
+                try {
+                    while (true) {
+                        String item = queue.take();
+                        if (POISON.equals(item)) break;
+                        System.out.println("Consumer " + id + " processed: " + item);
+                    }
+                    System.out.println("Consumer " + id + " exited cleanly.");
+                } catch (InterruptedException ignored) {}
+            });
+        }
+
+        // Producer sends 5 items + 3 poison pills
+        for (int i = 1; i <= 5; i++) queue.put("TASK-" + i);
+        for (int i = 0; i < consumers; i++) queue.put(POISON);
+    }
+}
+```
+</details>
+
+### Exercise 2 (Medium): Rate-Throttled Token Bucket Pattern
+- **Task**: Implement a `TokenBucket` pattern that releases 5 permits every second using `ScheduledExecutorService` and `Semaphore`.
+<details>
+<summary>Solution</summary>
+
+```java
+import java.util.concurrent.*;
+
+public class TokenBucket {
+    private final Semaphore tokens;
+    private final int capacity;
+
+    public TokenBucket(int capacity, int refillPerSecond) {
+        this.capacity = capacity;
+        this.tokens = new Semaphore(capacity);
+
+        ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+        scheduler.scheduleAtFixedRate(() -> {
+            int current = tokens.availablePermits();
+            int toAdd = Math.min(refillPerSecond, capacity - current);
+            if (toAdd > 0) tokens.release(toAdd);
+        }, 1, 1, TimeUnit.SECONDS);
+    }
+
+    public boolean tryAcquire() {
+        return tokens.tryAcquire();
+    }
+}
+```
+</details>
+
+### Exercise 3 (Hard): Active Object File Writer
+- **Task**: Implement an `ActiveFileWriter` that allows multiple threads to asynchronously write lines to a log file without locks, processed sequentially by a private worker thread.
+<details>
+<summary>Solution</summary>
+
+```java
+import java.util.concurrent.*;
+
+public class ActiveFileWriter implements AutoCloseable {
+    private final BlockingQueue<String> queue = new LinkedBlockingQueue<>();
+    private final Thread worker;
+    private volatile boolean running = true;
+
+    public ActiveFileWriter() {
+        worker = Thread.ofPlatform().start(() -> {
+            while (running || !queue.isEmpty()) {
+                try {
+                    String line = queue.poll(50, TimeUnit.MILLISECONDS);
+                    if (line != null) {
+                        System.out.println("[WRITE TO DISK]: " + line);
+                    }
+                } catch (InterruptedException ignored) {}
+            }
+        });
+    }
+
+    public void append(String line) {
+        queue.offer(line);
+    }
+
+    @Override
+    public void close() throws Exception {
+        running = false;
+        worker.join();
+    }
+}
+```
+</details>
+
+---
+
+## 12. Summary / Cheat Sheet
+
+```
++-----------------------------------------------------------------------------------------+
+|                               CONCURRENCY PATTERNS CHEAT SHEET                          |
++-----------------------------------------------------------------------------------------+
+| Producer-Consumer        | BlockingQueue with backpressure + Poison Pill for shutdown   |
+| Active Object            | Method calls turn into queue messages; single servant thread |
+| Guarded Suspension       | while (!ready) wait(); ... onStateChange() -> notifyAll();   |
+| Double-Checked Locking   | if (inst == null) synchronized { if (inst == null) ... }     |
+| DCL Golden Rule          | Singleton reference MUST be declared volatile                |
+| Read-Write Pattern       | ReentrantReadWriteLock (Multiple readers, exclusive writer)  |
+| Work-Stealing Pattern    | ForkJoinPool with dual-ended deques                          |
++-----------------------------------------------------------------------------------------+
 ```
 
-More in [Thread Safety](02_thread-safety.md#lazy-initialization), [Memory Model](04_memory-model-and-volatile.md#5-double-checked-locking), [Singleton](../24-design-patterns/01-creational/00_singleton.md). For expensive computations that must run once with waiting callers, store a `CompletableFuture` (or `FutureTask`) in the map instead of the value, so concurrent callers share the in-flight computation.
-
 ---
 
-## 11. Choosing a design: questions to ask
-
-1. **Can this state be immutable or confined to one thread?** If yes, stop. No locking needed.
-2. **Is the work waiting or computing?** Waiting → virtual threads or a larger I/O pool. Computing → pool sized to cores.
-3. **What is bounded?** Queue sizes, thread counts, in-flight requests, and downstream concurrency should all have limits.
-4. **What happens on overload, on timeout, on failure, on shutdown?** If you can't answer, the design isn't finished.
-5. **How will I observe it?** Named threads, queue-length and wait-time metrics, and the ability to take a thread dump.
-
----
-
-## Common mistakes
-
-| Mistake | Fix |
-|---|---|
-| Unbounded queues and pools "for simplicity" | Bound them and choose an overflow policy |
-| One shared pool for all dependencies | Bulkheads: pools or semaphores per dependency |
-| Reading a `volatile` snapshot field multiple times inside one operation | Copy it to a local once |
-| Doing slow I/O on a confined/single-writer thread | Keep the owner thread's work small and non-blocking |
-| No timeouts on remote calls and waits | Timeouts and an overall deadline |
-| Shutting down with `System.exit` or `shutdownNow` only | Graceful sequence with a deadline, then force |
-| Non-idempotent tasks with retries or shutdown re-runs | Make tasks idempotent |
-| Poison pill sent once to several consumers | One per consumer (or re-queue it) |
-| Inventing a custom concurrency primitive | Use the `java.util.concurrent` building blocks |
-| Patterns applied without metrics | Export queue size, pool saturation, rejection counts, and latency |
-
-### Debugging
-
-- **Latency spikes with idle CPU** → queueing or a slow dependency. Check queue lengths, pool active counts, and downstream latency.
-- **Memory growth** → an unbounded queue or unbounded task creation somewhere. Find the structure that only grows.
-- **Hang on shutdown** → non-daemon threads still running, consumers waiting for a pill that never came, or tasks ignoring interrupts. Take a thread dump.
-- **One feature taking everything down** → missing bulkhead. Look at thread dumps for one pool's threads all stuck on the same call.
-
----
-
-## Quick Summary
-
-- Prefer designs that **avoid shared mutable state**: immutable snapshots, confinement, single writer, message passing.
-- Connect stages with **bounded queues**: they give you producer-consumer, pipelines, and backpressure at once.
-- **Bulkhead** by dependency, **time out** every wait, and carry a **deadline** across calls.
-- Fan out independent calls with `CompletableFuture`, virtual threads, or structured scopes, with clear required vs optional handling.
-- Shut down in four steps: stop intake, drain, interrupt, close, with idempotent work.
-- Lazily initialize with the holder idiom or `computeIfAbsent`, and observe everything: names, queue metrics, thread dumps.
-
-**Next module:** [JVM Internals](../15-jvm-internals/README.md)
+## 13. Further Reading
+- Design Patterns: Elements of Reusable Object-Oriented Software (GoF)
+- Pattern-Oriented Software Architecture (POSA Volume 2): Patterns for Concurrent and Networked Objects
+- Java Concurrency in Practice by Brian Goetz

@@ -1,210 +1,435 @@
 # Concurrent Collections
 
-The ordinary collections (`ArrayList`, `HashMap`, `ArrayDeque`) are **not thread-safe**. The `java.util.concurrent` package provides collections designed for concurrent use that are safer *and* far more scalable than wrapping a regular collection in one big lock.
+> Comprehensive guide to high-throughput thread-safe collections in `java.util.concurrent`: `ConcurrentHashMap` internals (CAS + synchronized buckets, CounterCell striping), `CopyOnWriteArrayList`, `ConcurrentSkipListMap`, and `BlockingQueue` variants.
 
-They give you three things: **thread safety**, **atomic compound operations** (like `putIfAbsent`), and **iterators that don't throw `ConcurrentModificationException`**.
-
-**Prerequisites:** [Thread Safety](02_thread-safety.md), [Map](../08-collections/03_map.md), [Queue and Deque](../08-collections/04_queue-and-deque.md), [Iterators and Fail-Fast Behavior](../08-collections/12_iterators-and-fail-fast-behavior.md).
-
----
-
-## 1. Why not just `Collections.synchronizedX`?
-
-```java
-Map<String, Integer> m = Collections.synchronizedMap(new HashMap<>());
-```
-
-This wraps **every method in one lock**, so:
-
-- Only one thread at a time can touch the map (poor scalability).
-- **Compound actions are still racy**: `if (!m.containsKey(k)) m.put(k, v)` is two calls.
-- **Iterating requires manual locking** (`synchronized (m) { for (...) }`), or you risk `ConcurrentModificationException`.
-
-`Vector` and `Hashtable` are the legacy equivalents. Prefer the `java.util.concurrent` classes below.
-
----
-
-## 2. `ConcurrentHashMap`
-
-A hash map for many concurrent readers and writers. Reads are essentially lock-free, and writes lock only a small part of the table (per bin), so threads updating different keys rarely block each other.
-
-```java
-ConcurrentHashMap<String, Integer> counts = new ConcurrentHashMap<>();
-
-counts.merge("apple", 1, Integer::sum);                  // atomic "increment or insert"
-counts.putIfAbsent("pear", 0);                           // atomic check-then-put
-counts.computeIfAbsent("kiwi", k -> loadFromDb(k));      // compute once per key, atomically
-counts.compute("apple", (k, v) -> v == null ? 1 : v + 1);// atomic read-modify-write for one key
-counts.replace("apple", 3, 4);                           // CAS-style: only if current value is 3
-counts.remove("apple", 4);                               // remove only if the value matches
-```
-
-These methods are the point of the class: **use them instead of `get` followed by `put`**. Each is atomic per key.
-
-### Rules and gotchas
-
-- **No `null` keys or values.** `put(k, null)` throws `NullPointerException` (so `get(k) == null` unambiguously means "absent"). Use `Optional` or a sentinel value if you need "present but empty".
-- **Keep `compute*`/`merge` functions short, quick, and side-effect free.** They run while the key's bin is locked. They must **not** modify the map (including recursively calling `computeIfAbsent` on the same map). Doing so can throw `IllegalStateException` ("Recursive update") or hang. Never do blocking I/O inside them.
-- **`size()` and iteration are approximate under concurrent modification.** Use `mappingCount()` for a `long` count. Iterators are **weakly consistent**: they never throw `ConcurrentModificationException` and may or may not reflect updates made after the iterator was created.
-- **Compound operations across keys aren't atomic.** Moving a value from key A to key B is two separate operations, and another thread can see the in-between state.
-- A concurrent set: `Set<String> set = ConcurrentHashMap.newKeySet();`
-
-### Bulk operations
-
-```java
-long parallelismThreshold = 1_000;   // use parallelism only when the map has more than this many elements
-counts.forEach(parallelismThreshold, (k, v) -> process(k, v));
-long total = counts.reduceValues(parallelismThreshold, Integer::sum);
-String found = counts.search(parallelismThreshold, (k, v) -> v > 100 ? k : null);
-```
-
-Example: concurrent word count
-
-```java
-Map<String, Long> freq = new ConcurrentHashMap<>();
-lines.parallelStream()
-     .flatMap(l -> Arrays.stream(l.split("\\W+")))
-     .forEach(w -> freq.merge(w, 1L, Long::sum));
-```
-
-(For streams, `Collectors.groupingBy` with a downstream `counting()` is usually cleaner: [Collectors](../09-functional-java/06_collectors.md).)
-
----
-
-## 3. Copy-on-write collections
-
-`CopyOnWriteArrayList` and `CopyOnWriteArraySet` make a **fresh copy of the underlying array on every modification**. Readers iterate over an immutable **snapshot**, so they never block and never see a `ConcurrentModificationException`.
-
-```java
-private final List<Listener> listeners = new CopyOnWriteArrayList<>();
-
-void addListener(Listener l) { listeners.add(l); }                  // copies the array: O(n)
-void fire(Event e) { for (Listener l : listeners) l.on(e); }        // safe even if a listener (un)registers itself
-```
-
-| Good for | Bad for |
+| Metadata | Value |
 |---|---|
-| Read-mostly lists: **listeners**, observers, configuration lists | Frequent writes (each is O(n) with allocation) |
-| Iteration that must tolerate concurrent modification | Large lists with frequent changes |
-
-Iterators reflect the state **at creation time** and can't remove (`remove()` throws `UnsupportedOperationException`).
+| **Level** | Advanced |
+| **Prerequisites** | [08-collections/00_collection-hierarchy.md](../08-collections/00_collection-hierarchy.md), [05_locks.md](05_locks.md), [06_atomic-classes.md](06_atomic-classes.md) |
+| **Time to Read** | 28 minutes |
+| **Status** | Active |
+| **Java Version** | Java 5.0+ (Java 8 ConcurrentHashMap rewrite) |
 
 ---
 
-## 4. Queues
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & Usage](#4-syntax--usage)
+5. [Practical Examples](#5-practical-examples)
+6. [Best Practices](#6-best-practices)
+7. [Common Mistakes & Pitfalls](#7-common-mistakes--pitfalls)
+8. [Performance & Security Notes](#8-performance--security-notes)
+9. [Comparison / When to Use What](#9-comparison--when-to-use-what)
+10. [Interview Questions](#10-interview-questions)
+11. [Practice Exercises](#11-practice-exercises)
+12. [Summary / Cheat Sheet](#12-summary--cheat-sheet)
+13. [Further Reading](#13-further-reading)
 
-### Non-blocking: `ConcurrentLinkedQueue` / `ConcurrentLinkedDeque`
+---
 
-Lock-free, unbounded, thread-safe FIFO (and double-ended). `poll()` returns `null` when empty. `size()` is **O(n)** and approximate, so use `isEmpty()`. Good when consumers can poll without waiting.
+## 1. What & Why
 
-### Blocking: `BlockingQueue`
-
-A queue where producers can **wait for space** and consumers can **wait for items**. This is the standard way to hand work between threads.
-
-| | Throws exception | Special value | Blocks | Times out |
-|---|---|---|---|---|
-| Insert | `add(e)` | `offer(e)` | `put(e)` | `offer(e, t, unit)` |
-| Remove | `remove()` | `poll()` | `take()` | `poll(t, unit)` |
-| Examine | `element()` | `peek()` | | |
-
-| Implementation | Notes |
-|---|---|
-| `ArrayBlockingQueue` | **Bounded**, array-backed, optional fairness |
-| `LinkedBlockingQueue` | Linked nodes, **optionally bounded**. Default capacity is `Integer.MAX_VALUE`, i.e. effectively unbounded |
-| `PriorityBlockingQueue` | Unbounded, ordered by priority (iteration order is *not* sorted) |
-| `DelayQueue` | Elements become available only after their delay expires (scheduling) |
-| `SynchronousQueue` | **Zero capacity**: each `put` waits for a matching `take` (direct hand-off; used by cached thread pools) |
-| `LinkedBlockingDeque`, `LinkedTransferQueue` | Double-ended / transfer semantics |
-
-### Producer-consumer
-
+### The Bottleneck of Synchronized Wrappers
+In early Java, thread safety for collections was achieved via synchronized wrappers:
 ```java
-record Job(String payload) {}
-private static final Job POISON = new Job(null);              // sentinel meaning "no more work"
+Map<K, V> syncMap = Collections.synchronizedMap(new HashMap<>());
+```
+`Collections.synchronizedMap` wraps every method call inside a single monolithic lock on the map instance. When 100 concurrent threads access the map, 99 threads are blocked waiting for the single lock, collapsing throughput to that of a single-threaded system.
 
-BlockingQueue<Job> queue = new ArrayBlockingQueue<>(100);     // bounded → backpressure
+### The Solution: `java.util.concurrent` Collections
+Designed by Doug Lea, modern concurrent collections provide high concurrency without coarse-grained locks:
+- Non-blocking lock-free reads.
+- Fine-grained bucket-level synchronization for writes.
+- Weakly consistent, fail-safe iterators that never throw `ConcurrentModificationException`.
+- Specialized producers-consumers blocking queues with backpressure support.
 
-Runnable producer = () -> {
-    try {
-        for (String s : inputs) queue.put(new Job(s));        // blocks if the queue is full
-        queue.put(POISON);                                    // tell the consumer to stop
-    } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
-};
+---
 
-Runnable consumer = () -> {
-    try {
-        for (Job job = queue.take(); job != POISON; job = queue.take()) {   // blocks if empty
-            process(job);
+## 2. Core Concepts
+
+### `ConcurrentHashMap`
+The flagship concurrent map in Java:
+- Reads (`get()`) are completely lock-free via volatile field reads.
+- Writes (`put()`) lock only the specific head node of the target hash bucket.
+- Atomic compound methods: `putIfAbsent()`, `computeIfAbsent()`, `computeIfPresent()`, `merge()`.
+
+### `CopyOnWriteArrayList`
+A thread-safe variant of `ArrayList` where all mutative operations (`add`, `set`, `remove`) create a fresh copy of the underlying array:
+- Iterators read an immutable snapshot array; they never block, never lock, and never throw `ConcurrentModificationException`.
+- Writes are expensive ($O(N)$ memory copy). Ideal for read-heavy, write-rare lists (like event listener registries).
+
+### `ConcurrentSkipListMap` and `ConcurrentSkipListSet`
+A scalable concurrent alternative to `TreeMap`:
+- Implemented as a lock-free probabilistic **Skip List**.
+- Maintains sorted order with $O(\log N)$ time complexity for search, insertion, and deletion.
+
+### `BlockingQueue` Family
+Thread-safe queues designed for producer-consumer workflows that block threads on insertion when full and on retrieval when empty:
+- `ArrayBlockingQueue`: Bounded array with a single lock.
+- `LinkedBlockingQueue`: Optionally bounded linked nodes with two separate locks (`takeLock` and `putLock`).
+- `SynchronousQueue`: Zero-capacity direct handoff queue.
+- `PriorityBlockingQueue`: Unbounded heap-based priority queue.
+
+---
+
+## 3. How It Works Internally
+
+### `ConcurrentHashMap` Architecture (Java 8+ Rewrite)
+In Java 7, `ConcurrentHashMap` used 16 Segment locks. In Java 8+, it was rewritten:
+1. **Array of `Node<K, V>`**: The bucket array is declared `transient volatile Node<K, V>[] table;`.
+2. **Lock-Free Empty Insert**: If the target bucket is empty (`table[i] == null`), the node is inserted via a single hardware CAS instruction (`casTabAt`) without acquiring any lock!
+3. **Bucket Head Lock**: If the bucket is occupied, the thread synchronizes **only on the head `Node`** of that specific bucket (`synchronized(f)`). Other threads accessing different buckets proceed concurrently!
+4. **Treeification**: When a bucket exceeds 8 nodes, it converts into a Red-Black Tree (`TreeBin`).
+5. **Striped Counter**: Size is tracked using `CounterCell` striped cells (identical to `LongAdder`), avoiding global counter contention.
+
+```mermaid
+flowchart TD
+    A[put key, val] --> B[Calculate Hash Bucket Index]
+    B --> C{table index is empty?}
+    C -- Yes --> D[Insert via CAS casTabAt: Zero Locks!]
+    C -- No --> E[Synchronize ONLY on Head Node of that bucket]
+    E --> F[Traverse linked list or Red-Black TreeBin]
+    F --> G[Insert/Update element & Release Node lock]
+    G --> H[Update CounterCell striped counter]
+```
+
+---
+
+## 4. Syntax & Usage
+
+### Atomic Map Operations with `computeIfAbsent`
+```java
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.LongAdder;
+
+public class FrequencyCounter {
+    private final ConcurrentHashMap<String, LongAdder> wordCounts = new ConcurrentHashMap<>();
+
+    public void recordWord(String word) {
+        // computeIfAbsent is atomic: creates LongAdder only once per unique key!
+        wordCounts.computeIfAbsent(word, k -> new LongAdder()).increment();
+    }
+
+    public long getCount(String word) {
+        LongAdder adder = wordCounts.get(word);
+        return (adder != null) ? adder.sum() : 0L;
+    }
+}
+```
+
+### Producer-Consumer with `BlockingQueue`
+```java
+import java.util.concurrent.*;
+
+public class WorkerQueueDemo {
+    private final BlockingQueue<String> queue = new ArrayBlockingQueue<>(100);
+
+    public void produce(String task) throws InterruptedException {
+        queue.put(task); // Blocks if buffer is full (backpressure)
+    }
+
+    public String consume() throws InterruptedException {
+        return queue.take(); // Blocks if queue is empty
+    }
+}
+```
+
+---
+
+## 5. Practical Examples
+
+### Example 1: Thread-Safe LRU Cache via `ConcurrentLinkedDeque`
+```java
+// Goal: Construct high-throughput thread-safe cache with bounded capacity
+import java.util.concurrent.*;
+
+public class SimpleConcurrentCache<K, V> {
+    private final int capacity;
+    private final ConcurrentHashMap<K, V> map = new ConcurrentHashMap<>();
+    private final ConcurrentLinkedDeque<K> accessOrder = new ConcurrentLinkedDeque<>();
+
+    public SimpleConcurrentCache(int capacity) {
+        this.capacity = capacity;
+    }
+
+    public V get(K key) {
+        V val = map.get(key);
+        if (val != null) {
+            accessOrder.remove(key);
+            accessOrder.addLast(key);
         }
-    } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
-};
+        return val;
+    }
+
+    public void put(K key, V val) {
+        if (map.put(key, val) == null) {
+            accessOrder.addLast(key);
+        }
+        if (map.size() > capacity) {
+            K oldest = accessOrder.pollFirst();
+            if (oldest != null) {
+                map.remove(oldest);
+            }
+        }
+    }
+}
 ```
 
-**Bounded queues matter.** If producers are faster than consumers, an unbounded queue just grows until `OutOfMemoryError`. A bounded queue makes producers *wait*, which is **backpressure**. Thread pools have the same trap ([Executors](10_executors-and-thread-pools.md)).
+### Example 2: CopyOnWriteArrayList for Event Listeners
+```java
+// Goal: High-concurrency event broadcasting without locking readers
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
-With several consumers, send one poison pill per consumer, or have each consumer re-insert the pill before exiting.
+public class EventBroadcaster {
+    public interface Listener { void onEvent(String msg); }
 
----
+    private final List<Listener> listeners = new CopyOnWriteArrayList<>();
 
-## 5. Sorted concurrent collections
+    public void register(Listener l) {
+        listeners.add(l); // Expensive write copy
+    }
 
-`ConcurrentSkipListMap` and `ConcurrentSkipListSet` are **sorted** (natural order or a `Comparator`), thread-safe, navigable (`floorKey`, `ceilingEntry`, `headMap`, ...), with O(log n) operations and no global lock. Use them instead of `TreeMap`/`TreeSet` when multiple threads need ordered access. `ConcurrentHashMap` is faster when you don't need ordering.
+    public void unregister(Listener l) {
+        listeners.remove(l);
+    }
 
----
+    public void broadcast(String message) {
+        // Completely lock-free iteration over snapshot! Zero contention!
+        for (Listener l : listeners) {
+            l.onEvent(message);
+        }
+    }
+}
+```
 
-## 6. Choosing
+### Example 3: Edge Case: Null Keys and Values Forbidden
+```java
+// Goal: Demonstrate why ConcurrentHashMap throws NullPointerException
+import java.util.concurrent.ConcurrentHashMap;
 
-| You need... | Use |
-|---|---|
-| A shared map/cache with atomic per-key updates | `ConcurrentHashMap` |
-| A concurrent set | `ConcurrentHashMap.newKeySet()` |
-| A sorted concurrent map/set | `ConcurrentSkipListMap/Set` |
-| A list that's read constantly and rarely changed (listeners) | `CopyOnWriteArrayList` |
-| Hand work between threads, with backpressure | `ArrayBlockingQueue` / bounded `LinkedBlockingQueue` |
-| Direct hand-off with no buffering | `SynchronousQueue` |
-| Priority-ordered work | `PriorityBlockingQueue` |
-| Delayed/scheduled items | `DelayQueue` (or a `ScheduledExecutorService`) |
-| Lock-free queue that never blocks | `ConcurrentLinkedQueue` |
-| Constant data | Immutable collections (`List.of`, `Map.of`), which are safe to share ([Immutable and Unmodifiable Collections](../08-collections/13_immutable-and-unmodifiable-collections.md)) |
-| Just one thread uses it | Plain `ArrayList` / `HashMap` |
-
-For caches with eviction, expiry, and statistics, use a cache library rather than a hand-rolled `ConcurrentHashMap` ([Caching](../25-real-world-patterns/00_caching.md)).
-
----
-
-## Common mistakes
-
-| Mistake | Fix |
-|---|---|
-| `if (!map.containsKey(k)) map.put(k, v)` on a `ConcurrentHashMap` | `putIfAbsent` / `computeIfAbsent` / `merge` |
-| Storing `null` keys/values in `ConcurrentHashMap` | Use `Optional` or a sentinel |
-| Slow or blocking code inside `computeIfAbsent`/`merge` | Compute first, then insert; keep mapping functions tiny |
-| Recursive `computeIfAbsent` on the same map (for example memoized Fibonacci) | Use an explicit get/put, or restructure |
-| Assuming `size()` is exact under concurrent writes | It's an estimate; use it for monitoring |
-| Assuming ordering of `PriorityBlockingQueue` iteration | Only `poll`/`take` honor priority |
-| Unbounded `LinkedBlockingQueue` between fast producers and slow consumers | Give it a capacity |
-| Using `CopyOnWriteArrayList` for write-heavy lists | Use another structure |
-| Using `HashMap`/`ArrayList` from several threads "because it's mostly reads" | Switch to a concurrent or immutable collection |
-| Iterating a `synchronizedList` without locking | `synchronized (list) { ... }` or use a concurrent list |
-| Assuming two operations on a concurrent collection form one atomic action | Use its atomic methods, or add a lock around the whole sequence |
-
-### Debugging
-
-- `ConcurrentModificationException` on a regular collection → it was modified during iteration (by another thread or by the loop body). The fix is a concurrent collection, a copy, or proper locking ([Iterators and Fail-Fast Behavior](../08-collections/12_iterators-and-fail-fast-behavior.md)).
-- Lost entries or corrupted state in a `HashMap` → it was shared across threads unsafely.
-- `OutOfMemoryError` with a queue growing → unbounded queue plus slow consumers. Check `queue.size()` over time.
-- A consumer stuck in `take()` forever → the producer died without sending the stop signal. Use poison pills in `finally` or timed `poll`.
-- `IllegalStateException: Recursive update` → a `computeIfAbsent` function touched the same map.
+public class NullHazardDemo {
+    public static void main(String[] args) {
+        ConcurrentHashMap<String, String> map = new ConcurrentHashMap<>();
+        try {
+            // Null keys and null values are STRICTLY FORBIDDEN in ConcurrentHashMap!
+            map.put("key", null);
+        } catch (NullPointerException e) {
+            System.out.println("Caught expected NPE: ConcurrentHashMap forbids null values.");
+        }
+    }
+}
+```
+*Explanation:* Doug Lea explicitly banned `null` in concurrent collections because `map.get(key) == null` creates ambiguity: is the key missing, or is the key mapped to null? In concurrent settings, `containsKey()` cannot resolve the ambiguity without race conditions.
 
 ---
 
-## Quick Summary
+## 6. Best Practices
+1. **Never Put Nulls in Concurrent Collections**: `ConcurrentHashMap`, `ConcurrentSkipListMap`, and `ArrayBlockingQueue` forbid null keys and values.
+2. **Use Atomic Compound Operations**: Avoid `if (!map.containsKey(k)) map.put(k, v);` which creates a check-then-act race condition. Use `map.putIfAbsent(k, v)` or `computeIfAbsent(k, mappingFunction)`.
+3. **Do Not Overuse `CopyOnWriteArrayList`**: Only use `CopyOnWriteArrayList` when reads outnumber writes by 100:1 or more. Modifying large copy-on-write lists degrades heap allocation.
+4. **Choose BlockingQueue Capacity Wisely**: Always use bounded queues (`new LinkedBlockingQueue<>(capacity)`) to apply backpressure; unbounded queues can exhaust heap memory under high load.
+5. **Beware of Long Computations inside `computeIfAbsent`**: `computeIfAbsent` holds the lock for that specific bucket; expensive calculations inside the lambda stall all threads targeting that bucket.
 
-- Don't share plain `ArrayList`/`HashMap` across threads. Don't rely on `synchronizedX` wrappers for compound actions.
-- **`ConcurrentHashMap`**: scalable, atomic `putIfAbsent`/`computeIfAbsent`/`merge`; no nulls; keep compute functions tiny; `size()` approximate; iterators weakly consistent.
-- **`CopyOnWriteArrayList`**: snapshot iteration for read-mostly lists (listeners).
-- **`BlockingQueue`** is the producer-consumer workhorse. **Bound it** for backpressure.
-- `ConcurrentSkipListMap/Set` for sorted concurrent access.
-- Use immutable collections for constant data, and plain collections for single-thread use.
+---
 
-**Next:** [ThreadLocal](09_thread-local.md)
+## 7. Common Mistakes & Pitfalls
+
+| Mistake | Why Wrong | Fix |
+|---|---|---|
+| Passing `null` key or value to `ConcurrentHashMap` | Throws `NullPointerException` immediately. | Use `Optional` or placeholder sentinel objects. |
+| Check-then-act using `containsKey()` and `put()` | State can change between the check and the act, causing lost updates. | Use `computeIfAbsent()` or `putIfAbsent()`. |
+| Modifying heavy `CopyOnWriteArrayList` in tight loops | Re-allocates and copies the entire array on every single modification ($O(N^2)$). | Batch modifications or use a synchronized list. |
+| Expecting exact atomic snapshot from `size()` | `size()` aggregates striped cells; under concurrent writes, it reflects an approximate count. | Accept eventual consistency or use explicit synchronization. |
+| Blocking inside `computeIfAbsent` lambda | Locks the hash bucket head, blocking all concurrent updates to that bucket. | Perform expensive computations before calling `computeIfAbsent`. |
+
+---
+
+## 8. Performance & Security Notes
+
+### Elimination of Hash Collision Denial-of-Service (HashDoS)
+In older Java versions, malicious attackers could craft HTTP POST requests with strings that hash to the exact same bucket, causing $O(N)$ linked list degradation.
+Modern `ConcurrentHashMap` automatically transforms buckets into Red-Black Trees (`TreeBin`) when bucket depth exceeds 8, guaranteeing $O(\log N)$ worst-case lookup time even under deliberate hash collision attacks.
+
+---
+
+## 9. Comparison / When to Use What
+
+| Feature | `ConcurrentHashMap` | `Collections.synchronizedMap` | `ConcurrentSkipListMap` |
+|---|---|---|---|
+| **Locking Strategy** | Bucket-level CAS & synchronized | Single global monitor | Lock-free Skip List |
+| **Reads** | Lock-free | Blocking | Lock-free |
+| **Sorted Order** | No | No | **Yes (Sorted)** |
+| **Null Keys/Values** | Forbidden | Allowed | Forbidden |
+| **Concurrency Level**| Scales with bucket count | 1 thread at a time | High |
+
+---
+
+## 10. Interview Questions
+
+<details>
+<summary>1. How does `ConcurrentHashMap` achieve thread safety without locking the entire map?</summary>
+In Java 8+, reads are completely lock-free via volatile field reads. Empty bucket insertions use atomic hardware CAS. Occupied buckets synchronize only on the head `Node` of that specific bucket, allowing concurrent writes to different buckets.
+</details>
+
+<details>
+<summary>2. Why are null keys and values forbidden in `ConcurrentHashMap`?</summary>
+To eliminate ambiguity. In a single-threaded `HashMap`, `map.get(k) == null` can be clarified with `map.containsKey(k)`. In concurrent maps, the state could change between the two calls, making it impossible to determine if the key is absent or mapped to null.
+</details>
+
+<details>
+<summary>3. When is `CopyOnWriteArrayList` preferred over a synchronized list?</summary>
+When reads vastly outnumber writes (e.g. event listener lists). Iterators read an immutable snapshot array with zero locking and zero risk of `ConcurrentModificationException`.
+</details>
+
+<details>
+<summary>4. What is a Weakly Consistent Iterator?</summary>
+An iterator returned by concurrent collections (like `ConcurrentHashMap`) that does not throw `ConcurrentModificationException`, reflects the state of the collection at or after the iterator was constructed, and may or may not reflect subsequent modifications.
+</details>
+
+<details>
+<summary>5. What are the differences between `ArrayBlockingQueue` and `LinkedBlockingQueue`?</summary>
+`ArrayBlockingQueue` is backed by a circular array and uses a single lock for both enqueue and dequeue. `LinkedBlockingQueue` is backed by linked nodes and uses two separate locks (`putLock` and `takeLock`), allowing concurrent producers and consumers.
+</details>
+
+<details>
+<summary>6. How does `SynchronousQueue` differ from standard queues?</summary>
+It has zero capacity. An insert operation must wait for another thread to take the element, and a take operation must wait for an insert. It acts as a direct rendezvous handoff mechanism.
+</details>
+
+<details>
+<summary>7. What happens when a bucket in `ConcurrentHashMap` has too many collisions?</summary>
+When the number of nodes in a bucket exceeds 8 (and total table capacity $\ge 64$), the linked list converts into a balanced Red-Black Tree (`TreeBin`), reducing worst-case search complexity from $O(N)$ to $O(\log N)$.
+</details>
+
+<details>
+<summary>8. How does `ConcurrentHashMap.size()` calculate total elements under high concurrency?</summary>
+It uses a striped `CounterCell` array (similar to `LongAdder`). Threads update separate cells via CAS; `size()` iterates over all cells and adds their values together, providing a scalable eventual count.
+</details>
+
+---
+
+## 11. Practice Exercises
+
+### Exercise 1 (Easy): Atomic Counter Registry
+- **Task**: Implement a thread-safe page visit counter using `ConcurrentHashMap` and `computeIfAbsent`.
+<details>
+<summary>Solution</summary>
+
+```java
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.LongAdder;
+
+public class PageVisitTracker {
+    private final ConcurrentHashMap<String, LongAdder> visits = new ConcurrentHashMap<>();
+
+    public void recordVisit(String url) {
+        visits.computeIfAbsent(url, k -> new LongAdder()).increment();
+    }
+
+    public long getVisits(String url) {
+        LongAdder adder = visits.get(url);
+        return (adder != null) ? adder.sum() : 0;
+    }
+}
+```
+</details>
+
+### Exercise 2 (Medium): Bounded Producer-Consumer Pipeline
+- **Task**: Create an asynchronous logging buffer with a `LinkedBlockingQueue(50)`. Producer threads push log messages, and a dedicated consumer background thread writes them to a console.
+<details>
+<summary>Solution</summary>
+
+```java
+import java.util.concurrent.*;
+
+public class AsyncLogger implements AutoCloseable {
+    private final BlockingQueue<String> queue = new LinkedBlockingQueue<>(50);
+    private final Thread consumerThread;
+    private volatile boolean running = true;
+
+    public AsyncLogger() {
+        consumerThread = Thread.ofPlatform().name("AsyncLogConsumer").start(() -> {
+            while (running || !queue.isEmpty()) {
+                try {
+                    String msg = queue.poll(100, TimeUnit.MILLISECONDS);
+                    if (msg != null) {
+                        System.out.println("[ASYNC LOG]: " + msg);
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        });
+    }
+
+    public void log(String msg) throws InterruptedException {
+        queue.put(msg);
+    }
+
+    @Override
+    public void close() throws Exception {
+        running = false;
+        consumerThread.join();
+    }
+}
+```
+</details>
+
+### Exercise 3 (Hard): Concurrent Inverted Index
+- **Task**: Implement an inverted index `ConcurrentInvertedIndex` that maps words to a thread-safe set of document IDs using `ConcurrentHashMap` and `ConcurrentSkipListSet`.
+<details>
+<summary>Solution</summary>
+
+```java
+import java.util.*;
+import java.util.concurrent.*;
+
+public class ConcurrentInvertedIndex {
+    private final ConcurrentHashMap<String, ConcurrentSkipListSet<Integer>> index = new ConcurrentHashMap<>();
+
+    public void addDocument(int docId, String text) {
+        String[] tokens = text.toLowerCase().split("\\W+");
+        for (String token : tokens) {
+            if (!token.isBlank()) {
+                index.computeIfAbsent(token, k -> new ConcurrentSkipListSet<>()).add(docId);
+            }
+        }
+    }
+
+    public Set<Integer> search(String word) {
+        var set = index.get(word.toLowerCase());
+        return (set != null) ? Collections.unmodifiableSet(set) : Collections.emptySet();
+    }
+}
+```
+</details>
+
+---
+
+## 12. Summary / Cheat Sheet
+
+```
++-----------------------------------------------------------------------------------------+
+|                          CONCURRENT COLLECTIONS CHEAT SHEET                             |
++-----------------------------------------------------------------------------------------+
+| ConcurrentHashMap        | Lock-free reads, bucket-head synchronized writes, tree bins  |
+| Null Policy              | Null keys & values STRICTLY FORBIDDEN in ConcurrentHashMap   |
+| Atomic Methods           | computeIfAbsent, putIfAbsent, merge, computeIfPresent        |
+| CopyOnWriteArrayList     | Mutative writes copy array; iterators read immutable snapshot|
+| ConcurrentSkipListMap    | Sorted concurrent map; lock-free Skip List (TreeMap replace) |
+| ArrayBlockingQueue       | Bounded array with single lock for backpressure              |
+| LinkedBlockingQueue      | Optionally bounded linked queue with dual locks (put/take)   |
+| SynchronousQueue         | Zero capacity; direct handoff rendezvous between 2 threads   |
++-----------------------------------------------------------------------------------------+
+```
+
+---
+
+## 13. Further Reading
+- [Official Javadoc: java.util.concurrent](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/package-summary.html)
+- Java Concurrency in Practice by Brian Goetz — Chapter 5 (Building Blocks)
+- "ConcurrentHashMap Internal Architecture" by Doug Lea

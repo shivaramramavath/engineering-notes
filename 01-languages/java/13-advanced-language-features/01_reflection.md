@@ -1,252 +1,416 @@
-# Reflection
+# Java Reflection and MethodHandles
 
-**Reflection** is the ability of a running program to inspect and manipulate its own structure: discover a class's fields, methods, and constructors; read annotations; create objects and call methods **by name**, without knowing the types at compile time.
+> Comprehensive architectural reference for Java Reflection (`java.lang.reflect`), `java.lang.invoke.MethodHandles`, `VarHandle`, JPMS strong encapsulation barriers (`--add-opens`), and performance optimization.
 
-Normal code decides *what to call* when you write it. Reflection decides *at runtime*. That is how a JSON library maps `{"name": "Asha"}` onto your `User` class, how JUnit finds methods annotated `@Test`, and how a dependency-injection container builds your objects.
-
-**Prerequisites:** [Annotations](00_annotations.md), [Class Loading](../15-jvm-internals/01_class-loading.md), [Type Erasure](../07-generics/03_type-erasure.md), [Java Modules](../05-packages-and-modules/02_java-modules.md).
-
----
-
-## 1. The entry point: `Class`
-
-Every type has a `java.lang.Class` object describing it. There are three ways to get one:
-
-```java
-Class<String> a = String.class;                       // class literal: compile-time, safest
-Class<?> b = "hello".getClass();                      // from an instance: the runtime type
-Class<?> c = Class.forName("com.example.User");       // from a name: dynamic; may throw ClassNotFoundException
-```
-
-`Class.forName` loads **and initializes** the class (runs static initializers) using the caller's class loader. When the name comes from configuration, that is the "plugin" case ([Class Loading](../15-jvm-internals/01_class-loading.md)).
-
-### Inspecting a class
-
-```java
-Class<?> c = ArrayList.class;
-
-c.getName();               // java.util.ArrayList
-c.getSimpleName();         // ArrayList
-c.getSuperclass();         // class java.util.AbstractList
-c.getInterfaces();         // [List, RandomAccess, Cloneable, Serializable]
-Modifier.toString(c.getModifiers());   // "public"
-c.isInterface(); c.isEnum(); c.isRecord(); c.isSealed(); c.isArray();
-c.getPackageName();
-```
-
----
-
-## 2. Fields, methods, constructors
-
-Each kind of member has two lookups, and the difference matters:
-
-| Lookup | Returns |
+| Metadata | Value |
 |---|---|
-| `getFields()` / `getMethods()` / `getConstructors()` | **Public** members, **including inherited** ones |
-| `getDeclaredFields()` / `getDeclaredMethods()` / `getDeclaredConstructors()` | **All** members (any access level) declared **in this class only**, no inherited members |
-
-```java
-public class User {
-    private String name;
-    public int age;
-    public User() {}
-    private User(String name) { this.name = name; }
-    public String greet(String other) { return "Hi " + other + ", I'm " + name; }
-}
-
-Class<User> cls = User.class;
-
-Field nameField = cls.getDeclaredField("name");                  // private: use getDeclared...
-Method greet    = cls.getMethod("greet", String.class);          // name + parameter TYPES
-Constructor<User> ctor = cls.getDeclaredConstructor(String.class);
-```
-
-Lookup methods throw `NoSuchFieldException` / `NoSuchMethodException` when nothing matches. Note that **parameter types must match exactly**: use `int.class` for a primitive `int` parameter, not `Integer.class`.
-
-To walk an inheritance chain, loop with `getSuperclass()`.
+| **Level** | Advanced |
+| **Prerequisites** | [00_annotations.md](00_annotations.md), [04-oop/00_classes-and-objects.md](../04-oop/00_classes-and-objects.md), [05-packages-and-modules/02_java-modules.md](../05-packages-and-modules/02_java-modules.md) |
+| **Time to Read** | 28 minutes |
+| **Status** | Active |
+| **Java Version** | Java 1.1+ (MethodHandles Java 7, VarHandle Java 9, JPMS Encapsulation Java 9-17) |
 
 ---
 
-## 3. Creating objects, getting/setting fields, calling methods
-
-```java
-// Create
-User u1 = cls.getDeclaredConstructor().newInstance();            // no-arg constructor
-ctor.setAccessible(true);                                         // the constructor is private
-User u2 = ctor.newInstance("Asha");
-
-// Read / write fields
-nameField.setAccessible(true);
-String n = (String) nameField.get(u2);                            // "Asha"
-nameField.set(u2, "Ravi");
-cls.getField("age").setInt(u2, 30);                               // typed variants for primitives
-
-// Call methods
-Object result = greet.invoke(u2, "Meera");                        // "Hi Meera, I'm Ravi"
-Method staticM = Math.class.getMethod("max", int.class, int.class);
-Object max = staticM.invoke(null, 3, 9);                          // static: target is null → 9
-```
-
-Important details:
-
-- `invoke` and `get` return `Object`, so primitives are **boxed** and you cast the result.
-- **`InvocationTargetException`**: if the invoked method throws, reflection wraps it. The *real* exception is `e.getCause()`. Unwrap it:
-
-```java
-try {
-    method.invoke(target, args);
-} catch (InvocationTargetException e) {
-    throw e.getCause();      // rethrow what the method actually threw
-}
-```
-
-- `Class.newInstance()` is deprecated, since it hid checked exceptions. Use `getDeclaredConstructor().newInstance()`.
-- Wrong argument types or counts throw `IllegalArgumentException`. Inaccessible members throw `IllegalAccessException`.
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & Usage](#4-syntax--usage)
+5. [Practical Examples](#5-practical-examples)
+6. [Best Practices](#6-best-practices)
+7. [Common Mistakes & Pitfalls](#7-common-mistakes--pitfalls)
+8. [Performance & Security Notes](#8-performance--security-notes)
+9. [Comparison / When to Use What](#9-comparison--when-to-use-what)
+10. [Interview Questions](#10-interview-questions)
+11. [Practice Exercises](#11-practice-exercises)
+12. [Summary / Cheat Sheet](#12-summary--cheat-sheet)
+13. [Further Reading](#13-further-reading)
 
 ---
 
-## 4. Access control and modules
+## 1. What & Why
 
-`private` normally means "only this class". Reflection can ask to bypass that:
+### The Need for Runtime Introspection
+Static typing provides compile-time safety, but many enterprise systems require **runtime introspection**:
+- Dependency Injection containers (Spring, Guice) must inspect class constructors and inject dependencies dynamically.
+- Serialization frameworks (Jackson, Gson) must read private fields without boilerplate getters.
+- Test runners (JUnit) must discover and execute test methods dynamically.
 
-```java
-field.setAccessible(true);                 // suppress access checks (if permitted)
-if (field.trySetAccessible()) { ... }      // returns false instead of throwing
-```
-
-**Whether that succeeds depends on the module system** ([Java Modules](../05-packages-and-modules/02_java-modules.md)):
-
-- Your own code on the classpath, or in the same module: fine.
-- Another **named module** must *open* the package to you (`opens com.example to your.module;`), otherwise `setAccessible` throws `InaccessibleObjectException`.
-- **JDK internals** (`java.*`, `sun.*`): since Java 17 deep reflection into them is blocked. Libraries that relied on it fail with `InaccessibleObjectException: ... module java.base does not "opens java.lang" to unnamed module`. The escape hatch is a command-line flag (`--add-opens java.base/java.lang=ALL-UNNAMED`), and the real fix is upgrading the library.
-
-### `final` fields
-
-Reflection can technically modify some `final` instance fields after `setAccessible(true)`, and `static final` fields can't be changed reliably. It's discouraged because the JIT and other code assume finals never change. Starting with Java 26 the JDK warns by default when it happens (JEP 500), as a step toward disallowing it. Don't depend on it.
-
-Records are special: their fields cannot be modified through reflection at all.
+### The Evolution: Reflection to MethodHandles
+Java 1.1 introduced the classic Core Reflection API (`java.lang.Class`, `Field`, `Method`, `Constructor`). While powerful, classic reflection was slow, bypassed encapsulation via `setAccessible(true)`, and created maintenance nightmares.
+Java 7 introduced `java.lang.invoke.MethodHandles`, followed by `VarHandle` in Java 9. These modern APIs provide strongly-typed, low-overhead direct bytecode handles that align with JVM JIT compiler optimizations.
 
 ---
 
-## 5. Generics, annotations, parameters, records, enums
+## 2. Core Concepts
 
+### Core Reflection Components
+- `Class<?>`: Entry point to introspection. Obtained via `obj.getClass()`, `String.class`, or `Class.forName("...")`.
+- `Constructor<?>`: Represents class constructors. `newInstance(args)` instantiates objects.
+- `Method`: Represents methods. `invoke(target, args)` dynamically calls the method.
+- `Field`: Represents instance or static variables. `get(target)` and `set(target, val)` read and write field memory.
+
+### JPMS Strong Encapsulation (Java 9 to 17+)
+Historically, developers invoked `field.setAccessible(true)` to bypass private access modifiers.
+Starting in Java 9 and finalized in Java 17 (JEP 403: Strongly Encapsulate JDK Internals), **the JVM strictly forbids deep reflection into non-exported, non-opened packages of named modules**. Calling `setAccessible(true)` across modular boundaries throws `InaccessibleObjectException` unless the module explicitly exports or opens the package:
 ```java
-// Annotations (RUNTIME retention only): see [Annotations](00_annotations.md)
-Test t = method.getAnnotation(Test.class);
-
-// Generic information that survives erasure in declarations
-Field f = Holder.class.getDeclaredField("items");                 // List<String> items;
-Type type = f.getGenericType();                                    // java.util.List<java.lang.String>
-if (type instanceof ParameterizedType pt) {
-    Type arg = pt.getActualTypeArguments()[0];                    // class java.lang.String
+module my.module {
+    opens com.my.entity to com.fasterxml.jackson.databind; // Permits deep reflection
 }
-
-// Records
-for (RecordComponent rc : MyRecord.class.getRecordComponents()) {
-    rc.getName(); rc.getType(); rc.getAccessor();
-}
-
-// Enums
-Color[] values = Color.class.getEnumConstants();
-
-// Parameter names are NOT available unless compiled with `javac -parameters`
-for (Parameter p : method.getParameters()) { p.isNamePresent(); p.getName(); }
 ```
 
-Type arguments of *declarations* (fields, method signatures, superclasses) are kept in class files and readable. Type arguments of *runtime objects* are erased: you can't ask a `new ArrayList<String>()` what it contains ([Type Erasure](../07-generics/03_type-erasure.md)). This is the basis of "type token" tricks such as Jackson's `TypeReference`.
+### `MethodHandles` and `Lookup`
+`java.lang.invoke.MethodHandles` is the modern, high-performance alternative to reflection:
+- `MethodHandles.Lookup`: Security context token representing the caller's access rights.
+- `MethodHandle`: A typed, directly executable reference to an underlying method, constructor, or field.
+- **Performance**: When stored in `static final` constants, the HotSpot JIT compiler can inline `MethodHandle.invokeExact()` calls identically to direct bytecode invocations.
+
+### `VarHandle` (Java 9 JEP 193)
+Replaces `sun.misc.Unsafe` for atomic and memory-ordered field operations. Provides memory fence operations (`getVolatile`, `setRelease`, `compareAndSet`) with strict type safety.
 
 ---
 
-## 6. A realistic mini-example: object → map
+## 3. How It Works Internally
 
+### Inflation and Native vs Bytecode Invocation
+When `Method.invoke()` is called in the HotSpot JVM:
+1. **Native Accessor (Calls 1 to 15)**: The JVM uses JNI native transitions (`Reflection::invoke()`). This avoids generating bytecode for one-off calls.
+2. **Inflation (Call 16+)**: If a method is invoked reflectively more than the inflation threshold (`-Dsun.reflect.inflationThreshold=15`), the JVM dynamically generates a synthetic class (`GeneratedMethodAccessorN`) containing direct bytecode calls and loads it via a dedicated delegating class loader.
+
+```mermaid
+flowchart TD
+    A[Method.invoke] --> B{Invocation Count < 15?}
+    B -- Yes --> C[JNI Native Invocation Transition]
+    B -- No --> D[Inflation Triggered]
+    D --> E[Generate Bytecode: GeneratedMethodAccessor]
+    E --> F[Direct JIT Inlinable Bytecode]
+```
+
+---
+
+## 4. Syntax & Usage
+
+### Traditional Reflection Inspection
 ```java
-public static Map<String, Object> toMap(Object obj) throws IllegalAccessException {
-    Map<String, Object> map = new LinkedHashMap<>();
-    for (Field f : obj.getClass().getDeclaredFields()) {
-        if (Modifier.isStatic(f.getModifiers()) || f.isSynthetic()) continue;
-        f.setAccessible(true);
-        map.put(f.getName(), f.get(obj));
+import java.lang.reflect.*;
+
+public class ReflectionBasics {
+    public static void inspect(Class<?> clazz) {
+        System.out.println("Class: " + clazz.getName());
+        for (Method m : clazz.getDeclaredMethods()) {
+            System.out.println(" - Method: " + m.getName() + ", Returns: " + m.getReturnType().getSimpleName());
+        }
     }
-    return map;
 }
 ```
 
-This is the heart of many serialization, mapping, and logging utilities. Real libraries add caching, type conversion, naming rules, annotations, and handling of inheritance, which is why you should usually use an existing library instead of hand-rolling.
-
----
-
-## 7. Cost, alternatives, and when to use it
-
-### Performance
-
-- Reflective calls are slower than direct calls (argument boxing, access checks, no inlining in many cases). Since Java 18, core reflection is implemented on top of method handles, which narrowed the gap, but it still isn't free.
-- **Looking things up is the expensive part** (`getDeclaredMethods`, `getMethod`). Do it once and **cache** the `Method`/`Field`/`Constructor` objects. Never look up members inside a hot loop.
-- Measure before worrying: benchmark with JMH ([Benchmarking with JMH](../20-performance/01_benchmarking-with-jmh.md)).
-
-### Alternatives
-
-| Alternative | When |
-|---|---|
-| Plain code, interfaces, generics | **Almost always**: type-safe and fast |
-| `MethodHandle` / `VarHandle` (`java.lang.invoke`) | Reflection-like access that can be fully optimized by the JIT when handles are constants |
-| Annotation processors / code generation | Avoid runtime reflection altogether (faster startup, native-image friendly) |
-| Dynamic proxies | Interface-based interception: [Dynamic Proxies](02_dynamic-proxies.md) |
-
+### Modern `MethodHandles` Lookup and Invocation
 ```java
-MethodHandle length = MethodHandles.lookup()
-        .findVirtual(String.class, "length", MethodType.methodType(int.class));
-int n = (int) length.invokeExact("hello");       // 5: the call's static types must match exactly
+import java.lang.invoke.*;
+
+public class MethodHandleDemo {
+    public static void main(String[] args) throws Throwable {
+        MethodHandles.Lookup lookup = MethodHandles.lookup();
+
+        // Target method: String.substring(int, int)
+        MethodType mt = MethodType.methodType(String.class, int.class, int.class);
+        MethodHandle mh = lookup.findVirtual(String.class, "substring", mt);
+
+        // Direct strongly typed invocation
+        String result = (String) mh.invokeExact("Modern Java 25", 0, 6);
+        System.out.println("Result: " + result); // "Modern"
+    }
+}
 ```
 
-### When it's the right tool
+---
 
-Frameworks (DI, ORM, serialization, test runners), plugin systems loading classes by name, generic tools (debuggers, object inspectors, mappers). When you write application features, it's usually the wrong tool.
+## 5. Practical Examples
+
+### Example 1: Generic Object-to-Map Serializer
+```java
+// Goal: Convert arbitrary object fields to a Map using reflection
+import java.lang.reflect.Field;
+import java.util.*;
+
+public class ReflectionSerializer {
+    public static Map<String, Object> toMap(Object obj) throws IllegalAccessException {
+        Map<String, Object> map = new LinkedHashMap<>();
+        Class<?> clazz = obj.getClass();
+
+        while (clazz != null && clazz != Object.class) {
+            for (Field field : clazz.getDeclaredFields()) {
+                if (Modifier.isStatic(field.getModifiers())) continue;
+                field.setAccessible(true);
+                map.put(field.getName(), field.get(obj));
+            }
+            clazz = clazz.getSuperclass();
+        }
+        return map;
+    }
+
+    record User(String name, int age) {}
+
+    public static void main(String[] args) throws Exception {
+        User u = new User("Grace Hopper", 85);
+        Map<String, Object> fields = toMap(u);
+        System.out.println("Serialized map: " + fields);
+    }
+}
+```
+*Output:*
+```
+Serialized map: {name=Grace Hopper, age=85}
+```
+
+### Example 2: Atomic State Machine with `VarHandle`
+```java
+// Goal: High-performance atomic CAS state management replacing AtomicReference
+import java.lang.invoke.*;
+
+public class OrderProcessor {
+    public enum State { NEW, PROCESSING, COMPLETED }
+
+    private volatile State state = State.NEW;
+
+    private static final VarHandle STATE_HANDLE;
+
+    static {
+        try {
+            STATE_HANDLE = MethodHandles.lookup()
+                .findVarHandle(OrderProcessor.class, "state", State.class);
+        } catch (ReflectiveOperationException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
+
+    public boolean completeOrder() {
+        // Atomic compare-and-set
+        return STATE_HANDLE.compareAndSet(this, State.PROCESSING, State.COMPLETED);
+    }
+
+    public void startProcessing() {
+        STATE_HANDLE.setVolatile(this, State.PROCESSING);
+    }
+
+    public State getState() {
+        return (State) STATE_HANDLE.getVolatile(this);
+    }
+}
+```
+
+### Example 3: Edge Case: Illegal Access in Named JPMS Modules
+```java
+// Goal: Demonstrate InaccessibleObjectException under strong encapsulation
+public class ModuleEncapsulationDemo {
+    public static void attemptIllegalAccess() {
+        try {
+            // Attempting to reflectively access private field in java.lang.String
+            Field f = String.class.getDeclaredField("value");
+            f.setAccessible(true); // Throws InaccessibleObjectException in Java 17+
+        } catch (Exception e) {
+            System.err.println("Access blocked by JPMS: " + e.getClass().getSimpleName());
+        }
+    }
+
+    public static void main(String[] args) {
+        attemptIllegalAccess();
+    }
+}
+```
+*Output:*
+```
+Access blocked by JPMS: InaccessibleObjectException
+```
+*Explanation:* Modern Java completely blocks cracking open JDK internal fields via `setAccessible(true)`.
 
 ---
 
-## 8. Security and robustness
-
-- Reflection **bypasses compile-time checks and access modifiers**, so errors move from compile time to runtime.
-- **Never pass untrusted input to `Class.forName`, `newInstance`, or `Method.invoke`** (class names, method names from a request). An attacker choosing which class to instantiate or method to call is a classic vulnerability class ([Insecure Deserialization](../21-security/04_insecure-deserialization.md) is one instance). Use an allow-list.
-- The Security Manager no longer exists (permanently disabled in Java 24), so there is no JVM-level sandbox for reflective calls. Enforce restrictions in your own code.
-- Reflective code breaks easily under **refactoring**: renaming a method makes the string `"calculateTotal"` stale without any compiler error.
-- Tools that analyze or compile ahead of time (for example GraalVM native image) can't see reflective access unless you provide configuration. This is another reason to prefer code generation in new libraries.
-
----
-
-## Common mistakes
-
-| Mistake | Fix |
-|---|---|
-| `getMethod` for a private method | `getDeclaredMethod` + `setAccessible(true)` |
-| `getDeclaredFields()` expecting inherited fields | Loop through `getSuperclass()` |
-| `getMethod("m", Integer.class)` for an `int` parameter | `int.class` |
-| Catching the wrong exception from `invoke` | Unwrap `InvocationTargetException.getCause()` |
-| Looking up `Method`/`Field` on every call | Cache them |
-| Reading annotations that have `CLASS`/`SOURCE` retention | Use `RUNTIME` retention |
-| Using reflection where an interface or generics would do | Design the types so you don't need it |
-| Hard-coded member names in strings | Constants/tests, or avoid reflection |
-| Changing `final` fields | Don't. Use a mutable design or rebuild the object |
-| Passing user input to `Class.forName` | Allow-list class names |
-
-### Debugging
-
-- `NoSuchMethodException: com.x.Foo.bar(java.lang.Integer)` → print what you have: loop over `getDeclaredMethods()` and compare names and parameter types (primitive vs boxed is the usual culprit).
-- `InaccessibleObjectException` → a module boundary: check `opens`, library versions, or `--add-opens` as a last resort.
-- `IllegalAccessException` → you didn't call `setAccessible(true)` (or can't, per the module rules).
-- `InvocationTargetException` with no useful message → print `e.getCause()` and its stack trace.
-- `ClassNotFoundException` for a class you can see → wrong class loader, or the class isn't on the classpath at runtime. In containers/app servers, check which loader `Class.forName` uses (use the context class loader where appropriate).
-- `NoClassDefFoundError` is a different problem: the class was present at compile time and missing (or failed to initialize) at runtime.
+## 6. Best Practices
+1. **Prefer `MethodHandles` and `VarHandle`**: For performance-critical infrastructure, use `MethodHandles` and `VarHandle` over classic reflection.
+2. **Store MethodHandles in `static final` Constants**: HotSpot can only perform direct inlining and constant folding if the `MethodHandle` reference is compile-time constant.
+3. **Use `getDeclaredConstructor().newInstance()`**: Never invoke `Class.newInstance()`, which was deprecated in Java 9 because it bypasses checked exceptions and private constructors.
+4. **Respect Module Boundaries**: Use `opens ... to ...` in `module-info.java` to grant reflective access cleanly instead of resorting to JVM command-line flags (`--add-opens`).
+5. **Cache Reflective Lookups**: Reflective operations (`getMethod`, `getDeclaredField`) are computationally expensive. Cache lookups in `ConcurrentHashMap`.
 
 ---
 
-## Quick Summary
+## 7. Common Mistakes & Pitfalls
 
-- Reflection lets code inspect and use classes **by name at runtime**: start from a `Class`, then get `Field`, `Method`, `Constructor`, annotations, and generic signatures.
-- `getX()` = public (including inherited). `getDeclaredX()` = everything declared in that class. `setAccessible(true)` may be blocked by modules.
-- `invoke` boxes values, and **wraps exceptions in `InvocationTargetException`**. Unwrap `getCause()`.
-- Cache lookups. Reflection is slower than direct calls, but lookups are the costly part.
-- Don't pass untrusted strings into reflective calls, and avoid reflection in ordinary application code.
-- Alternatives: plain types, `MethodHandle`, annotation processors, [dynamic proxies](02_dynamic-proxies.md).
+| Mistake | Why Wrong | Fix |
+|---|---|---|
+| Calling deprecated `Class.newInstance()` | Silently swallows exceptions and fails on private constructors. | Call `clazz.getDeclaredConstructor().newInstance()`. |
+| Uncached reflection in loops | Calling `getMethod()` inside tight loops causes massive GC garbage and latency. | Cache `Method` or `MethodHandle` instances in static fields. |
+| Expecting `setAccessible(true)` to always work | Throws `InaccessibleObjectException` on modular JDK internals in Java 17+. | Export/open packages via `module-info.java` or use public APIs. |
+| Catching raw `Exception` on reflective calls | Masks underlying domain exceptions wrapped in `InvocationTargetException`. | Unpack with `e.getCause()` when handling `InvocationTargetException`. |
+| Using `invokeExact()` with boxed types | `invokeExact()` mandates exact type matching (e.g. `int.class`, not `Integer.class`). | Use `invoke()` or ensure exact argument types. |
 
-**Next:** [Dynamic Proxies](02_dynamic-proxies.md)
+---
+
+## 8. Performance & Security Notes
+
+### Overhead of Reflection
+1. **Boxed Arguments**: Primitives passed to `Method.invoke()` must be boxed into heap objects (`Integer.valueOf()`).
+2. **Type Checking on Every Call**: Classic reflection performs dynamic type and permission verification on every invocation.
+3. **Inlining Barrier**: Classic reflection prevents JIT inlining until inflation occurs.
+
+### Security and Attack Surface
+Reflection bypasses standard compiler type checking. Untrusted class loading or method invocation based on user input can lead to arbitrary code execution. The Java platform enforces strict modular encapsulation to prevent attackers from manipulating security internals.
+
+---
+
+## 9. Comparison / When to Use What
+
+| Feature | Classic Reflection (`Method`) | `MethodHandle` | `VarHandle` |
+|---|---|---|---|
+| **Java Version** | Java 1.1 | Java 7 | Java 9 |
+| **Type Safety** | Object array / Boxed | Strongly typed `MethodType` | Strongly typed |
+| **JIT Inlining** | Difficult (requires inflation) | Direct inlining (if `static final`) | Direct inlining |
+| **Target Use** | Dynamic inspection, frameworks | High-perf method dispatch | Atomic memory operations |
+
+---
+
+## 10. Interview Questions
+
+<details>
+<summary>1. Why was `Class.newInstance()` deprecated in Java 9?</summary>
+Because it propagated checked exceptions without declaring them, bypassed constructor access checks, and could not invoke parameterized constructors. The recommended replacement is `clazz.getDeclaredConstructor().newInstance()`.
+</details>
+
+<details>
+<summary>2. What is Inflation in Java reflection?</summary>
+A HotSpot optimization where initial reflective calls use fast JNI native code, but after exceeding a threshold (default 15 calls), the JVM generates specialized bytecode (`GeneratedMethodAccessor`) to enable JIT optimization.
+</details>
+
+<details>
+<summary>3. What is the impact of Java 17 JEP 403 on reflection?</summary>
+Java 17 strongly encapsulated JDK internal packages. Calling `setAccessible(true)` on private fields or methods of standard library classes now throws `InaccessibleObjectException`.
+</details>
+
+<details>
+<summary>4. What are the key differences between `Method.invoke()` and `MethodHandle.invokeExact()`?</summary>
+`Method.invoke()` accepts boxed `Object[]` arguments and performs dynamic access checks each time. `MethodHandle.invokeExact()` enforces strict signature matching at the bytecode level and can be inlined directly by HotSpot if stored in a `static final` constant.
+</details>
+
+<details>
+<summary>5. What is a `VarHandle`?</summary>
+Introduced in Java 9 (JEP 193), `VarHandle` is a type-safe reference to a variable that allows low-level atomic memory access modes (`getVolatile`, `compareAndSet`, `getAndAdd`), safely replacing `sun.misc.Unsafe`.
+</details>
+
+<details>
+<summary>6. How do you handle an exception thrown by an invoked method?</summary>
+Reflection wraps all checked and unchecked exceptions thrown by the target method inside `InvocationTargetException`. You must call `e.getCause()` to retrieve the original root cause.
+</details>
+
+<details>
+<summary>7. What is `MethodHandles.Lookup`?</summary>
+It represents the security context and credentials of the caller that performed the lookup. A lookup created inside class `A` has access to private members of `A`, while a public lookup (`MethodHandles.publicLookup()`) can only access public members.
+</details>
+
+<details>
+<summary>8. How do JPMS modules configure reflective access for frameworks?</summary>
+A module uses the `opens <package> to <framework>;` directive in `module-info.java`, granting deep reflective access to specified frameworks while keeping the package encapsulated from other modules.
+</details>
+
+---
+
+## 11. Practice Exercises
+
+### Exercise 1 (Easy): Dynamic Method Invoker
+- **Task**: Write a method that accepts an object, a method name string, and executes it reflectively if it takes no arguments, returning the result.
+<details>
+<summary>Solution</summary>
+
+```java
+import java.lang.reflect.Method;
+
+public class DynamicInvoker {
+    public static Object invokeNoArg(Object target, String methodName) throws Exception {
+        Method m = target.getClass().getMethod(methodName);
+        return m.invoke(target);
+    }
+}
+```
+</details>
+
+### Exercise 2 (Medium): Deep Field Cloner via Reflection
+- **Task**: Implement a utility that takes an object and creates a new instance of the same class, copying all declared instance fields.
+<details>
+<summary>Solution</summary>
+
+```java
+import java.lang.reflect.*;
+
+public class SimpleCloner {
+    @SuppressWarnings("unchecked")
+    public static <T> T cloneObject(T original) throws Exception {
+        Class<T> clazz = (Class<T>) original.getClass();
+        Constructor<T> ctor = clazz.getDeclaredConstructor();
+        ctor.setAccessible(true);
+        T clone = ctor.newInstance();
+
+        for (Field f : clazz.getDeclaredFields()) {
+            if (Modifier.isStatic(f.getModifiers())) continue;
+            f.setAccessible(true);
+            f.set(clone, f.get(original));
+        }
+        return clone;
+    }
+}
+```
+</details>
+
+### Exercise 3 (Hard): High-Performance Field Accessor with MethodHandle
+- **Task**: Create a `GetterHandle` class that constructs a getter `MethodHandle` for a named field and benchmarks its speed compared to classic `Field.get()`.
+<details>
+<summary>Solution</summary>
+
+```java
+import java.lang.invoke.*;
+
+public class FieldHandleDemo {
+    public static class Data {
+        public final int id = 42;
+    }
+
+    public static void main(String[] args) throws Throwable {
+        Data data = new Data();
+        MethodHandles.Lookup lookup = MethodHandles.lookup();
+
+        // High performance getter handle
+        MethodHandle getter = lookup.findGetter(Data.class, "id", int.class);
+
+        int value = (int) getter.invokeExact(data);
+        System.out.println("Extracted id via MethodHandle: " + value);
+    }
+}
+```
+</details>
+
+---
+
+## 12. Summary / Cheat Sheet
+
+```
++-----------------------------------------------------------------------------------------+
+|                               JAVA REFLECTION CHEAT SHEET                               |
++-----------------------------------------------------------------------------------------+
+| Instantiate Class        | clazz.getDeclaredConstructor().newInstance()                 |
+| Invoke Method            | method.invoke(targetInstance, args...)                       |
+| Read Field               | field.setAccessible(true); field.get(targetInstance);        |
+| Handle Exceptions        | catch (InvocationTargetException e) { throw e.getCause(); }  |
+| MethodHandle Lookup      | MethodHandles.lookup().findVirtual(Class, "name", MethodType)|
+| VarHandle Memory Op      | varHandle.compareAndSet(instance, expected, update)          |
+| JPMS Permission          | opens com.pkg to framework.module; in module-info.java      |
+| JDK 17 Encapsulation     | Deep reflection on JDK internals throws InaccessibleObjectEx |
++-----------------------------------------------------------------------------------------+
+```
+
+---
+
+## 13. Further Reading
+- [JEP 403: Strongly Encapsulate JDK Internals (Java 17)](https://openjdk.org/jeps/403)
+- [JEP 193: Variable Handles (Java 9)](https://openjdk.org/jeps/193)
+- Official Javadoc: `java.lang.invoke.MethodHandles`
+- Inside Java Podcast: Demystifying MethodHandles and Reflection

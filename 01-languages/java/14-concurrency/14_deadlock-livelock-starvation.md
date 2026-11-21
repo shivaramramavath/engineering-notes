@@ -1,252 +1,432 @@
-# Deadlock, Livelock, Starvation
+# Deadlocks, Livelocks, and Thread Starvation
 
-These are **liveness failures**: the program is not producing wrong values (a *safety* problem, as in races), it is **failing to make progress**. They tend to appear under load, after a rare interleaving, or only in production, and they freeze systems, so knowing how to recognize and prevent them is essential.
+> In-depth analysis of concurrency failures: Coffman conditions, deadlock detection using thread dumps (`jstack`) and `ThreadMXBean`, lock ordering protocols, lock timeouts, livelock scenarios, and thread starvation prevention.
 
-| Problem | Threads are... | CPU usage | Progress |
-|---|---|---|---|
-| **Deadlock** | Blocked forever, each waiting for another | Idle | None for the involved threads |
-| **Livelock** | Running, but keep reacting to each other | **High** | None |
-| **Starvation** | Waiting because others always go first | Normal | Some threads progress, one or more never do |
-
-**Prerequisites:** [Synchronization](03_synchronization.md), [Locks](05_locks.md), [Executors and Thread Pools](10_executors-and-thread-pools.md).
-
----
-
-## 1. Deadlock
-
-A deadlock is a cycle of threads each holding something another needs.
-
-```java
-Object lockA = new Object(), lockB = new Object();
-
-// Thread 1                                    // Thread 2
-synchronized (lockA) {                          synchronized (lockB) {
-    sleep(100);                                     sleep(100);
-    synchronized (lockB) { ... }                    synchronized (lockA) { ... }
-}                                               }
-```
-
-```text
-Thread 1 holds A ──wants──► B (held by Thread 2)
-Thread 2 holds B ──wants──► A (held by Thread 1)        → neither can ever proceed
-```
-
-### The four conditions (all must hold)
-
-| Condition | Meaning | Break it by... |
-|---|---|---|
-| **Mutual exclusion** | A resource can be held by one thread at a time | Using lock-free/immutable designs where possible |
-| **Hold and wait** | A thread holds one resource while waiting for another | Acquiring all locks at once, or never calling out while holding a lock |
-| **No preemption** | Locks can't be forcibly taken away | `tryLock` with timeout, then back off and release |
-| **Circular wait** | A cycle of waiting threads exists | **A global lock ordering** (the most practical fix) |
-
-### Realistic example: transfers between accounts
-
-```java
-// Deadlock-prone: transfer(a, b) and transfer(b, a) run concurrently
-void transfer(Account from, Account to, long amount) {
-    synchronized (from) {
-        synchronized (to) {
-            from.debit(amount);
-            to.credit(amount);
-        }
-    }
-}
-```
-
-The fix is to **always lock in the same global order**, regardless of the parameter order:
-
-```java
-void transfer(Account from, Account to, long amount) {
-    Account first  = from.id() < to.id() ? from : to;       // a stable, unique ordering key
-    Account second = (first == from) ? to : from;
-
-    synchronized (first) {
-        synchronized (second) {
-            from.debit(amount);
-            to.credit(amount);
-        }
-    }
-}
-```
-
-If there is no natural unique key, order by `System.identityHashCode`, and add a single tie-breaking lock for the rare equal-hash case.
-
-### Fix with timeouts (break "no preemption")
-
-```java
-if (a.lock.tryLock(100, TimeUnit.MILLISECONDS)) {
-    try {
-        if (b.lock.tryLock(100, TimeUnit.MILLISECONDS)) {
-            try { /* work */ return true; }
-            finally { b.lock.unlock(); }
-        }
-    } finally { a.lock.unlock(); }
-}
-return false;       // couldn't get both: release everything, back off, retry (see livelock below)
-```
-
-### Other forms of deadlock
-
-- **Thread-pool starvation deadlock:** tasks that **wait for other tasks in the same pool**.
-
-  ```java
-  ExecutorService pool = Executors.newFixedThreadPool(1);
-  Future<Integer> outer = pool.submit(() -> {
-      Future<Integer> inner = pool.submit(() -> 42);     // queued behind us...
-      return inner.get();                                // ...but we hold the only thread: waits forever
-  });
-  ```
-
-  The same happens with a larger pool when *all* threads wait on subtasks that can't start. Don't block pool tasks on other tasks of the same pool: use separate pools, `CompletableFuture` composition, or virtual threads.
-- **Lost signals / missed notifications:** a thread waits for a `notify` that already happened. Always check the condition in a loop under the lock ([note 03](03_synchronization.md)).
-- **Latches and barriers:** a thread calls `await()` for something only it can do (or a `countDown()` that was skipped by an exception).
-- **Class-initialization deadlocks:** two classes whose static initializers depend on each other, initialized by different threads.
-- **Calling "alien" code while holding a lock:** a callback or overridable method takes another lock in the opposite order. *Open calls* (call out only when you hold no locks) avoid this.
-- **Database deadlocks:** two transactions locking rows in opposite order. The database detects it and aborts one with an error. Retry the transaction ([Transactions](../16-jdbc-and-databases/04_transactions.md)).
-
----
-
-## 2. Detecting deadlocks
-
-**Thread dump** (works on a live process):
-
-```bash
-jcmd <pid> Thread.print          # or: jstack <pid>
-```
-
-The JVM reports Java-level deadlocks it finds, along these lines:
-
-```text
-Found one Java-level deadlock:
-=============================
-"worker-2":
-  waiting to lock monitor 0x... (object 0x..., a java.lang.Object),
-  which is held by "worker-1"
-"worker-1":
-  waiting to lock monitor 0x... (object 0x..., a java.lang.Object),
-  which is held by "worker-2"
-```
-
-Below it you get each thread's stack, showing the exact `synchronized` lines. For `ReentrantLock`-based deadlocks, use `jcmd <pid> Thread.print -l` to include ownable synchronizers.
-
-**Programmatically** (health checks, monitoring):
-
-```java
-ThreadMXBean mx = ManagementFactory.getThreadMXBean();
-long[] ids = mx.findDeadlockedThreads();         // null if none
-if (ids != null) {
-    for (ThreadInfo info : mx.getThreadInfo(ids, true, true)) {
-        log.error("Deadlocked: {}", info);
-    }
-}
-```
-
-Take **two or three dumps a few seconds apart**: threads stuck in the same place across dumps are stuck, not just busy. Tools such as VisualVM and JFR show the same data graphically ([JVM Diagnostics](../22-production-engineering/04_jvm-diagnostics.md), [Troubleshooting Playbook](../22-production-engineering/05_troubleshooting-playbook.md)).
-
-Pool-starvation deadlocks don't produce a "Found one Java-level deadlock" message. Look instead for all pool workers `WAITING` in `Future.get`/`join` with a non-empty queue.
-
----
-
-## 3. Livelock
-
-In a livelock, threads aren't blocked: they keep **responding to each other** and never get anywhere, like two people in a corridor repeatedly stepping aside in the same direction.
-
-```java
-// Both threads: try to get both locks, and if the second is busy, release the first and retry immediately
-while (true) {
-    if (a.tryLock()) {
-        try {
-            if (b.tryLock()) { try { work(); return; } finally { b.unlock(); } }
-        } finally { a.unlock(); }
-    }
-    // retry immediately: the other thread does the same, in lockstep
-}
-```
-
-Other examples: endless retry collisions on the same schedule, two message handlers repeatedly bouncing a failing message back and forth, optimistic updates (CAS loops) that keep invalidating each other under heavy contention.
-
-**Fixes:**
-
-- **Randomized backoff:** sleep a small random time before retrying, which desynchronizes the threads ([Retry and Backoff](../25-real-world-patterns/02_retry-and-backoff.md)).
-- **Arbitration:** give one party priority (lock ordering again).
-- **Bounded retries** with a failure path, instead of retrying forever.
-
-Livelock shows up as **high CPU with no useful output**. Thread dumps show threads `RUNNABLE` in the same retry loop.
-
----
-
-## 4. Starvation
-
-A thread is **starved** when it can't get the resources it needs because other threads keep winning. The system as a whole progresses, but some work never does.
-
-| Cause | Example | Mitigation |
-|---|---|---|
-| **Unfair locks** | A `synchronized` block or non-fair lock lets other threads "barge in" repeatedly | Fair `ReentrantLock(true)` (costs throughput) when starvation is proven |
-| **Greedy threads / long critical sections** | One task holds a lock for seconds | Shorten critical sections; do slow work outside locks |
-| **Thread-pool saturation** | A flood of long tasks fills the pool so short, urgent ones wait | Separate pools per workload (bulkhead), bounded queues, priorities in the queue |
-| **Reader/writer imbalance** | Constant readers starve a writer (or the reverse) | Fairness mode, or a different structure ([Locks](05_locks.md)) |
-| **Priorities** | Low-priority threads rarely scheduled | Don't depend on priorities |
-| **Common-pool abuse** | Blocking tasks occupy the shared `ForkJoinPool`, starving everything using it | Dedicated executors ([note 11](11_fork-join-and-parallelism.md)) |
-
-Starvation is hard to spot because there's no error: a request just never completes. Look for **queue wait times growing**, tasks with unbounded latency, and threads that never get scheduled. Metrics on queue length and task wait time reveal it.
-
----
-
-## 5. Prevention checklist
-
-1. **Avoid holding more than one lock at a time.** Redesign so each operation needs one lock, or use higher-level structures (concurrent collections, atomics, immutable snapshots).
-2. If you must nest locks, define and **document a global lock order**, and follow it everywhere.
-3. **Never call unknown code** (callbacks, listeners, overridable methods, I/O) while holding a lock. Copy what you need, release, then call out.
-4. Use **timeouts** (`tryLock`, `await(timeout)`, `Future.get(timeout)`, `invokeAll` with a timeout) so a stuck wait becomes an error you can see instead of a hang.
-5. **Keep critical sections short** and free of blocking operations.
-6. **Don't wait on tasks in your own pool.** Use separate pools or non-blocking composition.
-7. Always release resources in `finally`: latch `countDown`, semaphore `release`, lock `unlock`.
-8. Prefer **message passing / immutable data** and single-writer designs ([Concurrency Patterns](15_concurrency_patterns_placeholder)).
-9. **Name threads** and keep thread-dump tooling ready, since you'll need it at 3 a.m.
-10. Add a **deadlock check** to health monitoring (`findDeadlockedThreads`) and alert on it.
-11. Test under load with many threads, and use tools such as `jcstress` or lock-order analyzers where available.
-
----
-
-## Common mistakes
-
-| Mistake | Fix |
+| Metadata | Value |
 |---|---|
-| Acquiring locks in different orders in different methods | One global ordering |
-| Calling listeners/callbacks while holding a lock | Open calls: notify after releasing |
-| Retrying lock acquisition immediately in a tight loop | Randomized backoff, bounded retries |
-| A pool task blocking on `Future.get()` of a sibling task from the same pool | Different pool, or `CompletableFuture`/virtual threads |
-| `await()`/`get()`/`take()` with no timeout in production paths | Always use a timeout and handle expiry |
-| Skipping `finally` for `countDown`/`release`/`unlock` | Put it in `finally` |
-| Assuming priority or fairness will fix starvation | Fix the contention: shorter holds, separate pools |
-| Holding a lock across a remote/database call | Don't. Narrow the scope |
-| Ignoring a "Found one Java-level deadlock" message in a dump | Fix the lock order that it shows |
-| Only testing with one or two threads | Stress with many threads and iterations |
+| **Level** | Advanced |
+| **Prerequisites** | [03_synchronization.md](03_synchronization.md), [05_locks.md](05_locks.md) |
+| **Time to Read** | 26 minutes |
+| **Status** | Active |
+| **Java Version** | Java 1.0+ |
 
-### Diagnosis flow
+---
 
-```text
-Application hangs or some requests never finish
-   │
-   ├─ Take 2-3 thread dumps, a few seconds apart  (jcmd <pid> Thread.print -l)
-   │
-   ├─ "Found one Java-level deadlock"?                         → lock cycle: fix ordering (section 1)
-   ├─ All pool workers WAITING in Future.get / join, queue > 0? → pool starvation deadlock
-   ├─ Threads RUNNABLE in the same loop, CPU high?              → livelock / spinning retry
-   ├─ Many threads BLOCKED on one monitor?                      → heavy contention / long critical section
-   └─ Some tasks waiting a very long time, others fine?         → starvation: look at queues, fairness, pool isolation
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & Usage](#4-syntax--usage)
+5. [Practical Examples](#5-practical-examples)
+6. [Best Practices](#6-best-practices)
+7. [Common Mistakes & Pitfalls](#7-common-mistakes--pitfalls)
+8. [Performance & Security Notes](#8-performance--security-notes)
+9. [Comparison / When to Use What](#9-comparison--when-to-use-what)
+10. [Interview Questions](#10-interview-questions)
+11. [Practice Exercises](#11-practice-exercises)
+12. [Summary / Cheat Sheet](#12-summary--cheat-sheet)
+13. [Further Reading](#13-further-reading)
+
+---
+
+## 1. What & Why
+
+### The Dark Side of Concurrency
+While concurrency enhances system throughput, incorrect thread coordination can paralyze a system completely:
+- **Deadlock**: Two or more threads are permanently blocked, each waiting for a lock held by another thread in the group.
+- **Livelock**: Threads are not blocked; they actively change state in response to each other, but make zero forward progress (like two polite people trying to pass each other in a narrow hallway).
+- **Starvation**: A runnable thread is perpetually denied CPU execution time or access to shared resources because higher-priority or greedy threads monopolize access.
+
+---
+
+## 2. Core Concepts
+
+### The 4 Coffman Conditions for Deadlock
+A deadlock can occur **if and only if** all four conditions hold simultaneously:
+1. **Mutual Exclusion**: At least one resource must be held in a non-shareable mode.
+2. **Hold and Wait**: A thread holds at least one resource while waiting to acquire additional resources held by other threads.
+3. **No Preemption**: Resources cannot be forcibly taken from a thread; they can only be released voluntarily.
+4. **Circular Wait**: A closed chain of threads exists such that each thread holds a resource that the next thread in the chain is waiting to acquire.
+
+**Breaking Any One Condition Prevents Deadlocks Permanently!**
+The most effective programming strategy is breaking condition 4 (**Circular Wait**) by enforcing a **strict global lock ordering protocol**.
+
+### Livelock Mechanics
+Unlike deadlock, threads in a livelock are actively running, consuming CPU cycles, but are stuck in an infinite loop of reactionary state changes. Common in retry algorithms without randomized backoff.
+
+### Starvation Mechanics
+Occurs when thread scheduling policies or unfair locks repeatedly grant resources to other threads, leaving waiting threads starved indefinitely.
+
+---
+
+## 3. How It Works Internally
+
+### Resource Allocation Graph (Circular Wait)
+```mermaid
+flowchart LR
+    T1[Thread 1] -->|Holds| L1[Lock A]
+    L1 -->|Waits For| T2[Thread 2]
+    T2 -->|Holds| L2[Lock B]
+    L2 -->|Waits For| T1
+```
+
+### Programmatic Deadlock Detection via `ThreadMXBean`
+The JVM includes built-in cycle-detection algorithms in `ManagementFactory.getThreadMXBean()`:
+- `findDeadlockedThreads()`: Detects deadlocks involving intrinsic monitors (`synchronized`) and explicit `Lock` objects.
+- `findMonitorDeadlockedThreads()`: Detects deadlocks involving only intrinsic monitors.
+The algorithm performs depth-first search (DFS) over the thread wait graph to locate cycles.
+
+---
+
+## 4. Syntax & Usage
+
+### Deadlock Prevention via Global Lock Ordering
+```java
+public class SafeAccountTransfer {
+    public static void transfer(Account from, Account to, double amount) {
+        // Enforce strict global ordering using account IDs!
+        Account firstLock = from.getId() < to.getId() ? from : to;
+        Account secondLock = from.getId() < to.getId() ? to : from;
+
+        synchronized (firstLock) {
+            synchronized (secondLock) {
+                from.withdraw(amount);
+                to.deposit(amount);
+            }
+        }
+    }
+}
+```
+
+### Deadlock Prevention via `tryLock` with Backoff
+```java
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
+
+public class TryLockDeadlockDefense {
+    public static boolean transfer(Lock lockA, Lock lockB) throws InterruptedException {
+        while (true) {
+            if (lockA.tryLock(50, TimeUnit.MILLISECONDS)) {
+                try {
+                    if (lockB.tryLock(50, TimeUnit.MILLISECONDS)) {
+                        try {
+                            // Acquired both locks!
+                            return true;
+                        } finally {
+                            lockB.unlock();
+                        }
+                    }
+                } finally {
+                    lockA.unlock(); // Release lockA to avoid hold-and-wait!
+                }
+            }
+            // Randomized backoff to prevent livelock collisions!
+            Thread.sleep((long) (Math.random() * 20 + 10));
+        }
+    }
+}
 ```
 
 ---
 
-## Quick Summary
+## 5. Practical Examples
 
-- **Deadlock:** a cycle of threads each holding what another needs (mutual exclusion + hold-and-wait + no preemption + circular wait). Fix mainly with **global lock ordering**, fewer nested locks, `tryLock` timeouts, and open calls.
-- **Pool-starvation deadlock:** tasks waiting on tasks in the same pool. Isolate pools or avoid blocking waits.
-- **Livelock:** busy but not progressing (lockstep retries). Fix with **randomized backoff** and bounded retries.
-- **Starvation:** some threads never get resources (unfair locks, long critical sections, saturated or shared pools). Fix with shorter holds, fairness where needed, and **bulkheads**.
-- Diagnose with **repeated thread dumps** (`jcmd <pid> Thread.print -l`) and `ThreadMXBean.findDeadlockedThreads()`.
-- Use timeouts and `finally` everywhere you wait or acquire.
+### Example 1: Creating and Detecting a Deadlock
+```java
+// Goal: Intentionally cause a classic deadlock and detect it programmatically
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadMXBean;
 
-**Next:** [Concurrency Patterns](15_concurrency-patterns.md)
+public class DeadlockDetectionDemo {
+    private static final Object lock1 = new Object();
+    private static final Object lock2 = new Object();
+
+    public static void main(String[] args) throws InterruptedException {
+        Thread t1 = new Thread(() -> {
+            synchronized (lock1) {
+                try { Thread.sleep(50); } catch (InterruptedException ignored) {}
+                synchronized (lock2) {
+                    System.out.println("T1 acquired both locks!");
+                }
+            }
+        }, "Deadlock-Thread-1");
+
+        Thread t2 = new Thread(() -> {
+            synchronized (lock2) {
+                try { Thread.sleep(50); } catch (InterruptedException ignored) {}
+                synchronized (lock1) {
+                    System.out.println("T2 acquired both locks!");
+                }
+            }
+        }, "Deadlock-Thread-2");
+
+        t1.start();
+        t2.start();
+
+        Thread.sleep(200);
+
+        // Detect deadlock via ThreadMXBean
+        ThreadMXBean bean = ManagementFactory.getThreadMXBean();
+        long[] deadlockedIds = bean.findDeadlockedThreads();
+
+        if (deadlockedIds != null) {
+            System.err.println("CRITICAL: Detected " + deadlockedIds.length + " deadlocked threads!");
+            for (long id : deadlockedIds) {
+                System.err.println(" - Deadlocked Thread: " + bean.getThreadInfo(id).getThreadName());
+            }
+        }
+    }
+}
+```
+*Output:*
+```
+CRITICAL: Detected 2 deadlocked threads!
+ - Deadlocked Thread: Deadlock-Thread-1
+ - Deadlocked Thread: Deadlock-Thread-2
+```
+
+### Example 2: Livelock Demonstration and Resolution
+```java
+// Goal: Show two threads repeatedly backing off and colliding, then fix with randomized jitter
+import java.util.concurrent.locks.*;
+
+public class LivelockDemo {
+    static class PoliteWorker {
+        private final String name;
+        private boolean active = true;
+
+        PoliteWorker(String name) { this.name = name; }
+
+        public void cooperate(PoliteWorker partner) {
+            while (active) {
+                if (partner.active) {
+                    System.out.println(name + ": partner is active, yielding turn...");
+                    try {
+                        // FIXED: Add random jitter to prevent synchronous lockstep livelock!
+                        Thread.sleep((long) (Math.random() * 50 + 10));
+                    } catch (InterruptedException ignored) {}
+                    continue;
+                }
+                System.out.println(name + ": working!");
+                active = false;
+            }
+        }
+    }
+}
+```
+
+---
+
+## 6. Best Practices
+1. **Acquire Locks in a Strict Global Order**: The number one defense against deadlock is enforcing that all threads acquire multiple locks in identical order.
+2. **Use Timed Lock Acquisition (`tryLock`)**: Replace indefinite blocking with `tryLock(timeout, unit)` to back out gracefully if a lock is unavailable.
+3. **Minimize Lock Holding Duration**: Never perform network I/O, user interaction, or long calculations while holding locks.
+4. **Use Randomized Backoff on Retry**: When backing off from failed lock acquisitions, always introduce randomized jitter to prevent livelock synchronization.
+5. **Analyze Thread Dumps in Production**: Use `jcmd <pid> Thread.dump_to_file` or `jstack <pid>` to diagnose deadlocks in production environments.
+
+---
+
+## 7. Common Mistakes & Pitfalls
+
+| Mistake | Why Wrong | Fix |
+|---|---|---|
+| Inconsistent lock acquisition order | Threads acquire Lock A then B, while others acquire B then A, causing deadlock. | Sort locks by identity hash code or unique ID before acquiring. |
+| Calling external alien methods inside locks | Alien method may acquire another lock, forming an unexpected circular wait. | Use open calls: copy state and release lock before invoking alien methods. |
+| Fixed sleep intervals during lock backoff | Both threads back off and retry at identical time intervals, causing persistent livelock. | Introduce randomized jitter (`Math.random() * backoff`). |
+| Starvation caused by Fair Locks under extreme load | Fair lock queues can suffer from convoying, causing throughput collapse. | Use non-fair locks unless fairness is strictly mandatory. |
+| Ignoring `Thread.interrupt()` during deadlocks | Threads blocked on `synchronized` cannot be interrupted, remaining frozen permanently. | Use `ReentrantLock.lockInterruptibly()`. |
+
+---
+
+## 8. Performance & Security Notes
+
+### Denial of Service via Deadlock
+A single deadlock in an enterprise service can permanently tie up worker threads one by one. As new requests arrive and attempt to acquire the deadlocked monitor, the entire thread pool becomes exhausted, leading to complete service outage.
+
+### Open Calls Pattern
+An **Open Call** is an architectural pattern where methods are invoked without holding any locks. This protects against alien method deadlocks. Always narrow the synchronized block to internal state mutations only.
+
+---
+
+## 9. Comparison / When to Use What
+
+| Failure Mode | Thread State | CPU Utilization | Resolution Strategy |
+|---|---|---|---|
+| **Deadlock** | `BLOCKED` / `WAITING` | 0% (Idle/Blocked) | Global lock ordering, timeouts |
+| **Livelock** | `RUNNABLE` | 100% (High spin) | Randomized backoff jitter |
+| **Starvation** | `WAITING` / `BLOCKED` | Low for starved | Fair queueing, priority normalization |
+
+---
+
+## 10. Interview Questions
+
+<details>
+<summary>1. What are the four Coffman conditions required for a deadlock?</summary>
+Mutual Exclusion, Hold and Wait, No Preemption, and Circular Wait. If any one condition is eliminated, deadlocks are impossible.
+</details>
+
+<details>
+<summary>2. How do you prevent deadlocks when transferring funds between two bank accounts?</summary>
+Enforce a strict lock ordering protocol: compare account unique IDs and always acquire the lock on the lower ID account first, followed by the higher ID account.
+</details>
+
+<details>
+<summary>3. What is the difference between Deadlock and Livelock?</summary>
+In a deadlock, threads are frozen in `BLOCKED` or `WAITING` states waiting for resources. In a livelock, threads remain in `RUNNABLE` state actively executing code, but repeatedly yield or back off, making zero forward progress.
+</details>
+
+<details>
+<summary>4. What is Thread Starvation?</summary>
+A situation where a runnable thread is perpetually denied access to CPU time or shared locks because other threads (e.g. higher-priority threads or unfair lock bargers) monopolize access.
+</details>
+
+<details>
+<summary>5. How can deadlocks be detected programmatically in Java?</summary>
+Using `ManagementFactory.getThreadMXBean().findDeadlockedThreads()`, which inspects the JVM thread graph and returns the thread IDs of all deadlocked threads.
+</details>
+
+<details>
+<summary>6. What is an Open Call and why does it prevent deadlocks?</summary>
+An open call is calling a method outside of any synchronized block. Invoking unknown or external methods while holding locks can lead to circular dependencies; open calls eliminate this risk.
+</details>
+
+<details>
+<summary>7. Can `synchronized` blocks be interrupted if deadlocked?</summary>
+No. Threads blocked waiting to enter a `synchronized` block are in `BLOCKED` state and cannot be interrupted. `ReentrantLock.lockInterruptibly()` must be used if interruptibility is required.
+</details>
+
+<details>
+<summary>8. How do you generate a thread dump to inspect deadlocks in Linux production?</summary>
+Using `jcmd <PID> Thread.print` or `jstack <PID>`, or sending `kill -3 <PID>` to output thread dumps to standard out.
+</details>
+
+---
+
+## 11. Practice Exercises
+
+### Exercise 1 (Easy): Ordered Lock Transfer
+- **Task**: Implement a method `void transfer(Account a1, Account a2)` that acquires locks in deterministic order using `System.identityHashCode()` to prevent deadlocks.
+<details>
+<summary>Solution</summary>
+
+```java
+public class OrderedTransferDemo {
+    static class Account {
+        double balance = 100.0;
+    }
+
+    public static void transfer(Account a1, Account a2, double amount) {
+        int hash1 = System.identityHashCode(a1);
+        int hash2 = System.identityHashCode(a2);
+
+        Account first = (hash1 < hash2) ? a1 : a2;
+        Account second = (hash1 < hash2) ? a2 : a1;
+
+        synchronized (first) {
+            synchronized (second) {
+                a1.balance -= amount;
+                a2.balance += amount;
+            }
+        }
+    }
+}
+```
+</details>
+
+### Exercise 2 (Medium): Timed Backoff Transfer
+- **Task**: Implement a money transfer between two accounts using `ReentrantLock.tryLock()` with a timeout. If the second lock cannot be acquired within 50ms, release the first lock, wait a random jitter interval, and retry.
+<details>
+<summary>Solution</summary>
+
+```java
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
+
+public class ResilientTransfer {
+    static class SafeAccount {
+        final ReentrantLock lock = new ReentrantLock();
+        double balance;
+        SafeAccount(double bal) { this.balance = bal; }
+    }
+
+    public static boolean tryTransfer(SafeAccount from, SafeAccount to, double amount) throws InterruptedException {
+        while (true) {
+            if (from.lock.tryLock(50, TimeUnit.MILLISECONDS)) {
+                try {
+                    if (to.lock.tryLock(50, TimeUnit.MILLISECONDS)) {
+                        try {
+                            from.balance -= amount;
+                            to.balance += amount;
+                            return true;
+                        } finally {
+                            to.lock.unlock();
+                        }
+                    }
+                } finally {
+                    from.lock.unlock();
+                }
+            }
+            // Random backoff jitter prevents livelock
+            Thread.sleep((long) (Math.random() * 30 + 10));
+        }
+    }
+}
+```
+</details>
+
+### Exercise 3 (Hard): Automated Deadlock Watchdog Daemon
+- **Task**: Write a background daemon thread that runs every 3 seconds, queries `ThreadMXBean`, and if a deadlock is detected, logs the stack traces of all deadlocked threads.
+<details>
+<summary>Solution</summary>
+
+```java
+import java.lang.management.*;
+
+public class DeadlockWatchdog {
+    public static void startWatchdog() {
+        Thread watchdog = new Thread(() -> {
+            ThreadMXBean bean = ManagementFactory.getThreadMXBean();
+            while (true) {
+                long[] deadlocked = bean.findDeadlockedThreads();
+                if (deadlocked != null && deadlocked.length > 0) {
+                    System.err.println("ALERT: Deadlock detected across " + deadlocked.length + " threads!");
+                    ThreadInfo[] infos = bean.getThreadInfo(deadlocked, true, true);
+                    for (ThreadInfo info : infos) {
+                        System.err.println(info);
+                    }
+                    break;
+                }
+                try { Thread.sleep(3000); } catch (InterruptedException ignored) {}
+            }
+        }, "DeadlockWatchdog");
+        watchdog.setDaemon(true);
+        watchdog.start();
+    }
+}
+```
+</details>
+
+---
+
+## 12. Summary / Cheat Sheet
+
+```
++-----------------------------------------------------------------------------------------+
+|                               DEADLOCK & LIVELOCK CHEAT SHEET                           |
++-----------------------------------------------------------------------------------------+
+| 4 Coffman Conditions     | Mutual Exclusion, Hold & Wait, No Preemption, Circular Wait  |
+| Primary Prevention       | Enforce strict global lock acquisition order                 |
+| Timeout Defense          | lock.tryLock(timeout, unit) (Back out instead of hanging)    |
+| Livelock Defense         | Add randomized jitter to backoff retry loops                 |
+| Open Calls Rule          | Never invoke unknown/external methods while holding locks    |
+| Diagnostics (CLI)        | jcmd <PID> Thread.print / jstack <PID>                       |
+| Diagnostics (Code)       | ManagementFactory.getThreadMXBean().findDeadlockedThreads()  |
++-----------------------------------------------------------------------------------------+
+```
+
+---
+
+## 13. Further Reading
+- Java Concurrency in Practice by Brian Goetz — Chapter 10 (Avoiding Liveness Hazards)
+- Operating System Concepts (Silberschatz) — Chapter on Deadlocks
+- Oracle Troubleshooting Guide: Diagnosing Deadlocks

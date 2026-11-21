@@ -1,229 +1,416 @@
-# Atomic Classes
+# Atomic Classes and Non-Blocking Synchronization
 
-The classes in `java.util.concurrent.atomic` give you **thread-safe operations on a single variable without locks**. They fix the `count++` lost-update bug ([Thread Safety](02_thread-safety.md)) and also provide `volatile` visibility ([note 04](04_memory-model-and-volatile.md)).
+> Architectural guide to lock-free programming in Java: hardware Compare-And-Swap (CAS), `AtomicInteger`, `AtomicLong`, `AtomicReference`, the ABA problem and `AtomicStampedReference`, `AtomicFieldUpdater`, and high-contention striping with `LongAdder`.
 
-```java
-AtomicInteger count = new AtomicInteger();
-count.incrementAndGet();          // atomic read-modify-write: no lock, no lost updates
-```
-
-They're built on a CPU instruction called **compare-and-swap (CAS)**, which is why they are fast under low-to-moderate contention and can never deadlock.
-
-**Prerequisites:** [Thread Safety](02_thread-safety.md), [Memory Model and `volatile`](04_memory-model-and-volatile.md).
-
----
-
-## 1. The core classes
-
-| Class | Holds |
+| Metadata | Value |
 |---|---|
-| `AtomicInteger`, `AtomicLong` | An `int` / `long` |
-| `AtomicBoolean` | A `boolean` |
-| `AtomicReference<V>` | An object reference |
-| `AtomicIntegerArray`, `AtomicLongArray`, `AtomicReferenceArray` | Arrays whose **elements** are atomic |
-| `AtomicStampedReference`, `AtomicMarkableReference` | A reference plus a version stamp / mark bit |
-| `LongAdder`, `DoubleAdder`, `LongAccumulator`, `DoubleAccumulator` | High-contention counters and aggregates |
-
-### `AtomicInteger` / `AtomicLong` operations
-
-```java
-AtomicInteger n = new AtomicInteger(10);
-
-n.get();                         // 10
-n.set(20);
-n.incrementAndGet();             // 21, returns the NEW value
-n.getAndIncrement();             // returns 21, new value is 22  (the OLD value)
-n.addAndGet(5);                  // 27
-n.compareAndSet(27, 100);        // true: was 27, set to 100. false (and no change) if it wasn't 27
-n.updateAndGet(x -> x * 2);      // 200  (function applied atomically)
-n.getAndUpdate(x -> x + 1);      // returns 200, now 201
-n.accumulateAndGet(5, Math::max);// 201
-```
-
-The `xxxAndGet` / `getAndXxx` naming: *which value do I get back, the new one or the previous one?*
+| **Level** | Advanced |
+| **Prerequisites** | [02_thread-safety.md](02_thread-safety.md), [04_memory-model-and-volatile.md](04_memory-model-and-volatile.md) |
+| **Time to Read** | 26 minutes |
+| **Status** | Active |
+| **Java Version** | Java 5.0+ (LongAdder in Java 8+) |
 
 ---
 
-## 2. How CAS works
-
-`compareAndSet(expected, newValue)` is **one atomic hardware step**: "if the variable still equals `expected`, set it to `newValue` and report success; otherwise change nothing and report failure."
-
-Methods like `incrementAndGet` are loops built on it:
-
-```java
-// Conceptually what updateAndGet does
-int prev, next;
-do {
-    prev = value;                 // read the current value
-    next = f(prev);               // compute the new value
-} while (!compareAndSet(prev, next));   // retry if another thread changed it in between
-```
-
-Consequences:
-
-- **No locks, no blocking.** A thread that loses a race just retries, so a slow thread can't block others. Under extreme contention retries burn CPU (see `LongAdder`).
-- The function you pass to `updateAndGet`/`accumulateAndGet` **may run more than once**, so it must be **side-effect free** (no logging counters, no I/O, no mutation).
-- Atomicity covers **one variable**. It can't keep two variables consistent with each other.
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & Usage](#4-syntax--usage)
+5. [Practical Examples](#5-practical-examples)
+6. [Best Practices](#6-best-practices)
+7. [Common Mistakes & Pitfalls](#7-common-mistakes--pitfalls)
+8. [Performance & Security Notes](#8-performance--security-notes)
+9. [Comparison / When to Use What](#9-comparison--when-to-use-what)
+10. [Interview Questions](#10-interview-questions)
+11. [Practice Exercises](#11-practice-exercises)
+12. [Summary / Cheat Sheet](#12-summary--cheat-sheet)
+13. [Further Reading](#13-further-reading)
 
 ---
 
-## 3. Using them
+## 1. What & Why
 
-### Counters and IDs
+### The Cost of Blocking Locks
+Traditional synchronization uses pessimistic blocking locks. When a thread encounters lock contention:
+- The OS suspends (parks) the thread.
+- A kernel context switch occurs.
+- When the lock is freed, the OS schedules and unparks the thread.
+For simple operations (like incrementing a counter or updating a state pointer), context switching takes thousands of CPU clock cycles, destroying throughput.
 
-```java
-private static final AtomicLong NEXT_ID = new AtomicLong();
-long newId() { return NEXT_ID.incrementAndGet(); }
+### The Solution: Hardware Compare-And-Swap (CAS)
+Modern CPUs provide hardware-level atomic instructions (like `CMPXCHG` on x86).
+Instead of blocking other threads, a thread speculatively performs an update:
+1. It reads the current value $V$.
+2. It computes the new value $N$.
+3. It executes a single hardware CAS instruction: *"If current value is still $V$, set it to $N$. If not, return false."*
+4. If CAS fails (another thread intervened), the thread simply retries in a tight spin loop without going to sleep.
+
+Java encapsulates this in the `java.util.concurrent.atomic` package.
+
+---
+
+## 2. Core Concepts
+
+### Core Atomic Types
+- **Scalar Primitives**: `AtomicInteger`, `AtomicLong`, `AtomicBoolean`.
+- **References**: `AtomicReference<V>` (atomic updates to object pointers).
+- **Arrays**: `AtomicIntegerArray`, `AtomicReferenceArray`.
+- **Field Updaters**: `AtomicIntegerFieldUpdater`, `AtomicReferenceFieldUpdater` (reflection-based CAS directly on volatile fields to eliminate wrapper object allocation).
+
+### The ABA Problem and `AtomicStampedReference`
+Suppose a thread reads reference $A$, prepares to CAS it to $C$.
+Meanwhile, another thread changes $A \to B \to A$.
+When the first thread performs CAS, the value is still $A$, so CAS succeeds—even though the state modified between the read and write!
+In linked data structures (like lock-free stacks), this causes node recycling memory corruption.
+**Solution**: `AtomicStampedReference<V>` pairs the reference with an integer version stamp, ensuring CAS fails if the stamp changed.
+
+### High-Contention Striping: `LongAdder` and `DoubleAdder` (Java 8)
+When hundreds of threads concurrently update an `AtomicLong`, they all compete to CAS the **exact same memory address**. CAS retries spin wastefully, degrading performance.
+`LongAdder` solves this by maintaining an array of cells striped across CPU cores (**Dynamic Striping**). Each thread modifies its own dedicated cell; `sum()` aggregates all cells together.
+
+---
+
+## 3. How It Works Internally
+
+### Hardware CAS Instruction Pipelining
+```
++-----------------------------------------------------------+
+| Thread A reads V = 10                                     |
+| Thread B reads V = 10                                     |
++-----------------------------------------------------------+
+                             │
+                             ▼
++-----------------------------------------------------------+
+| Thread A: CMPXCHG(expected=10, new=11) -> SUCCEEDS (V=11) |
+| Thread B: CMPXCHG(expected=10, new=12) -> FAILS    (V=11) |
++-----------------------------------------------------------+
+                             │
+                             ▼
++-----------------------------------------------------------+
+| Thread B re-reads V = 11, computes 11 + 1 = 12            |
+| Thread B: CMPXCHG(expected=11, new=12) -> SUCCEEDS        |
++-----------------------------------------------------------+
 ```
 
-### Flags and one-shot actions
+### `LongAdder` Internal `Striped64` Architecture
+`LongAdder` extends `Striped64`:
+- When uncontended, it updates a single `base` variable via CAS.
+- When contention is detected, it lazily allocates an array of `Cell` objects padded with `@jdk.internal.vm.annotation.Contended` to prevent false sharing.
+- Threads hash their thread ID to update a specific cell independently without contention!
 
+---
+
+## 4. Syntax & Usage
+
+### Basic `AtomicInteger` Operations
 ```java
-private final AtomicBoolean started = new AtomicBoolean(false);
+import java.util.concurrent.atomic.AtomicInteger;
 
-void start() {
-    if (started.compareAndSet(false, true)) {     // exactly one caller wins
-        doStart();
+public class AtomicDemo {
+    private final AtomicInteger counter = new AtomicInteger(0);
+
+    public void increment() {
+        counter.incrementAndGet(); // Atomic ++count
+    }
+
+    public boolean updateIfMatches(int expected, int update) {
+        return counter.compareAndSet(expected, update); // CAS
+    }
+
+    public int accumulate(int value) {
+        // Atomic functional update loop
+        return counter.updateAndGet(current -> Math.max(current, value));
     }
 }
 ```
 
-This replaces the racy `if (!started) { started = true; ... }`.
-
-### Lock-free updates of immutable state with `AtomicReference`
-
-To change several fields together without a lock, put them in an **immutable object** and swap the whole thing:
-
+### High-Throughput Metrics with `LongAdder`
 ```java
-record Stats(long count, long total) {
-    Stats add(long value) { return new Stats(count + 1, total + value); }
-}
+import java.util.concurrent.atomic.LongAdder;
 
-private final AtomicReference<Stats> stats = new AtomicReference<>(new Stats(0, 0));
+public class RequestMetricsTracker {
+    private final LongAdder requestCount = new LongAdder();
 
-void record(long value) {
-    stats.updateAndGet(s -> s.add(value));        // atomically replaces one consistent snapshot with another
+    public void recordRequest() {
+        requestCount.increment(); // Extreme throughput across 100+ cores!
+    }
+
+    public long getTotalRequests() {
+        return requestCount.sum(); // Sums across striped cells
+    }
 }
 ```
-
-Readers calling `stats.get()` always see a consistent `Stats`. This is a powerful, simple pattern: **immutable value + `AtomicReference`**.
-
-### Atomic arrays
-
-`AtomicIntegerArray` makes element updates atomic (`incrementAndGet(i)`). An `AtomicInteger[]` or a `volatile int[]` does not (volatile applies to the reference, not the elements).
 
 ---
 
-## 4. High contention: `LongAdder`
+## 5. Practical Examples
 
-If many threads hammer one `AtomicLong`, CAS retries pile up. `LongAdder` spreads updates across internal **cells** and adds them up on demand:
-
+### Example 1: Lock-Free Stack (Treiber Stack)
 ```java
-LongAdder requests = new LongAdder();
+// Goal: Implement a 100% lock-free concurrent LIFO stack using CAS
+import java.util.concurrent.atomic.AtomicReference;
 
-requests.increment();             // very low contention cost
-requests.add(5);
-long total = requests.sum();      // adds the cells: NOT an atomic snapshot while updates continue
+public class LockFreeStack<T> {
+    private static class Node<T> {
+        final T value;
+        Node<T> next;
+        Node(T val) { this.value = val; }
+    }
+
+    private final AtomicReference<Node<T>> head = new AtomicReference<>(null);
+
+    public void push(T item) {
+        Node<T> newHead = new Node<>(item);
+        while (true) {
+            Node<T> currentHead = head.get();
+            newHead.next = currentHead;
+            // Atomic CAS update: if head still equals currentHead, swap with newHead
+            if (head.compareAndSet(currentHead, newHead)) {
+                return; // Successfully pushed
+            }
+            // Otherwise, another thread pushed; spin and retry!
+        }
+    }
+
+    public T pop() {
+        while (true) {
+            Node<T> currentHead = head.get();
+            if (currentHead == null) {
+                return null; // Empty stack
+            }
+            Node<T> nextHead = currentHead.next;
+            if (head.compareAndSet(currentHead, nextHead)) {
+                return currentHead.value; // Successfully popped
+            }
+        }
+    }
+}
+```
+*Explanation:* The Treiber stack guarantees forward progress without locks. If one thread stalls, others continue pushing and popping unimpeded.
+
+### Example 2: Solving the ABA Problem with `AtomicStampedReference`
+```java
+// Goal: Demonstrate versioned reference updates to prevent ABA corruption
+import java.util.concurrent.atomic.AtomicStampedReference;
+
+public class AbaMitigationDemo {
+    public static void main(String[] args) {
+        String initialRef = "A";
+        int initialStamp = 1;
+
+        AtomicStampedReference<String> stampedRef = new AtomicStampedReference<>(initialRef, initialStamp);
+
+        // Thread 1 inspects state
+        int stampHolder = stampedRef.getStamp();
+        String refHolder = stampedRef.getReference();
+
+        // Thread 2 performs A -> B -> A update
+        stampedRef.compareAndSet("A", "B", stampedRef.getStamp(), stampedRef.getStamp() + 1);
+        stampedRef.compareAndSet("B", "A", stampedRef.getStamp(), stampedRef.getStamp() + 1);
+
+        // Thread 1 attempts CAS using original stamp (1)
+        boolean success = stampedRef.compareAndSet(refHolder, "C", stampHolder, stampHolder + 1);
+
+        // CAS fails because stamp changed from 1 to 3!
+        System.out.println("Did Thread 1 CAS succeed: " + success); // false
+        System.out.println("Current reference: " + stampedRef.getReference() + ", stamp: " + stampedRef.getStamp());
+    }
+}
+```
+*Output:*
+```
+Did Thread 1 CAS succeed: false
+Current reference: A, stamp: 3
 ```
 
-| | `AtomicLong` | `LongAdder` |
+---
+
+## 6. Best Practices
+1. **Prefer `LongAdder` for High-Contention Accumulators**: When multiple threads update a shared counter frequently and read rarely (e.g. metrics, stats), use `LongAdder` over `AtomicLong`.
+2. **Use `updateAndGet()` for Complex Transformations**: Instead of manual CAS loops, use `atomic.updateAndGet(x -> ...)` to ensure mathematical updates execute safely.
+3. **Beware of Unbounded Spin Loops**: If CAS contention is extreme, endless retries consume 100% CPU. Add a backoff policy (e.g. `Thread.onSpinWait()` in Java 9+).
+4. **Use `AtomicReference` for Immutable State Replacement**: Package multi-variable state into an immutable Record and update the entire state atomically with a single `AtomicReference`.
+5. **Use `AtomicFieldUpdater` for Massive Scale**: If instantiating millions of node objects, use `AtomicReferenceFieldUpdater` to avoid wrapper object memory overhead.
+
+---
+
+## 7. Common Mistakes & Pitfalls
+
+| Mistake | Why Wrong | Fix |
 |---|---|---|
-| Update cost under heavy contention | Higher (CAS retries) | Much lower |
-| Read | `get()`: always exact | `sum()`: may miss concurrent updates |
-| Memory | One variable | Several cells |
-| Good for | IDs, sequence numbers, anything needing exact current value, CAS | **Statistics and metrics**: counts you read occasionally |
-
-Use `LongAdder` for hit counters, metrics, and totals. **Don't** use it to generate unique IDs or for any logic that depends on an exact instantaneous value. `LongAccumulator` generalizes this to any associative function (such as `max`).
+| Multiple atomic calls without coordinated locking | Two independent atomic operations are NOT atomic together (check-then-act race). | Use `compareAndSet`, `updateAndGet`, or locks. |
+| Using `AtomicLong` for global telemetry | All cores contend for the same cache line, collapsing performance. | Replace with `LongAdder`. |
+| Unbounded CAS spin loops causing CPU starvation | Threads spinning at 100% CPU under severe contention degrade system responsiveness. | Introduce backoff or use `Thread.onSpinWait()`. |
+| Ignoring the ABA problem in memory pooling | Reusing memory addresses can trick CAS into corrupting pointer graphs. | Use `AtomicStampedReference`. |
+| Modifying non-volatile fields via `AtomicFieldUpdater` | Target fields must be declared `volatile` or runtime `IllegalArgumentException` is thrown. | Mark field `volatile`. |
 
 ---
 
-## 5. Pitfalls
+## 8. Performance & Security Notes
 
-### Compare-and-set uses `==`, not `equals`
+### CAS Scalability Limits vs `LongAdder`
+As the number of CPU cores increases (e.g. 64 or 128 cores), `AtomicLong` performance drops dramatically due to cache line bouncing (MESI protocol invalidation cycles across cores). `LongAdder` scales linearly with core counts by spreading writes across independent cache-line padded cells.
 
-`AtomicReference.compareAndSet(expected, new)` compares **references**. With boxed values this can surprise you:
+### Spin-Wait Loop Hints (`Thread.onSpinWait()`)
+Java 9 introduced `Thread.onSpinWait()`. It emits an x86 `PAUSE` instruction inside busy-wait CAS loops, signaling the CPU pipeline to reduce power consumption and optimize speculative execution.
+
+---
+
+## 9. Comparison / When to Use What
+
+| Metric / Feature | `AtomicLong` | `LongAdder` | `synchronized` |
+|---|---|---|---|
+| **Contention Performance**| Low under high threads | **Extremely High** | Low |
+| **Exact Real-Time Read** | Yes (`get()`) | Eventual (`sum()`) | Yes |
+| **Memory Footprint** | Tiny (8 bytes) | Larger (Striped cells)| Small |
+| **Primary Use Case** | Unique IDs, sequence nums | Telemetry, counters | Multi-variable state |
+
+---
+
+## 10. Interview Questions
+
+<details>
+<summary>1. How does Compare-And-Swap (CAS) work at the hardware level?</summary>
+CAS is an atomic CPU instruction (e.g. `CMPXCHG`) that compares the contents of a memory location with a given expected value. If they are equal, it modifies the memory to a new value; otherwise, it leaves memory unchanged and reports failure.
+</details>
+
+<details>
+<summary>2. Why does `LongAdder` outperform `AtomicLong` under heavy contention?</summary>
+`AtomicLong` forces all threads to CAS a single memory address, causing severe cache line invalidations. `LongAdder` stripes updates across an internal array of cells, allowing threads to update independent cells concurrently without collision.
+</details>
+
+<details>
+<summary>3. What is the ABA problem and how is it resolved in Java?</summary>
+The ABA problem occurs when a memory location changes from A to B and back to A. A thread reading A believes nothing changed, even though invariants may be invalidated. Java resolves it using `AtomicStampedReference`, which tracks a version number alongside the reference.
+</details>
+
+<details>
+<summary>4. What does `Thread.onSpinWait()` do?</summary>
+Introduced in Java 9, it is an intrinsic hint to the CPU (emitting a `PAUSE` instruction on x86) that the thread is in a busy-wait spin loop, reducing CPU core power draw and avoiding pipeline thrashing.
+</details>
+
+<details>
+<summary>5. Can two separate calls on `AtomicInteger` be considered thread-safe together?</summary>
+No. While each call is individually atomic, the compound sequence (e.g. `if (ai.get() == 0) ai.set(1);`) is not atomic and contains a check-then-act race condition. You must use `ai.compareAndSet(0, 1)`.
+</details>
+
+<details>
+<summary>6. What is an `AtomicReferenceFieldUpdater`?</summary>
+A reflection-based utility that enables atomic CAS operations directly on a normal `volatile` field of an existing class, avoiding the memory allocation overhead of dedicated atomic wrapper objects.
+</details>
+
+<details>
+<summary>7. What are the performance trade-offs of `LongAdder.sum()`?</summary>
+`sum()` must iterate over all cells and add their values. It provides an eventual, approximate snapshot during concurrent updates, but does not acquire locks.
+</details>
+
+<details>
+<summary>8. Is lock-free programming always faster than lock-based programming?</summary>
+No. Under low to moderate contention, locks and CAS perform similarly. Under extreme contention on a single variable, CAS spin loops consume 100% CPU without making progress, whereas locks park threads to prevent CPU waste.
+</details>
+
+---
+
+## 11. Practice Exercises
+
+### Exercise 1 (Easy): Unique Sequence Generator
+- **Task**: Implement a thread-safe sequence generator `SequenceGenerator` that issues unique incremental `long` identifiers starting from 1 using `AtomicLong`.
+<details>
+<summary>Solution</summary>
 
 ```java
-AtomicReference<Integer> ref = new AtomicReference<>(1000);
-ref.compareAndSet(1000, 2000);    // likely FALSE: autoboxing creates a different Integer object than the stored one
-```
+import java.util.concurrent.atomic.AtomicLong;
 
-Prefer `AtomicInteger`/`AtomicLong` for numbers. For objects, keep the exact reference you read (`prev = ref.get(); ... ref.compareAndSet(prev, next)`) or use `updateAndGet`, which does this for you.
+public class SequenceGenerator {
+    private final AtomicLong current = new AtomicLong(0);
 
-### The ABA problem
-
-CAS only checks "is the value still `A`?". It can't tell if it changed `A → B → A` in between. For simple counters that's harmless, but for linked structures it can corrupt logic. `AtomicStampedReference` pairs the reference with a version number, so `A(v1)` and `A(v3)` differ.
-
-### Compound actions across multiple atomics are not atomic
-
-```java
-if (balance.get() >= amount) {          // check
-    balance.addAndGet(-amount);         // act: another thread may have withdrawn in between
+    public long nextId() {
+        return current.incrementAndGet();
+    }
 }
 ```
+</details>
 
-Make the check part of one atomic operation (a CAS loop, or `updateAndGet` with a condition), or guard the whole thing with a lock, or keep the related state in one immutable object behind an `AtomicReference`.
+### Exercise 2 (Medium): Lock-Free Max-Value Tracker
+- **Task**: Implement a `MaxValueTracker` with method `void update(int value)` that updates the maximum observed value using a CAS loop on `AtomicInteger`.
+<details>
+<summary>Solution</summary>
 
 ```java
-// Correct CAS loop for a withdrawal that must not go negative
-long prev, next;
-do {
-    prev = balance.get();
-    if (prev < amount) return false;
-    next = prev - amount;
-} while (!balance.compareAndSet(prev, next));
-return true;
+import java.util.concurrent.atomic.AtomicInteger;
+
+public class MaxValueTracker {
+    private final AtomicInteger max = new AtomicInteger(Integer.MIN_VALUE);
+
+    public void update(int value) {
+        // updateAndGet handles the CAS retry loop internally
+        max.updateAndGet(current -> Math.max(current, value));
+    }
+
+    public int getMax() {
+        return max.get();
+    }
+}
+```
+</details>
+
+### Exercise 3 (Hard): Lock-Free Atomic State Transition
+- **Task**: Model a workflow state machine with states `CREATED -> VALIDATED -> PROCESSED -> ARCHIVED`. Implement `Workflow(String id)` using `AtomicReference` that only permits legal forward transitions.
+<details>
+<summary>Solution</summary>
+
+```java
+import java.util.concurrent.atomic.AtomicReference;
+
+public class Workflow {
+    public enum State { CREATED, VALIDATED, PROCESSED, ARCHIVED }
+
+    private final String id;
+    private final AtomicReference<State> state = new AtomicReference<>(State.CREATED);
+
+    public Workflow(String id) { this.id = id; }
+
+    public boolean transition(State expected, State next) {
+        // Enforce valid forward transitions
+        boolean valid = switch (expected) {
+            case CREATED -> next == State.VALIDATED;
+            case VALIDATED -> next == State.PROCESSED;
+            case PROCESSED -> next == State.ARCHIVED;
+            case ARCHIVED -> false;
+        };
+        if (!valid) {
+            throw new IllegalArgumentException("Illegal transition: " + expected + " -> " + next);
+        }
+        return state.compareAndSet(expected, next);
+    }
+
+    public State getState() { return state.get(); }
+}
+```
+</details>
+
+---
+
+## 12. Summary / Cheat Sheet
+
+```
++-----------------------------------------------------------------------------------------+
+|                                 ATOMIC CLASSES CHEAT SHEET                              |
++-----------------------------------------------------------------------------------------+
+| Core Primitive Classes   | AtomicInteger, AtomicLong, AtomicBoolean                     |
+| Object Reference Class   | AtomicReference<T> (CAS on reference pointers)               |
+| Atomic Operations        | getAndIncrement(), addAndGet(), compareAndSet(exp, update)   |
+| Functional Update        | atomic.updateAndGet(v -> Math.max(v, newValue))              |
+| ABA Solution             | AtomicStampedReference<T> (Pairs reference + integer stamp)  |
+| Contention Scaling       | LongAdder (Striped64 cells, sum() aggregates)                |
+| CPU Spin Optimization    | Thread.onSpinWait() (Emits x86 PAUSE instruction)            |
++-----------------------------------------------------------------------------------------+
 ```
 
-### Two atomics ≠ one invariant
-
-`AtomicInteger min` and `AtomicInteger max` can each be updated atomically, but you can't atomically keep `min <= max` across both. Use a lock or an immutable pair in an `AtomicReference`.
-
 ---
 
-## 6. When to use what
-
-| Need | Use |
-|---|---|
-| One counter / flag / reference, simple update | **Atomic** class |
-| Heavily contended statistics | `LongAdder` |
-| Several variables that must change together | Lock, or immutable object in `AtomicReference` |
-| Long computations inside the update | Lock (a CAS retry would redo the work) |
-| Blocking/waiting behavior | Locks, queues, synchronizers |
-
-Atomics are also what many concurrent collections use internally. They're one of the building blocks behind `ConcurrentHashMap` ([note 08](08_concurrent-collections.md)). For field-level atomics without wrapper objects there are `AtomicXxxFieldUpdater`s and `VarHandle`s, which are advanced tools for library authors.
-
----
-
-## Common mistakes
-
-| Mistake | Fix |
-|---|---|
-| `if (a.get() == x) a.set(y)` (check-then-act) | `a.compareAndSet(x, y)` |
-| `a.set(a.get() + 1)` | `a.incrementAndGet()` |
-| Side effects inside `updateAndGet`'s lambda | Keep it pure: it may run several times |
-| `AtomicReference<Integer>` with `compareAndSet(1000, ...)` | Use `AtomicInteger`, or reuse the exact object read |
-| `LongAdder` for sequence/ID generation or exact reads | `AtomicLong` |
-| Expecting two atomics to stay consistent with each other | Lock, or an immutable holder |
-| Using atomics where a simple lock would be clearer | Choose the simplest correct tool |
-| Assuming `volatile int[]` has atomic elements | `AtomicIntegerArray` |
-| Mutating the object inside an `AtomicReference` | Replace it with a new immutable instance |
-
-### Debugging
-
-- Wrong totals despite using atomics → look for a check-then-act split across `get()` and `set()`, or two related atomics.
-- High CPU with many threads on one counter → CAS contention. Try `LongAdder`.
-- `compareAndSet` "never succeeds" on boxed values → reference comparison. Use primitive atomics or the exact reference.
-- Results differ between `sum()` calls during updates → expected for `LongAdder`.
-
----
-
-## Quick Summary
-
-- Atomic classes give **lock-free, thread-safe, single-variable** operations with `volatile` semantics, built on **CAS** (compare-and-swap).
-- Prefer `incrementAndGet`, `updateAndGet`, `compareAndSet` over `get()` then `set()`. The update function must be side-effect free.
-- **Immutable value + `AtomicReference`** lets you swap multi-field state atomically.
-- `LongAdder` for hot statistics counters; `AtomicLong` when you need exact values or IDs.
-- Watch out for `==` comparison in `AtomicReference`, the ABA problem, and invariants spanning several atomics. Those need a lock.
-
-**Next:** [Synchronizers](07_synchronizers.md)
+## 13. Further Reading
+- [Official Javadoc: java.util.concurrent.atomic](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/atomic/package-summary.html)
+- Java Concurrency in Practice by Brian Goetz — Chapter 15 (Non-blocking Synchronization)
+- "A Pragmatic Approach to Lock-Free Synchronization" by Maurice Herlihy

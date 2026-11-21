@@ -1,164 +1,381 @@
-# Memory Model and `volatile`
+# Java Memory Model and `volatile`
 
-Even if no two threads ever run the same line at the same instant, a thread may **not see what another thread wrote**, or may see writes **in a different order than the code was written**. Modern CPUs keep values in registers and per-core caches, and both the compiler (JIT) and hardware reorder instructions for speed. In single-threaded code you can't tell. Across threads you can.
+> Comprehensive architectural reference for the Java Memory Model (JSR-133): the Happens-Before relationship, `volatile` memory semantics, hardware memory barriers (LoadLoad, StoreStore, LoadStore, StoreLoad), instruction reordering, and safe publication.
 
-The **Java Memory Model (JMM)** is the contract that says exactly when one thread is *guaranteed* to see another thread's writes. If you follow its rules, your code is correct on every JVM and CPU. If you don't, it may "work" on your laptop and fail in production.
-
-**Prerequisites:** [Thread Safety](02_thread-safety.md), [Synchronization](03_synchronization.md).
+| Metadata | Value |
+|---|---|
+| **Level** | Advanced |
+| **Prerequisites** | [02_thread-safety.md](02_thread-safety.md), [03_synchronization.md](03_synchronization.md) |
+| **Time to Read** | 28 minutes |
+| **Status** | Active |
+| **Java Version** | Java 5.0+ (JSR-133 JMM Revision) |
 
 ---
 
-## 1. The visibility problem
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & Usage](#4-syntax--usage)
+5. [Practical Examples](#5-practical-examples)
+6. [Best Practices](#6-best-practices)
+7. [Common Mistakes & Pitfalls](#7-common-mistakes--pitfalls)
+8. [Performance & Security Notes](#8-performance--security-notes)
+9. [Comparison / When to Use What](#9-comparison--when-to-use-what)
+10. [Interview Questions](#10-interview-questions)
+11. [Practice Exercises](#11-practice-exercises)
+12. [Summary / Cheat Sheet](#12-summary--cheat-sheet)
+13. [Further Reading](#13-further-reading)
 
+---
+
+## 1. What & Why
+
+### The Hardware Reality vs Programmer Expectations
+In single-threaded software, developers expect code to execute sequentially in the exact order written.
+However, modern CPU architectures (x86, ARM, RISC-V) and optimizing compilers (like HotSpot C2) aggressively reorder instructions, buffer memory writes in store buffers, and read from local L1/L2 caches to maximize instruction pipelining and memory bus throughput.
+
+Without a formal memory specification, concurrent threads on multi-core processors observe memory updates in unpredictable orders, leading to catastrophic race conditions, phantom values, and infinite loops.
+
+### The Solution: JSR-133 Java Memory Model (JMM)
+Finalized in Java 5, the **Java Memory Model (JMM)** defines the formal specification governing how threads interact through shared memory. It specifies the exact conditions under which a write to a variable by one thread is guaranteed to be **visible** to a read by another thread.
+
+---
+
+## 2. Core Concepts
+
+### The Happens-Before Relationship
+The central abstraction of the JMM is the **Happens-Before** order. If action $A$ happens-before action $B$ ($A \xrightarrow{hb} B$), then the memory modifications of $A$ are guaranteed to be completely visible to $B$, and $A$ is ordered before $B$.
+
+Key Happens-Before Rules:
+1. **Program Order Rule**: Each action in a single thread happens-before every action in that thread that comes later in program order.
+2. **Monitor Lock Rule**: An unlock on a monitor lock happens-before every subsequent lock on that same monitor.
+3. **Volatile Variable Rule**: A write to a `volatile` field happens-before every subsequent read of that same `volatile` field.
+4. **Thread Start Rule**: A call to `Thread.start()` on a new thread happens-before any action in the started thread.
+5. **Thread Termination Rule**: Any action in a thread happens-before any other thread successfully detects that thread has terminated (via `join()` or `isAlive() == false`).
+6. **Interruption Rule**: A thread calling `interrupt()` on another thread happens-before the interrupted thread detects the interrupt.
+7. **Transitivity**: If $A \xrightarrow{hb} B$ and $B \xrightarrow{hb} C$, then $A \xrightarrow{hb} C$.
+
+### The `volatile` Keyword
+Declaring a field `volatile` guarantees two distinct properties:
+1. **Visibility**: Reads always read the most recent write directly from main memory/coherent caches; writes immediately flush through cache hierarchies.
+2. **Instruction Ordering**: The compiler and CPU are forbidden from reordering memory operations across a volatile access.
+
+---
+
+## 3. How It Works Internally
+
+### Hardware Memory Barriers (Fences)
+To enforce the happens-before relationship, the HotSpot JIT compiler inserts **Memory Barrier** instructions into the generated machine code:
+- **LoadLoad**: Guarantees earlier reads complete before subsequent reads.
+- **StoreStore**: Guarantees earlier writes flush before subsequent writes.
+- **LoadStore**: Guarantees earlier reads complete before subsequent writes.
+- **StoreLoad**: The most heavyweight fence. Guarantees earlier writes flush to memory before subsequent reads from any core.
+
+```
+[ Normal Writes / Operations ]
+          │
+    StoreStore Barrier
+          │
+[ Volatile Write Operation ]
+          │
+    StoreLoad Barrier (Flushes CPU Store Buffer)
+          │
+[ Normal Operations / Volatile Reads ]
+          │
+    LoadLoad / LoadStore Barriers
+```
+
+### The Piggybacking Technique on Volatile
+Because of transitivity, writing to a `volatile` variable flushes **all preceding non-volatile writes** as well!
 ```java
-class Worker implements Runnable {
-    private boolean running = true;               // NOT volatile
+int a = 1;              // Non-volatile write
+boolean b = true;       // Non-volatile write
+volatile boolean ready; // Volatile flag
 
-    public void run() {
-        while (running) { /* do work */ }         // may never see running == false
-        System.out.println("stopped");
+ready = true;           // Flushes 'a', 'b', and 'ready' together!
+```
+Any thread that subsequently reads `ready == true` is mathematically guaranteed to see `a == 1` and `b == true`.
+
+---
+
+## 4. Syntax & Usage
+
+### The Classic Volatile Shutdown Flag
+```java
+public class BackgroundWorker implements Runnable {
+    // volatile guarantees visibility across all cores
+    private volatile boolean running = true;
+
+    public void stop() {
+        running = false;
     }
-    void stop() { running = false; }              // called from another thread
+
+    @Override
+    public void run() {
+        while (running) {
+            // Perform background batch processing...
+        }
+        System.out.println("Worker stopped cleanly.");
+    }
 }
 ```
 
-This loop can run **forever**. Nothing tells the JIT that another thread might change `running`, so it is allowed to read the field once and reuse the value (effectively `while (true)`). It may work in a debugger or with `-Xint`, and spin forever in production.
-
-### Reordering can expose half-built objects
-
+### Thread-Safe Lazy Initialization via Double-Checked Locking (DCL)
 ```java
-class Holder { int x; Holder() { x = 42; } }
+public class SafeDclSingleton {
+    // CRITICAL: Must be volatile to prevent instruction reordering!
+    private static volatile SafeDclSingleton instance;
 
-static Holder holder;                              // plain field
+    private SafeDclSingleton() {
+        // Heavy resource initialization
+    }
 
-// Thread A                          // Thread B
-holder = new Holder();               if (holder != null) System.out.println(holder.x);   // may print 0!
-```
-
-Creating the object involves allocating it, running the constructor (`x = 42`), and storing the reference. Without synchronization, the reference store may become visible to Thread B **before** the field write. B sees a non-null reference to an incompletely initialized object.
-
-Neither bug is a "timing" problem you can fix with `sleep`. They are *missing happens-before relationships*.
-
----
-
-## 2. Happens-before
-
-The JMM's core idea: if action A **happens-before** action B, then everything A did (including all writes before it) is **visible** to B, and A is ordered before B. If there's no happens-before edge between two actions on different threads, the JMM guarantees *nothing* about what one sees of the other.
-
-The edges you can rely on:
-
-| Rule | Happens-before edge |
-|---|---|
-| **Program order** | Each action in a thread happens-before later actions in that same thread |
-| **Monitor lock** | `unlock` of a monitor → every later `lock` of the **same** monitor (`synchronized`, `Lock.unlock()` → `lock()`) |
-| **`volatile`** | A write to a volatile field → every later read of that **same** field |
-| **Thread start** | `thread.start()` → everything in the started thread |
-| **Thread termination** | Everything in a thread → another thread's successful `join()` (or `isAlive()` returning `false`) |
-| **Interruption** | `thread.interrupt()` → the interrupted thread detecting it |
-| **Transitivity** | If A → B and B → C then A → C |
-
-The `java.util.concurrent` classes provide edges too, which is a large part of why they are safe to use:
-
-- submitting a task to an `Executor` → the task's execution; the task's actions → `Future.get()` returning
-- `BlockingQueue.put` → the matching `take`
-- `CountDownLatch.countDown()` → the corresponding `await()` return
-- writes to a `ConcurrentHashMap` → later reads of that key
-- `Lock.unlock()` → later `lock()` of the same lock
-
-### Seeing it in practice
-
-```java
-int data;                  // plain
-volatile boolean ready;    // volatile
-
-// Thread A                         // Thread B
-data = 42;                          while (!ready) { }        // spin until true
-ready = true;   // volatile write    System.out.println(data); // guaranteed 42
-```
-
-`data = 42` happens-before `ready = true` (program order); the volatile write happens-before the volatile read that sees `true`; and the read happens-before `println` (program order). By transitivity, the write of `data` is visible, even though `data` itself isn't volatile.
-
----
-
-## 3. `volatile`
-
-Declaring a field `volatile` gives you two things:
-
-1. **Visibility:** a read always sees the most recent write to that variable by any thread.
-2. **Ordering:** reads and writes of other variables can't be reordered across the volatile access in ways that break the happens-before rule above.
-
-Fixing the earlier stop flag:
-
-```java
-private volatile boolean running = true;
-```
-
-### What `volatile` does **not** do: atomicity
-
-```java
-private volatile int count;
-void increment() { count++; }       // STILL BROKEN: read, add, write is three steps
-```
-
-`volatile` makes each individual read or write visible but does not make *sequences* atomic. For `count++` use `AtomicInteger` ([note 06](06_atomic-classes.md)) or `synchronized`. A rule of thumb:
-
-> `volatile` is enough when **one thread writes** (or writes are independent of the current value) and **others only read**, and when the new value doesn't depend on the old one or on other variables.
-
-Other facts:
-
-- Reads and writes of a `volatile long`/`double` are atomic. For ordinary (non-volatile) `long`/`double` fields the JLS allows a 64-bit write to be performed as two 32-bit writes, so a reader could see a torn value. (64-bit JVMs in practice don't tear, but the guarantee requires `volatile`.)
-- A `volatile` reference to an array or object makes the **reference** volatile, not the elements or fields it points to.
-- Volatile accesses are cheap compared with locks, but they limit optimizations, so don't sprinkle them everywhere.
-
-### Good uses
-
-| Use | Example |
-|---|---|
-| Status/stop flags | `volatile boolean shutdown` |
-| Publishing an **immutable** object (safe publication) | `volatile Config config;` replaced by one writer, read by many |
-| "Latest value" holders | A single writer, many readers |
-| Double-checked locking | See below |
-| Cheap read-mostly state with rare updates | Snapshot swapped atomically |
-
-```java
-// One writer swaps an immutable snapshot; readers always see a complete, consistent Config
-private volatile Config config = Config.load();
-
-void reload() { config = Config.load(); }          // new immutable object, one reference write
-String host() { return config.host(); }            // read the reference once, use it consistently
+    public static SafeDclSingleton getInstance() {
+        SafeDclSingleton result = instance; // Local read optimization
+        if (result == null) {
+            synchronized (SafeDclSingleton.class) {
+                result = instance;
+                if (result == null) {
+                    instance = result = new SafeDclSingleton();
+                }
+            }
+        }
+        return result;
+    }
+}
 ```
 
 ---
 
-## 4. Safe publication and `final`
+## 5. Practical Examples
 
-Safe ways to hand an object to another thread: `volatile`/`AtomicReference`, a lock, a static initializer, a concurrent collection, or a **`final` field**.
-
-`final` fields get a special guarantee: once the constructor completes, any thread that obtains a reference to the object sees the **final fields correctly initialized** (and objects reachable through them), even without other synchronization. This is why immutable objects are so safe to share.
-
+### Example 1: Demonstrating the Infinite Loop Visibility Bug
 ```java
-class Holder { final int x; Holder() { x = 42; } }   // B can never see x == 0 (provided `this` didn't escape)
-```
+// Goal: Prove that non-volatile variables cause infinite loops due to CPU caching
+public class VisibilityHazardDemo {
+    private static boolean flag = false; // Missing 'volatile'!
 
-It only holds if `this` doesn't escape the constructor ([Thread Safety](02_thread-safety.md#3-safe-publication)).
+    public static void main(String[] args) throws InterruptedException {
+        Thread worker = new Thread(() -> {
+            System.out.println("Worker started, waiting for flag...");
+            while (!flag) {
+                // JIT compiler optimizes '!flag' into an infinite loop:
+                // if (!flag) while(true);
+            }
+            System.out.println("Worker detected flag change!");
+        });
+
+        worker.start();
+        Thread.sleep(100);
+
+        flag = true; // Main thread modifies shared variable
+        System.out.println("Main set flag = true. Waiting for worker to terminate...");
+        worker.join(2000);
+
+        if (worker.isAlive()) {
+            System.err.println("ALERT: Worker hung! Visibility failure demonstrated.");
+            System.exit(0);
+        }
+    }
+}
+```
+*Explanation:* The HotSpot C2 compiler hoists the read of non-volatile `flag` outside the loop, causing the thread to loop infinitely even though main updated the variable.
+
+### Example 2: Instruction Reordering in Double-Checked Locking
+```java
+// Goal: Explain why DCL without volatile leaks partially constructed objects
+class UnsafeDcl {
+    private static UnsafeDcl instance;
+    private int data = 42;
+
+    public static UnsafeDcl getInstance() {
+        if (instance == null) {
+            synchronized (UnsafeDcl.class) {
+                if (instance == null) {
+                    // HAZARD: Bytecode steps of 'new UnsafeDcl()':
+                    // 1. Allocate memory
+                    // 2. Invoke constructor (initialize data = 42)
+                    // 3. Assign memory address to 'instance'
+                    // WITHOUT volatile, CPU can reorder to: 1 -> 3 -> 2!
+                    // Another thread sees instance != null while data is still 0!
+                    instance = new UnsafeDcl();
+                }
+            }
+        }
+        return instance;
+    }
+}
+```
+*Explanation:* Adding `volatile` to `instance` introduces a `StoreStore` barrier before assignment, guaranteeing the constructor finishes completely before publishing the reference.
+
+### Example 3: Edge Case: Final Field Freeze Action
+```java
+// Goal: Safe publication guarantees of final fields without volatile
+public class ImmutablePublication {
+    private final int x;
+    private final int y;
+
+    public ImmutablePublication(int x, int y) {
+        this.x = x;
+        this.y = y;
+        // JSR-133 Freeze Action: StoreStore barrier emitted at constructor exit!
+    }
+
+    public int sum() { return x + y; }
+}
+```
+*Explanation:* The JMM guarantees that any thread observing a reference to an object whose fields are `final` is guaranteed to observe the properly initialized values of those `final` fields, even without synchronization.
 
 ---
 
-## 5. Double-checked locking
+## 6. Best Practices
+1. **Always Use `volatile` on Status Flags**: If a boolean flag is set by one thread and polled by another without locks, mark it `volatile`.
+2. **Never Rely on `volatile` for Compound Updates**: Do not use `volatile` for counters (`count++`) or read-modify-write sequences; use `AtomicInteger` instead.
+3. **Make Fields `final` for Inherent JMM Safety**: JMM guarantees safe publication for `final` fields across all threads without locks.
+4. **Use Local Variable Optimization in DCL**: Read the volatile field into a local variable once (`SafeDclSingleton result = instance;`) to reduce volatile read memory barrier overhead.
+5. **Prefer Enum or Holder Idiom for Singletons**: Instead of Double-Checked Locking, use an enum or the Initialization-on-demand Holder idiom.
 
-Lazy initialization with cheap reads after the first call. It's correct **only with `volatile`**:
+---
+
+## 7. Common Mistakes & Pitfalls
+
+| Mistake | Why Wrong | Fix |
+|---|---|---|
+| Thinking `volatile` provides atomicity | `volatile` ensures visibility and ordering, NOT compound atomicity (`volatile int count++` loses updates). | Use `AtomicInteger` or `synchronized`. |
+| Missing `volatile` in Double-Checked Locking | Reordering allows other threads to read partially constructed objects where fields are 0/null. | Declare the singleton field `volatile`. |
+| Assuming `Thread.sleep()` fixes visibility | Sleep yields CPU time, which may coincidentally cause cache flushes, but provides zero JMM guarantees. | Use `volatile` or locks. |
+| Relying on non-volatile variable updates across threads | JIT compiler can hoist reads outside loops, creating permanent infinite loops. | Mark shared control flags `volatile`. |
+| Leaking `this` before constructor finishes | Bypasses JMM final field freeze guarantees; other threads see uninitialized memory. | Never publish `this` inside constructors. |
+
+---
+
+## 8. Performance & Security Notes
+
+### Cost of Volatile Reads and Writes
+- **Volatile Reads**: On x86 processors, volatile reads are virtually free because x86 already guarantees Strong Total Store Order (TSO). On ARM/PowerPC, volatile reads require lightweight barrier instructions.
+- **Volatile Writes**: On x86 and ARM, volatile writes require a heavyweight `lock addl` or `mfence` instruction (StoreLoad barrier) that stalls the CPU pipeline until store buffers flush.
+
+### Security Implications of Partial Construction
+In multi-tenant or security-sensitive architectures, an un-synchronized lazy initializer can publish a security object (such as an authorization token) before its validation fields are initialized, allowing malicious concurrent threads to bypass authorization.
+
+---
+
+## 9. Comparison / When to Use What
+
+| Feature | `volatile` | `synchronized` | `AtomicInteger` |
+|---|---|---|---|
+| **Mutual Exclusion** | No | Yes | No |
+| **Visibility** | Yes | Yes | Yes |
+| **Ordering** | Yes | Yes | Yes |
+| **Compound Atomicity**| No | Yes | Yes (for supported ops) |
+| **Performance Cost** | Low | Medium-High | Low (Hardware CAS) |
+| **Best For** | Status flags, DCL | Complex invariants | Counters, state flags |
+
+---
+
+## 10. Interview Questions
+
+<details>
+<summary>1. What is the Java Memory Model (JSR-133)?</summary>
+The JMM is the formal specification defining how threads interact through shared memory, establishing the conditions under which writes by one thread are guaranteed to be visible to reads by other threads via the Happens-Before relationship.
+</details>
+
+<details>
+<summary>2. What is the Happens-Before relationship?</summary>
+A partial ordering over memory actions in a Java program. If action A happens-before action B, the memory effects of A are guaranteed to be visible to B, and A cannot be reordered after B.
+</details>
+
+<details>
+<summary>3. What does the `volatile` keyword guarantee in Java?</summary>
+It guarantees visibility (reads always return the most recent write directly from coherent memory) and ordering (prevents the compiler and CPU from reordering memory instructions across the volatile read/write).
+</details>
+
+<details>
+<summary>4. Why does Double-Checked Locking require `volatile`?</summary>
+Without `volatile`, the instruction sequence of `new Singleton()` (allocate memory, invoke constructor, assign reference) can be reordered by the CPU so that the reference is assigned before the constructor completes. Another thread can observe a non-null instance with partially initialized fields.
+</details>
+
+<details>
+<summary>5. What are the four types of Memory Barriers?</summary>
+`LoadLoad`, `StoreStore`, `LoadStore`, and `StoreLoad`. The `StoreLoad` barrier is the most expensive because it forces store buffers to flush to main memory before subsequent reads can proceed.
+</details>
+
+<details>
+<summary>6. How do `final` fields achieve safe publication under JMM?</summary>
+The JMM specifies a "Freeze Action" at constructor exit: a `StoreStore` barrier is emitted, guaranteeing that all writes to `final` fields are committed to memory before the reference to the newly constructed object becomes visible to other threads.
+</details>
+
+<details>
+<summary>7. What is "Piggybacking" on synchronization in the JMM?</summary>
+Because happens-before is transitive, performing a volatile write or unlocking a monitor flushes all preceding non-volatile writes as well, allowing non-volatile data to be safely transmitted alongside a volatile synchronization token.
+</details>
+
+<details>
+<summary>8. Can volatile variables suffer from deadlocks?</summary>
+No. Volatile operations do not acquire locks or block threads; they only enforce memory visibility and ordering fences. They are completely immune to deadlocks.
+</details>
+
+---
+
+## 11. Practice Exercises
+
+### Exercise 1 (Easy): Volatile Cancel Flag
+- **Task**: Implement a worker thread that downloads data chunks in a loop until a `volatile boolean cancelled` flag is toggled to true by the main thread.
+<details>
+<summary>Solution</summary>
 
 ```java
-class Lazy {
-    private static volatile Heavy instance;           // volatile is essential
+public class VolatileWorkerDemo {
+    private volatile boolean cancelled = false;
 
-    static Heavy get() {
-        Heavy local = instance;                       // one volatile read in the fast path
+    public void cancel() {
+        this.cancelled = true;
+    }
+
+    public void runWorker() throws InterruptedException {
+        Thread worker = new Thread(() -> {
+            int chunks = 0;
+            while (!cancelled) {
+                chunks++;
+                try { Thread.sleep(50); } catch (InterruptedException ignored) {}
+            }
+            System.out.println("Worker cancelled after processing " + chunks + " chunks.");
+        });
+
+        worker.start();
+        Thread.sleep(200);
+        cancel();
+        worker.join();
+    }
+
+    public static void main(String[] args) throws Exception {
+        new VolatileWorkerDemo().runWorker();
+    }
+}
+```
+</details>
+
+### Exercise 2 (Medium): Safe Double-Checked Locking Holder
+- **Task**: Implement a thread-safe connection pool factory using Double-Checked Locking with proper `volatile` modifier and local variable optimization.
+<details>
+<summary>Solution</summary>
+
+```java
+public class ConnectionPoolFactory {
+    private static volatile ConnectionPoolFactory instance;
+
+    private ConnectionPoolFactory() {
+        System.out.println("Connection pool initialized.");
+    }
+
+    public static ConnectionPoolFactory getInstance() {
+        ConnectionPoolFactory local = instance;
         if (local == null) {
-            synchronized (Lazy.class) {
+            synchronized (ConnectionPoolFactory.class) {
                 local = instance;
                 if (local == null) {
-                    instance = local = new Heavy();
+                    instance = local = new ConnectionPoolFactory();
                 }
             }
         }
@@ -166,59 +383,80 @@ class Lazy {
     }
 }
 ```
+</details>
 
-Without `volatile`, another thread may see a non-null `instance` whose constructor effects aren't yet visible (the half-built object problem). In most cases the simpler **initialization-on-demand holder** idiom ([Thread Safety](02_thread-safety.md#lazy-initialization)) or an `enum` singleton is better ([Singleton](../24-design-patterns/01-creational/00_singleton.md)).
+### Exercise 3 (Hard): Volatile State Machine with Guarded Publication
+- **Task**: Create an immutable record `Transaction(String id, double amount)` and publish updates to a `volatile Transaction currentTransaction` reference from one thread while 3 consumer threads continuously verify that `id` and `amount` are never read in an inconsistent state.
+<details>
+<summary>Solution</summary>
+
+```java
+import java.util.concurrent.*;
+
+public class VolatilePublicationDemo {
+    public record Transaction(String id, double amount) {}
+
+    private volatile Transaction currentTx = new Transaction("INIT", 0.0);
+
+    public void update(String id, double amount) {
+        // Safe publication of immutable record via volatile write
+        this.currentTx = new Transaction(id, amount);
+    }
+
+    public Transaction get() {
+        return this.currentTx;
+    }
+
+    public static void main(String[] args) throws Exception {
+        VolatilePublicationDemo demo = new VolatilePublicationDemo();
+        try (ExecutorService executor = Executors.newFixedThreadPool(4)) {
+            // Producer
+            executor.submit(() -> {
+                for (int i = 1; i <= 1000; i++) {
+                    demo.update("TX-" + i, i * 10.5);
+                }
+            });
+
+            // Consumers
+            for (int c = 0; c < 3; c++) {
+                executor.submit(() -> {
+                    for (int j = 0; j < 500; j++) {
+                        Transaction tx = demo.get();
+                        if (tx.id() == null) {
+                            throw new AssertionError("Observed corrupted transaction!");
+                        }
+                    }
+                });
+            }
+        }
+        System.out.println("All volatile publication assertions passed!");
+    }
+}
+```
+</details>
 
 ---
 
-## 6. Beyond `volatile`: finer-grained access (advanced)
+## 12. Summary / Cheat Sheet
 
-`VarHandle` (and the atomic classes built on it) expose weaker, cheaper access modes: *plain*, *opaque*, *acquire/release*, and *volatile*, plus compare-and-set operations. They matter for building lock-free data structures and are rarely needed in application code. Use `volatile`, atomics, and locks first.
-
----
-
-## 7. Misconceptions
-
-| Belief | Reality |
-|---|---|
-| "`volatile` makes my class thread-safe" | Only visibility/ordering of that variable. Compound actions still race |
-| "`synchronized` is only for mutual exclusion" | It also provides visibility. A lock-free read of data written under a lock is **not** safe |
-| "It works on my machine, so it's fine" | x86 CPUs hide many reordering bugs that ARM and others expose. The JIT's optimizations also change with load and warm-up |
-| "The write happens instantly everywhere" | Without a happens-before edge there's no guarantee it ever becomes visible |
-| "Adding `sleep` or `System.out.println` fixed it" | It changed timing (and println synchronizes). It did not fix the bug |
-| "Only multi-core machines have these issues" | Compiler reordering and register caching can occur on a single core |
-| "Memory model = CPU caches" | Caches are one cause. The JMM is an abstract contract that covers JIT and hardware together |
-
----
-
-## Common mistakes
-
-| Mistake | Fix |
-|---|---|
-| Stop flag that isn't `volatile` | `volatile boolean` (or use `interrupt()`) |
-| `volatile int count; count++` | `AtomicInteger` or a lock |
-| Reading shared data without the lock that writers use | Use the same lock, or `volatile`/atomics |
-| Double-checked locking without `volatile` | Add `volatile`, or use the holder idiom |
-| Publishing a mutable object via a volatile field and then mutating it | Publish immutable objects, or guard mutation |
-| Assuming `volatile` on a collection makes its contents safe | It only affects the reference |
-| Making everything `volatile` "just in case" | Understand what needs to be shared and why |
-| Leaking `this` from constructors | Static factory + safe publication |
-
-### Debugging
-
-- Symptoms of a visibility bug: a loop that never ends, stale values that eventually (or never) update, `null`/zero fields on "constructed" objects. They often appear only after JIT warm-up or under production load.
-- Questions to ask: *What happens-before edge links the write to this read?* If you can't name one (lock, volatile, `join`, executor submit, concurrent collection), there isn't one.
-- Reproduction aids: run with more threads and iterations, test on different CPU architectures, and use `jcstress` for concurrency stress testing.
+```
++-----------------------------------------------------------------------------------------+
+|                                    JMM CHEAT SHEET                                      |
++-----------------------------------------------------------------------------------------+
+| Specification            | JSR-133 (Finalized in Java 5)                                |
+| Core Concept             | Happens-Before order (Guarantees visibility & ordering)      |
+| Volatile Rule            | Write to volatile happens-before subsequent read of same var |
+| Monitor Rule             | Unlock happens-before subsequent lock on same monitor        |
+| Final Field Guarantee    | Freeze Action guarantees safe publication without volatile   |
+| Memory Barriers          | LoadLoad, StoreStore, LoadStore, StoreLoad (heaviest)        |
+| DCL Rule                 | Field MUST be volatile to prevent 1 -> 3 -> 2 reordering     |
+| False Assumption         | Volatile DOES NOT provide compound atomicity (count++)       |
++-----------------------------------------------------------------------------------------+
+```
 
 ---
 
-## Quick Summary
-
-- Without synchronization, threads may see **stale values** and **reordered writes**. The JMM defines when visibility is guaranteed via **happens-before**.
-- Edges come from: **program order, monitor lock/unlock, volatile write/read, `Thread.start`/`join`**, and `java.util.concurrent` operations (executor submit, `Future.get`, queues, latches, concurrent maps).
-- `volatile` = visibility + ordering for one variable. It is **not atomic** for `x++`.
-- `final` fields are safe to read after construction (if `this` doesn't escape): the basis of immutable-object safety.
-- Double-checked locking works only with `volatile`. Simpler alternatives exist.
-- "It works on my machine" proves nothing about concurrency.
-
-**Next:** [Locks](05_locks.md)
+## 13. Further Reading
+- [JSR-133: Java Memory Model and Thread Specification](https://www.cs.umd.edu/~pugh/java/memoryModel/)
+- Java Concurrency in Practice by Brian Goetz — Chapter 16 (The Java Memory Model)
+- "Close Encounters with the Java Memory Model" by Aleksey Shipilëv

@@ -1,196 +1,412 @@
-# `var` and Type Inference
+# Local Variable Type Inference (`var`)
 
-`var` (Java 10) lets the compiler **infer the type of a local variable** from its initializer, so you don't have to write it twice:
+> Comprehensive guide to `var` in Java (JEP 286): local variable type inference, non-denotable and intersection types, lambda parameter syntax (JEP 323), readability guidelines, and common pitfalls.
 
-```java
-// Before
-Map<String, List<Employee>> byDept = new HashMap<String, List<Employee>>();
-
-// After
-var byDept = new HashMap<String, List<Employee>>();
-```
-
-The variable is still **statically typed**: `byDept` is a `HashMap<String, List<Employee>>` and the compiler checks every use. `var` removes *redundancy*, not *types*. The bytecode is identical to the explicit version.
-
-**Prerequisites:** [Variables and Data Types](../01-fundamentals/01_variables-and-data-types.md), [Generics](../07-generics/00_generic-classes-and-methods.md).
+| Metadata | Value |
+|---|---|
+| **Level** | Intermediate |
+| **Prerequisites** | [01-fundamentals/03_variables-constants.md](../01-fundamentals/03_variables-constants.md), [07-generics/00_generic-classes-and-methods.md](../07-generics/00_generic-classes-and-methods.md) |
+| **Time to Read** | 22 minutes |
+| **Status** | Active |
+| **Java Version** | Java 10 Final (JEP 286), Java 11 Lambda Parameters (JEP 323) |
 
 ---
 
-## 1. Where `var` is allowed
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & Usage](#4-syntax--usage)
+5. [Practical Examples](#5-practical-examples)
+6. [Best Practices](#6-best-practices)
+7. [Common Mistakes & Pitfalls](#7-common-mistakes--pitfalls)
+8. [Performance & Security Notes](#8-performance--security-notes)
+9. [Comparison / When to Use What](#9-comparison--when-to-use-what)
+10. [Interview Questions](#10-interview-questions)
+11. [Practice Exercises](#11-practice-exercises)
+12. [Summary / Cheat Sheet](#12-summary--cheat-sheet)
+13. [Further Reading](#13-further-reading)
 
+---
+
+## 1. What & Why
+
+### The Redundancy of Manifest Typing
+Java is a statically typed language. Prior to Java 10, every variable declaration required explicit (manifest) typing, even when the type was completely obvious from the right-hand side:
 ```java
-var name = "Asha";                               // String
-var count = 42;                                  // int
-var prices = List.of(9.99, 14.50);               // List<Double>
+ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+Map<String, List<Map<Integer, String>>> complexMap = new HashMap<String, List<Map<Integer, String>>>();
+```
+This repetitive ceremony introduced visual clutter, obscuring the meaningful part of the code (the variable name and its initialization expression).
 
-for (var item : prices) { ... }                  // enhanced for: item is Double
-for (var i = 0; i < 10; i++) { ... }             // classic for
+### The Solution: Local-Variable Type Inference (JEP 286)
+Java 10 introduced `var`. When declaring a local variable with an initializer, developers can write `var` instead of the explicit type name:
+```java
+var outputStream = new ByteArrayOutputStream();
+var complexMap = new HashMap<String, List<Map<Integer, String>>>();
+```
+**Important Distinction**: `var` does **not** introduce dynamic typing (like JavaScript or Python). Java remains 100% statically typed. The compiler infers the exact static type from the initializer expression at compile time and writes that exact type into the class bytecode.
 
-try (var reader = Files.newBufferedReader(path)) { ... }   // try-with-resources
+---
 
-BiFunction<Integer, Integer, Integer> add = (var a, var b) -> a + b;   // lambda params (Java 11)
+## 2. Core Concepts
+
+### Where `var` CAN Be Used
+`var` is strictly limited to local variable contexts where an initializer is present:
+- Local variables with initializers inside methods, constructors, and initialization blocks.
+- Enhanced `for`-loop variables (`for (var item : list)`).
+- Traditional `for`-loop index variables (`for (var i = 0; i < n; i++)`).
+- Try-with-resources resource declarations (`try (var stream = Files.newInputStream(path))`).
+- Formal parameters of implicitly typed lambda expressions (Java 11 JEP 323).
+
+### Where `var` CANNOT Be Used
+To maintain class contract clarity and ABI stability, `var` is forbidden in:
+- Field declarations (`class Person { var name = "Alice"; }` -> **ILLEGAL**).
+- Method return types (`public var compute()` -> **ILLEGAL**).
+- Method parameter types (`public void save(var item)` -> **ILLEGAL**).
+- Local variables without initializers (`var x;` -> **ILLEGAL**).
+- Null initializers (`var x = null;` -> **ILLEGAL** because null has no type).
+- Array initializers without explicit type (`var arr = { 1, 2, 3 };` -> **ILLEGAL**).
+
+### Non-Denotable and Intersection Types
+`var` can capture **non-denotable types**—types that exist inside the compiler's type system but cannot be expressed in standard Java source code syntax:
+- **Anonymous Class Types**: `var runnable = new Object() { void ping() { ... } }; runnable.ping();` (Legal with `var`, impossible with manifest types!).
+- **Intersection Types**: Types resulting from generic bounds (`Comparable<T> & Serializable`).
+
+---
+
+## 3. How It Works Internally
+
+### Compile-Time Static Type Resolution
+`var` is not a keyword; it is a **reserved type name**. When `javac` encounters `var x = expr;`:
+1. It computes the compile-time type of `expr`.
+2. It assigns that exact type to `x`.
+3. It writes the compiled bytecode identically to if the developer had typed the full manifest type.
+
+There is **zero runtime overhead**, zero performance penalty, and no reflection involved. Decompiling class files compiled with `var` reveals the exact manifest type.
+
+```mermaid
+flowchart LR
+    A[Source Code: var list = List.of(1, 2);] --> B[Javac Type Inference]
+    B --> C[Resolved Type: java.util.List<java.lang.Integer>]
+    C --> D[Bytecode: List list = List.of(...);]
+    D --> E[JVM Runtime: Identical to explicit typing]
 ```
 
-### Where it is not allowed
+---
 
+## 4. Syntax & Usage
+
+### Basic Local Variable Inference
 ```java
-var x;                          // no initializer → nothing to infer from
-var y = null;                   // null has no type
-var arr = {1, 2, 3};            // array initializer needs a target type; use `new int[]{1,2,3}`
-var f = () -> 42;               // lambda needs a target type
-var g = String::length;         // method reference too
+import java.nio.file.*;
+import java.util.*;
 
-class Foo {
-    var field = 1;              // fields not allowed
-    var method() { ... }        // return types not allowed
-    void m(var p) { ... }       // method parameters not allowed
+public class VarSyntaxDemo {
+    public static void main(String[] args) throws Exception {
+        var message = "Hello, Modern Java"; // Inferred: String
+        var count = 42;                     // Inferred: int
+        var ratio = 3.14159;                // Inferred: double
+        var names = List.of("Ada", "Alan"); // Inferred: List<String>
+
+        // Try-with-resources
+        try (var lines = Files.lines(Path.of("test.txt"))) {
+            lines.forEach(System.out::println);
+        } catch (NoSuchFileException e) {
+            // Handled
+        }
+
+        // Enhanced for-loop
+        for (var name : names) {
+            System.out.println("Name: " + name);
+        }
+    }
 }
 ```
 
-`var` is **only for local variables** (including loop variables and try-with-resources), and the initializer must be present and typed. Declare one variable per statement: `var a = 1, b = 2;` is illegal.
+### Lambda Parameter Type Inference (Java 11 JEP 323)
+```java
+// Goal: Apply annotations to lambda parameters while preserving inference
+import java.lang.annotation.*;
+import java.util.function.BiFunction;
 
-`var` is a *reserved type name*, not a keyword, so `int var = 5;` still compiles, but you cannot name a class `var`.
+@Target(ElementType.PARAMETER)
+@Retention(RetentionPolicy.RUNTIME)
+@interface NonNull {}
+
+public class LambdaVarDemo {
+    public static void main(String[] args) {
+        // Legal in Java 11: permits annotating inferred lambda arguments!
+        BiFunction<String, String, String> concat = (@NonNull var a, @NonNull var b) -> a + b;
+        System.out.println(concat.apply("Hello ", "World"));
+    }
+}
+```
 
 ---
 
-## 2. What type gets inferred
+## 5. Practical Examples
 
-The type is the **static type of the initializer expression**, not an interface you might have wanted:
-
-| Declaration | Inferred type |
-|---|---|
-| `var s = "hi"` | `String` |
-| `var n = 42` | `int` |
-| `var l = 42L` | `long` |
-| `var d = 3.0` | `double` |
-| `var list = new ArrayList<String>()` | `ArrayList<String>` (**not** `List<String>`) |
-| `var list = new ArrayList<>()` | `ArrayList<Object>` (**diamond has nothing to infer from**) |
-| `var names = List.of("a", "b")` | `List<String>` |
-| `var e = map.entrySet().iterator().next()` | `Map.Entry<K, V>` |
-
-Consequences:
-
+### Example 1: Eliminating Generic Noise in Enterprise DTOs
 ```java
-var list = new ArrayList<String>();
-list = new LinkedList<String>();      // error: it's an ArrayList<String>, not a List<String>
+// Goal: Clean up verbose stream aggregation pipelines
+import java.util.*;
+import java.util.stream.Collectors;
 
-List<String> list2 = new ArrayList<>();   // the declaration you want if you need the interface type
-list2 = new LinkedList<>();
+public class CleanPipelines {
+    public record Order(String customerId, double amount) {}
 
-var items = new ArrayList<>();        // ArrayList<Object>: probably not what you meant
-items.add("x"); items.add(1);         // compiles: everything is an Object
+    public static void summarize(List<Order> orders) {
+        // Manifest type: Map<String, DoubleSummaryStatistics>
+        var customerStats = orders.stream()
+            .collect(Collectors.groupingBy(
+                Order::customerId,
+                Collectors.summarizingDouble(Order::amount)
+            ));
+
+        for (var entry : customerStats.entrySet()) {
+            System.out.println("Customer: " + entry.getKey() + " -> Total: " + entry.getValue().getSum());
+        }
+    }
+}
 ```
+*Explanation:* `var` shifts the visual focus from redundant type declarations to the business logic of grouping and summarizing.
 
-Two traps follow:
-
-- **Diamond + `var`**: write the type argument on the right (`new ArrayList<String>()`) or use an explicit left-hand type.
-- **Numeric literals**: `var x = 1` is an `int`. If you need a `long`, `byte`, or `double`, write `1L`, `(byte) 1`, `1.0`, or state the type. Don't let the literal silently decide.
-
-### Non-denotable types
-
-`var` can hold types you can't write by name, such as an anonymous class's members:
-
+### Example 2: Anonymous Class Specialization (Non-Denotable Type)
 ```java
-var point = new Object() { int x = 1; int y = 2; };
-System.out.println(point.x + point.y);        // works: the type includes x and y
-```
+// Goal: Use anonymous classes with custom methods without an explicit interface
+public class AnonymousSpecialization {
+    public static void main(String[] args) {
+        // 'var' infers the exact anonymous subtype of Object!
+        var helper = new Object() {
+            int counter = 0;
+            void increment() { counter++; }
+            int getCount() { return counter; }
+        };
 
-It's occasionally useful for small local helpers, but rarely needed.
+        helper.increment();
+        helper.increment();
+        System.out.println("Counter value: " + helper.getCount());
+    }
+}
+```
+*Output:*
+```
+Counter value: 2
+```
+*Explanation:* If declared with `Object helper = new Object() {...}`, calling `helper.increment()` is a compile-time error. `var` preserves the anonymous type's members!
+
+### Example 3: Edge Case: Diamond Operator with `var`
+```java
+// Goal: Illustrate diamond operator inference behavior
+import java.util.*;
+
+public class DiamondHazard {
+    public static void test() {
+        // HAZARD: Inferred as ArrayList<Object>, NOT ArrayList<String>!
+        var list = new ArrayList<>();
+        list.add("hello");
+        // Object item = list.get(0); // Lost type precision!
+
+        // CORRECT:
+        var specificList = new ArrayList<String>();
+        String item = specificList.get(0); // Type safe!
+    }
+}
+```
+*Explanation:* Never pair `var` with an empty diamond `<>` unless `Object` elements are intentionally desired.
+
+### Example 4: Failure Case: Inferred Type Prevents Reassignment
+```java
+// Goal: Show static type invariance with var
+public class ReassignmentFailure {
+    public static void test() {
+        var value = "Initial String"; // Inferred as String
+        // COMPILE ERROR: incompatible types: int cannot be converted to String
+        // value = 42;
+    }
+}
+```
+*Explanation:* `var` is statically typed. Once inferred as `String`, assigning an `int` fails compilation.
 
 ---
 
-## 3. Style: when to use it, when not to
-
-`var` removes noise when the type is *already obvious from the right-hand side*. It hurts when it **hides** the type the reader needs.
-
-```java
-// Good: the type is right there
-var users = new ArrayList<User>();
-var conn = DataSource.getConnection();           // reasonably clear in context
-var reader = Files.newBufferedReader(path);
-for (var entry : map.entrySet()) { ... }         // long generic Map.Entry<...> avoided
-
-// Bad: the reader has to go find out
-var result = service.process(request);           // what is it?
-var data = load();                               // ??
-var total = a * b;                               // int? long? double?
-```
-
-Guidelines (adapted from the OpenJDK style guidance for local variable type inference):
-
-1. **Choose informative variable names.** With `var`, the name carries the meaning: `var customerNames`, not `var list`.
-2. **Use it when the initializer makes the type clear:** constructors, factory methods (`List.of`), literals, casts.
-3. **Keep scope small.** The longer a variable lives, the more the reader needs its type up front.
-4. **Don't use it to avoid thinking about types** in public APIs (it can't be used there anyway).
-5. **Be explicit where inference could surprise you:** primitives and numeric literals, diamond expressions, `?:` mixing types.
-6. **Prefer the interface on the left** when the variable is meant to be used polymorphically (`List<String> x = new ArrayList<>()`).
-7. Teams should agree on a convention. It's a readability choice, not a performance one.
-
-IDEs can show the inferred type inline, which makes `var` easier to read while editing, but code reviews and diffs have no such hints. Write for a reader without an IDE.
+## 6. Best Practices
+1. **Choose Good Variable Names**: When using `var`, the variable name carries the burden of communicating intent. Use descriptive names like `customerList` rather than single-letter names like `c`.
+2. **Use `var` When Type is Explicit on the Right**: `var client = new HttpClient();` or `var p = Path.of("file.txt");` are ideal because the type is immediately obvious.
+3. **Avoid `var` with Raw Generic Diamonds**: Always supply type parameters in constructors: `var list = new ArrayList<String>();`, never `var list = new ArrayList<>();`.
+4. **Use `var` in Try-With-Resources**: Simplifies resource declarations where stream or reader types clutter the method header.
+5. **Do Not Sacrific Readability for Brevity**: If the returned type from a method call is ambiguous (e.g. `var x = service.process();`), prefer an explicit manifest type.
 
 ---
 
-## 4. `var` in lambda parameters (Java 11)
+## 7. Common Mistakes & Pitfalls
 
-```java
-(var a, var b) -> a + b
-```
-
-Why would you write that instead of `(a, b) -> a + b`? To put **annotations or modifiers** on parameters:
-
-```java
-(@NonNull var a, final var b) -> a.compareTo(b)
-```
-
-Rule: you can't mix styles. Either all parameters use `var`, or none do. `(var a, b)` and `(var a, int b)` are errors. Otherwise there is no difference in behavior ([Lambda Expressions](../09-functional-java/00_lambda-expressions.md)).
-
----
-
-## 5. Type inference elsewhere in Java
-
-`var` is just one of several inference features, and they're easy to mix up:
-
-| Feature | Since | Example |
+| Mistake | Why Wrong | Fix |
 |---|---|---|
-| Generic method inference | 5 | `Collections.emptyList()` infers `T` from the context |
-| Diamond `<>` | 7 | `Map<String, Integer> m = new HashMap<>();` |
-| Lambda parameter types | 8 | `(a, b) -> a + b` types come from the target functional interface |
-| Local variable type inference (`var`) | 10 | `var m = new HashMap<String, Integer>();` |
-| `var` in lambda parameters | 11 | `(var a, var b) -> ...` |
-| Unnamed variables `_` | 22 | `catch (Exception _)`: see [Pattern Matching](04_pattern-matching.md) |
-
-The distinction: diamond and lambda inference work **from the target type on the left** (or from arguments), while `var` works **from the initializer on the right**, and that is why `var x = new ArrayList<>()` gives `ArrayList<Object>`.
+| `var list = new ArrayList<>();` | Infers `ArrayList<Object>`, losing compile-time generic type safety. | Specify generic argument: `new ArrayList<String>()`. |
+| Attempting `var x = null;` | Compiler cannot infer a type from the untyped `null` literal. | Provide an explicit type: `String x = null;`. |
+| Declaring `var` as field or method return | `var` is strictly confined to local variable scopes to protect public API contracts. | Use manifest types for fields and method signatures. |
+| Expecting dynamic typing | `var` is statically typed at compile-time; reassignment to a different type fails. | Retain consistent types or use separate variables. |
+| Using uninformative variable names with `var` | Code becomes completely unreadable: `var d = service.get();`. | Use meaningful names: `var customerDiscount = service.get();`. |
+| Mixing `var` and array literals | `var arr = {1, 2, 3};` cannot resolve array component type. | Write `var arr = new int[]{1, 2, 3};`. |
 
 ---
 
-## Common mistakes and misconceptions
+## 8. Performance & Security Notes
 
-| Mistake / belief | Reality |
-|---|---|
-| "`var` makes Java dynamically typed, like JavaScript" | The type is fixed at compile time. `var x = 1; x = "a";` doesn't compile |
-| "`var` has a runtime cost" | None: it's compile-time only |
-| "`var list = new ArrayList<String>()` is a `List`" | It's an `ArrayList<String>` |
-| `var list = new ArrayList<>()` | `ArrayList<Object>`: specify the type argument |
-| `var x = 10; x = 3.5;` | `x` is `int`: error. Declare `double x` if you need that |
-| Using `var` for fields / parameters / returns | Not allowed |
-| Replacing every explicit type with `var` | Use it where it improves readability |
-| Uninformative names (`var data`, `var result`) | Name by meaning, or write the type |
+### Zero Runtime Overhead
+`var` is resolved entirely during the compilation phase by `javac`. The compiled `.class` files contain identical bytecode instructions (`aload`, `astore`, `invokevirtual`) as if full manifest types were written. There is zero runtime CPU, memory, or reflection penalty.
 
-### Debugging
-
-- "cannot infer type for local variable x" → missing initializer, `null`, a lambda, a method reference, or an array initializer. Give the variable an explicit type.
-- Unexpected `ArrayList<Object>` / `Object` types → a diamond without a type argument, or a `var` initialized from an expression whose type is wider than you thought.
-- "incompatible types" when reassigning → the inferred type is narrower than you expected (`ArrayList`, `int`).
-- Not sure what was inferred → hover over the variable in your IDE, or compile and look at the error message of a deliberately wrong assignment.
+### ABI and Binary Compatibility Stability
+Because `var` cannot be used in public class fields, method parameters, or method return types, public API boundaries and compiled JAR binary compatibility (ABI) are completely insulated from local type inference refactorings.
 
 ---
 
-## Quick Summary
+## 9. Comparison / When to Use What
 
-- `var` infers a **local variable's** type from its initializer. It's still statically typed, with identical bytecode.
-- Allowed for locals, `for` variables, try-with-resources, and lambda parameters (all-or-none, Java 11). **Not** for fields, parameters, return types, or without an initializer / with `null`.
-- The inferred type is the initializer's exact type (`ArrayList<String>`, `int`), and `new ArrayList<>()` becomes `ArrayList<Object>`.
-- Use it when the right-hand side makes the type obvious and the name is meaningful. Skip it when it hides what the value is.
-- Make numeric types explicit (`1L`, `double x`) when they matter.
+| Scenario | Use `var`? | Reason |
+|---|---|---|
+| `new StringBuilder()` | **Yes** | Type is completely redundant |
+| Factory method: `Path.of("a")` | **Yes** | Obvious return type from method name |
+| Method with ambiguous return: `search()` | **No** | Reader cannot determine type without IDE |
+| Try-with-resources streams | **Yes** | Eliminates visual clutter |
+| `var list = new ArrayList<>()` | **No** | Infers `ArrayList<Object>` |
+| Lambda parameters with annotations | **Yes** | Required by Java 11 JEP 323 |
 
-**Next module:** [Advanced Language Features](../13-advanced-language-features/00_annotations.md)
+---
+
+## 10. Interview Questions
+
+<details>
+<summary>1. Is `var` dynamically typed in Java?</summary>
+No. Java remains strictly, statically typed. `var` is local variable type inference performed entirely at compile-time by `javac`. Once resolved, the variable type is immutable and verified at compilation.
+</details>
+
+<details>
+<summary>2. Why can't `var` be used for fields or method return types?</summary>
+To protect API contracts and readability. Public class APIs, method signatures, and fields form binary contracts. Permitting `var` would make contracts brittle and obscure interfaces for external callers.
+</details>
+
+<details>
+<summary>3. What is the result of `var list = new ArrayList<>();`?</summary>
+The compiler infers `ArrayList<Object>`. Any generic type safety for stored elements is lost. To preserve type safety, specify the generic parameter: `new ArrayList<String>()`.
+</details>
+
+<details>
+<summary>4. Why is `var x = null;` invalid?</summary>
+Because `null` is a special literal that belongs to the null type and can be converted to any reference type. The compiler cannot infer which concrete type was intended.
+</details>
+
+<details>
+<summary>5. What are non-denotable types and how does `var` support them?</summary>
+Non-denotable types are internal types in the compiler's type system that have no valid syntax name in source code (such as anonymous class types or intersection types). `var` can capture and preserve these types, allowing access to custom methods on anonymous objects.
+</details>
+
+<details>
+<summary>6. How was `var` enhanced in Java 11 (JEP 323)?</summary>
+Java 11 allowed `var` to be used for formal parameters of implicitly typed lambda expressions, primarily enabling parameter annotations (like `@Nonnull var x`).
+</details>
+
+<details>
+<summary>7. Is `var` a keyword in Java?</summary>
+No, `var` is a reserved type name, not a keyword. Code that uses `var` as a method name or variable name (e.g. `int var = 5;`) remains legal and backward-compatible.
+</details>
+
+<details>
+<summary>8. Does using `var` impact bytecode performance or compilation speed?</summary>
+Bytecode performance is completely identical to manifest typing. Compilation speed impact is virtually immeasurable because `javac` already infers expression types during standard type checking.
+</details>
+
+---
+
+## 11. Practice Exercises
+
+### Exercise 1 (Easy): Refactoring Redundant Manifest Types
+- **Task**: Refactor the following snippet to use `var` appropriately:
+```java
+Map<String, List<String>> userRoles = new HashMap<String, List<String>>();
+for (Map.Entry<String, List<String>> entry : userRoles.entrySet()) {
+    List<String> roles = entry.getValue();
+}
+```
+<details>
+<summary>Solution</summary>
+
+```java
+var userRoles = new HashMap<String, List<String>>();
+for (var entry : userRoles.entrySet()) {
+    var roles = entry.getValue();
+}
+```
+</details>
+
+### Exercise 2 (Medium): Annotated Lambda Parameter with `var`
+- **Task**: Write a lambda expression taking two strings that uses Java 11 `var` parameter syntax to apply a `@Deprecated` annotation to the parameters.
+<details>
+<summary>Solution</summary>
+
+```java
+import java.util.function.BiConsumer;
+
+public class LambdaVarExercise {
+    public static void main(String[] args) {
+        BiConsumer<String, String> printer = (@Deprecated var a, @Deprecated var b) -> {
+            System.out.println(a + ": " + b);
+        };
+        printer.accept("Key", "Value");
+    }
+}
+```
+</details>
+
+### Exercise 3 (Hard): Anonymous Struct Projection
+- **Task**: Use `var` and an anonymous object to create an ad-hoc local data projection containing a `String id` and `double totalScore` from two unrelated objects, and print the values.
+<details>
+<summary>Solution</summary>
+
+```java
+public class AdHocStructExercise {
+    public static void main(String[] args) {
+        String studentId = "S1024";
+        double exam1 = 88.5;
+        double exam2 = 94.0;
+
+        // Anonymous struct holding calculated projection
+        var projection = new Object() {
+            final String id = studentId;
+            final double finalGrade = (exam1 + exam2) / 2.0;
+        };
+
+        System.out.println("Student: " + projection.id + ", Grade: " + projection.finalGrade);
+    }
+}
+```
+</details>
+
+---
+
+## 12. Summary / Cheat Sheet
+
+```
++-----------------------------------------------------------------------------------------+
+|                                  JAVA 'var' CHEAT SHEET                                 |
++-----------------------------------------------------------------------------------------+
+| Scope Allowed            | Local variables with initializers, for loops, try-with-res   |
+| Scope Forbidden          | Fields, method params, method returns, uninitialized vars    |
+| Typing Mechanics         | 100% Statically typed at compile time                        |
+| Reserved Type Name       | Not a keyword; existing identifiers named 'var' still compile|
+| Generic Diamond Rule     | Use new ArrayList<String>(), NEVER new ArrayList<>()         |
+| Null Literal             | var x = null; is a COMPILE ERROR                             |
+| Java 11 Lambda           | (@Nonnull var x, var y) -> x.process(y);                     |
+| Runtime Performance      | Identical bytecode to explicit manifest typing               |
++-----------------------------------------------------------------------------------------+
+```
+
+---
+
+## 13. Further Reading
+- [JEP 286: Local-Variable Type Inference (Java 10)](https://openjdk.org/jeps/286)
+- [JEP 323: Local-Variable Syntax for Lambda Parameters (Java 11)](https://openjdk.org/jeps/323)
+- Style Guidelines for Local Variable Type Inference in Java (by Stuart Marks)
+- Java Language Specification — Section 14.4 (Local Variable Declarations)

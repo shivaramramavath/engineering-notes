@@ -1,199 +1,405 @@
-# ThreadLocal
+# ThreadLocal and Scoped Values
 
-A `ThreadLocal<T>` gives **each thread its own independent copy** of a variable. Because nothing is shared between threads, there's nothing to synchronize: it is *thread confinement* ([Thread Safety](02_thread-safety.md)) packaged as a class.
+> Deep dive into Java thread-local storage: `ThreadLocal`, internal `ThreadLocalMap` structure, memory leaks in thread pools, `InheritableThreadLocal`, and modern lightweight `ScopedValue` (JEP 506 / JEP 446 in Java 21-25).
 
-```java
-private static final ThreadLocal<Integer> COUNTER = ThreadLocal.withInitial(() -> 0);
-
-COUNTER.set(COUNTER.get() + 1);     // affects only the current thread's copy
-```
-
-It's used quietly by many frameworks: logging context (SLF4J's MDC), security context, transaction context, and per-request data. Understanding it also explains a famous class of production bugs (leaks and data bleeding between requests) and why `ScopedValue` was introduced.
-
-**Prerequisites:** [Thread Safety](02_thread-safety.md), [Executors and Thread Pools](10_executors-and-thread-pools.md) (for the pool-related pitfalls).
+| Metadata | Value |
+|---|---|
+| **Level** | Advanced |
+| **Prerequisites** | [00_threads-and-lifecycle.md](00_threads-and-lifecycle.md), [02_thread-safety.md](02_thread-safety.md) |
+| **Time to Read** | 25 minutes |
+| **Status** | Active |
+| **Java Version** | Java 1.2+ (ThreadLocal), Java 21+ Preview / Java 25 Final (Scoped Values JEP 506) |
 
 ---
 
-## 1. API
-
-```java
-ThreadLocal<String> userId = new ThreadLocal<>();            // initial value: null
-ThreadLocal<List<String>> buf = ThreadLocal.withInitial(ArrayList::new);   // per-thread initial value
-
-userId.set("u-42");        // set for the CURRENT thread only
-String id = userId.get();  // read the current thread's value (or the initial value)
-userId.remove();           // delete the current thread's value: do this when you're done
-```
-
-Make `ThreadLocal` fields `private static final`. The `ThreadLocal` object is just a *key*; each `Thread` holds a map from keys to its own values.
-
-```text
-Thread A ── map: { USER_ID → "alice", BUF → [..] }
-Thread B ── map: { USER_ID → "bob",   BUF → [..] }      same ThreadLocal keys, separate values
-```
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & Usage](#4-syntax--usage)
+5. [Practical Examples](#5-practical-examples)
+6. [Best Practices](#6-best-practices)
+7. [Common Mistakes & Pitfalls](#7-common-mistakes--pitfalls)
+8. [Performance & Security Notes](#8-performance--security-notes)
+9. [Comparison / When to Use What](#9-comparison--when-to-use-what)
+10. [Interview Questions](#10-interview-questions)
+11. [Practice Exercises](#11-practice-exercises)
+12. [Summary / Cheat Sheet](#12-summary--cheat-sheet)
+13. [Further Reading](#13-further-reading)
 
 ---
 
-## 2. Legitimate uses
+## 1. What & Why
 
-### Per-thread instances of non-thread-safe helpers
-
-Expensive or non-thread-safe objects can be given one-per-thread instead of locking:
-
+### The Implicit Context Passing Problem
+In complex enterprise applications, data such as **User Security Principals, Transaction IDs, and Trace Contexts** must be accessible across multiple layers of software (controllers, service layers, repositories).
+Passing these parameters explicitly through every method signature creates bloated, unmaintainable APIs:
 ```java
-ThreadLocalRandom.current().nextInt(100);        // JDK's built-in per-thread RNG: no contention
+// Anti-pattern: Parameter drilling
+public void processOrder(Order o, UserContext ctx, TraceContext trace, TxContext tx) ...
 ```
 
-(The old `ThreadLocal<SimpleDateFormat>` trick is obsolete: use immutable, thread-safe `DateTimeFormatter` ([Formatting and Parsing](../10-date-and-time/04_date-time-formatting-and-parsing.md)).) **Never share the `ThreadLocalRandom.current()` instance across threads**: call `current()` where you use it.
+### The Classic Solution: `ThreadLocal`
+Java 1.2 introduced `ThreadLocal<T>`. A `ThreadLocal` variable provides independent, thread-isolated copies of a value for each thread that accesses it. Each thread reads and writes only its own local copy, eliminating synchronization overhead.
 
-### Request-scoped context
+### The Modern Dilemma and Solution: `ScopedValue`
+While `ThreadLocal` was effective for platform threads, it suffers from critical architectural flaws:
+- **Unbounded Mutability**: Any method can modify the thread-local state.
+- **Memory Leaks in Thread Pools**: Values remain attached to pooled threads indefinitely unless manually removed.
+- **Virtual Thread Incompatibility**: With millions of virtual threads, copying thread locals consumes massive memory.
+**Scoped Values (JEP 506 / JEP 446)** introduce immutable, bounded-lifetime context variables designed specifically for Virtual Threads.
 
-Carrying "who is the current user" or "what is the request ID" through many layers without adding a parameter to every method:
+---
 
+## 2. Core Concepts
+
+### `ThreadLocal` Mechanics
+- `ThreadLocal.withInitial(Supplier<T>)`: Factory to define default value.
+- `get()`: Returns the calling thread's copy.
+- `set(T val)`: Updates the calling thread's copy.
+- `remove()`: Removes the calling thread's copy. **Mandatory** in pooled environments!
+
+### Memory Leak Mechanics in Thread Pools
+Every `Thread` object holds an internal field: `ThreadLocal.ThreadLocalMap threadLocals;`.
+- The keys in `ThreadLocalMap` are `WeakReference<ThreadLocal<?>>`.
+- The values are **strong references**.
+If a thread pool worker thread survives for days, and a thread-local value is not explicitly cleaned up with `remove()`, the value object is **never garbage collected**, leaking class loaders and enterprise heap memory.
+
+### `ScopedValue` (Java 21 to 25)
+A `ScopedValue` allows safely and efficiently sharing immutable data across method calls and child threads:
+- **Immutable**: Once bound, the value cannot be mutated.
+- **Bounded Lifetime**: Bound only for the duration of a specific `run()` or `call()` invocation.
+- **Automatic Cleanup**: Memory is released immediately when the scope block exits, with zero risk of thread pool memory leaks.
+
+---
+
+## 3. How It Works Internally
+
+### `ThreadLocalMap` Internal Memory Layout
+```
++-------------------------------------------------------------+
+|                        Thread Instance                      |
+|  threadLocals: ThreadLocalMap                               |
+|  +-------------------------------------------------------+  |
+|  | Entry[] table                                         |  |
+|  |  +-----------------------------+-------------------+  |  |
+|  |  | Key (WeakReference)         | Value (StrongRef) |  |  |
+|  |  | ThreadLocal instance        | LargeSessionData  |  |  |
+|  |  +-----------------------------+-------------------+  |  |
+|  +-------------------------------------------------------+  |
++-------------------------------------------------------------+
+```
+When the `ThreadLocal` instance is dereferenced by user code, the weak reference key is cleared during GC. However, the `Entry.value` remains strongly reachable from the `Thread` instance, leaking memory until `remove()` or table rehash occurs.
+
+### Scoped Values Stack Frame Inheritance
+Unlike `ThreadLocalMap`, `ScopedValue` bindings are stored directly in a compact linked list of scope bindings associated with the thread's execution frame. Sub-tasks in Structured Concurrency inherit scoped values with **zero copying overhead**, sharing identical immutable pointers.
+
+---
+
+## 4. Syntax & Usage
+
+### Standard Idiom: Mandatory `try-finally` with `remove()`
 ```java
-final class RequestContext {
-    private static final ThreadLocal<String> USER_ID = new ThreadLocal<>();
+public class UserContextHolder {
+    private static final ThreadLocal<String> currentUser = new ThreadLocal<>();
 
-    static void set(String id)  { USER_ID.set(id); }
-    static String get()         { return USER_ID.get(); }
-    static void clear()         { USER_ID.remove(); }
-}
+    public static void executeWithUser(String userId, Runnable action) {
+        currentUser.set(userId);
+        try {
+            action.run();
+        } finally {
+            // MANDATORY: Always clean up to prevent thread pool memory leaks!
+            currentUser.remove();
+        }
+    }
 
-// Entry point, such as a servlet filter
-void handle(Request req) {
-    RequestContext.set(req.userId());
-    try {
-        service.process(req);               // deep code can call RequestContext.get()
-    } finally {
-        RequestContext.clear();             // ALWAYS clean up
+    public static String getCurrentUser() {
+        return currentUser.get();
     }
 }
 ```
 
-Logging frameworks use the same technique to attach request IDs to every log line ([Logging](../22-production-engineering/00_logging.md)).
-
----
-
-## 3. The big pitfall: thread pools and leaks
-
-Pool threads **live for a long time and are reused for many tasks**. A `ThreadLocal` value set by one task and never removed is still there when the *next, unrelated task* runs on the same thread.
-
+### Modern `ScopedValue` Idiom (Java 21-25)
 ```java
-// Task 1 on worker-3
-RequestContext.set("alice");     // ...and forgets to clear
+import java.lang.ScopedValue;
 
-// Later, Task 2 on worker-3 (a different user's request)
-RequestContext.get();            // "alice"   ← wrong user's data: a security bug, not just a memory one
-```
+public class ScopedContextDemo {
+    public static final ScopedValue<String> USER_ID = ScopedValue.newInstance();
 
-Problems this causes:
+    public static void main(String[] args) {
+        // Bind value for the execution of a runnable block
+        ScopedValue.where(USER_ID, "ada_lovelace").run(() -> {
+            System.out.println("Processing inside scope: " + USER_ID.get());
+            helperMethod();
+        });
+        // Outside the block, USER_ID is automatically unbound!
+    }
 
-- **Data bleeding between requests**: stale user, tenant, or transaction state. This can be a security incident.
-- **Memory leaks**: the value stays reachable as long as the thread lives. With app servers, values that reference classes from a web application's class loader can prevent that class loader from ever being unloaded on redeploy (a classic "class loader leak").
-
-The rules:
-
-1. **Always `remove()` in a `finally`** when you set a value on a thread you don't own (pool, server, framework).
-2. Don't store large objects.
-3. Don't use `set(null)` as a substitute for `remove()`: the entry stays in the thread's map.
-
----
-
-## 4. Thread locals and asynchronous code
-
-A `ThreadLocal` belongs to one thread. As soon as work hops to another thread, the value is **gone**:
-
-```java
-RequestContext.set("alice");
-CompletableFuture.supplyAsync(() -> RequestContext.get());   // runs on a pool thread → null (or someone else's value)
-```
-
-Executors and `CompletableFuture` do **not** propagate thread locals. You must capture the value and re-establish it inside the task, or use your framework's context-propagation support (for example task decorators and context-propagation libraries).
-
-`InheritableThreadLocal` copies the parent's value into a **newly created** child thread, but pooled threads are created once, so it doesn't help with executors and can leak stale values. Avoid it.
-
----
-
-## 5. Virtual threads
-
-Virtual threads support thread locals, but there can be **millions** of them, each with its own copy of every thread local value. Heavy per-thread caches (a 1 MB buffer in a `ThreadLocal`, say) that were fine with 200 pool threads become a memory problem. For virtual threads:
-
-- Don't use thread locals as a cache of expensive objects; use a proper pool or shared thread-safe structure.
-- Prefer `ScopedValue` for passing context ([section 6](#6-scopedvalue-the-modern-alternative)).
-- See [Virtual Threads](13_virtual-threads-and-structured-concurrency.md).
-
----
-
-## 6. `ScopedValue`: the modern alternative
-
-`ScopedValue` (final in **Java 25**) shares data **safely within a bounded scope** instead of "until someone remembers to clean up":
-
-```java
-private static final ScopedValue<String> USER_ID = ScopedValue.newInstance();
-
-void handle(Request req) {
-    ScopedValue.where(USER_ID, req.userId())          // bind for the duration of the run(...)
-               .run(() -> service.process(req));
+    private static void helperMethod() {
+        System.out.println("Helper method reads user: " + USER_ID.get());
+    }
 }
-
-// Anywhere deeper in the call chain
-String id = USER_ID.get();                            // throws NoSuchElementException if not bound
-USER_ID.isBound();  USER_ID.orElse("anonymous");
 ```
 
-How it differs from `ThreadLocal`:
+---
 
-| | `ThreadLocal` | `ScopedValue` |
+## 5. Practical Examples
+
+### Example 1: Transaction Context Propagation in Thread Pools
+```java
+// Goal: Propagate transaction ID across service layers safely
+import java.util.UUID;
+import java.util.concurrent.*;
+
+public class TransactionContextManager {
+    private static final ThreadLocal<String> txContext = ThreadLocal.withInitial(() -> UUID.randomUUID().toString());
+
+    public static void processBatch() {
+        try (ExecutorService pool = Executors.newFixedThreadPool(2)) {
+            for (int i = 0; i < 4; i++) {
+                pool.submit(() -> {
+                    try {
+                        txContext.set("TX-" + System.nanoTime());
+                        System.out.println("Thread [" + Thread.currentThread().getName() + "] running with " + txContext.get());
+                    } finally {
+                        txContext.remove(); // Clean up!
+                    }
+                });
+            }
+        }
+    }
+
+    public static void main(String[] args) {
+        processBatch();
+    }
+}
+```
+
+### Example 2: Thread-Safe Date Formatter Cache
+```java
+// Goal: Share expensive, non-thread-safe SimpleDateFormat instances safely per thread
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
+public class ThreadSafeFormatter {
+    // Each thread gets its own dedicated instance; no synchronization required!
+    private static final ThreadLocal<SimpleDateFormat> formatter = ThreadLocal.withInitial(
+        () -> new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+    );
+
+    public static String formatDate(Date date) {
+        return formatter.get().format(date);
+    }
+}
+```
+
+### Example 3: Edge Case: Context Loss in Asynchronous Execution
+```java
+// Goal: Demonstrate why ThreadLocal is lost when submitting tasks to other threads
+import java.util.concurrent.*;
+
+public class ContextLossHazard {
+    private static final ThreadLocal<String> user = ThreadLocal.withInitial(() -> "GUEST");
+
+    public static void main(String[] args) throws Exception {
+        user.set("ADMIN_USER");
+
+        try (ExecutorService executor = Executors.newSingleThreadExecutor()) {
+            executor.submit(() -> {
+                // RUNS ON WORKER THREAD: Does NOT see main thread's ThreadLocal!
+                System.out.println("Worker thread sees: " + user.get()); // Prints "GUEST", NOT "ADMIN_USER"!
+            }).get();
+        }
+    }
+}
+```
+*Explanation:* `ThreadLocal` is bound strictly to the thread that set it. Asynchronous handoffs require explicit context wrappers or Structured Concurrency with `ScopedValue`.
+
+---
+
+## 6. Best Practices
+1. **Always Call `remove()` in a `finally` Block**: Protect against thread pool memory leaks by strictly enforcing `try { ... } finally { tl.remove(); }`.
+2. **Declare `ThreadLocal` as `private static final`**: Prevent redundant instantiation of `ThreadLocal` coordinator handles.
+3. **Migrate to `ScopedValue` for Virtual Threads**: In Java 21+, adopt `ScopedValue` for immutable context propagation to avoid memory blowup across millions of virtual threads.
+4. **Avoid `InheritableThreadLocal` in Thread Pools**: Inheritable thread locals copy data on thread creation, not task assignment; pooled worker threads retain stale parent state.
+5. **Keep ThreadLocal State Minimal**: Never store large data structures (like entity graphs) in thread locals; store simple identifiers or tokens.
+
+---
+
+## 7. Common Mistakes & Pitfalls
+
+| Mistake | Why Wrong | Fix |
 |---|---|---|
-| Lifetime | Until `remove()` (or thread dies) | **Exactly the `run`/`call` scope**, with automatic cleanup |
-| Mutability | Anyone can `set` anytime | **Immutable binding** (nested scopes may *rebind*, but nothing mutates the current one) |
-| Leaks | Easy to cause | Structurally impossible |
-| Cost with many threads | Copy per thread | Cheap; designed for virtual threads |
-| Inheritance by child threads | `InheritableThreadLocal` copies | Automatically visible to threads forked in a structured scope |
-
-Use it for **read-only context** (user, request ID, tenant, deadlines). For mutable per-thread state you still use a `ThreadLocal`, though that's a smell. Structured scopes that fork subtasks are still a preview API ([note 13](13_virtual-threads-and-structured-concurrency.md)).
+| Forgetting `remove()` in thread pool environments | Worker threads retain strong references to values, causing catastrophic class loader memory leaks. | Enclose usage in `try { ... } finally { tl.remove(); }`. |
+| Expecting `ThreadLocal` to propagate to executor tasks | Worker threads in an executor have distinct thread instances and do not inherit thread locals. | Pass context explicitly or use `ScopedValue`. |
+| Using non-static `ThreadLocal` fields | Creates duplicate entries in the thread's map for every enclosing class instance. | Declare `private static final ThreadLocal<T> ...`. |
+| Reusing `InheritableThreadLocal` with pooled threads | Values are inherited only at thread creation time, causing subsequent tasks to read stale data. | Avoid `InheritableThreadLocal` in thread pools. |
+| Storing mutable objects and mutating them across methods | Obscures data mutations and introduces hard-to-trace bugs. | Store immutable records in thread locals. |
 
 ---
 
-## 7. When *not* to use thread locals
+## 8. Performance & Security Notes
 
-- As a **hidden global**: methods that behave differently depending on invisible state are hard to read and test. If a value is a real input, pass it as a parameter.
-- To pass data between **tasks or threads**: use queues, futures, or arguments.
-- For **caching expensive objects** with virtual threads or large pools. Use a pool or thread-safe shared object.
-- When an immutable shared object or a plain local variable would do.
+### Memory Overhead in Virtual Threads
+Platform thread pools rarely exceed a few thousand threads, making `ThreadLocalMap` memory footprint negligible. However, in applications spawning 1,000,000 virtual threads, if each thread initializes a thread-local map with several entries, gigabytes of heap memory are wasted on hash map arrays. `ScopedValue` shares immutable bindings with zero memory copying.
 
----
-
-## Common mistakes
-
-| Mistake | Fix |
-|---|---|
-| Not calling `remove()` on pooled/server threads | `try { set(...); ... } finally { remove(); }` |
-| Storing big objects in a thread local | Keep values small, or avoid |
-| Expecting values to follow work onto another thread (`CompletableFuture`, executor) | Capture and re-set, or use context propagation |
-| `ThreadLocal` as a global variable to avoid passing parameters | Pass the parameter explicitly, or use `ScopedValue` for true read-only context |
-| `ThreadLocal<SimpleDateFormat>` in new code | `DateTimeFormatter` |
-| Non-`static` `ThreadLocal` fields (one key per instance → many entries) | `private static final` |
-| Using `InheritableThreadLocal` with thread pools | Don't. Pass the value explicitly |
-| Sharing `ThreadLocalRandom.current()` across threads | Call `current()` in each thread |
-| `set(null)` instead of `remove()` | `remove()` |
-
-### Debugging
-
-- Wrong user/tenant data appearing in logs or responses → look for a thread local that isn't cleared in `finally` (or one cleared too early).
-- `null` from `get()` inside an async callback → the work ran on a different thread than the one that set it.
-- Heap dumps showing `ThreadLocalMap$Entry` retaining large objects or class loaders → leaked thread-local values. Find the `ThreadLocal` key and where it's set ([JVM Diagnostics](../22-production-engineering/04_jvm-diagnostics.md)).
-- Context "disappears" after switching to virtual threads or reactive code → check how your framework propagates context.
+### Security and Privilege Leaks
+In web application servers (like Tomcat), if request thread `A` authenticates as an administrator and fails to call `remove()`, subsequent untrusted request `B` assigned to the same worker thread can read the administrator context, resulting in privilege escalation vulnerabilities.
 
 ---
 
-## Quick Summary
+## 9. Comparison / When to Use What
 
-- `ThreadLocal<T>` = a separate value per thread: no sharing, so no locking.
-- Good for per-thread helpers (`ThreadLocalRandom`) and request context (logging MDC, security context).
-- **Always `remove()` in `finally`** on pooled threads, or you leak memory and bleed data between requests.
-- Thread locals don't cross to other threads: executors, `CompletableFuture`, and `InheritableThreadLocal` don't solve it. Propagate explicitly.
-- With virtual threads, avoid heavy thread-local state and prefer **`ScopedValue`** (final in Java 25): immutable, scoped, auto-cleaned.
-- If a value is a real input, pass it as a parameter.
+| Feature | `ThreadLocal` | `ScopedValue` (Java 21-25) |
+|---|---|---|
+| **Mutability** | Mutable (`set()` anytime) | **Immutable** |
+| **Lifetime** | Unbounded (until `remove()`) | Bounded to scope execution block |
+| **Memory Leak Risk** | High (in thread pools) | **Zero (automatically reclaimed)** |
+| **Virtual Thread Fit**| Poor (Heavy memory per thread) | **Optimized for millions of threads**|
+| **Child Thread Share**| Deep copy (expensive) | Zero-copy reference sharing |
 
-**Next:** [Executors and Thread Pools](10_executors-and-thread-pools.md)
+---
+
+## 10. Interview Questions
+
+<details>
+<summary>1. How does `ThreadLocal` work internally?</summary>
+Each `Thread` instance contains a package-private field `threadLocals` of type `ThreadLocalMap`. When `tl.get()` is called, it accesses the current thread's map using the `ThreadLocal` instance as a weak key to retrieve the stored value.
+</details>
+
+<details>
+<summary>2. Why does `ThreadLocal` cause memory leaks in thread pools?</summary>
+The keys in `ThreadLocalMap` are weak references, but the values are strong references. Because thread pool workers remain alive indefinitely, un-removed values remain strongly reachable from the thread's map even after the `ThreadLocal` key is garbage collected.
+</details>
+
+<details>
+<summary>3. Why is `remove()` strictly necessary?</summary>
+To remove both the key and the strong reference to the value from the current thread's `ThreadLocalMap`, allowing the value object to be garbage collected immediately.
+</details>
+
+<details>
+<summary>4. What are Scoped Values (JEP 506 / JEP 446)?</summary>
+A modern alternative to `ThreadLocal` that provides immutable, bounded-lifetime context sharing across method calls and child threads, designed specifically to eliminate memory leaks and scale efficiently with Virtual Threads.
+</details>
+
+<details>
+<summary>5. How does `InheritableThreadLocal` work?</summary>
+When a child thread is created, the JVM copies all values from the parent thread's `inheritableThreadLocals` map into the child thread's map. It does not synchronize subsequent updates.
+</details>
+
+<details>
+<summary>6. Why should `ThreadLocal` always be declared `static final`?</summary>
+Declaring it `static final` ensures there is only one instance of the `ThreadLocal` coordinator per JVM class loader, preventing redundant map key allocations across class instances.
+</details>
+
+<details>
+<summary>7. Can `ThreadLocal` be used across asynchronous boundaries (e.g. `CompletableFuture`)?</summary>
+No. Asynchronous stages execute on arbitrary worker threads in an executor pool, losing the calling thread's `ThreadLocal` context unless explicitly captured and transferred.
+</details>
+
+<details>
+<summary>8. How do Scoped Values interact with Structured Concurrency?</summary>
+Sub-tasks spawned inside a `StructuredTaskScope` automatically inherit all active `ScopedValue` bindings from the enclosing scope without memory copying, guaranteeing consistent context propagation.
+</details>
+
+---
+
+## 11. Practice Exercises
+
+### Exercise 1 (Easy): Thread-Isolated Random Generator
+- **Task**: Implement a utility that provides a thread-isolated `java.util.Random` instance using `ThreadLocal.withInitial()` to avoid lock contention.
+<details>
+<summary>Solution</summary>
+
+```java
+import java.util.Random;
+
+public class ThreadSafeRandomHolder {
+    private static final ThreadLocal<Random> randomHolder = ThreadLocal.withInitial(Random::new);
+
+    public static int nextInt(int bound) {
+        return randomHolder.get().nextInt(bound);
+    }
+}
+```
+</details>
+
+### Exercise 2 (Medium): Request Context Scope Guard
+- **Task**: Implement an `AutoCloseable` guard class `RequestContext(String tenantId)` that sets a thread-local tenant ID and automatically removes it when used in a `try-with-resources` block.
+<details>
+<summary>Solution</summary>
+
+```java
+public class RequestContext implements AutoCloseable {
+    private static final ThreadLocal<String> currentTenant = new ThreadLocal<>();
+
+    public RequestContext(String tenantId) {
+        currentTenant.set(tenantId);
+    }
+
+    public static String getTenantId() {
+        return currentTenant.get();
+    }
+
+    @Override
+    public void close() {
+        currentTenant.remove();
+    }
+
+    public static void main(String[] args) {
+        try (RequestContext ctx = new RequestContext("TENANT_CORP_100")) {
+            System.out.println("Active tenant: " + RequestContext.getTenantId());
+        }
+        System.out.println("Outside scope tenant: " + RequestContext.getTenantId()); // null
+    }
+}
+```
+</details>
+
+### Exercise 3 (Hard): ScopedValue Context Propagation
+- **Task**: Using `ScopedValue`, write a method that binds a security token `ScopedValue<String> TOKEN`, invokes a sub-method that reads the token, and verifies it is unavailable outside the scope.
+<details>
+<summary>Solution</summary>
+
+```java
+public class ScopedSecurityDemo {
+    public static final ScopedValue<String> AUTH_TOKEN = ScopedValue.newInstance();
+
+    public static void executeSecureAction(String token, Runnable task) {
+        ScopedValue.where(AUTH_TOKEN, token).run(task);
+    }
+
+    public static void main(String[] args) {
+        executeSecureAction("BEARER_SECRET_KEY_999", () -> {
+            System.out.println("Inside secure scope: Token = " + AUTH_TOKEN.get());
+        });
+
+        System.out.println("Is bound outside scope: " + AUTH_TOKEN.isBound()); // false
+    }
+}
+```
+</details>
+
+---
+
+## 12. Summary / Cheat Sheet
+
+```
++-----------------------------------------------------------------------------------------+
+|                               THREADLOCAL & SCOPED VALUES                               |
++-----------------------------------------------------------------------------------------+
+| ThreadLocal Declaration  | private static final ThreadLocal<T> tl = ThreadLocal...      |
+| Mandatory Cleanup        | try { tl.set(v); ... } finally { tl.remove(); }              |
+| Memory Leak Cause        | ThreadLocalMap has weak keys but STRONG values               |
+| Modern Replacement       | ScopedValue<T> (JEP 506 / JEP 446 in Java 21-25)             |
+| ScopedValue Usage        | ScopedValue.where(KEY, val).run(() -> ...);                  |
+| ScopedValue Advantages   | Immutable, bounded lifetime, zero leak risk, VT optimized    |
++-----------------------------------------------------------------------------------------+
+```
+
+---
+
+## 13. Further Reading
+- [JEP 506 / JEP 446: Scoped Values](https://openjdk.org/jeps/506)
+- Java Concurrency in Practice by Brian Goetz — Chapter 3 (Thread Confinement)
+- "Inside Java: Scoped Values vs ThreadLocal" by Ron Pressler
