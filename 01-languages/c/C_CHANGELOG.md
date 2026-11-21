@@ -616,3 +616,13 @@ All modifications, error fixes, technical corrections, and structural extensions
 - Authored `16-time-and-timers-posix.md` (410 lines): Monotonic vs wall-clock time (`CLOCK_MONOTONIC` vs `CLOCK_REALTIME`), vDSO fast userspace clock calls, `nanosleep()` and drift-free `clock_nanosleep()`, Linux `timerfd` event loop integration, 8 interview Qs, 9 exercises with full solutions.
 - Authored `17-resource-limits-and-process-control.md` (400 lines): POSIX `getrlimit()`/`setrlimit()`, file descriptor tuning (`RLIMIT_NOFILE`), virtual memory caps (`RLIMIT_AS`), core dumps (`RLIMIT_CORE`), CPU nice priorities, CPU affinity pinning, Linux cgroups v2 overview, 8 interview Qs, 9 exercises with full solutions.
 - Completed Module 05 Systems Programming: 17 comprehensive concept notes + README, 100% complete with verified real outputs.
+
+## Batch 20 Part 1 - Module 06 Build & Tooling Core (2026-11-21)
+- Created module directory `06-build-and-tooling/` and authored `06-build-and-tooling/README.md`.
+- Authored `01-make-in-depth.md` (418 lines): GNU Make DAG resolution, automatic header dependency tracking (`-MMD -MP`), pattern rules, automatic variables (`$@`, `$<`, `$^`), order-only prerequisites, non-recursive Makefiles, 8 interview Qs, 9 exercises with full solutions.
+- Authored `02-cmake.md` (411 lines): Modern CMake 3.x target-based architecture, `PUBLIC`/`PRIVATE`/`INTERFACE` visibility propagation, generator expressions, CTest suite integration, out-of-source builds, 8 interview Qs, 9 exercises with full solutions.
+- Authored `03-static-analysis-clang-tidy-cppcheck.md` (406 lines): AST matchers and symbolic execution, `clang-tidy` rules (`bugprone-*`, `cert-*`), `cppcheck` pipelines, `compile_commands.json` compilation database generation, 8 interview Qs, 9 exercises with full solutions.
+- Authored `04-clang-format.md` (400 lines): `.clang-format` specification, style inheritance (LLVM/Google/Linux), brace placement and pointer alignment, `git-clang-format` staged formatting, pre-commit hooks, 8 interview Qs, 9 exercises with full solutions.
+- Authored `05-gcov-coverage.md` (402 lines): Code coverage instrumentation (`--coverage`), `.gcno` and `.gcda` files, line vs branch coverage traps, HTML reports with `lcov` and `genhtml`, 8 interview Qs, 9 exercises with full solutions.
+- Authored `06-git-workflow-for-c-projects.md` (411 lines): C-specific `.gitignore` rules, Git submodules for deterministic dependency management, Semantic Versioning (SemVer), GPG-signed release tags, 8 interview Qs, 9 exercises with full solutions.
+- Compiled and executed companion programs in scratch directory; verified stdout captured in notes.
