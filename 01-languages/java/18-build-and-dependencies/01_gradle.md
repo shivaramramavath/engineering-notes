@@ -1,330 +1,404 @@
-# Gradle
+# Gradle: Architecture, Kotlin DSL, and Build Cache
 
-**Gradle** is a build tool where the build is a **graph of tasks** described in code (Kotlin or Groovy DSL). Where Maven gives you a fixed lifecycle you configure, Gradle gives you a flexible model you program, with strong support for **incremental builds**, **caching**, and large multi-project setups. It's the standard build tool for Android and common in large Java, Kotlin, and polyglot repositories.
+> Modern programmatic build engineering: Execution Phases, Kotlin DSL (`build.gradle.kts`), Dependency Configurations, Incremental Compilation, and Build Cache Internals.
 
-If you know Maven, the concepts map cleanly (coordinates, repositories, scopes → configurations, plugins). What's new is the task graph and the performance features.
-
-**Prerequisites:** [Maven](00_maven.md) (concepts), [First Project with Maven and Gradle](../00-setup/05_first-project-with-maven-and-gradle.md).
+| Metadata | Details |
+|---|---|
+| **Level** | Core / Advanced |
+| **Prerequisites** | Java Packages, Maven Basics, Kotlin Basics |
+| **Time to Read** | 25 minutes |
+| **Status** | Complete |
+| **JDK Baseline** | Java 17 / 21 / 25 LTS (Gradle 8.8+) |
 
 ---
 
-## 1. Project structure
+## Table of Contents
+1. [1. What & Why](#1-what--why)
+2. [2. Core Concepts](#2-core-concepts)
+3. [3. How It Works Internally: The Three Execution Phases & DAG Engine](#3-how-it-works-internally-the-three-execution-phases--dag-engine)
+4. [4. Syntax & Usage](#4-syntax--usage)
+5. [5. Practical Examples](#5-practical-examples)
+6. [6. Best Practices](#6-best-practices)
+7. [7. Common Mistakes & Pitfalls](#7-common-mistakes--pitfalls)
+8. [8. Performance & Security Notes](#8-performance--security-notes)
+9. [9. Comparison / When to Use What](#9-comparison--when-to-use-what)
+10. [10. Interview Questions](#10-interview-questions)
+11. [11. Practice Exercises](#11-practice-exercises)
+12. [12. Summary / Cheat Sheet](#12-summary--cheat-sheet)
+13. [13. Further Reading](#13-further-reading)
 
-```text
- my-app/
- ├── settings.gradle.kts        ← project name and which subprojects exist
- ├── build.gradle.kts           ← the build for this project
- ├── gradle.properties          ← build settings (JVM args, caching flags)
- ├── gradle/
- │   ├── libs.versions.toml     ← version catalog (section 5)
- │   └── wrapper/               ← Gradle Wrapper files
- ├── gradlew, gradlew.bat       ← wrapper scripts
- └── src/main/java ...          ← same source layout as Maven
+---
+
+## 1. What & Why
+While Apache Maven standardized declarative XML builds, large enterprise codebases and multi-language projects often outgrow rigid XML lifecycles. Gradle was engineered to combine the convention and dependency management of Maven with the flexibility, programmatism, and speed of an expressive DSL.
+
+Gradle distinguishes itself through its **performance-first architecture**: a resident background JVM daemon, continuous incremental build tracking, task input/output fingerprinting, compile avoidance, and local/remote build caching. Modern enterprise Gradle has transitioned from legacy dynamic Groovy scripts to strongly-typed **Kotlin DSL (`build.gradle.kts`)** and **Version Catalogs (`libs.versions.toml`)**, delivering full IDE autocompletion, compile-time script verification, and sub-second incremental builds.
+
+---
+
+## 2. Core Concepts
+- **Three Execution Phases**:
+  1. *Initialization*: Identifies projects in `settings.gradle.kts` and instantiates `Project` instances.
+  2. *Configuration*: Evaluates build scripts, configures project models, and builds the Task Execution Graph (DAG).
+  3. *Execution*: Executes the specific tasks selected by command line, observing input/output caches.
+- **Kotlin DSL (`build.gradle.kts`)**: Type-safe build scripts written in Kotlin, replacing untyped Groovy.
+- **Task**: The fundamental unit of work (e.g., `compileJava`, `test`, `jar`). Tasks define explicit `@Input` and `@Output` annotations.
+- **Incremental Build & UP-TO-DATE**: If a task's inputs and outputs have not changed since the last run, Gradle skips execution entirely, marking it `UP-TO-DATE`.
+- **Compile Avoidance**: If an upstream library modifies internal method implementation bodies without altering public API method signatures, downstream modules skip recompilation entirely.
+- **Dependency Configurations**: Granular classpath separation (`implementation`, `api`, `compileOnly`, `runtimeOnly`, `testImplementation`).
+- **Version Catalog (`libs.versions.toml`)**: Centralized repository of dependency coordinates and version definitions.
+
+---
+
+## 3. How It Works Internally: The Three Execution Phases & DAG Engine
+
+Every Gradle build progresses through three strictly ordered phases:
+
+```
+[ settings.gradle.kts ]
+         |
+         v
++-------------------------------------------------------+
+|                1. Initialization Phase                |
+|  - Determines single vs multi-project build           |
+|  - Instantiates Project hierarchy in memory           |
++-------------------------------------------------------+
+                           |
+                           v
++-------------------------------------------------------+
+|                2. Configuration Phase                 |
+|  - Executes ALL build.gradle.kts script bodies        |
+|  - Configures plugins, extensions, and task objects   |
+|  - Constructs Directed Acyclic Graph (DAG) of tasks   |
++-------------------------------------------------------+
+                           |
+                           v
++-------------------------------------------------------+
+|                 3. Execution Phase                    |
+|  - Executes requested task actions in DAG order       |
+|  - Checks Input/Output hashes against Build Cache     |
+|  - Marks tasks UP-TO-DATE or FROM-CACHE when matching |
++-------------------------------------------------------+
 ```
 
-A minimal Java application build (Kotlin DSL):
+### The Power of `implementation` vs `api`:
+In the legacy `compile` configuration, every dependency leaked transitively to downstream consumers. Gradle's `java-library` plugin introduced:
+- `implementation`: Internal dependency. Not exposed to consumers' compile classpath. When library internal code changes, consumer projects **do not recompile**.
+- `api`: Exported dependency. Placed on consumers' compile classpath. Changing it forces consumers to recompile.
 
-```kotlin
-// settings.gradle.kts
-rootProject.name = "orders"
-```
+---
 
+## 4. Syntax & Usage
+
+### 4.1 Production `build.gradle.kts` (Kotlin DSL)
 ```kotlin
-// build.gradle.kts
 plugins {
-    java
+    `java-library`
     application
+    id("com.diffplug.spotless") version "6.25.0"
 }
 
-group = "com.acme"
-version = "1.0.0"
+group = "com.example.service"
+version = "1.0.0-SNAPSHOT"
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(21))
+    }
+}
 
 repositories {
     mavenCentral()
 }
 
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(21)      // the Java version to compile and test with
-    }
-}
-
 dependencies {
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.x.y")
+    // Public API dependency: exposed transitively
+    api(libs.guava)
 
-    testImplementation(platform("org.junit:junit-bom:5.x.y"))
-    testImplementation("org.junit.jupiter:junit-jupiter")
+    // Private implementation: compile avoidance enabled
+    implementation(libs.jackson.databind)
+    implementation(libs.slf4j.api)
+
+    // Compile-only (annotations / processors)
+    compileOnly("org.projectlombok:lombok:1.18.32")
+    annotationProcessor("org.projectlombok:lombok:1.18.32")
+
+    // Test dependencies
+    testImplementation(libs.junit.jupiter)
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
-tasks.test {
-    useJUnitPlatform()
-}
-
 application {
-    mainClass = "com.acme.Main"
+    mainClass.set("com.example.service.ApplicationKt")
 }
-```
 
-**Kotlin DSL** (`*.gradle.kts`) is the default for new builds, with full IDE completion and type checking. **Groovy DSL** (`*.gradle`) is still fully supported and common in older projects. The concepts are identical.
-
----
-
-## 2. The model: tasks and the build graph
-
-Everything Gradle does is a **task** (`compileJava`, `test`, `jar`, `build`). Tasks declare **inputs and outputs** and **dependencies** on other tasks, which form a directed acyclic graph:
-
-```text
- build
-  ├─ assemble ── jar ── classes ── compileJava ── (processResources)
-  └─ check ───── test ── testClasses ── compileTestJava
-```
-
-```bash
-./gradlew build           # compile, test, package (the daily command; includes `check`)
-./gradlew test            # run tests
-./gradlew run             # run the application (application plugin)
-./gradlew clean           # delete build/
-./gradlew tasks           # list available tasks
-./gradlew build -x test   # exclude a task (use sparingly)
-./gradlew test --tests "com.acme.OrderServiceTest"     # one class (or --tests "*cancels*")
-./gradlew --continuous test       # re-run on file changes
-./gradlew build --offline         # use only cached dependencies
-```
-
-### Three phases
-
-1. **Initialization:** read `settings.gradle.kts`, decide which projects exist.
-2. **Configuration:** evaluate every build script and build the task graph. (Code in the *body* of a script runs here, on *every* build, so keep it cheap.)
-3. **Execution:** run the selected tasks and their dependencies.
-
-### Why it's fast: up-to-date checks and caching
-
-- **Incremental build / up-to-date:** if a task's inputs and outputs haven't changed since the last run, Gradle **skips it** (`UP-TO-DATE`). That's why it needs well-declared inputs and outputs.
-- **Build cache:** task outputs are cached by input hash (locally, and optionally shared by the team/CI). A task whose inputs match a cached result is `FROM-CACHE`.
-- **Daemon:** a long-lived JVM keeps the build machinery warm between builds, so you don't pay JVM startup and classloading every time.
-- **Configuration cache:** caches the *result of the configuration phase* so repeat builds skip it entirely.
-
----
-
-## 3. Dependencies and configurations
-
-Gradle's counterpart to Maven's scopes is the **configuration**:
-
-| Configuration | Meaning | Maven analogue |
-|---|---|---|
-| `implementation` | Needed to compile and run this module. **Not exposed** on consumers' compile classpath | `compile` (but better encapsulated) |
-| `api` (needs the `java-library` plugin) | Part of this library's **public API**, exposed to consumers | `compile` |
-| `compileOnly` | Compile time only | `provided` |
-| `runtimeOnly` | Runtime only (JDBC drivers, logging backends) | `runtime` |
-| `testImplementation` / `testRuntimeOnly` | Test classpath | `test` |
-| `annotationProcessor` | Annotation processors (Lombok, MapStruct, Dagger), a separate path | (compiler plugin config) |
-
-```kotlin
-dependencies {
-    api("com.acme:shared-model:1.4.0")                    // leaks into consumers' compile classpath
-    implementation("org.apache.commons:commons-lang3:3.x.y")    // internal detail
-    runtimeOnly("org.postgresql:postgresql:42.x.y")
-    compileOnly("org.projectlombok:lombok:1.18.x")
-    annotationProcessor("org.projectlombok:lombok:1.18.x")
-}
-```
-
-**`implementation` vs `api`** is Gradle's strongest encapsulation feature: with `implementation`, a change to an internal dependency doesn't force consumers to recompile, and consumers can't accidentally depend on it.
-
-Inspect the resolved graph:
-
-```bash
-./gradlew dependencies                                  # full tree per configuration
-./gradlew dependencies --configuration runtimeClasspath
-./gradlew dependencyInsight --dependency jackson-databind    # why is this here, and which version won?
-```
-
----
-
-## 4. Toolchains: choose the Java version in the build
-
-A **toolchain** declares which JDK compiles and tests your code, independent of the JDK running Gradle:
-
-```kotlin
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
-        // vendor = JvmVendorSpec.ADOPTIUM      // optionally restrict the vendor
+tasks.named<Test>("test") {
+    useJUnitPlatform()
+    maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceAtLeast(1)
+    testLogging {
+        events("passed", "skipped", "failed")
     }
 }
 ```
 
-Gradle locates a matching installed JDK, and with a *toolchain resolver plugin* (such as the Foojay resolver) can **download** one automatically. Gradle 9 itself requires **Java 17+ to run**, but toolchains let you still build and test for older Java versions (Java 8+). This pins the language level for every developer and CI job: the same goal as `maven.compiler.release` ([Release Timeline](../12-modern-java/00_java-release-timeline.md#4-which-version-should-i-target)).
-
----
-
-## 5. Version catalogs
-
-Centralize versions in `gradle/libs.versions.toml`:
-
+### 4.2 Modern Version Catalog (`gradle/libs.versions.toml`)
 ```toml
 [versions]
-jackson = "2.x.y"
-junit = "5.x.y"
+jackson = "2.17.2"
+junit = "5.10.3"
+slf4j = "2.0.13"
 
 [libraries]
 jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
-junit-bom        = { module = "org.junit:junit-bom", version.ref = "junit" }
-junit-jupiter    = { module = "org.junit.jupiter:junit-jupiter" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
+slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
+guava = { module = "com.google.guava:guava", version = "33.2.1-jre" }
 
 [bundles]
-testing = ["junit-jupiter"]
-
-[plugins]
-spring-boot = { id = "org.springframework.boot", version = "x.y.z" }
+logging = ["slf4j-api"]
 ```
-
-```kotlin
-dependencies {
-    implementation(libs.jackson.databind)                 // type-safe accessor with IDE completion
-    testImplementation(platform(libs.junit.bom))
-    testImplementation(libs.junit.jupiter)
-}
-```
-
-A catalog gives every module the same versions, one place to bump them, and (via bots such as Renovate and Dependabot) one file for automated updates. For BOM-style alignment, use `platform(...)` (Maven's `import`-scope BOM equivalent).
 
 ---
 
-## 6. Multi-project builds
+## 5. Practical Examples
 
+### Example 1: Multi-Project `settings.gradle.kts`
 ```kotlin
-// settings.gradle.kts
-rootProject.name = "shop"
-include(":domain", ":persistence", ":web")
+rootProject.name = "enterprise-platform"
+
+include(
+    "common-models",
+    "persistence-layer",
+    "order-service",
+    "payment-gateway"
+)
+
+// Configure project directory overrides if necessary
+project(":common-models").projectDir = file("core/models")
 ```
 
+### Example 2: Custom Incremental Task with Input/Output Annotations
 ```kotlin
-// web/build.gradle.kts
-dependencies {
-    implementation(project(":domain"))
-    implementation(project(":persistence"))
+abstract class CodeGeneratorTask : DefaultTask() {
+    @get:InputDirectory
+    abstract val schemaDir: DirectoryProperty
+
+    @get:OutputDirectory
+    abstract val generatedJavaDir: DirectoryProperty
+
+    @TaskAction
+    fun generate() {
+        val inputFiles = schemaDir.asFileTree.files
+        val outDir = generatedJavaDir.get().asFile
+
+        println("Generating Java source code from ${inputFiles.size} schemas...")
+        // If schemas have not changed, Gradle marks this task UP-TO-DATE automatically!
+    }
 }
 ```
 
-Run one project: `./gradlew :web:test`. Gradle builds only what the requested task depends on, and parallelizes independent projects.
-
-### Share build logic with convention plugins
-
-Don't copy-paste configuration into every subproject, and avoid the old `allprojects { }` / `subprojects { }` pattern in the root script (it couples projects and hurts caching). Put shared configuration in a **convention plugin**, a small plugin in a `build-logic` included build (or `buildSrc`), then apply it:
-
-```kotlin
-// build-logic/src/main/kotlin/java-conventions.gradle.kts
-plugins { java }
-java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
-tasks.test { useJUnitPlatform() }
-```
-
-```kotlin
-// each project's build.gradle.kts
-plugins { id("java-conventions") }
-```
-
-**Composite builds** (`includeBuild("../other-lib")`) let you develop a library and its consumer together without publishing in between.
-
----
-
-## 7. Performance settings
-
-In `gradle.properties`:
-
+### Example 3: Edge Case - Tuning the Gradle Daemon (`gradle.properties`)
 ```properties
-org.gradle.caching=true                # reuse task outputs (build cache)
-org.gradle.parallel=true               # build independent projects in parallel
-org.gradle.configuration-cache=true    # cache the configuration phase
-org.gradle.jvmargs=-Xmx2g -XX:+UseParallelGC     # memory for the Gradle daemon
-```
+# Enable parallel multi-project builds
+org.gradle.parallel=true
 
-- The **configuration cache** is Gradle 9's *preferred* execution mode (Gradle prompts you to adopt it) but isn't enabled by default for existing builds yet. Some plugins and custom build logic aren't compatible, and Gradle's report tells you why.
-- Keep **configuration-phase work minimal** (no network calls, no heavy file scanning in the script body).
-- Declare **task inputs and outputs** properly in custom tasks, or they'll never be up to date (or will be wrongly cached).
-- Use `--scan` (Build Scan) or the profiler (`--profile`) to see where time goes.
-- A **remote build cache** shared with CI lets one machine's work benefit everyone.
+# Keep daemon process warm in memory across builds
+org.gradle.daemon=true
+
+# JVM allocation for Gradle Daemon
+org.gradle.jvmargs=-Xmx4g -XX:+UseParallelGC -XX:MaxMetaspaceSize=1g
+
+# Enable local build cache
+org.gradle.caching=true
+
+# Enable file system watching for instant change detection
+org.gradle.vfs.watch=true
+```
 
 ---
 
-## 8. Wrapper, publishing, and version notes
-
-### The Gradle Wrapper
-
-```bash
-gradle wrapper --gradle-version <version>       # generates gradlew, gradlew.bat, gradle/wrapper/*
-./gradlew build                                  # always use this in docs and CI
-```
-
-Commit the wrapper files. The wrapper pins the Gradle version for everyone, exactly like `mvnw` does for Maven.
-
-### Publishing
-
-The `maven-publish` plugin publishes artifacts (and a POM) to Maven repositories, including Central, so Gradle-built libraries are consumable by Maven users.
-
-### Version notes (October 2026)
-
-- **Gradle 9.x** requires Java 17+ to run, uses Kotlin 2.x for Kotlin DSL and Groovy 4, adopts SemVer-style versioning, and made the configuration cache the preferred mode. Java 25 is supported from 9.1 and Java 26 from 9.4.
-- Plugin compatibility lags new Gradle majors: when upgrading, update plugins (Spring Boot, Kotlin, Android, Sonar, etc.) and run `./gradlew help --warning-mode all` to see deprecations first.
-- The new test framework wiring in Gradle 9 expects the JUnit **launcher** to be declared explicitly (`testRuntimeOnly("org.junit.platform:junit-platform-launcher")`), as shown above.
+## 6. Best Practices
+1. **Always Use Kotlin DSL (`.kts`)**: Prefer Kotlin DSL over Groovy for compile-time syntax validation, type safety, and IDE navigation.
+2. **Centralize Dependencies in `libs.versions.toml`**: Use Version Catalogs to manage dependencies across multi-project builds.
+3. **Prefer `implementation` over `api`**: Use `implementation` by default to maximize compile avoidance and minimize rebuild cascades.
+4. **Use Java Toolchains**: Configure `java.toolchain.languageVersion` so Gradle automatically downloads and compiles against the correct JDK version regardless of host `$JAVA_HOME`.
+5. **Never Execute Business Logic in Configuration Phase**: Put work inside `doLast { ... }` or `@TaskAction`. Code outside task actions runs during *every single Gradle command*, drastically slowing down build initialization.
+6. **Enable Build Caching (`org.gradle.caching=true`)**: Leverage task output caching locally and across remote CI systems.
 
 ---
 
-## 9. Maven vs Gradle in practice
+## 7. Common Mistakes & Pitfalls
 
-| | Maven | Gradle |
+| Mistake | Why It Fails | Correction |
 |---|---|---|
-| Build description | XML, declarative | Kotlin/Groovy code, programmable |
-| Extending the build | Write/configure a plugin | Add a task or convention plugin in the same repo |
-| Incremental builds and caching | Limited (plugin-level, extensions) | **Built in** (up-to-date checks, build cache, config cache) |
-| Dependency model | Scopes | Configurations, `api`/`implementation` separation |
-| Large multi-module speed | Good | Usually faster, with remote caching |
-| Predictability across projects | **Very high** (everything looks alike) | Varies with how much custom logic exists |
-| IDE import/diagnostics | Mature | Mature (Kotlin DSL sync can be slow on huge builds) |
-| Android | Not used | The standard |
-
-Neither is "better". Don't migrate for fashion. Migrate when build speed, flexibility, or ecosystem needs justify the cost.
+| Heavy code in task body instead of `doLast` | Runs during configuration phase, slowing every command | Enclose execution logic inside `doLast { ... }` |
+| Using `api` for every dependency | Defeats compile avoidance; any change triggers full project rebuild | Use `implementation` by default |
+| Hardcoding versions across subprojects | Inconsistent versions cause binary incompatibility | Use Version Catalog (`libs.versions.toml`) |
+| Committing `build/` or `.gradle/` folders | Pollutes version control and creates cache conflicts | Add `build/` and `.gradle/` to `.gitignore` |
+| Bypassing the Gradle Wrapper (`./gradlew`) | Build fails due to mismatching local Gradle versions | Always execute through `./gradlew` |
+| Missing `@Input` / `@Output` on custom tasks | Gradle cannot track changes, running task every time | Annotate inputs and outputs explicitly |
+| Disabling the Gradle Daemon in CI without testing | Cold daemon startup adds 20+ seconds to every build | Benchmark cached daemon performance on persistent CI workers |
+| Dynamic versions like `2.+` | Non-reproducible builds; external releases can break builds unexpectedly | Pin explicit immutable version numbers |
 
 ---
 
-## Common mistakes
-
-| Mistake | Fix |
-|---|---|
-| Using a locally installed `gradle` | `./gradlew` (the wrapper) |
-| Everything declared `api` | Default to `implementation`. Use `api` only for true public API |
-| Heavy logic in the configuration phase | Move it into task actions. Keep scripts light |
-| `allprojects {}`/`subprojects {}` for shared config | Convention plugins |
-| Versions scattered across scripts | A version catalog + `platform(...)` BOMs |
-| Using `+` or `latest.release` versions | Fixed versions (reproducibility) |
-| Custom tasks without declared inputs/outputs | Declare them (`@Input`, `@OutputFile`) so up-to-date and caching work |
-| Relying on the JDK that happens to run Gradle | Declare a **toolchain** |
-| Ignoring configuration-cache incompatibility reports | Fix the plugin/script usage, or opt out knowingly |
-| Committing `build/` or `.gradle/` | `.gitignore` them |
-| Disabling the daemon/caches "to fix" a problem | Find the real cause (`--info`, `--scan`) |
-
-### Debugging
-
-- **Why is this dependency/version here?** `./gradlew dependencyInsight --dependency <name> --configuration runtimeClasspath`.
-- **Build is slow:** `./gradlew build --profile` or `--scan`, check which tasks run (not `UP-TO-DATE`/`FROM-CACHE`), and whether the configuration phase dominates.
-- **A task re-runs when it shouldn't (or doesn't when it should):** inspect with `--info` (it explains why a task wasn't up to date), or `--rerun-tasks` to force. Check declared inputs and outputs.
-- **Odd behavior after changing Gradle/Java versions:** `./gradlew --stop` (stop daemons), then rebuild. Clear `.gradle/` and `build/` if needed.
-- **`Could not resolve ...`:** repositories declared? Credentials? Offline mode? Check `repositories {}` and any mirrors/proxy settings.
-- **Failure details:** `--stacktrace`, `--info`, or `--debug` for increasing verbosity.
-- **Unsupported Java for the daemon/Kotlin/plugins:** consult the Gradle compatibility matrix, and upgrade the wrapper and plugins together.
+## 8. Performance & Security Notes
+- **Compile Avoidance vs Incremental Compilation**:
+  - *Incremental Compilation*: Recompiles only Java source files whose dependencies changed.
+  - *Compile Avoidance*: Prevents downstream projects from recompiling at all when upstream internal method implementations change without altering ABI signatures.
+- **Remote Build Cache**: In large multi-repository teams, remote build caches (e.g., Gradle Enterprise / Develocity) download pre-compiled task outputs generated by CI, reducing local clean build times from 15 minutes to 30 seconds.
+- **Dependency Verification**: Gradle supports cryptographic checksum verification via `gradle/verification-metadata.xml`, guaranteeing that downloaded JARs have not been tampered with or compromised on Maven Central.
 
 ---
 
-## Quick Summary
+## 9. Comparison / When to Use What
 
-- Gradle builds a **graph of tasks** from Kotlin (default) or Groovy DSL scripts. Phases: initialization → configuration → execution.
-- Speed comes from **up-to-date checks, the build cache, the daemon, and the configuration cache** (preferred in Gradle 9).
-- **Configurations** replace scopes: prefer `implementation`, use `api` only for public API, `runtimeOnly`, `compileOnly`, `testImplementation`, `annotationProcessor`.
-- **Toolchains** pin the Java version. **Version catalogs** (`libs.versions.toml`) and `platform()` BOMs centralize versions.
-- Share logic with **convention plugins**, and avoid `allprojects {}`. Use composite builds for co-developing libraries.
-- **Commit the wrapper**. Gradle 9 needs Java 17+ to run.
-- Debug with `dependencyInsight`, `--info`, `--scan`, and `--profile`.
+| Feature | Apache Maven | Gradle (Kotlin DSL) |
+|---|---|---|
+| **Build Configuration** | Declarative XML (`pom.xml`) | Declarative & Programmatic (`build.gradle.kts`) |
+| **Speed / Incremental** | Moderate (mvnd improves) | Fastest (Daemon, Build Cache, Compile Avoidance) |
+| **IDE Autocompletion** | XML schema validated | Native Kotlin type-safe IDE completion |
+| **Dependency Scopes** | `compile`, `provided`, `runtime`, `test` | `implementation`, `api`, `compileOnly`, `runtimeOnly` |
+| **Multi-Module Topology**| Maven Reactor (Topological sort) | Task Execution DAG |
+| **Extensibility** | XML Plugins | Custom Tasks, Inlined Kotlin code |
+| **Best Use Case** | Conservative enterprise services | High-performance multi-project systems, Android |
 
-**Next:** [Dependency Management](02_dependency-management.md)
+---
+
+## 10. Interview Questions
+
+<details>
+<summary>1. What are the three phases of a Gradle build, and what occurs in each?</summary>
+1. <b>Initialization Phase</b>: Gradle determines which projects participate in the build by evaluating <code>settings.gradle.kts</code> and instantiates <code>Project</code> objects.<br>
+2. <b>Configuration Phase</b>: Gradle executes the script code of all projects, configuring plugins, evaluating properties, and assembling the Directed Acyclic Graph (DAG) of tasks.<br>
+3. <b>Execution Phase</b>: Gradle executes the task actions for the tasks requested on the CLI in dependency order, validating task inputs and outputs against cache fingerprints.
+</details>
+
+<details>
+<summary>2. What is the fundamental difference between implementation and api dependency configurations?</summary>
+Both place the dependency on the project's own compile and runtime classpaths.<br>
+- <code>implementation</code> does NOT leak the dependency to downstream consumers that depend on this project. Downstream projects cannot compile against the dependency's classes. When the internal dependency changes, downstream projects do not recompile (Compile Avoidance).<br>
+- <code>api</code> exposes the dependency transitively to all consumers' compile classpaths. If the dependency changes, all downstream consumers must be recompiled.
+</details>
+
+<details>
+<summary>3. What is Compile Avoidance in Gradle?</summary>
+Compile Avoidance is a compiler optimization where Gradle analyzes the Abstract Binary Interface (ABI) of an upstream project. If a developer modifies a private method, internal class, or implementation details of a public method without altering public method signatures, field types, or annotations, Gradle skips recompilation of all downstream projects completely because their bytecode contracts remain 100% valid.
+</details>
+
+<details>
+<summary>4. What makes a Gradle task UP-TO-DATE?</summary>
+A task is <code>UP-TO-DATE</code> if:
+1. It has declared at least one <code>@OutputDirectory</code> or <code>@OutputFile</code>.<br>
+2. The cryptographic hash of all declared <code>@Input</code> properties and files is identical to the previous build execution.<br>
+3. The outputs have not been altered on disk since the previous execution.
+</details>
+
+<details>
+<summary>5. Why should business logic never be executed directly inside a task's configuration block?</summary>
+Code written directly inside a task block (outside of <code>doLast</code> or <code>@TaskAction</code>) runs during the <b>Configuration Phase</b>. The Configuration Phase runs for <i>every single Gradle invocation</i>, even when running an unrelated task like <code>./gradlew help</code>. Running expensive logic (file generation, network requests) during configuration severely degrades build tool responsiveness.
+</details>
+
+<details>
+<summary>6. How do Java Toolchains in Gradle ensure build reproducibility across different developer machines?</summary>
+Java Toolchains decouple Gradle from the JVM running Gradle itself. By declaring <code>java.toolchain.languageVersion.set(JavaLanguageVersion.of(21))</code>, Gradle automatically discovers, validates, or downloads a vendor JDK matching that exact version, ensuring all developers compile against the exact same JDK version regardless of host environment variables.
+</details>
+
+<details>
+<summary>7. What is a Version Catalog (libs.versions.toml) and what problem does it solve?</summary>
+A Version Catalog is a standard TOML file located at <code>gradle/libs.versions.toml</code>. It provides a centralized, type-safe registry for dependency coordinates, versions, plugins, and bundles. It eliminates duplicated strings across multi-project build scripts and provides type-safe IDE code completion in Kotlin DSL.
+</details>
+
+<details>
+<summary>8. How does Gradle resolve dependency version conflicts compared to Maven?</summary>
+Maven uses "Nearest Definition Wins" (depth-first). Gradle uses "Newest Version Wins" by default: if module A requests Jackson 2.15 and module B requests Jackson 2.17, Gradle automatically selects Jackson 2.17 unless an explicit resolution strategy (like strictly pinned versions or rich version constraints) is defined.
+</details>
+
+---
+
+## 11. Practice Exercises
+
+<details>
+<summary>Exercise 1: Create a custom Gradle task in Kotlin DSL that counts total Java source files.</summary>
+
+```kotlin
+tasks.register("countSourceFiles") {
+    group = "diagnostics"
+    description = "Counts total Java source files in the project"
+    
+    val sourceFiles = fileTree("src/main/java") {
+        include("**/*.java")
+    }
+    
+    doLast {
+        println("Total Java source files: ${sourceFiles.files.size}")
+    }
+}
+```
+</details>
+
+<details>
+<summary>Exercise 2: Configure a strict dependency constraint pinning a specific library version.</summary>
+
+```kotlin
+dependencies {
+    implementation("org.apache.commons:commons-lang3") {
+        version {
+            strictly("3.14.0")
+            because("Critical CVE vulnerability in earlier versions")
+        }
+    }
+}
+```
+</details>
+
+<details>
+<summary>Exercise 3: Write a test task configuration generating HTML test reports and failing on single test errors.</summary>
+
+```kotlin
+tasks.withType<Test>().configureEach {
+    useJUnitPlatform()
+    failFast = true // Abort test suite immediately upon first test failure
+    reports {
+        html.required.set(true)
+        junitXml.required.set(true)
+    }
+}
+```
+</details>
+
+---
+
+
+### 11.4 In-Depth Guide: Profiling Gradle Builds with Build Scans
+
+When diagnosing slow build performance, Gradle Build Scans provide comprehensive forensic telemetry:
+1. **Generating a Build Scan**:
+   Execute build with `--scan`:
+   ```bash
+   ./gradlew build --scan
+   ```
+2. **Key Metrics Analyzed**:
+   - **Configuration Time**: Flags scripts executing heavy logic during configuration.
+   - **Task Execution Gantt Chart**: Visualizes task parallelism and identifies critical path bottlenecks.
+   - **Cache Miss Analysis**: Explains exactly why a task failed to hit the build cache (e.g., non-deterministic timestamp inputs).
+   - **Dependency Resolution Latency**: Breaks down repository download latencies across network calls.
+
+
+## 12. Summary / Cheat Sheet
+- **Phases**: Initialization (`settings.gradle.kts`) $
+ightarrow$ Configuration (Build DAG) $
+ightarrow$ Execution (Run tasks).
+- **Classpath Isolation**: Default to `implementation` for compile avoidance; use `api` only for exported interfaces.
+- **Java Toolchains**: Pin Java version using `java.toolchain.languageVersion`.
+- **Version Catalog**: Centralize GAV coordinates in `gradle/libs.versions.toml`.
+- **Incremental Builds**: Declare explicit inputs and outputs to achieve `UP-TO-DATE` execution skips.
+- **Execution Rule**: Never run execution logic in configuration bodies; enclose in `doLast { ... }`.
+
+---
+
+## 13. Further Reading
+- Gradle Official Documentation: Authoring Builds with Kotlin DSL
+- Gradle Build Cache Deep Dive and Performance Tuning
+- Understanding Compile Avoidance and Java Library Plugin
+- *Building and Testing with Gradle* by Tim Berglund and Matthew McCullough

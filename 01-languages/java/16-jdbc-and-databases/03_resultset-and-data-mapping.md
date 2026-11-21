@@ -1,292 +1,466 @@
 # ResultSet and Data Mapping
 
-A `ResultSet` is a **cursor over the rows** a query returned. You advance it one row at a time and read columns by name or position. This note covers reading rows correctly (especially `NULL`), how SQL types map to Java types (including `java.time`), turning rows into objects, handling joins, and processing large results without running out of memory.
+> Efficient cursor streaming, type mapping, and object mapping patterns transform raw relational tabular data into strongly-typed Java domain models.
 
-**Prerequisites:** [JDBC Fundamentals](01_jdbc-fundamentals.md), [Statements and Prepared Statements](02_statements-and-prepared-statements.md), [Records](../12-modern-java/01_records.md).
+| Metadata | Details |
+|---|---|
+| **Level** | Core / Intermediate |
+| **Prerequisites** | JDBC Fundamentals, Java Generics, Records |
+| **Time to Read** | 25 minutes |
+| **Status** | Complete |
+| **JDK Baseline** | Java 17 / 21 / 25 LTS |
 
 ---
 
-## 1. Reading rows
+## Table of Contents
+1. [1. What & Why](#1-what--why)
+2. [2. Core Concepts](#2-core-concepts)
+3. [3. How It Works Internally: Cursor Navigation & Fetch Size](#3-how-it-works-internally-cursor-navigation--fetch-size)
+4. [4. Syntax & Usage](#4-syntax--usage)
+5. [5. Practical Examples](#5-practical-examples)
+6. [6. Best Practices](#6-best-practices)
+7. [7. Common Mistakes & Pitfalls](#7-common-mistakes--pitfalls)
+8. [8. Performance & Security Notes](#8-performance--security-notes)
+9. [9. Comparison / When to Use What](#9-comparison--when-to-use-what)
+10. [10. Interview Questions](#10-interview-questions)
+11. [11. Practice Exercises](#11-practice-exercises)
+12. [12. Summary / Cheat Sheet](#12-summary--cheat-sheet)
+13. [13. Further Reading](#13-further-reading)
 
+---
+
+## 1. What & Why
+A database query does not return Java objects; it streams raw tabular bytes organized into rows and columns over a network socket. The JDBC `ResultSet` interface provides the programmatic cursor that navigates these rows and converts SQL datatypes into Java types.
+
+Handling `ResultSet` properly is the foundation of high-throughput data processing. Misconfigured fetch sizes cause client OutOfMemoryErrors or excessive network latency. Forgetting `wasNull()` silently converts null database balances into zeros. Understanding cursor navigation, type mapping strategies, and functional `RowMapper` abstractions empowers developers to build high-performance data access layers with zero bloat.
+
+---
+
+## 2. Core Concepts
+- **Cursor**: A pointer maintained by the JDBC driver and database engine that tracks the current row in a tabular result set. Initially positioned before the first row.
+- **`next()`**: Advances the cursor to the next row. Returns `true` if a row exists, or `false` when the end of the stream is reached.
+- **Fetch Size (`setFetchSize`)**: The number of rows fetched from the database over the network in a single round-trip.
+- **ResultSet Types**:
+  - `TYPE_FORWARD_ONLY`: Cursor can only move forward (default, highest performance).
+  - `TYPE_SCROLL_INSENSITIVE`: Cursor can scroll backward/forward; changes made by others are not visible.
+  - `TYPE_SCROLL_SENSITIVE`: Cursor can scroll freely; reflects live database updates.
+- **ResultSet Concurrency**: `CONCUR_READ_ONLY` (read-only) vs `CONCUR_UPDATABLE` (allows updating database rows via the cursor).
+- **Type Mapping**: Mapping SQL types (`VARCHAR`, `TIMESTAMP`, `NUMERIC`) to standard Java representations (`String`, `Instant`, `BigDecimal`).
+- **Functional RowMapper**: An abstraction that decouples row navigation logic from domain model construction.
+
+---
+
+## 3. How It Works Internally: Cursor Navigation & Fetch Size
+
+When a client executes a query returning 1,000,000 rows, the database does not dump all rows into JVM memory simultaneously. Instead, communication is controlled via cursor buffers and fetch sizes:
+
+```
+Database Server                                      JVM / JDBC Driver
++--------------------+                               +--------------------+
+| Result Table Rows  |                               | Client Heap Memory |
+| [Row 1, Row 2...]  |                               | [ResultSet Window] |
++--------------------+                               +--------------------+
+          |                                                    ^
+          |==== Network Packet (FetchSize = 100 Rows) =======> | Rows 1 - 100
+          |                                                    | next() reads heap
+          |                                                    | Rows exhausted!
+          |==== Network Packet (FetchSize = 100 Rows) =======> | Rows 101 - 200
+```
+
+### Driver Memory Buffering
+1. **Default Fetch Size**: In PostgreSQL, the default fetch size is `0`, meaning the driver attempts to fetch **all** matching rows into client memory at once! On large tables, this triggers an immediate `java.lang.OutOfMemoryError: Java heap space`.
+2. **Streaming Mode**: In MySQL, setting `statement.setFetchSize(Integer.MIN_VALUE)` activates streaming row-by-row mode. In PostgreSQL, setting `conn.setAutoCommit(false)` and `statement.setFetchSize(500)` forces server-side named cursor buffering, streaming batches of 500 rows over the network.
+3. **Cursor State**: The cursor is initially positioned before the first row (index 0). Invoking `rs.next()` moves the cursor to index 1. Accessing column data before calling `next()` throws `SQLException: Before start of result set`.
+
+---
+
+## 4. Syntax & Usage
+
+### 4.1 Safe Type-Safe Row Extraction
 ```java
-String sql = "SELECT id, email, name, created_at FROM users WHERE name LIKE ?";
+package com.example.jdbc;
 
-try (PreparedStatement ps = conn.prepareStatement(sql)) {
-    ps.setString(1, "A%");
-    try (ResultSet rs = ps.executeQuery()) {
-        while (rs.next()) {                                  // advances; false when no more rows
-            long id         = rs.getLong("id");              // by column label
-            String email    = rs.getString("email");
-            String name     = rs.getString(3);               // or by 1-based index
-            OffsetDateTime created = rs.getObject("created_at", OffsetDateTime.class);
+import java.math.BigDecimal;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+
+public final class ResultSetExtractor {
+
+    public record CustomerOrder(
+        long id,
+        String orderCode,
+        BigDecimal totalAmount,
+        Instant placedAt,
+        Integer discountPercent // Nullable column
+    ) {}
+
+    public static CustomerOrder extractOrder(ResultSet rs) throws SQLException {
+        long id = rs.getLong("id");
+        String code = rs.getString("order_code");
+        BigDecimal amount = rs.getBigDecimal("total_amount");
+
+        // Proper mapping of TIMESTAMP WITH TIME ZONE
+        OffsetDateTime odt = rs.getObject("placed_at", OffsetDateTime.class);
+        Instant placedAt = odt != null ? odt.toInstant() : null;
+
+        // Proper nullable integer extraction
+        int discountVal = rs.getInt("discount_percent");
+        Integer discount = rs.wasNull() ? null : discountVal;
+
+        return new CustomerOrder(id, code, amount, placedAt, discount);
+    }
+}
+```
+
+### 4.2 Generic Functional RowMapper Pattern
+```java
+package com.example.jdbc;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+
+@FunctionalInterface
+public interface RowMapper<T> {
+    T mapRow(ResultSet rs, int rowNum) throws SQLException;
+}
+
+public final class JdbcTemplateHelper {
+    public static <T> List<T> query(Connection conn, String sql, RowMapper<T> mapper, Object... params) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            for (int i = 0; i < params.length; i++) {
+                ps.setObject(i + 1, params[i]);
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                List<T> results = new ArrayList<>();
+                int rowNum = 0;
+                while (rs.next()) {
+                    results.add(mapper.mapRow(rs, ++rowNum));
+                }
+                return results;
+            }
         }
     }
 }
 ```
 
-- The cursor starts **before the first row**. You must call `next()` before reading anything. Forgetting it gives an error such as "ResultSet not positioned properly".
-- Columns are read by **label** (the `AS` alias if you gave one, otherwise the column name) or by **1-based index**. Labels are clearer and survive reordering. Indexes are marginally faster.
-- A single-row query: `if (rs.next()) { ... } else { /* not found */ }`.
-- Read each column **once**, in a left-to-right order if possible. Some drivers don't allow rereading streams or large objects.
-- Use the same `ResultSet` only inside its `try` block. Closing the statement or connection invalidates it ([JDBC Fundamentals](01_jdbc-fundamentals.md#5-closing-resources)).
-
-### `NULL` handling
-
-Primitive getters can't return `null`. A SQL `NULL` becomes `0`, `false`, or `0.0`, which is silently wrong:
-
-```java
-int age = rs.getInt("age");          // returns 0 when the column is NULL: is the person 0, or unknown?
-if (rs.wasNull()) { ... }            // true if the LAST column read was NULL
-```
-
-Safer approaches:
-
-```java
-// 1. Read as a wrapper type via getObject(label, Class)
-Integer age = rs.getObject("age", Integer.class);          // null when NULL
-
-// 2. Or check wasNull() immediately after the read
-int raw = rs.getInt("age");
-Integer age2 = rs.wasNull() ? null : raw;
-
-// Object types already return null
-String phone = rs.getString("phone");                      // null when NULL
-BigDecimal discount = rs.getBigDecimal("discount");        // null when NULL
-```
-
-Any nullable column should be read in a null-aware way and modeled as a nullable type or `Optional` in your domain code (as a **return** type, not a field: [Optional](../09-functional-java/03_optional.md)).
-
 ---
 
-## 2. Types: SQL ↔ Java
+## 5. Practical Examples
 
-| SQL type | Java type | Getter / binding |
-|---|---|---|
-| `SMALLINT`, `INTEGER` | `short`, `int` / `Integer` | `getInt`, `getObject(.., Integer.class)` |
-| `BIGINT` | `long` / `Long` | `getLong` |
-| `NUMERIC`, `DECIMAL` | **`BigDecimal`** | `getBigDecimal` |
-| `REAL`, `DOUBLE PRECISION` | `float`, `double` | `getFloat`, `getDouble` (approximate: **not for money**) |
-| `VARCHAR`, `TEXT`, `CHAR` | `String` | `getString` |
-| `BOOLEAN` | `boolean` / `Boolean` | `getBoolean` |
-| `DATE` | **`LocalDate`** | `getObject(.., LocalDate.class)` |
-| `TIME` | `LocalTime` | `getObject(.., LocalTime.class)` |
-| `TIMESTAMP` (no zone) | **`LocalDateTime`** | `getObject(.., LocalDateTime.class)` |
-| `TIMESTAMP WITH TIME ZONE` | **`OffsetDateTime`** (→ `Instant`) | `getObject(.., OffsetDateTime.class)` |
-| `UUID` | `UUID` | `getObject(.., UUID.class)` (PostgreSQL) |
-| `BYTEA` / `BLOB` | `byte[]` / `InputStream` | `getBytes`, `getBinaryStream` |
-| `JSON` / `JSONB` | `String` (parse with Jackson) | `getString` (driver-specific types exist) |
-| `ARRAY` | `java.sql.Array` → Java array | `getArray(..).getArray()` |
-
-### Dates and times: use `java.time`
-
-JDBC 4.2 requires support for `LocalDate`, `LocalTime`, `LocalDateTime`, `OffsetTime`, and `OffsetDateTime`. Avoid the legacy `java.sql.Date`/`Time`/`Timestamp` in new code: their behavior depends on the JVM's default time zone ([Date-Time Overview](../10-date-and-time/00_java-time-overview.md#5-working-with-legacy-code)).
-
+### Example 1: Basic Stream Processing of Millions of Rows without OOM
 ```java
-LocalDate birthday   = rs.getObject("birthday", LocalDate.class);
-OffsetDateTime paid  = rs.getObject("paid_at", OffsetDateTime.class);
-Instant paidInstant  = paid == null ? null : paid.toInstant();       // Instant isn't a mandated JDBC type
-```
+package com.example.jdbc;
 
-Rules of thumb ([Date-Time Best Practices](../10-date-and-time/05_date-time-best-practices.md#5-interchange-apis-json-databases)):
+import java.sql.*;
 
-- A **moment** (`created_at`, `paid_at`) → `TIMESTAMP WITH TIME ZONE` ↔ `OffsetDateTime`/`Instant`. Databases normally store this as UTC.
-- A **calendar date** (`birthday`) → `DATE` ↔ `LocalDate`.
-- A **local date-time without a zone** → `TIMESTAMP` ↔ `LocalDateTime`. Don't use it as a timestamp of when something happened.
-- Behavior of `TIMESTAMP WITHOUT TIME ZONE` vs `WITH TIME ZONE`, and of the session time zone, differs by database and driver. Read yours.
-- `Timestamp` round-trip precision depends on the column type: a column keeping microseconds returns different values than a nanosecond `Instant` you wrote. Truncate before comparing.
+public final class LargeResultStreamer {
+    public static void streamLargeTable(Connection conn) throws SQLException {
+        // Crucial: Autocommit must be false for PostgreSQL to use server cursor
+        conn.setAutoCommit(false);
 
-### Money and numbers
+        String sql = "SELECT id, payload FROM high_volume_events ORDER BY id";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            // Set fetch size to 1,000 rows per network round trip
+            ps.setFetchSize(1000);
 
-`NUMERIC` → `BigDecimal`. Compare with `compareTo`, not `equals` (`2.0` vs `2.00`), and use `setScale`/`RoundingMode` explicitly ([Numeric Precision](../01-fundamentals/08_numeric-precision-and-math.md)).
-
-### Booleans, enums, and flags
-
-`BOOLEAN` is portable in modern databases, but some (older Oracle, MySQL `TINYINT(1)`) use numbers or chars. For Java enums, store the **name** as `VARCHAR` (with a `CHECK` constraint) and map with `Status.valueOf(rs.getString("status"))`. Don't store the ordinal, because reordering the enum silently corrupts the data ([Enums](../04-oop/11_enums.md)).
-
----
-
-## 3. Mapping rows to objects
-
-Read rows into **immutable value types** (records) inside the `try`, and return plain collections:
-
-```java
-public record User(long id, String email, String name, Instant createdAt) {}
-
-static User mapUser(ResultSet rs) throws SQLException {
-    return new User(
-            rs.getLong("id"),
-            rs.getString("email"),
-            rs.getString("name"),
-            rs.getObject("created_at", OffsetDateTime.class).toInstant());
-}
-
-List<User> findByNamePrefix(DataSource ds, String prefix) throws SQLException {
-    String sql = "SELECT id, email, name, created_at FROM users WHERE name LIKE ? ORDER BY id";
-    try (Connection c = ds.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
-        ps.setString(1, prefix + "%");
-        try (ResultSet rs = ps.executeQuery()) {
-            List<User> out = new ArrayList<>();
-            while (rs.next()) out.add(mapUser(rs));
-            return out;
+            try (ResultSet rs = ps.executeQuery()) {
+                long count = 0;
+                while (rs.next()) {
+                    long id = rs.getLong("id");
+                    String payload = rs.getString("payload");
+                    count++;
+                    if (count % 10000 == 0) {
+                        System.out.printf("Processed %d rows without heap exhaustion%n", count);
+                    }
+                }
+            }
+        } finally {
+            conn.setAutoCommit(true);
         }
     }
 }
 ```
 
-Extracting a **row mapper** function (`ResultSet → T`) keeps mapping separate from query plumbing, and it's the shape that libraries such as Spring's `JdbcClient`/`RowMapper` and JDBI use ([JDBC Patterns](06_jdbc-patterns.md#1-a-small-jdbc-helper-reduce-the-boilerplate)).
-
-Habits:
-
-- **Select only the columns you map** (no `SELECT *`).
-- When joining tables with overlapping column names (`id`, `created_at`), use **aliases** (`u.id AS user_id, o.id AS order_id`) and read by alias. `getString("id")` on a join with two `id` columns silently returns the first.
-- Map to **domain-friendly types**, not raw JDBC types: enums, `Instant`, value objects.
-- Handle "no row" explicitly: return `Optional<User>` from lookup-by-key methods.
-
----
-
-## 4. Joins and one-to-many results
-
-A join of a parent with its children returns **one row per child**, with the parent's columns repeated:
-
-```sql
-SELECT u.id AS user_id, u.name, o.id AS order_id, o.total
-FROM   users u
-LEFT   JOIN orders o ON o.user_id = u.id
-WHERE  u.id = ANY(?)
-ORDER  BY u.id, o.id;
-```
-
-```text
- user_id | name  | order_id | total
- --------+-------+----------+-------
-   1     | Asha  |  101     | 20.00
-   1     | Asha  |  102     | 35.50     ← "Asha" repeated for each order
-   2     | Ravi  |  NULL    | NULL      ← LEFT JOIN: user without orders
-```
-
-To build `User(orders=[...])` objects, **group the rows**:
-
+### Example 2: Real-World Multi-Table Join Mapping (1-to-Many Aggregation)
 ```java
-record OrderLine(long id, BigDecimal total) {}
-record UserWithOrders(long id, String name, List<OrderLine> orders) {}
+package com.example.jdbc;
 
-Map<Long, UserWithOrders> byId = new LinkedHashMap<>();             // keeps the query's order
-while (rs.next()) {
-    long userId = rs.getLong("user_id");
-    UserWithOrders u = byId.get(userId);
-    if (u == null) {                                                // first row for this user
-        u = new UserWithOrders(userId, rs.getString("name"), new ArrayList<>());
-        byId.put(userId, u);
-    }
-    long orderId = rs.getLong("order_id");
-    if (!rs.wasNull()) {                                            // LEFT JOIN: order columns may be NULL
-        u.orders().add(new OrderLine(orderId, rs.getBigDecimal("total")));
-    }
-}
-List<UserWithOrders> result = List.copyOf(byId.values());
-```
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.*;
 
-Alternatives and trade-offs:
+public final class OrderAggregateMapper {
+    public record OrderWithItems(long orderId, String customer, List<String> itemSkus) {}
 
-| Approach | Queries | Notes |
-|---|---|---|
-| One **join** and group in Java | 1 | Parent columns repeated per child. Row count grows with the data. Pagination by parent is awkward |
-| **Two queries**: parents, then `WHERE parent_id = ANY(?)` for children, grouped in Java | 2 | No duplication, and pagination by parent is easy. The usual best choice for lists |
-| Query children **once per parent** in a loop | **N+1** | Simple, and **slow**: one round trip per parent ([JDBC Patterns](06_jdbc-patterns.md#5-the-n1-problem)) |
+    public static List<OrderWithItems> mapJoinedOrders(ResultSet rs) throws SQLException {
+        Map<Long, OrderWithItems> orderMap = new LinkedHashMap<>();
 
-This is exactly what ORMs automate, and where their N+1 problem comes from ([From JDBC to ORM](07_from-jdbc-to-orm.md)).
-
----
-
-## 5. Large results and fetch size
-
-By default many drivers **load the entire result into memory** before `executeQuery()` returns. Reading 10 million rows that way means an `OutOfMemoryError`.
-
-Ask the driver to **stream** the result in chunks with a **fetch size**:
-
-```java
-conn.setAutoCommit(false);                       // PostgreSQL: cursor-based fetching requires autocommit OFF
-try (PreparedStatement ps = conn.prepareStatement(
-        "SELECT id, email FROM users",
-        ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)) {
-    ps.setFetchSize(1_000);                      // rows per round trip
-    try (ResultSet rs = ps.executeQuery()) {
         while (rs.next()) {
-            process(rs.getLong("id"), rs.getString("email"));   // constant memory
+            long orderId = rs.getLong("order_id");
+            String customer = rs.getString("customer_name");
+            String sku = rs.getString("item_sku");
+
+            orderMap.computeIfAbsent(orderId, id -> new OrderWithItems(id, customer, new ArrayList<>()))
+                    .itemSkus().add(sku);
+        }
+
+        return new ArrayList<>(orderMap.values());
+    }
+}
+```
+
+### Example 3: Edge Case - Inspecting Column Metadata Dynamically
+```java
+package com.example.jdbc;
+
+import java.sql.*;
+
+public final class DynamicResultPrinter {
+    public static void printResultSet(ResultSet rs) throws SQLException {
+        ResultSetMetaData meta = rs.getMetaData();
+        int columnCount = meta.getColumnCount();
+
+        for (int i = 1; i <= columnCount; i++) {
+            System.out.printf("[%s : %s] ", meta.getColumnLabel(i), meta.getColumnTypeName(i));
+        }
+        System.out.println();
+
+        while (rs.next()) {
+            for (int i = 1; i <= columnCount; i++) {
+                System.out.print(rs.getObject(i) + "	");
+            }
+            System.out.println();
         }
     }
 }
-conn.commit();
 ```
-
-Driver behavior differs, so check yours:
-
-| Database/driver | How streaming works |
-|---|---|
-| PostgreSQL | `setFetchSize(n)` **and** autocommit off (and a forward-only result) |
-| MySQL Connector/J | Server-side cursor with `useCursorFetch=true` + `setFetchSize(n)`, or row-by-row streaming with `setFetchSize(Integer.MIN_VALUE)` (older style). Check current docs |
-| Oracle, SQL Server | `setFetchSize(n)` generally effective |
-
-Tips for big reads:
-
-- **Process row by row** and write results out as you go ([File Processing Patterns](../11-io-and-networking/02_file-processing-patterns.md)). Don't collect everything into a list.
-- Long streaming reads hold a connection (and often a transaction/snapshot) for the duration. That ties up a pooled connection ([Connection Pooling](05_connection-pooling.md)). Consider a dedicated pool or a read replica for exports.
-- Prefer **keyset pagination** over a huge streaming cursor for user-facing paging ([Pagination](../25-real-world-patterns/01_pagination.md)).
-- `Statement.setMaxRows(n)` limits rows on the client side, but put the limit in the SQL (`LIMIT`) so the database stops early.
 
 ---
 
-## 6. Large objects, metadata, and other `ResultSet` kinds
+## 6. Best Practices
+1. **Always Configure Fetch Size on Large Queries**: Never rely on driver defaults when reading thousands of rows; set `ps.setFetchSize(500)`.
+2. **Use Column Labels (`getColumnLabel`) Instead of Indices**: Column names or labels make code resilient to SQL column reordering.
+3. **Use Modern Java Types with `getObject`**: Use `rs.getObject("timestamp_col", OffsetDateTime.class)` for modern time handling.
+4. **Never Retain References to ResultSet Outside Query Scope**: Never return a raw `ResultSet` across architectural boundaries; map rows to domain objects or records immediately.
+5. **Close ResultSet Promptly**: Always enclose `ResultSet` in try-with-resources to release database server cursor buffers immediately.
+6. **Mind Nullable Primitives**: Always inspect `rs.wasNull()` when retrieving primitives.
+7. **Use Strongly-Typed Records**: Leverage Java 21 Records for clean, immutable data transfer containers.
+8. **Avoid Excessive Object Allocations**: In high-throughput ETL loops, reuse transient buffers where possible.
 
-**Large objects:** for `BLOB`/`BYTEA`/`CLOB`, stream instead of materializing: `InputStream in = rs.getBinaryStream("data")` (consume it before moving to the next row or column, and close it). For files of significant size, consider storing them in object storage and keeping a reference in the database.
+---
 
-**`ResultSetMetaData`:** describes the columns of any result (names, types), useful for generic tools such as exporters and admin screens:
+## 7. Common Mistakes & Pitfalls
+
+| Mistake | Why It Fails | Correction |
+|---|---|---|
+| Accessing `rs.getString()` before calling `rs.next()` | Cursor is positioned before the first row; throws `SQLException` | Always invoke `rs.next()` inside an `if` or `while` |
+| Calling `rs.next()` multiple times per iteration | Skips rows silently in loop | Call `rs.next()` strictly once per loop condition |
+| Running out of memory on large queries | Driver buffers all rows into JVM heap by default | Configure `fetchSize` and disable `autoCommit` |
+| Returning raw `ResultSet` to UI or service layer | Keeps database connection open, leaking connections | Map rows into immutable DTOs / Records |
+| Using 0-based column indexing | JDBC column indices start at 1; throws `SQLException` | Use 1-based indexing or column labels |
+| Assuming `getString()` returns null-safe empty string | Returns `null` when SQL value is NULL | Add null checks or wrap in `Optional` |
+| Confusing `getColumnName` with `getColumnLabel` | `getColumnName` ignores SQL `AS` aliases in some drivers | Always use `getColumnLabel` to support aliases |
+| Modifying ResultSet while iterating concurrently | ResultSet is strictly single-threaded | Synchronize access or map to thread-safe collections |
+
+---
+
+## 8. Performance & Security Notes
+- **Heap Allocation Overhead**: Creating millions of intermediate objects inside a `while (rs.next())` loop puts pressure on young generation GC. Reuse mutable value containers or stream directly to disk/network when exporting data.
+- **Fetch Size Tuning**:
+  - Small fetch size (e.g., 10): High network latency overhead due to hundreds of small TCP packets.
+  - Large fetch size (e.g., 50,000): High JVM heap memory usage.
+  - Sweet spot: Typically 500 to 2,000 rows for enterprise queries.
+- **Scrollable ResultSets Overhead**: `TYPE_SCROLL_INSENSITIVE` forces the driver to cache entire result sets in temporary memory on the client or server, degrading performance. Use only when random navigation is strictly mandatory.
+- **Memory Footprint**: Type 4 drivers allocate byte arrays for network wire frames. A 100,000-row result set with 20 columns can easily consume > 150 MB heap.
+
+---
+
+## 9. Comparison / When to Use What
+
+| Mapping Strategy | Performance | Type Safety | Boilerplate | Best Use Case |
+|---|---|---|---|---|
+| **Raw ResultSet Access** | Maximum (zero reflection) | Manual | High | High-throughput streaming, ETL pipelines |
+| **Functional RowMapper** | High (compiled lambdas) | Compile-time safe | Low | Spring `JdbcClient`, custom lightweight repositories |
+| **Java 21 Records** | High (compact memory) | Compile-time safe | Minimal | Standard domain entity extraction |
+| **Reflection / ORM** | Moderate (reflection/proxies) | Runtime validated | Lowest | Complex relational graphs with nested joins |
+
+---
+
+## 10. Interview Questions
+
+<details>
+<summary>1. What is the initial position of a JDBC ResultSet cursor, and what happens if you read a column immediately?</summary>
+The cursor is initially positioned before the first row (at position 0). If you attempt to call a getter like <code>rs.getString("name")</code> before calling <code>rs.next()</code>, the driver throws a <code>SQLException</code> stating that the cursor is before the start of the result set.
+</details>
+
+<details>
+<summary>2. Why does reading a large table with raw JDBC often cause an OutOfMemoryError in PostgreSQL?</summary>
+By default, the PostgreSQL JDBC driver fetches all matching rows of a query into client JVM heap memory at once. If a table contains millions of rows, the driver buffers all rows into Java byte arrays simultaneously, exhausting heap space. To fix this, set <code>conn.setAutoCommit(false)</code> and <code>ps.setFetchSize(1000)</code> to enable server-side cursor streaming.
+</details>
+
+<details>
+<summary>3. What is the difference between getColumnName() and getColumnLabel() in ResultSetMetaData?</summary>
+<code>getColumnName()</code> returns the underlying database table column name as defined in the schema. <code>getColumnLabel()</code> returns the label specified in the SQL query using the <code>AS</code> clause (or the column name if no alias was provided). In application code, always use <code>getColumnLabel()</code> to respect query projections and aliases.
+</details>
+
+<details>
+<summary>4. How does rs.wasNull() work under the hood?</summary>
+JDBC maintains an internal boolean flag in the <code>ResultSet</code> cursor state. Whenever any column getter is executed, the driver inspects the wire payload byte. If the byte indicates SQL NULL, the getter returns a default primitive value (e.g., 0, false), and sets the internal flag to <code>true</code>. Calling <code>rs.wasNull()</code> returns the status of this flag for the most recently read column.
+</details>
+
+<details>
+<summary>5. What are the performance implications of using scrollable ResultSets (TYPE_SCROLL_INSENSITIVE)?</summary>
+Scrollable result sets allow bidirectional navigation (<code>previous()</code>, <code>first()</code>, <code>absolute()</code>). To support this, the JDBC driver or database server must buffer the entire query result set in memory or on temporary disk space, incurring substantial memory overhead compared to forward-only streams.
+</details>
+
+<details>
+<summary>6. How do modern JDBC drivers support java.time types like Instant and LocalDate?</summary>
+Since JDBC 4.2, <code>ResultSet.getObject()</code> supports target type parameters. You can directly call <code>rs.getObject("col", LocalDate.class)</code> for <code>DATE</code> columns, <code>rs.getObject("col", LocalTime.class)</code> for <code>TIME</code>, and <code>rs.getObject("col", OffsetDateTime.class)</code> for <code>TIMESTAMP WITH TIME ZONE</code>.
+</details>
+
+<details>
+<summary>7. What happens to an open ResultSet when its parent Statement or Connection is closed?</summary>
+According to the JDBC specification, closing a <code>Statement</code> automatically closes all open <code>ResultSet</code> instances associated with it. Similarly, closing a <code>Connection</code> closes all associated statements. However, relying on cascading close is an anti-pattern; always close each resource explicitly via try-with-resources.
+</details>
+
+<details>
+<summary>8. How do you map a 1-to-many relationship using a single SQL JOIN query without N+1 queries?</summary>
+Execute a single <code>SELECT</code> with an <code>INNER JOIN</code> or <code>LEFT JOIN</code> between parent and child tables. In the <code>while (rs.next())</code> loop, use a <code>Map<ParentId, ParentObject></code> to aggregate child records into a list on the parent object, avoiding separate queries for each parent record.
+</details>
+
+<details>
+<summary>9. What is the difference between CONCUR_READ_ONLY and CONCUR_UPDATABLE?</summary>
+<code>CONCUR_READ_ONLY</code> specifies that the <code>ResultSet</code> cannot be used to modify data. <code>CONCUR_UPDATABLE</code> allows calling methods like <code>rs.updateString("name", "New")</code> and <code>rs.updateRow()</code> to modify underlying database rows directly through the cursor, which requires underlying unique key identification and holds server-side write locks.
+</details>
+
+<details>
+<summary>10. How does rs.isBeforeFirst() differ from checking rs.next()?</summary>
+<code>rs.isBeforeFirst()</code> returns <code>true</code> if the cursor is at the initial position and the result set contains at least one row, without advancing the cursor. <code>rs.next()</code> actually advances the cursor to the next row.
+</details>
+
+---
+
+## 11. Practice Exercises
+
+<details>
+<summary>Exercise 1: Implement a generic RowMapper for a Product record.</summary>
 
 ```java
-ResultSetMetaData md = rs.getMetaData();
-for (int i = 1; i <= md.getColumnCount(); i++) {
-    System.out.println(md.getColumnLabel(i) + " : " + md.getColumnTypeName(i));
+public record Product(long id, String sku, BigDecimal price, int stockQuantity) {}
+
+public static final RowMapper<Product> PRODUCT_MAPPER = (rs, rowNum) -> new Product(
+    rs.getLong("id"),
+    rs.getString("sku"),
+    rs.getBigDecimal("price"),
+    rs.getInt("stock_quantity")
+);
+```
+</details>
+
+<details>
+<summary>Exercise 2: Write a robust method that reads a table with fetch size control and writes records to a CSV file stream.</summary>
+
+```java
+public static void exportToCsv(Connection conn, PrintWriter writer) throws SQLException {
+    conn.setAutoCommit(false);
+    String sql = "SELECT id, sku, price FROM products";
+    try (PreparedStatement ps = conn.prepareStatement(sql)) {
+        ps.setFetchSize(500);
+        try (ResultSet rs = ps.executeQuery()) {
+            writer.println("id,sku,price");
+            while (rs.next()) {
+                writer.printf("%d,%s,%s%n",
+                    rs.getLong("id"),
+                    rs.getString("sku"),
+                    rs.getBigDecimal("price"));
+            }
+        }
+    } finally {
+        conn.setAutoCommit(true);
+    }
 }
 ```
+</details>
 
-**Scrollable and updatable result sets** (`TYPE_SCROLL_INSENSITIVE`, `CONCUR_UPDATABLE`, `rs.absolute(n)`, `rs.updateString(...)`) exist, but are rarely used and have inconsistent support and performance. Prefer forward-only reads and explicit `UPDATE` statements.
+<details>
+<summary>Exercise 3: Write a helper that checks if a table has any rows matching a condition using LIMIT 1.</summary>
+
+```java
+public static boolean existsByEmail(DataSource ds, String email) throws SQLException {
+    String sql = "SELECT 1 FROM users WHERE email = ? LIMIT 1";
+    try (Connection conn = ds.getConnection();
+         PreparedStatement ps = conn.prepareStatement(sql)) {
+        ps.setString(1, email);
+        try (ResultSet rs = ps.executeQuery()) {
+            return rs.next(); // True if at least 1 row returned
+        }
+    }
+}
+```
+</details>
+
+<details>
+<summary>Exercise 4: Implement a generic Stream-based query method using Spliterators.</summary>
+
+```java
+public static <T> Stream<T> streamQuery(Connection conn, String sql, RowMapper<T> mapper) throws SQLException {
+    PreparedStatement ps = conn.prepareStatement(sql);
+    ps.setFetchSize(500);
+    ResultSet rs = ps.executeQuery();
+
+    Iterator<T> iterator = new Iterator<>() {
+        @Override
+        public boolean hasNext() {
+            try {
+                return rs.next();
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        @Override
+        public T next() {
+            try {
+                return mapper.mapRow(rs, rs.getRow());
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    };
+
+    return StreamSupport.stream(
+        Spliterators.spliteratorUnknownSize(iterator, Spliterator.ORDERED | Spliterator.NONNULL),
+        false
+    ).onClose(() -> {
+        try {
+            rs.close();
+            ps.close();
+        } catch (SQLException ignored) {}
+    });
+}
+```
+</details>
 
 ---
 
-## Common mistakes
-
-| Mistake | Fix |
-|---|---|
-| Reading before calling `next()` | Always `while (rs.next())` / `if (rs.next())` |
-| `getInt` on a nullable column (silent `0`) | `getObject(label, Integer.class)` or `wasNull()` |
-| Using `double` for money columns | `BigDecimal` |
-| `java.sql.Timestamp`/`Date` in new code | `OffsetDateTime`/`Instant`/`LocalDate` |
-| Returning the `ResultSet` out of the method | Map to records/objects inside the `try` |
-| `SELECT *` | Select the columns you map |
-| Same column name from two joined tables | Alias and read by alias |
-| Loading a huge result into a `List` | Stream with a fetch size (and autocommit off for PostgreSQL) |
-| Looping over parents and querying children each time | One batched query (`= ANY(?)`) and grouping |
-| Storing enum ordinals | Store names |
-| Comparing `BigDecimal`s with `equals` | `compareTo` |
-| Holding a streaming result while doing slow work per row | Hand off to a queue, or read faster and process elsewhere |
-
-### Debugging
-
-- `PSQLException: ... column "x" does not exist` / `The column name x was not found in this ResultSet` → wrong label (alias vs name), or the column isn't in the `SELECT`.
-- `Bad value for type int` / conversion errors → the SQL type doesn't match the getter. Check the column type and use the right mapping (or `getObject(label, Class)`).
-- Dates off by hours → mixing `TIMESTAMP` with `TIMESTAMP WITH TIME ZONE`, or legacy `Timestamp` using the JVM default zone.
-- `OutOfMemoryError` during a query → no fetch size/streaming. Heap-dump to confirm the `ResultSet` buffers.
-- Wrong data in joined results → duplicate column names, or aggregates after a one-to-many join multiplying rows.
+## 12. Summary / Cheat Sheet
+- **Cursor Positioning**: Cursor starts *before* first row; always call `rs.next()` before reading.
+- **Fetch Size**: Set `ps.setFetchSize(500)` to stream records efficiently without memory exhaustion.
+- **Null Checking**: Call `rs.wasNull()` immediately after reading primitive values.
+- **Modern Types**: Use `rs.getObject(col, OffsetDateTime.class)` for date/time columns.
+- **Column Aliases**: Use `rs.getMetaData().getColumnLabel(i)` to retrieve SQL `AS` aliases.
+- **Aggregation**: Map 1-to-many joined rows using `Map<Id, Entity>` inside the cursor loop.
 
 ---
 
-## Quick Summary
-
-- A `ResultSet` is a forward cursor: **`next()` first**, read by label or 1-based index, and use it only inside its `try`.
-- **`NULL` + primitives = silent zero.** Use `getObject(label, Wrapper.class)` or `wasNull()`.
-- Types: `NUMERIC` → `BigDecimal`; moments → `OffsetDateTime`/`Instant`; dates → `LocalDate`; local date-times → `LocalDateTime`; enums stored as **names**.
-- Map rows to **records** with a small row-mapper function, select only needed columns, and alias duplicate names.
-- One-to-many joins repeat the parent per child, so **group** the rows (or use two queries). Per-row child queries cause **N+1**.
-- For big results, **stream with a fetch size** (PostgreSQL also needs autocommit off) and process row by row.
-
-**Next:** [Transactions](04_transactions.md)
+## 13. Further Reading
+- Oracle Java Documentation: ResultSet and ResultSetMetaData Specification
+- PostgreSQL JDBC Driver: Tuning Fetch Size and Cursor Streaming
+- *High-Performance Java Persistence* by Vlad Mihalcea
+- Spring Framework: JdbcTemplate and RowMapper Implementation Internals

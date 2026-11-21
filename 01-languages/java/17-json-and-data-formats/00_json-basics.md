@@ -1,197 +1,408 @@
-# JSON Basics
+# JSON Basics and the Java JSON-P Specification
 
-**JSON** (JavaScript Object Notation) is a small, text-based format for structured data: objects, arrays, strings, numbers, booleans, and `null`. It's the default language of web APIs, many configuration files, and plenty of message queues. It's easy to read, easy to produce, and supported everywhere, which is also why its limits (no dates, no comments, ambiguous numbers) cause so many bugs.
+> Core JSON data modeling standards, RFC 8259 syntax specifications, IEEE-754 precision traps, and the official Jakarta JSON Processing (JSON-P / JSR 374) API.
 
-**Prerequisites:** [Records](../12-modern-java/01_records.md) and basic familiarity with Java collections.
+| Metadata | Details |
+|---|---|
+| **Level** | Core |
+| **Prerequisites** | Java Collections, Streams, String Processing |
+| **Time to Read** | 25 minutes |
+| **Status** | Complete |
+| **JDK Baseline** | Java 17 / 21 / 25 LTS |
 
 ---
 
-## 1. The format
+## Table of Contents
+1. [1. What & Why](#1-what--why)
+2. [2. Core Concepts](#2-core-concepts)
+3. [3. How It Works Internally: RFC 8259 & Memory Representation](#3-how-it-works-internally-rfc-8259--memory-representation)
+4. [4. Syntax & Usage](#4-syntax--usage)
+5. [5. Practical Examples](#5-practical-examples)
+6. [6. Best Practices](#6-best-practices)
+7. [7. Common Mistakes & Pitfalls](#7-common-mistakes--pitfalls)
+8. [8. Performance & Security Notes](#8-performance--security-notes)
+9. [9. Comparison / When to Use What](#9-comparison--when-to-use-what)
+10. [10. Interview Questions](#10-interview-questions)
+11. [11. Practice Exercises](#11-practice-exercises)
+12. [12. Summary / Cheat Sheet](#12-summary--cheat-sheet)
+13. [13. Further Reading](#13-further-reading)
 
-```json
-{
-  "id": 42,
-  "email": "asha@example.com",
-  "active": true,
-  "balance": 1234.50,
-  "tags": ["admin", "beta"],
-  "address": { "city": "Berlin", "zip": null },
-  "createdAt": "2026-03-10T04:00:00Z"
-}
+---
+
+## 1. What & Why
+JavaScript Object Notation (JSON) is the universal lingua franca of modern distributed systems, RESTful microservices, and web APIs. Governed by IETF RFC 8259 and ECMA-404, JSON is a language-independent, human-readable text format representing structured data using only key-value objects and ordered lists.
+
+While third-party libraries like Jackson and Gson dominate application development, the Java Community Process defined the official standard **Jakarta JSON Processing (JSON-P / JSR 374)** specification. Understanding foundational JSON grammar, streaming parsers, JSON Pointer (RFC 6901), JSON Patch (RFC 6902), and number precision boundaries is indispensable for building robust enterprise data pipelines.
+
+---
+
+## 2. Core Concepts
+- **RFC 8259 Syntax**: JSON specifies exactly six value types: Object (`{...}`), Array (`[...]`), String (`"..."`), Number (arbitrary precision integer or floating-point), Boolean (`true`/`false`), and `null`.
+- **IEEE-754 Numeric Trap**: JSON numbers have no theoretical length limit in the grammar, but most JavaScript and JSON parsers convert numbers into 64-bit IEEE-754 floats. Large 64-bit Java `Long` integers (exceeding $2^{53} - 1 = 9,007,199,254,740,991$) lose precision unless transferred as strings.
+- **Jakarta JSON-P (JSR 374)**: The official standardized API providing two parsing models:
+  1. **Object Model API**: In-memory DOM tree representation (`JsonObject`, `JsonArray`, `JsonValue`).
+  2. **Streaming API**: Low-level event-driven cursor (`JsonParser`, `JsonGenerator`) operating with zero in-memory DOM overhead.
+- **JSON Pointer (RFC 6901)**: A string syntax for identifying a specific value within a JSON document (e.g., `/users/0/email`).
+- **JSON Patch (RFC 6902)**: A declarative format for describing a sequence of operations (`add`, `remove`, `replace`, `move`, `copy`, `test`) to apply to a JSON document.
+
+---
+
+## 3. How It Works Internally: RFC 8259 & Memory Representation
+
+JSON-P implements parser models designed for memory efficiency:
+
+```
+Raw JSON Byte Stream: {"orderId": 101, "items": ["sku-1"]}
+             |
+             v
++-------------------------------------------------------+
+|             Low-Level Lexer / Tokenizer               |
+|      Identifies: START_OBJECT, KEY_NAME, VALUE_NUMBER |
++-------------------------------------------------------+
+            /                                            /                                             v                                     v
++--------------------+                 +--------------------+
+|  Streaming Model   |                 | Object Model (DOM) |
+| (Event-driven, 0   |                 | In-memory AST tree |
+| object allocations)|                 | of JsonObject nodes|
++--------------------+                 +--------------------+
 ```
 
-There are exactly **six kinds of value**:
-
-| JSON type | Example | Notes |
-|---|---|---|
-| **object** | `{"a": 1, "b": 2}` | Unordered set of `"key": value` pairs. Keys are strings |
-| **array** | `[1, "two", null]` | Ordered list. Elements can be any type, mixed |
-| **string** | `"hello"` | Double quotes only. Unicode, with backslash escapes |
-| **number** | `42`, `-1.5`, `1e3` | One numeric type. No distinction between integer and floating point |
-| **boolean** | `true`, `false` | Lowercase |
-| **null** | `null` | An explicit "no value" |
-
-### Strict syntax rules (they trip people constantly)
-
-- **Double quotes** around strings *and* keys. `{'a': 1}` and `{a: 1}` are not JSON.
-- **No trailing commas**: `[1, 2,]` is invalid.
-- **No comments** (`//` or `/* */`), which is a real limitation for config files.
-- **No `undefined`, `NaN`, `Infinity`**, hexadecimal numbers, or leading `+`/leading zeros (`007`).
-- Strings must escape `"`, `\`, and control characters (`\n`, `\t`, `\u0000`..). A raw newline inside a string is invalid.
-- The text is **UTF-8** (RFC 8259). Use `application/json` as the media type. A `charset` parameter isn't needed.
-- Whitespace between tokens is insignificant, so pretty-printed and minified JSON are equivalent.
-
-Duplicate keys in one object (`{"a":1,"a":2}`) are legal syntax but **undefined behavior**: parsers may keep the first, the last, or fail. Treat them as an error.
+### Streaming vs DOM Parsing Mechanics:
+- **Streaming Parser (`JsonParser`)**: Acts like an iterator advancing over token events (`START_OBJECT`, `KEY_NAME`, `VALUE_STRING`, `END_OBJECT`). It never allocates an entire document tree in memory, making it ideal for processing gigabyte-scale JSON log streams.
+- **Object Model Tree (`JsonObject`)**: Parses the entire input into an immutable tree of `JsonValue` objects in heap memory. Enables random access, JSON Pointer evaluation, and tree transformations at the expense of memory allocations.
 
 ---
 
-## 2. What JSON can't express (and how people work around it)
+## 4. Syntax & Usage
 
-JSON has no native type for many things you need constantly:
-
-| Need | Convention | Pitfall |
-|---|---|---|
-| **Date/time** | ISO-8601 string: `"2026-03-10T04:00:00Z"` | Epoch numbers are ambiguous (seconds vs milliseconds). Zone-less strings are ambiguous ([Date-Time Best Practices](../10-date-and-time/05_date-time-best-practices.md)) |
-| **Binary data** | Base64 string | ~33% bigger, so don't embed large files |
-| **Money / exact decimals** | String (`"19.99"`) or integer minor units (`1999`) | Numbers parsed as `double` lose exactness ([Numeric Precision](../01-fundamentals/08_numeric-precision-and-math.md)) |
-| **Large integers** | String for IDs beyond 2⁵³ | JavaScript numbers are doubles. `9007199254740993` silently becomes `9007199254740992` in a browser |
-| **Enums** | String name | Unknown values from newer clients/servers must be handled |
-| **Missing vs null** | Two different things (absent key vs `null` value) | Matters for partial updates ([Patterns](03_json-patterns-and-pitfalls.md#2-null-absent-and-empty)) |
-| **Comments / metadata** | None | Use a different format for config (YAML/TOML/properties) |
-| **Schema** | Separate **JSON Schema** documents | JSON itself is schemaless |
-| **Ordering of keys** | Not significant | Don't rely on it, even though libraries often preserve it |
-
-**Numbers deserve special care.** The spec doesn't limit size or precision, so what you get depends on the parser: `double` in JavaScript, `BigDecimal`/`long`/`double` in Java depending on library settings. `1.0` and `1` may deserialize to different Java types. Agree on representation (strings for money and big IDs) in your API contract.
-
----
-
-## 3. Three ways to process JSON
-
-Every Java JSON library offers some mix of these three models. Choosing the right one is a design decision:
-
-```text
- 1. Data binding     JSON ⇄ your Java classes        ObjectMapper.readValue(json, User.class)
- 2. Tree model       JSON ⇄ generic node tree        JsonNode root = mapper.readTree(json)
- 3. Streaming        a stream of tokens, one at a time   JsonParser / JsonGenerator
-```
-
-| Model | Memory | Convenience | Speed | Use when |
-|---|---|---|---|---|
-| **Data binding** | Whole object in memory | **Highest**: typed and validated by the compiler | Good | The structure is known and reasonably sized: **the default choice** |
-| **Tree model** | Whole tree in memory | Medium: untyped navigation | Slower | Structure is dynamic or partially known, you need to inspect/modify fields without a class, or pass-through transformation |
-| **Streaming** | **Constant**: one token at a time | Lowest: you manage state | **Fastest** | Huge documents/arrays, memory limits, or when you only need a few fields |
-
+### 4.1 Jakarta JSON-P Object Model Construction
 ```java
-// Data binding (Jackson): typed
-User user = mapper.readValue(json, User.class);
+package com.example.json;
 
-// Tree model: dynamic
-JsonNode root = mapper.readTree(json);
-String city = root.path("address").path("city").asText("unknown");
+import jakarta.json.*;
+import java.io.StringReader;
+import java.io.StringWriter;
+import java.math.BigDecimal;
 
-// Streaming: token by token (sketch)
-try (JsonParser p = factory.createParser(inputStream)) {
-    while (p.nextToken() != null) {
-        if (p.currentToken() == JsonToken.FIELD_NAME && "email".equals(p.currentName())) { ... }
+public final class JsonPObjectDemo {
+
+    public static String buildOrderJson() {
+        // Constructing an immutable JSON Object DOM using Builder
+        JsonObject orderJson = Json.createObjectBuilder()
+                .add("orderId", 98234)
+                .add("customerEmail", "engineer@example.com")
+                .add("totalAmount", new BigDecimal("1249.50"))
+                .add("active", true)
+                .add("tags", Json.createArrayBuilder()
+                        .add("PRIORITY")
+                        .add("ELECTRONICS")
+                        .build())
+                .add("shippingAddress", Json.createObjectBuilder()
+                        .add("city", "Seattle")
+                        .add("zip", "98101")
+                        .build())
+                .build();
+
+        StringWriter sw = new StringWriter();
+        try (JsonWriter jw = Json.createWriter(sw)) {
+            jw.writeObject(orderJson);
+        }
+        return sw.toString();
+    }
+
+    public static void readOrderJson(String jsonString) {
+        try (JsonReader reader = Json.createReader(new StringReader(jsonString))) {
+            JsonObject root = reader.readObject();
+            long orderId = root.getJsonNumber("orderId").longValue();
+            String email = root.getString("customerEmail");
+            BigDecimal total = root.getJsonNumber("totalAmount").bigDecimalValue();
+            JsonArray tags = root.getJsonArray("tags");
+
+            System.out.printf("Order #%d for %s (Total: $%s)%n", orderId, email, total);
+            for (JsonValue tag : tags) {
+                System.out.println(" - Tag: " + ((JsonString) tag).getString());
+            }
+        }
     }
 }
 ```
 
-Details for Jackson are in [Jackson](01_jackson.md). Gson offers the same three in its own API ([Gson](02_gson.md)).
-
----
-
-## 4. Mapping JSON to Java
-
-How the pieces correspond (by default, with Jackson-style binding):
-
-| JSON | Java |
-|---|---|
-| object | a class or record (fields/properties), or `Map<String, Object>` |
-| array | `List<T>`, `T[]`, `Set<T>` |
-| string | `String`, enum, `UUID`, `java.time` types (with support) |
-| number | `int`/`long`/`double`/`BigDecimal`/`BigInteger` (depends on the target type and settings) |
-| boolean | `boolean` / `Boolean` |
-| null | `null` (or an absent `Optional`) |
-
-A record maps cleanly onto an object:
-
+### 4.2 High-Throughput Streaming Parser (`JsonParser`)
 ```java
-public record User(long id, String email, boolean active, List<String> tags, Address address, Instant createdAt) {}
-public record Address(String city, String zip) {}
+package com.example.json;
+
+import jakarta.json.Json;
+import jakarta.json.stream.JsonParser;
+import jakarta.json.stream.JsonParser.Event;
+import java.io.InputStream;
+
+public final class JsonPStreamDemo {
+    public static void scanHighVolumeStream(InputStream is) {
+        try (JsonParser parser = Json.createParser(is)) {
+            while (parser.hasNext()) {
+                Event event = parser.next();
+                if (event == Event.KEY_NAME && "targetField".equals(parser.getString())) {
+                    parser.next(); // Advance to value
+                    System.out.println("Found targetField value: " + parser.getString());
+                }
+            }
+        }
+    }
+}
 ```
 
-Without a target type, a parser produces **generic** structures: `Map<String, Object>`, `List<Object>`, `Integer`/`Long`/`Double`. These lose type information and encourage casting, so prefer typed classes whenever the shape is known.
+---
+
+## 5. Practical Examples
+
+### Example 1: JSON Pointer (RFC 6901) Evaluation
+```java
+package com.example.json;
+
+import jakarta.json.*;
+import java.io.StringReader;
+
+public final class JsonPointerDemo {
+    public static void evaluatePointer(String jsonText) {
+        try (JsonReader reader = Json.createReader(new StringReader(jsonText))) {
+            JsonObject doc = reader.readObject();
+
+            // JSON Pointer navigating into nested array index 1
+            JsonPointer pointer = Json.createPointer("/items/1/price");
+            JsonValue priceVal = pointer.getValue(doc);
+
+            System.out.println("Second item price: " + priceVal);
+        }
+    }
+}
+```
+
+### Example 2: Real-World JSON Patch (RFC 6902) Transformation
+```java
+package com.example.json;
+
+import jakarta.json.*;
+import java.io.StringReader;
+
+public final class JsonPatchDemo {
+    public static JsonObject applyPatchOperations(JsonObject originalDoc) {
+        // Constructing RFC 6902 patch operations: replace status, add discount
+        JsonPatch patch = Json.createPatchBuilder()
+                .replace("/status", "SHIPPED")
+                .add("/discount", 15)
+                .remove("/temporaryNotes")
+                .build();
+
+        // Applies operations and returns a new immutable JsonObject
+        return patch.apply(originalDoc);
+    }
+}
+```
+
+### Example 3: Edge Case - Preserving Large 64-Bit Integers
+```java
+package com.example.json;
+
+import jakarta.json.Json;
+import jakarta.json.JsonObject;
+
+public final class LongPrecisionDemo {
+    public static void demonstratePrecision() {
+        // Long value exceeding JavaScript Number.MAX_SAFE_INTEGER (9007199254740991)
+        long snowflakeId = 1854920194857201942L;
+
+        // SAFE: Serialize numeric identifiers as String when communicating with web/JS clients
+        JsonObject payload = Json.createObjectBuilder()
+                .add("entityId", String.valueOf(snowflakeId)) // Immune to IEEE-754 precision clipping
+                .add("rawInteger", snowflakeId) // May lose lower bits in JavaScript engines!
+                .build();
+
+        System.out.println(payload);
+    }
+}
+```
+
+### Example 4: Failure Case - Missing Null Checks in JSON-P
+```java
+// ANTI-PATTERN: Calling getString directly on an explicit JSON null throws NullPointerException
+public static void unsafeRead(JsonObject obj) {
+    // If JSON is: {"middleName": null}
+    // obj.isNull("middleName") is TRUE, but obj.getString("middleName") throws NullPointerException!
+    if (!obj.isNull("middleName")) {
+        String name = obj.getString("middleName");
+    }
+}
+```
 
 ---
 
-## 5. The Java landscape
+## 6. Best Practices
+1. **Always Transmit 64-Bit IDs as Strings to Web Clients**: To prevent truncation by browser JavaScript engines ($> 2^{53} - 1$), format `long` primary keys as strings.
+2. **Use Streaming Parsers for Payloads > 50 MB**: Use `JsonParser` and `JsonGenerator` instead of building in-memory DOMs when parsing large log exports or bulk datasets.
+3. **Check `isNull()` Before Value Extraction**: Never invoke `getString()` or `getJsonNumber()` on a key without checking `obj.isNull(key)`.
+4. **Enforce Strict Character Encoding (UTF-8)**: RFC 8259 Section 8.1 mandates UTF-8 encoding for all JSON exchanged between systems.
+5. **Leverage JSON Merge Patch for Simple Updates**: Use RFC 7396 Merge Patch for standard resource updates, and RFC 6902 JSON Patch for transactional array mutations.
+6. **Prefer BigDecimal for Monetary JSON Values**: Never map currency amounts to standard floating-point variables.
 
-The JDK itself doesn't include a standard JSON API in the Java releases these notes cover (check your JDK's release notes). You use a library:
+---
 
-| Library | Style | Notes |
+## 7. Common Mistakes & Pitfalls
+
+| Mistake | Why It Fails | Correction |
 |---|---|---|
-| **Jackson** | Binding + tree + streaming; huge module ecosystem | The de-facto standard. Default in Spring. [Note 01](01_jackson.md) |
-| **Gson** | Binding + tree + streaming | Simple API from Google. Common in Android and older code. [Note 02](02_gson.md) |
-| **Jakarta JSON Binding (JSON-B)** / **JSON-P** | Standard APIs (Jakarta EE) with implementations like Yasson/Parsson | Used in Jakarta EE servers. JSON-B for binding, JSON-P for processing/streaming |
-| **Moshi** | Binding, Kotlin-friendly | Popular on Android/Kotlin |
-| **org.json**, **JSON-java** | Tiny tree-style API | Simple scripts; limited binding |
-| **Jackson/JSON-B alternatives** (DSL-JSON, Jsoniter, others) | Performance-oriented | Consider when benchmarks show Jackson is a bottleneck |
-
-Related standards worth knowing: **JSON Schema** (validation), **JSON Pointer** (RFC 6901, addressing: `/address/city`), **JSON Patch** (RFC 6902) and **JSON Merge Patch** (RFC 7396) for partial updates, **JSON Lines / NDJSON** (one JSON value per line, great for logs and streaming big datasets), and **RFC 9457 Problem Details** for HTTP error bodies.
+| Large 64-bit `Long` truncated in browser | JavaScript `Number` loses precision beyond $2^{53} - 1$ | Serialize large 64-bit integers as JSON Strings |
+| `getString()` on explicit `null` | Throws `NullPointerException` in Jakarta JSON-P | Check `obj.isNull("field")` before extracting |
+| Assuming key order is preserved | RFC 8259 states JSON object keys are strictly unordered | Never write business logic dependent on key ordering |
+| Loading 500 MB JSON via `JsonReader` | Allocates millions of AST nodes, causing OutOfMemoryError | Process with event-driven streaming `JsonParser` |
+| Floating point arithmetic on money | IEEE-754 binary representation introduces decimal rounding errors | Parse numbers using `BigDecimal` |
+| Trailing commas in JSON | RFC 8259 syntax strictly forbids trailing commas in objects and arrays | Ensure generator does not emit trailing commas |
+| Unescaped control characters in strings | Invalidates JSON grammar; parser throws syntax error | Ensure quotes, newlines, and backslashes are properly escaped |
+| Parsing untrusted JSON with recursive nesting | Deeply nested objects can cause StackOverflowError | Set parser depth limits on input streams |
 
 ---
 
-## 6. Reading and writing correctly
+## 8. Performance & Security Notes
+- **JSON Bomb / Stack Overflow Attacks**: An adversary can send a payload with 10,000 nested brackets `[[[[...]]]]`. Without depth limits, parsers exhaust thread stack space and crash. Ensure parser maximum nesting depth is constrained (typically $\le 64$).
+- **Memory Footprint of DOM Trees**: A 10 MB JSON document text string typically expands to 50–100 MB of heap memory when parsed into an object tree due to object headers and reference pointers.
+- **UTF-8 Byte Scanning**: Modern JSON parsers scan ASCII token bytes directly using SIMD instructions (e.g., AVX2 / NEON) before creating Java `String` objects, dramatically speeding up parsing.
 
-- **Always use UTF-8** when converting between bytes and text, and prefer APIs that take `InputStream`/`OutputStream` (the parser handles the encoding) over decoding to a `String` yourself ([I/O Streams](../11-io-and-networking/00_io-streams-readers-writers.md#6-charsets-the-usual-source-of-garbled-text)).
-- **Never build JSON by string concatenation.** Quotes, backslashes, and control characters in values will break the output or enable injection:
+---
+
+## 9. Comparison / When to Use What
+
+| API / Library | Parsing Model | Memory Overhead | Performance | Best Use Case |
+|---|---|---|---|---|
+| **JSON-P Object Model** | DOM Tree (`JsonObject`) | High (~5x raw size) | Fast | Small payload inspection, JSON Patch/Pointer |
+| **JSON-P Streaming** | Pull Cursor (`JsonParser`)| Minimal (< 1 KB) | Very Fast | Gigabyte file processing, ETL streaming |
+| **Jackson Databind** | Data Binding / Mapping | Moderate | Fastest | Standard Java microservices, POJO/Record mapping |
+| **Gson** | Data Binding / Mapping | Moderate | Fast | Android, zero-dependency lightweight apps |
+
+---
+
+## 10. Interview Questions
+
+<details>
+<summary>1. What are the six data types supported by the JSON specification (RFC 8259)?</summary>
+The six types defined by RFC 8259 are:
+1. <b>Object</b>: An unordered collection of key-value pairs enclosed in curly braces <code>{...}</code>.
+2. <b>Array</b>: An ordered sequence of zero or more values enclosed in square brackets <code>[...]</code>.
+3. <b>String</b>: A sequence of Unicode characters enclosed in double quotation marks <code>"..."</code>.
+4. <b>Number</b>: Integer or floating-point representation in base 10 (scientific notation allowed).
+5. <b>Boolean</b>: The exact literal tokens <code>true</code> or <code>false</code>.
+6. <b>Null</b>: The exact literal token <code>null</code>.
+</details>
+
+<details>
+<summary>2. Why can transferring a 64-bit Java long in JSON cause data corruption in web applications?</summary>
+In the JSON specification, numbers have no size limit. However, the standard JavaScript runtime represents all numbers as IEEE-754 64-bit double-precision floats, which provide only 53 bits of mantissa precision (up to 9,007,199,254,740,991). When a Java <code>long</code> (such as a database Snowflake ID like <code>1854920194857201942L</code>) is parsed in a browser, the lowest digits are rounded to zeroes, corrupting primary keys. The industry standard fix is serializing 64-bit IDs as JSON strings.
+</details>
+
+<details>
+<summary>3. What is the difference between JSON Pointer (RFC 6901) and JSONPath?</summary>
+<b>JSON Pointer (RFC 6901)</b> is an official IETF standard specifying a simple, deterministic path syntax (e.g., <code>/users/0/name</code>) for identifying exactly one single element within a JSON document.<br>
+<b>JSONPath</b> is an expressive query language (modeled after XPath, e.g., <code>$.users[?(@.age > 21)].name</code>) that supports predicates, filtering, wildcards, and returning sets of elements.
+</details>
+
+<details>
+<summary>4. How does JSON-P's streaming API (JsonParser) achieve zero-allocation parsing?</summary>
+<code>JsonParser</code> acts as a stateful pull-parser. Instead of constructing <code>JsonObject</code>, <code>JsonArray</code>, or <code>String</code> instances for every element, it scans the underlying byte buffer and returns primitive token events (<code>START_OBJECT</code>, <code>KEY_NAME</code>, etc.). The application reads values directly from internal char buffers, avoiding temporary heap object allocations.
+</details>
+
+<details>
+<summary>5. What is the difference between JSON Patch (RFC 6902) and JSON Merge Patch (RFC 7396)?</summary>
+<b>JSON Patch (RFC 6902)</b> is a list of explicit mutation operations (<code>add</code>, <code>remove</code>, <code>replace</code>, <code>move</code>, <code>copy</code>, <code>test</code>) applied sequentially to a document. It allows precise array index modifications.<br>
+<b>JSON Merge Patch (RFC 7396)</b> sends a partial JSON document representing the target state: keys with values are updated, and keys with <code>null</code> are removed. It is simpler for flat updates, but cannot partially modify arrays.
+</details>
+
+<details>
+<summary>6. Are JSON object keys ordered according to RFC 8259?</summary>
+No. RFC 8259 explicitly states that JSON objects are an <i>unordered</i> collection of zero or more name/value pairs. Compliant JSON parsers and generators are allowed to re-order keys. Code that relies on key order for verification or signing is fundamentally flawed unless canonical JSON ordering (RFC 8785) is applied.
+</details>
+
+<details>
+<summary>7. How does JSON-P handle numeric values without losing decimal precision?</summary>
+Jakarta JSON-P provides the <code>JsonNumber</code> interface. Rather than coercing all numbers to <code>double</code>, <code>JsonNumber</code> retains the underlying textual representation and provides exact conversion methods: <code>bigDecimalValue()</code> and <code>bigIntegerValue()</code>, ensuring financial and decimal accuracy.
+</details>
+
+<details>
+<summary>8. What is a JSON Denial of Service (DoS) attack, and how is it mitigated?</summary>
+A JSON DoS attack exploits parser vulnerabilities using deeply nested structures (e.g., thousands of opening brackets <code>[[[[...]]]]</code>) or enormous string/array lengths to induce stack exhaustion (<code>StackOverflowError</code>) or heap memory saturation (<code>OutOfMemoryError</code>). It is mitigated by configuring parser thresholds for maximum nesting depth and maximum string lengths.
+</details>
+
+---
+
+## 11. Practice Exercises
+
+<details>
+<summary>Exercise 1: Write a JSON-P method to parse a list of user emails from an in-memory JSON document.</summary>
 
 ```java
-// WRONG: a name containing a quote produces invalid JSON (or lets an attacker add fields)
-String json = "{\"name\": \"" + name + "\"}";
-
-// RIGHT: let the library escape
-String json = mapper.writeValueAsString(Map.of("name", name));
+public static List<String> extractEmails(String json) {
+    try (JsonReader reader = Json.createReader(new StringReader(json))) {
+        JsonObject root = reader.readObject();
+        JsonArray users = root.getJsonArray("users");
+        List<String> emails = new ArrayList<>();
+        for (JsonValue val : users) {
+            JsonObject userObj = val.asJsonObject();
+            if (!userObj.isNull("email")) {
+                emails.add(userObj.getString("email"));
+            }
+        }
+        return emails;
+    }
+}
 ```
+</details>
 
-  (Text blocks are fine for *test fixtures* with fixed content: [Text Blocks](../03-strings-and-text/05_text-blocks.md).)
-- **Stream big payloads.** Parsing a 2 GB array into a `List` means `OutOfMemoryError` ([File Processing Patterns](../11-io-and-networking/02_file-processing-patterns.md)).
-- **Pretty-print only for humans.** Minified JSON is smaller on the wire.
-- For HTTP: `Content-Type: application/json`, and an `Accept` header ([HTTP Client](../11-io-and-networking/04_http-client-and-networking.md)).
+<details>
+<summary>Exercise 2: Implement a JSON Pointer lookup with fallback default value.</summary>
+
+```java
+public static String getNestedString(JsonObject doc, String pointerPath, String defaultValue) {
+    try {
+        JsonPointer pointer = Json.createPointer(pointerPath);
+        if (pointer.containsValue(doc)) {
+            JsonValue val = pointer.getValue(doc);
+            return val.getValueType() == JsonValue.ValueType.STRING ? ((JsonString) val).getString() : val.toString();
+        }
+    } catch (Exception ignored) {}
+    return defaultValue;
+}
+```
+</details>
+
+<details>
+<summary>Exercise 3: Write an event-driven JsonParser loop counting total orders in a streaming file.</summary>
+
+```java
+public static long countOrdersStreaming(InputStream jsonStream) {
+    long orderCount = 0;
+    try (JsonParser parser = Json.createParser(jsonStream)) {
+        while (parser.hasNext()) {
+            if (parser.next() == JsonParser.Event.KEY_NAME && "orderId".equals(parser.getString())) {
+                orderCount++;
+            }
+        }
+    }
+    return orderCount;
+}
+```
+</details>
 
 ---
 
-## Common mistakes
-
-| Mistake | Fix |
-|---|---|
-| Treating JSON like a JavaScript object literal (single quotes, trailing commas, comments) | Follow the strict grammar, and validate with a real parser |
-| Using `double` for money | `BigDecimal` in Java, string or integer cents in JSON |
-| Sending 64-bit IDs as numbers to browsers | Send as strings |
-| Epoch timestamps without a unit | ISO-8601 strings with a zone (`Z`) |
-| Building JSON with `+` and `String.format` | Use a library or builder |
-| Parsing everything into `Map<String, Object>` | Typed records, or `JsonNode` where truly dynamic |
-| Loading huge arrays into memory | Streaming |
-| Ignoring the difference between a missing field and `null` | Decide and document the contract |
-| Relying on key order or duplicate keys | Don't |
-| Comments in "JSON" config | Use YAML/TOML/properties, or a JSON dialect your parser explicitly supports |
-
-### Debugging
-
-- **Invalid JSON?** Paste it into a validator or `jq .`. Typical culprits: trailing comma, single quotes, an unescaped newline in a string, a BOM at the start, or an HTML error page returned where JSON was expected (check the HTTP status and `Content-Type` first).
-- Numbers off by a few units in the browser → big integers lost precision as doubles.
-- `null` where you expected a value → the field is missing, misspelled (case-sensitive), or named differently (`snake_case` vs `camelCase`).
-- Garbled non-ASCII characters → wrong charset somewhere between bytes and text.
+## 12. Summary / Cheat Sheet
+- **Specification**: RFC 8259; 6 types (Object, Array, String, Number, Boolean, Null).
+- **Long Precision**: Numbers $> 2^{53} - 1$ must be transferred as strings to prevent JavaScript truncation.
+- **Jakarta JSON-P**: `JsonReader`/`JsonObject` for DOM trees; `JsonParser` for high-speed zero-allocation streaming.
+- **Null Safety**: Always check `obj.isNull("key")` before reading values.
+- **RFC Standards**: JSON Pointer (RFC 6901) for path lookups; JSON Patch (RFC 6902) for atomic document mutations.
+- **Encoding**: UTF-8 is mandatory; keys are strictly unordered.
 
 ---
 
-## Quick Summary
-
-- JSON = objects, arrays, strings, numbers, booleans, `null`: strict syntax (double quotes, no trailing commas, no comments), UTF-8.
-- It has **no types for dates, binary, money, or big integers**. Use conventions: ISO-8601 strings, Base64, strings for money and IDs above 2⁵³.
-- Three processing models: **data binding** (default), **tree** (dynamic), **streaming** (huge/low-memory).
-- Java has no standard built-in JSON API in these releases: use **Jackson** (dominant), Gson, or JSON-B/JSON-P.
-- Never concatenate JSON by hand, always use UTF-8, and distinguish *absent* from *null*.
-
-**Next:** [Jackson](01_jackson.md)
+## 13. Further Reading
+- IETF RFC 8259: The JavaScript Object Notation (JSON) Data Interchange Format
+- Jakarta JSON Processing (JSON-P) Specification 2.1 / JSR 374
+- IETF RFC 6901: JavaScript Object Notation (JSON) Pointer
+- IETF RFC 6902: JavaScript Object Notation (JSON) Patch

@@ -1,386 +1,434 @@
-# JUnit 5 and 6
+# JUnit 5 and 6: Architecture, Lifecycle, and Parameterized Tests
 
-**JUnit** is the standard testing framework for Java. Its modern programming model, **JUnit Jupiter**, arrived with JUnit 5 (2017) and is carried forward unchanged in **JUnit 6** (September 2025). If you know one, you know the other: the packages are still `org.junit.jupiter.*`, the annotations are the same, and the main difference is the baseline and version numbering ([section 1](#1-versions-and-setup)). This note uses "Jupiter" for the shared model.
+> The modern standard testing framework: JUnit Platform, Jupiter Engine, Lifecycle Hooks, Nested Tests, Parameterized Suites, and Parallel Execution.
 
-**Prerequisites:** [Unit Testing Fundamentals](00_unit-testing-fundamentals.md), [Annotations](../13-advanced-language-features/00_annotations.md), [Lambda Expressions](../09-functional-java/00_lambda-expressions.md).
-
----
-
-## 1. Versions and setup
-
-JUnit has three parts:
-
-| Part | Role |
+| Metadata | Details |
 |---|---|
-| **JUnit Platform** | Launches test engines. IDEs and build tools talk to it |
-| **JUnit Jupiter** | The modern annotations/API **and** the engine that runs them |
-| **JUnit Vintage** | An engine that runs old JUnit 3/4 tests (deprecated in JUnit 6; use only while migrating) |
-
-| | JUnit 5.x | JUnit 6.x |
-|---|---|---|
-| Java baseline | 8 | **17** |
-| Version numbers | Platform 1.x, Jupiter 5.x, Vintage 5.x | **One version** for everything (6.x) |
-| Packages/imports | `org.junit.jupiter.api.*` | **Unchanged** |
-| Migration | | Mostly a version bump (if you're on Java 17+ and not using removed deprecated APIs) |
-
-Choose by your Java baseline: **Java 17+ → JUnit 6**; older → JUnit 5.x. Spring Boot 4 manages JUnit 6. JUnit 6 also adds null-safety annotations (JSpecify), Kotlin coroutine support, Java Flight Recorder integration in the launcher, and a fail-fast option for the console launcher. See the official upgrade guide for the full list of removed APIs.
-
-### Maven
-
-```xml
-<dependencyManagement>
-  <dependencies>
-    <dependency>
-      <groupId>org.junit</groupId>
-      <artifactId>junit-bom</artifactId>
-      <version>6.x.y</version>            <!-- the current release; use the BOM so all JUnit artifacts match -->
-      <type>pom</type>
-      <scope>import</scope>
-    </dependency>
-  </dependencies>
-</dependencyManagement>
-
-<dependencies>
-  <dependency>
-    <groupId>org.junit.jupiter</groupId>
-    <artifactId>junit-jupiter</artifactId>       <!-- API + params + engine -->
-    <scope>test</scope>
-  </dependency>
-</dependencies>
-```
-
-Use a current `maven-surefire-plugin` (3.x), which runs the JUnit Platform natively.
-
-### Gradle
-
-```kotlin
-dependencies {
-    testImplementation(platform("org.junit:junit-bom:6.x.y"))
-    testImplementation("org.junit.jupiter:junit-jupiter")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")   // required by Gradle 9
-}
-tasks.test { useJUnitPlatform() }
-```
-
-Mixing artifact versions (for example Jupiter 5 with Platform 6) causes `NoSuchMethodError`s, so always import the BOM ([Dependency Management](../18-build-and-dependencies/02_dependency-management.md#2-conflicts-how-they-are-resolved)).
+| **Level** | Core / Intermediate |
+| **Prerequisites** | Java Unit Testing Fundamentals, Annotations |
+| **Time to Read** | 25 minutes |
+| **Status** | Complete |
+| **JDK Baseline** | Java 17 / 21 / 25 LTS (JUnit 5.10+ / 6.0) |
 
 ---
 
-## 2. Writing tests
+## Table of Contents
+1. [1. What & Why](#1-what--why)
+2. [2. Core Concepts](#2-core-concepts)
+3. [3. How It Works Internally: Platform, Jupiter, & TestEngine SPI](#3-how-it-works-internally-platform-jupiter--testengine-spi)
+4. [4. Syntax & Usage](#4-syntax--usage)
+5. [5. Practical Examples](#5-practical-examples)
+6. [6. Best Practices](#6-best-practices)
+7. [7. Common Mistakes & Pitfalls](#7-common-mistakes--pitfalls)
+8. [8. Performance & Security Notes](#8-performance--security-notes)
+9. [9. Comparison / When to Use What](#9-comparison--when-to-use-what)
+10. [10. Interview Questions](#10-interview-questions)
+11. [11. Practice Exercises](#11-practice-exercises)
+12. [12. Summary / Cheat Sheet](#12-summary--cheat-sheet)
+13. [13. Further Reading](#13-further-reading)
 
+---
+
+## 1. What & Why
+For over a decade, JUnit 4 was the ubiquitous testing framework of Java. However, JUnit 4 suffered from severe architectural limitations: a monolithic codebase coupling the test runner directly to IDEs and build tools, rigid inheritance-based extension rules (`@Rule` and `@ClassRule` confusion), and zero support for modern Java 8+ features like lambdas and stream-based parameterization.
+
+**JUnit 5 (and JUnit 6)** completely redesigned the framework from the ground up. It introduced a decoupled three-tier architecture, an extensible `Extension` model, hierarchical `@Nested` test contexts, powerful `@ParameterizedTest` capabilities, and native support for concurrent, multi-threaded test execution. Understanding JUnit 5/6 architecture is fundamental for authoring expressive, modular, and lightning-fast test suites.
+
+---
+
+## 2. Core Concepts
+- **Three-Tier Architecture**:
+  1. `JUnit Platform`: Foundation for launching testing frameworks on the JVM. Defines the `TestEngine` API used by build tools and IDEs.
+  2. `JUnit Jupiter`: The modern programming and extension model containing annotations (`@Test`, `@BeforeEach`, `@ParameterizedTest`).
+  3. `JUnit Vintage`: Legacy test engine providing backward compatibility to run JUnit 3 and JUnit 4 tests on the modern Platform.
+- **Lifecycle Annotations**:
+  - `@BeforeAll` / `@AfterAll`: Static setup/teardown methods executed once per test class.
+  - `@BeforeEach` / `@AfterEach`: Executed before and after every individual test method.
+- **Hierarchical Tests (`@Nested`)**: Expressive, grouped test suites modeling state trees and behavioral specifications.
+- **Parameterized Tests (`@ParameterizedTest`)**: Running the same test logic across multiple input datasets (`@ValueSource`, `@CsvSource`, `@MethodSource`).
+- **Dynamic Tests (`@TestFactory`)**: Generating tests programmatically at runtime using Java Streams.
+- **Extension Model (`@ExtendWith`)**: Replaces JUnit 4's brittle Runners and Rules with composable lifecycle callback interfaces (`BeforeEachCallback`, `ParameterResolver`).
+
+---
+
+## 3. How It Works Internally: Platform, Jupiter, & TestEngine SPI
+
+JUnit 5 decouples test discovery and execution from IDEs and build tools via the Service Provider Interface:
+
+```
++-------------------------------------------------------+
+|             Build Tools & IDEs (Maven, Gradle, IntelliJ) |
++-------------------------------------------------------+
+                           |
+                           v
++-------------------------------------------------------+
+|                    JUnit Platform                     |
+|           LauncherDiscoveryRequestBuilder             |
++-------------------------------------------------------+
+                           |
+                TestEngine Discovery (SPI)
+        (META-INF/services/org.junit.platform.engine.TestEngine)
+                           |
+            +--------------+--------------+
+            |                             |
+            v                             v
++-----------------------+     +-----------------------+
+|  junit-jupiter-engine |     |  junit-vintage-engine |
+| (Modern JUnit 5/6)    |     | (Legacy JUnit 3/4)    |
++-----------------------+     +-----------------------+
+```
+
+### The Extension Pipeline Lifecycle:
+When a test method executes, Jupiter invokes registered extensions in deterministic order:
+1. `BeforeAllCallback` $ightarrow$ `@BeforeAll`
+2. `BeforeEachCallback` $ightarrow$ `@BeforeEach`
+3. `BeforeTestExecutionCallback`
+4. `@Test` method invocation (with `ParameterResolver` injecting arguments)
+5. `AfterTestExecutionCallback`
+6. `@AfterEach` $ightarrow$ `AfterEachCallback`
+7. `@AfterAll` $ightarrow$ `AfterAllCallback`
+
+---
+
+## 4. Syntax & Usage
+
+### 4.1 Hierarchical Nested Test Suite
 ```java
+package com.example.testing;
+
 import org.junit.jupiter.api.*;
-import static org.junit.jupiter.api.Assertions.*;
-
-class AccountTest {
-
-    private Account account;
-
-    @BeforeAll
-    static void initAll() { /* once before all tests: expensive shared setup */ }
-
-    @BeforeEach
-    void setUp() { account = new Account("A-1", new BigDecimal("100.00")); }       // fresh state per test
-
-    @Test
-    @DisplayName("withdrawing reduces the balance")
-    void withdrawReducesBalance() {
-        account.withdraw(new BigDecimal("30.00"));
-        assertEquals(new BigDecimal("70.00"), account.balance());
-    }
-
-    @Test
-    void withdrawingMoreThanBalanceFails() {
-        var ex = assertThrows(InsufficientFundsException.class,
-                              () -> account.withdraw(new BigDecimal("500.00")));
-        assertTrue(ex.getMessage().contains("A-1"));
-    }
-
-    @AfterEach
-    void tearDown() { /* release per-test resources */ }
-
-    @AfterAll
-    static void tearDownAll() { /* once after all tests */ }
-}
-```
-
-Rules:
-
-- Test classes and methods **don't need to be `public`**: package-private is idiomatic. They must **not** be `private` or `static`.
-- **JUnit creates a new instance of the test class for every test method** (the default `PER_METHOD` lifecycle), so instance fields aren't shared between tests. That's what gives you isolation.
-- `@BeforeAll`/`@AfterAll` must be **`static`**, unless you use `@TestInstance(TestInstance.Lifecycle.PER_CLASS)` (one instance for all tests, which lets them be non-static but makes shared state your responsibility).
-- Order of tests is **deterministic but not obvious**. Never depend on it. (`@TestMethodOrder`/`@Order` exist, and mostly signal a design problem.)
-- `@Disabled("reason")` skips a test. Always give a reason, and remove stale ones.
-
----
-
-## 3. Assertions
-
-### JUnit's built-in assertions
-
-```java
-assertEquals(expected, actual);                    // EXPECTED FIRST, actual second
-assertEquals(3.14, result, 0.001);                 // doubles need a tolerance
-assertNotEquals(a, b);
-assertTrue(list.isEmpty());   assertFalse(flag);
-assertNull(x);   assertNotNull(x);
-assertSame(a, b);                                   // reference equality
-assertArrayEquals(new int[]{1, 2}, actual);
-assertIterableEquals(List.of(1, 2), actual);
-assertInstanceOf(Circle.class, shape);              // returns the cast value
-
-assertTrue(balance.signum() >= 0, "balance went negative: " + balance);       // message LAST
-assertTrue(cond, () -> "built only on failure: " + expensiveDescription());    // lazy message
-
-assertAll("customer",                                                         // run ALL, report every failure
-        () -> assertEquals("Asha", c.name()),
-        () -> assertEquals("asha@example.com", c.email()));
-
-IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> parse("x"));   // exception + inspect it
-assertDoesNotThrow(() -> parse("42"));
-assertTimeout(Duration.ofMillis(200), () -> compute());     // fails if it takes too long (still runs to completion)
-```
-
-### AssertJ: fluent assertions (recommended companion)
-
-AssertJ reads like a sentence, has rich assertions for collections, strings, optionals, and exceptions, and produces much better failure messages:
-
-```java
+import java.util.EmptyStackException;
+import java.util.Stack;
 import static org.assertj.core.api.Assertions.*;
 
-assertThat(order.total()).isEqualByComparingTo("118.00");                    // BigDecimal ignoring scale
-assertThat(users).extracting(User::name).containsExactlyInAnyOrder("asha", "ravi");
-assertThat(name).isNotBlank().startsWith("A").hasSizeLessThan(50);
-assertThat(result).isPresent().get().extracting(Order::id).isEqualTo(42L);
+@DisplayName("A Stack")
+class StackTest {
 
-assertThatThrownBy(() -> service.cancel(99))
-        .isInstanceOf(OrderNotFoundException.class)
-        .hasMessageContaining("99");
+    private Stack<String> stack;
 
-assertThat(actualUser).usingRecursiveComparison().isEqualTo(expectedUser);   // compare field by field, no equals() needed
+    @Nested
+    @DisplayName("when newly instantiated")
+    class WhenNew {
 
-assertSoftly(s -> {                                                          // collect all failures
-    s.assertThat(c.name()).isEqualTo("Asha");
-    s.assertThat(c.age()).isGreaterThan(17);
-});
-```
+        @BeforeEach
+        void init() {
+            stack = new Stack<>();
+        }
 
-JUnit's assertions are fine for simple cases. Many teams standardize on AssertJ for everything else. Hamcrest matchers are an older alternative.
+        @Test
+        @DisplayName("is empty")
+        void isEmpty() {
+            assertThat(stack.isEmpty()).isTrue();
+        }
 
----
+        @Test
+        @DisplayName("throws EmptyStackException on pop")
+        void throwsOnPop() {
+            assertThatThrownBy(stack::pop)
+                    .isInstanceOf(EmptyStackException.class);
+        }
 
-## 4. Parameterized tests
+        @Nested
+        @DisplayName("after pushing an element")
+        class AfterPushing {
+            private final String element = "Java 21";
 
-Run one test body against many inputs, ideal for boundary tables ([Unit Testing Fundamentals](00_unit-testing-fundamentals.md#5-what-to-test-and-what-not-to)):
+            @BeforeEach
+            void pushElement() {
+                stack.push(element);
+            }
 
-```java
-@ParameterizedTest
-@ValueSource(strings = {"", " ", "\t", "\n"})
-void blankPasswordsAreRejected(String password) {
-    assertFalse(validator.isValid(password));
-}
+            @Test
+            @DisplayName("is no longer empty")
+            void isNotEmpty() {
+                assertThat(stack.isEmpty()).isFalse();
+            }
 
-@ParameterizedTest(name = "age {0} → adult = {1}")
-@CsvSource({
-    "17, false",
-    "18, true",           // the boundary
-    "19, true"
-})
-void adultFromEighteen(int age, boolean expected) {
-    assertEquals(expected, AgeRules.isAdult(age));
-}
-
-@ParameterizedTest
-@MethodSource("discountCases")
-void appliesDiscount(BigDecimal total, BigDecimal expected) {
-    assertEquals(expected, discounts.apply(total));
-}
-static Stream<Arguments> discountCases() {
-    return Stream.of(
-        Arguments.of(new BigDecimal("50.00"),  new BigDecimal("50.00")),
-        Arguments.of(new BigDecimal("100.00"), new BigDecimal("90.00")),
-        Arguments.of(new BigDecimal("500.00"), new BigDecimal("425.00")));
-}
-
-@ParameterizedTest
-@EnumSource(value = Status.class, names = {"PAID", "SHIPPED"})
-void paidOrShippedOrdersCannotBeEdited(Status status) { ... }
-
-@ParameterizedTest
-@NullAndEmptySource                         // null and ""
-@ValueSource(strings = {"  "})              // plus blank
-void rejectsMissingNames(String name) { ... }
-```
-
-| Source | Provides |
-|---|---|
-| `@ValueSource` | Literals of one type |
-| `@CsvSource` / `@CsvFileSource` | Rows of mixed values (inline / from a file) |
-| `@MethodSource` | A static method returning a `Stream`/collection of `Arguments`: any objects |
-| `@EnumSource` | Enum constants (all, or selected/excluded) |
-| `@NullSource`, `@EmptySource`, `@NullAndEmptySource` | `null` / empty values |
-| `@ArgumentsSource` | A custom provider |
-
-Each row appears as its own test in reports (name it with `name = "..."`). Put the data in the test, not hidden in distant files, so a reader sees the cases.
-
----
-
-## 5. Organizing tests
-
-```java
-@Nested
-@DisplayName("when the cart is empty")
-class WhenEmpty {                                    // groups related tests; inherits the outer setup
-    @Test void totalIsZero() { ... }
-    @Test void checkoutIsRejected() { ... }
-}
-
-@Tag("slow")                                         // select with: mvn -Dgroups=slow / Gradle includeTags
-@Test void importsLargeFile() { ... }
-
-@Timeout(2)                                          // fail if it takes more than 2 seconds (default unit: seconds)
-@Test void finishesQuickly() { ... }
-
-@RepeatedTest(5)                                     // run repeatedly (to probe flakiness; not a fix)
-void concurrentUpdate() { ... }
-
-@Test void writesReport(@TempDir Path dir) throws IOException {    // fresh temporary directory, deleted afterwards
-    Path file = dir.resolve("report.txt");
-    Files.writeString(file, "ok");
-    assertEquals("ok", Files.readString(file));
-}
-```
-
-Conditional execution:
-
-```java
-@EnabledOnOs(OS.LINUX)
-@EnabledForJreRange(min = JRE.JAVA_21)
-@EnabledIfEnvironmentVariable(named = "CI", matches = "true")
-@DisabledIf("isSlowMachine")                         // a method returning boolean
-```
-
-Assumptions abort (rather than fail) a test when preconditions aren't met: `assumeTrue(System.getenv("DB_URL") != null)`.
-
-**Dynamic tests** (`@TestFactory`) generate tests at runtime from data, returning a stream of `DynamicTest`s. Parameterized tests cover most needs.
-
----
-
-## 6. Extensions
-
-Jupiter's extension model replaces JUnit 4's runners and rules. Extensions hook into the lifecycle and can **resolve parameters**, **manage resources**, **condition tests**, and **handle exceptions**.
-
-```java
-@ExtendWith(MockitoExtension.class)                  // initializes @Mock fields (see Mockito note)
-class OrderServiceTest { ... }
-
-@ExtendWith(SpringExtension.class)                   // Spring's test context (included in @SpringBootTest)
-```
-
-Programmatic registration (with configuration):
-
-```java
-@RegisterExtension
-static final WireMockExtension wiremock = WireMockExtension.newInstance().build();
-```
-
-Writing your own is small:
-
-```java
-class TimingExtension implements BeforeEachCallback, AfterEachCallback {
-    private static final ExtensionContext.Namespace NS = ExtensionContext.Namespace.create(TimingExtension.class);
-
-    @Override public void beforeEach(ExtensionContext ctx) {
-        ctx.getStore(NS).put("start", System.nanoTime());
-    }
-    @Override public void afterEach(ExtensionContext ctx) {
-        long ms = (System.nanoTime() - ctx.getStore(NS).remove("start", long.class)) / 1_000_000;
-        System.out.println(ctx.getDisplayName() + " took " + ms + " ms");
+            @Test
+            @DisplayName("returns the element on peek")
+            void peekReturnsElement() {
+                assertThat(stack.peek()).isEqualTo(element);
+            }
+        }
     }
 }
 ```
 
-Parameter injection into test methods (like `@TempDir Path dir`, `TestInfo`, `TestReporter`) uses the same mechanism. Most of what you need already ships as extensions: Mockito, Spring, Testcontainers, WireMock, and Awaitility integrations.
+### 4.2 Parameterized Tests with Diverse Sources
+```java
+package com.example.testing;
+
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.*;
+import java.util.stream.Stream;
+import static org.assertj.core.api.Assertions.*;
+
+class ValidationTest {
+
+    // 1. ValueSource for single primitive or string arguments
+    @ParameterizedTest(name = "Validating username: {0}")
+    @ValueSource(strings = {"admin", "developer", "qa_engineer"})
+    void username_validStrings_returnsTrue(String username) {
+        assertThat(Validator.isValidUsername(username)).isTrue();
+    }
+
+    // 2. CsvSource for multi-argument test matrices
+    @ParameterizedTest(name = "{0} + {1} should equal {2}")
+    @CsvSource({
+        "1,   2,   3",
+        "10,  20,  30",
+        "-5,  15,  10"
+    })
+    void add_variousInputs_computesSum(int a, int b, int expectedSum) {
+        assertThat(Calculator.add(a, b)).isEqualTo(expectedSum);
+    }
+
+    // 3. MethodSource for complex objects and dynamic Streams
+    @ParameterizedTest
+    @MethodSource("provideDiscountScenarios")
+    void discountPolicy_computesCorrectRate(CustomerType type, double spend, double expectedRate) {
+        assertThat(DiscountPolicy.getRate(type, spend)).isEqualTo(expectedRate);
+    }
+
+    static Stream<Arguments> provideDiscountScenarios() {
+        return Stream.of(
+            Arguments.of(CustomerType.STANDARD, 50.0, 0.0),
+            Arguments.of(CustomerType.VIP, 50.0, 0.10),
+            Arguments.of(CustomerType.VIP, 500.0, 0.20)
+        );
+    }
+}
+```
 
 ---
 
-## 7. Configuration and parallel execution
+## 5. Practical Examples
 
-`src/test/resources/junit-platform.properties`:
+### Example 1: Custom Benchmark Execution Extension
+```java
+package com.example.testing;
 
+import org.junit.jupiter.api.extension.*;
+
+public final class TimingExtension implements BeforeTestExecutionCallback, AfterTestExecutionCallback {
+    private static final ExtensionContext.Namespace NAMESPACE = ExtensionContext.Namespace.create("TimingExtension");
+
+    @Override
+    public void beforeTestExecution(ExtensionContext context) {
+        context.getStore(NAMESPACE).put(context.getRequiredTestMethod(), System.nanoTime());
+    }
+
+    @Override
+    public void afterTestExecution(ExtensionContext context) {
+        long start = context.getStore(NAMESPACE).remove(context.getRequiredTestMethod(), long.class);
+        long durationMs = (System.nanoTime() - start) / 1_000_000;
+        System.out.printf("[BENCHMARK] Test %s completed in %d ms%n", context.getDisplayName(), durationMs);
+    }
+}
+
+// Usage in test class:
+// @ExtendWith(TimingExtension.class)
+// class MyFastTest { ... }
+```
+
+### Example 2: Concurrent Parallel Test Execution Configuration
 ```properties
-junit.jupiter.execution.parallel.enabled = true
-junit.jupiter.execution.parallel.mode.default = concurrent
-junit.jupiter.displayname.generator.default = org.junit.jupiter.api.DisplayNameGenerator$ReplaceUnderscores
+# src/test/resources/junit-platform.properties
+# Enable parallel test execution across CPU cores
+junit.jupiter.execution.parallel.enabled=true
+junit.jupiter.execution.parallel.mode.default=concurrent
+junit.jupiter.execution.parallel.mode.classes.default=concurrent
+junit.jupiter.execution.parallel.config.strategy=dynamic
+junit.jupiter.execution.parallel.config.dynamic.factor=1.0
 ```
 
-Parallel execution speeds up large suites, but it turns every hidden shared-state bug into a flaky test. Before enabling it:
+### Example 3: Edge Case - Synchronizing Shared Resources in Parallel Tests
+```java
+package com.example.testing;
 
-- Make sure tests don't share **mutable static state**, ports, files, or database rows.
-- Use `@ResourceLock("name")` to serialize tests that touch the same resource, and `@Execution(ExecutionMode.SAME_THREAD)` to opt classes out.
-- Remember that **thread-bound** things (Spring transactions, thread locals) behave per thread ([ThreadLocal](../14-concurrency/09_thread-local.md)).
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceAccessMode;
+import org.junit.jupiter.api.parallel.ResourceLock;
+import org.junit.jupiter.api.parallel.Resources;
 
-Reports are written as JUnit XML (surefire/Gradle), which CI tools display. Use `@Tag` plus build config to split fast/slow suites ([CI/CD](../18-build-and-dependencies/03_ci-cd-pipelines.md#4-test-stages-in-the-pipeline)).
-
----
-
-## 8. Migrating from JUnit 4
-
-| JUnit 4 | JUnit Jupiter (5/6) |
-|---|---|
-| `org.junit.Test` | `org.junit.jupiter.api.Test` |
-| `@Before` / `@After` | `@BeforeEach` / `@AfterEach` |
-| `@BeforeClass` / `@AfterClass` | `@BeforeAll` / `@AfterAll` (static) |
-| `@Ignore` | `@Disabled` |
-| `@RunWith(X.class)` | `@ExtendWith(X.class)` |
-| `@Rule` / `@ClassRule` | Extensions, `@TempDir`, `@RegisterExtension` |
-| `@Test(expected = X.class)` | `assertThrows(X.class, ...)` |
-| `@Test(timeout = ...)` | `@Timeout` |
-| `@Category` | `@Tag` |
-| `Assert.assertEquals(msg, expected, actual)` | `Assertions.assertEquals(expected, actual, msg)` (**message last**) |
-| `MockitoJUnitRunner` | `MockitoExtension` |
-| `SpringRunner` | `SpringExtension` (included in `@SpringBootTest`) |
-
-Migration plan: add Jupiter and the **Vintage** engine so old and new tests run side by side, convert test classes incrementally (or with an automated tool such as OpenRewrite recipes), then remove Vintage. JUnit 6 deprecates Vintage, so don't plan to keep JUnit 4 tests long term.
+class SystemPropertyTest {
+    @Test
+    @ResourceLock(value = Resources.SYSTEM_PROPERTIES, mode = ResourceAccessMode.READ_WRITE)
+    void modifySystemProperty() {
+        System.setProperty("app.env", "staging");
+        // Safe from concurrent interference from other parallel tests!
+    }
+}
+```
 
 ---
 
-## Common mistakes
-
-| Mistake | Fix |
-|---|---|
-| Importing `org.junit.Test` (JUnit 4) in a Jupiter project, so the test silently doesn't run | Import `org.junit.jupiter.api.Test` |
-| `assertEquals(actual, expected)` reversed | Expected first, so failure messages read correctly |
-| Non-static `@BeforeAll` | `static`, or `@TestInstance(PER_CLASS)` |
-| `private` test methods | Package-private or public |
-| `assertEquals` on doubles with no delta | Use a tolerance (or `BigDecimal` with `compareTo`) |
-| Depending on test execution order | Make each test independent |
-| Mixing JUnit artifact versions | Import the BOM |
-| `assertTimeout`/`@Timeout` as a performance test | Use JMH for performance ([Benchmarking](../20-performance/01_benchmarking-with-jmh.md)) |
-| Enabling parallel execution without checking shared state | Audit statics, ports, files, DB rows |
-| `@Disabled` tests left forever | Fix or delete |
-| Parameterized data far from the test | Keep cases inline, readable |
-| `Thread.sleep` to wait for async work | `Awaitility` or latches ([Integration Testing](03_integration-testing.md#5-async-code-and-messaging)) |
-
-### Debugging
-
-- **"No tests found" / 0 tests run** → the Jupiter engine isn't on the test classpath, surefire is too old, the Gradle launcher dependency is missing, tests use JUnit 4 imports without Vintage, or the class name doesn't match surefire's patterns.
-- **`NoSuchMethodError`/`ClassNotFoundException` in the test runner** → mixed JUnit versions (use the BOM), or an IDE/plugin using an older platform.
-- **`UnsupportedClassVersionError`** → JUnit 6 on Java below 17. Use JUnit 5.x or upgrade the JDK.
-- **Test passes alone, fails in the suite** → shared static/mutable state, or order dependence.
-- **Which test failed and why?** Check `target/surefire-reports` (or `build/reports/tests`), and run a single test: `-Dtest=Class#method` / `--tests`.
-- **Parameterized test fails for one row** → the report names the row. Make sure `name = "..."` shows the arguments.
+## 6. Best Practices
+1. **Use `@Nested` to Model State Trees**: Group tests logically by context (`whenEmpty`, `afterLoggedIn`) to produce expressive, self-documenting test reports.
+2. **Leverage `@MethodSource` for Complex Matrix Tests**: Avoid duplicating test logic across dozens of test methods; parameterize inputs via Streams.
+3. **Use Composable Extensions instead of Base Test Classes**: Favor `@ExtendWith` over deep class inheritance hierarchies (`abstract class BaseIntegrationTest`).
+4. **Isolate Parallel Tests with `@ResourceLock`**: When tests must touch shared resources (e.g., system properties, shared files), declare explicit resource locks to prevent concurrency race conditions.
+5. **Use AssertJ `assertAll` or Soft Assertions**: Group independent assertions so that a failure in assertion 1 does not suppress reporting for assertion 2.
+6. **Set `@TestInstance(Lifecycle.PER_CLASS)` Only When Truly Necessary**: Keep default `PER_METHOD` lifecycle to guarantee complete test isolation.
 
 ---
 
-## Quick Summary
+## 7. Common Mistakes & Pitfalls
 
-- **JUnit Jupiter** is the programming model for JUnit 5 and 6 (same `org.junit.jupiter.*` packages). **JUnit 6** needs Java 17+ and unifies version numbers. Use the **BOM**.
-- Tests are package-private methods annotated `@Test`. A **new instance per test** gives isolation. Lifecycle: `@BeforeEach`/`@AfterEach` (and static `@BeforeAll`/`@AfterAll`).
-- **Assertions:** JUnit's (`expected` first, message last), `assertThrows`, `assertAll`, plus **AssertJ** for fluent, readable checks.
-- **Parameterized tests** (`@ValueSource`, `@CsvSource`, `@MethodSource`, `@EnumSource`) cover boundaries compactly.
-- Organize with `@Nested`, `@Tag`, `@DisplayName`, `@TempDir`, `@Timeout`, and conditional annotations.
-- **Extensions** (`@ExtendWith`) replace runners and rules. Parallel execution needs independent tests.
-- Migrate JUnit 4 incrementally with Vintage, then remove it.
+| Mistake | Why It Fails | Correction |
+|---|---|---|
+| Non-static `@BeforeAll` without `PER_CLASS` | Jupiter throws exception because instance does not exist yet | Make method `static` or set `@TestInstance(Lifecycle.PER_CLASS)` |
+| Forgetting to enable parallel execution in properties | Tests execute sequentially despite `@Execution(CONCURRENT)` | Set `junit.jupiter.execution.parallel.enabled=true` |
+| MethodSource method not static | Jupiter cannot invoke method without an existing instance | Make `@MethodSource` factory methods `static` |
+| Modifying shared static variables in parallel tests | Causes intermittent, non-reproducible test failures | Use `@ResourceLock` or avoid shared mutable state |
+| Mixing JUnit 4 and JUnit 5 annotations | `@org.junit.Test` ignored by Jupiter engine without Vintage | Ensure imports use `org.junit.jupiter.api.*` |
+| Swallowing assertions in async threads | Assertion error thrown on worker thread is missed by test runner | Use CompletableFuture assertions or Awaitility |
+| Hardcoding machine-dependent paths | Tests fail when executed on CI runners or Windows/Linux | Use `@TempDir` to generate temporary test directories |
+| Huge multi-parameter `@CsvSource` matrices | Hard to read and debug when tests fail | Extract into structured `@MethodSource` with named arguments |
 
-**Next:** [Mocking and Mockito](02_mocking-and-mockito.md)
+---
+
+## 8. Performance & Security Notes
+- **Dynamic Parallel Forking**: In multi-core CPU architectures, enabling parallel execution cuts test suite duration by up to 70%. Ensure test isolation is verified before enabling globally.
+- **Temporary Directory Injection (`@TempDir`)**: Using `@TempDir Path tempDir` ensures Jupiter creates an isolated temporary directory and automatically deletes all files upon test conclusion, preventing disk bloat and file lock issues.
+- **Extension Store Isolation**: Extensions share state via `ExtensionContext.Store`. Scoping keys to `context.getRequiredTestMethod()` prevents state leakage across test methods.
+
+---
+
+## 9. Comparison / When to Use What
+
+| Feature | JUnit 4 | JUnit 5 / 6 (Jupiter) |
+|---|---|---|
+| **Architecture** | Monolithic (`junit.jar`) | Decoupled (Platform, Jupiter, Vintage) |
+| **Java Baseline** | Java 5+ | Java 8+ (JUnit 5) / Java 17+ (JUnit 6) |
+| **Extension Mechanism** | `@Rule`, `@ClassRule`, `@RunWith` | `@ExtendWith` (Unified Callback SPI) |
+| **Nested Contexts** | Not natively supported | Native `@Nested` inner classes |
+| **Parameterized Tests** | Brittle (`@RunWith(Parameterized.class)`) | Native `@ParameterizedTest` with multiple sources |
+| **Parallel Execution** | Experimental / Brittle | Native, First-Class (`junit-platform.properties`) |
+
+---
+
+## 10. Interview Questions
+
+<details>
+<summary>1. Describe the three major components of the JUnit 5 architecture.</summary>
+1. <b>JUnit Platform</b>: The underlying foundation and test-launching API. It defines the <code>TestEngine</code> SPI that build tools (Maven, Gradle) and IDEs (IntelliJ, Eclipse) connect to for test discovery and reporting.<br>
+2. <b>JUnit Jupiter</b>: The modern programming and extension model. Contains modern annotations (<code>@Test</code>, <code>@Nested</code>, <code>@ExtendWith</code>) and the <code>junit-jupiter-engine</code> implementation.<br>
+3. <b>JUnit Vintage</b>: A backward-compatibility engine that runs JUnit 3 and JUnit 4 tests on the modern JUnit Platform, allowing gradual codebase migration.
+</details>
+
+<details>
+<summary>2. What is the difference between @TestInstance(Lifecycle.PER_METHOD) and Lifecycle.PER_CLASS?</summary>
+By default (<code>PER_METHOD</code>), Jupiter instantiates a brand-new instance of the test class before running every single <code>@Test</code> method, guaranteeing total isolation between tests. Consequently, <code>@BeforeAll</code> and <code>@AfterAll</code> methods must be <code>static</code>.<br>
+With <code>PER_CLASS</code>, Jupiter creates exactly one instance of the test class and executes all test methods on that single instance. This allows non-static <code>@BeforeAll</code> methods, but requires careful cleanup of mutable instance state.
+</details>
+
+<details>
+<summary>3. How does the JUnit 5 Extension model improve upon JUnit 4 Rules and Runners?</summary>
+In JUnit 4, a test class could only declare a single <code>@RunWith</code> runner, creating severe friction when combining frameworks (e.g., Spring Runner vs Mockito Runner). JUnit 5 eliminates runners and rules in favor of a single unified <code>Extension</code> model. Multiple extensions can be composed on the same class using <code>@ExtendWith</code>, and extensions implement specific granular lifecycle callback interfaces.
+</details>
+
+<details>
+<summary>4. How does @MethodSource provide dynamic arguments to @ParameterizedTest?</summary>
+<code>@MethodSource</code> references a factory method (by name) that returns a <code>Stream</code>, <code>Iterable</code>, or array of arguments. If the test accepts multiple parameters, the factory method emits <code>Arguments.of(arg1, arg2, arg3)</code>. The factory method must be <code>static</code> unless <code>@TestInstance(Lifecycle.PER_CLASS)</code> is active.
+</details>
+
+<details>
+<summary>5. How does JUnit 5 support safe parallel test execution with shared resources?</summary>
+JUnit 5 provides the <code>@ResourceLock</code> annotation. Tests that read or mutate shared global resources (such as system properties, static state, or singletons) declare a resource key and lock mode (<code>ResourceAccessMode.READ</code> or <code>READ_WRITE</code>). Jupiter uses read-write lock semantics to run concurrent reads in parallel while serializing write operations.
+</details>
+
+<details>
+<summary>6. What is the purpose of @TempDir in JUnit 5?</summary>
+<code>@TempDir</code> is a built-in parameter resolver and field injector that creates an isolated temporary directory on the host filesystem before test execution, injects it as a <code>Path</code> or <code>File</code>, and guarantees recursive deletion after the test concludes, eliminating manual directory creation and cleanup code.
+</details>
+
+<details>
+<summary>7. What are Dynamic Tests (@TestFactory) in JUnit 5?</summary>
+Unlike standard <code>@Test</code> methods which are defined statically at compile time, a method annotated with <code>@TestFactory</code> generates test cases dynamically at runtime. It returns a <code>Stream<DynamicNode></code> (using <code>DynamicTest.dynamicTest()</code>), allowing tests to be generated from external configuration files, database tables, or dynamic data streams.
+</details>
+
+<details>
+<summary>8. How do you assert that multiple conditions are checked even if the first condition fails?</summary>
+In standard assertions, the first failure aborts the test, hiding subsequent failures. In JUnit 5, use <code>assertAll()</code>, which accepts an array of executable lambdas and executes all of them, reporting all accumulated assertion failures simultaneously. In AssertJ, use <code>SoftAssertions</code>.
+</details>
+
+---
+
+## 11. Practice Exercises
+
+<details>
+<summary>Exercise 1: Create a Parameterized test testing an email validator against a CSV dataset.</summary>
+
+```java
+@ParameterizedTest(name = "Email "{0}" validity should be {1}")
+@CsvSource({
+    "user@example.com,    true",
+    "john.doe@sub.org,    true",
+    "invalid-email,       false",
+    "@missing-user.com,   false",
+    "spaces in@mail.com,  false"
+})
+void emailValidation_variousInputs_matchesExpectedResult(String email, boolean expectedValid) {
+    assertThat(EmailValidator.isValid(email)).isEqualTo(expectedValid);
+}
+```
+</details>
+
+<details>
+<summary>Exercise 2: Write a custom Extension resolving an authenticated test User Session.</summary>
+
+```java
+public final class UserSessionParameterResolver implements ParameterResolver {
+    @Override
+    public boolean supportsParameter(ParameterContext parameterContext, ExtensionContext extensionContext) {
+        return parameterContext.getParameter().getType().equals(UserSession.class);
+    }
+
+    @Override
+    public Object resolveParameter(ParameterContext parameterContext, ExtensionContext extensionContext) {
+        return new UserSession(101L, "test_admin", Set.of("ROLE_ADMIN"));
+    }
+}
+
+// In test class:
+// @ExtendWith(UserSessionParameterResolver.class)
+// @Test void mySecuredTest(UserSession session) { ... }
+```
+</details>
+
+<details>
+<summary>Exercise 3: Write an assertAll block verifying multiple properties of a generated Order.</summary>
+
+```java
+@Test
+void createOrder_validInput_setsAllPropertiesCorrectly() {
+    Order order = OrderService.createOrder("CUST-1", 150.00);
+
+    org.junit.jupiter.api.Assertions.assertAll("Order State Validation",
+        () -> assertThat(order.getId()).isNotNull(),
+        () -> assertThat(order.getCustomerId()).isEqualTo("CUST-1"),
+        () -> assertThat(order.getTotalAmount()).isEqualTo(150.00),
+        () -> assertThat(order.getStatus()).isEqualTo(OrderStatus.NEW)
+    );
+}
+```
+</details>
+
+---
+
+## 12. Summary / Cheat Sheet
+- **Architecture**: JUnit Platform (SPI) $ightarrow$ Jupiter (Modern) + Vintage (Legacy).
+- **Hierarchy**: Group contexts with `@Nested` to model state branches.
+- **Parameterization**: `@ParameterizedTest` with `@ValueSource`, `@CsvSource`, `@MethodSource`.
+- **Parallelism**: Enable `junit.jupiter.execution.parallel.enabled=true`; guard with `@ResourceLock`.
+- **Extensions**: Implement `BeforeEachCallback`, `ParameterResolver`, compose via `@ExtendWith`.
+- **Soft Assertions**: Group checks with `assertAll()` to inspect all errors at once.
+
+---
+
+## 13. Further Reading
+- JUnit 5 User Guide (Official Documentation)
+- JUnit 6 Release Notes and Migration Guide
+- AssertJ Core Fluent Assertions Documentation
+- Baeldung: Guide to JUnit 5 Extensions and Parameterized Tests

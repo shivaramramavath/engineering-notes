@@ -1,309 +1,480 @@
 # Statements and Prepared Statements
 
-`PreparedStatement` is how you send SQL with **parameters**. Using it correctly gives you three things at once: **protection from SQL injection**, correct **type handling** (dates, decimals, `NULL`), and **better performance** (the database can reuse parsed plans, and you can batch). Concatenating values into SQL strings gives you none of them.
+> Parameterized PreparedStatements are the critical defense against SQL injection and the foundation of database execution plan caching and batch processing.
 
-**Prerequisites:** [JDBC Fundamentals](01_jdbc-fundamentals.md), [SQL and Indexing Essentials](00_sql-and-indexing-essentials.md).
-
----
-
-## 1. `Statement`, `PreparedStatement`, `CallableStatement`
-
-| Type | Use |
+| Metadata | Details |
 |---|---|
-| `Statement` | Static SQL with no parameters (DDL, fixed scripts). Avoid for anything with variable input |
-| **`PreparedStatement`** | SQL with `?` placeholders. **The default choice** |
-| `CallableStatement` | Calling stored procedures and functions |
-
-```java
-String sql = "SELECT id, email FROM users WHERE email = ? AND created_at > ?";
-
-try (PreparedStatement ps = conn.prepareStatement(sql)) {
-    ps.setString(1, email);                                  // 1-based index
-    ps.setObject(2, OffsetDateTime.now().minusDays(30));    // java.time via setObject (JDBC 4.2)
-    try (ResultSet rs = ps.executeQuery()) { ... }
-}
-```
+| **Level** | Core / Intermediate |
+| **Prerequisites** | JDBC Fundamentals, SQL Basics |
+| **Time to Read** | 25 minutes |
+| **Status** | Complete |
+| **JDK Baseline** | Java 17 / 21 / 25 LTS |
 
 ---
 
-## 2. SQL injection: the problem
-
-```java
-// NEVER DO THIS
-String sql = "SELECT * FROM users WHERE email = '" + email + "'";
-conn.createStatement().executeQuery(sql);
-```
-
-If `email` is `x' OR '1'='1`, the query becomes:
-
-```sql
-SELECT * FROM users WHERE email = 'x' OR '1'='1'      -- returns every user
-```
-
-and with `'; DROP TABLE users; --` the attacker can run their own statements (depending on the driver and settings). SQL injection consistently ranks among the most damaging web vulnerabilities, and it lets attackers read, change, or delete data and sometimes run commands on the server.
-
-### Why parameters fix it
-
-```java
-PreparedStatement ps = conn.prepareStatement("SELECT id FROM users WHERE email = ?");
-ps.setString(1, email);          // sent as DATA, never parsed as SQL
-```
-
-The SQL text (with `?`) and the values travel **separately**. The database parses the statement structure first, and the value can only ever be a value, whatever characters it contains. There is nothing to "escape".
-
-### What parameters **cannot** do
-
-Placeholders stand for **values** only, not SQL structure:
-
-```java
-"SELECT * FROM ? WHERE id = ?"            // table name: not allowed
-"SELECT * FROM users ORDER BY ?"          // column name: it sorts by the constant value, not the column
-"SELECT * FROM users ORDER BY name ?"     // direction: not allowed
-```
-
-For dynamic identifiers (sort column, table, direction), **validate against an allow-list** you control and then place the *known-good* text into the SQL:
-
-```java
-private static final Map<String, String> SORTABLE = Map.of(
-        "name", "name", "created", "created_at", "email", "email");
-
-String column = SORTABLE.get(requestedSort);                      // null if not allowed
-if (column == null) throw new IllegalArgumentException("Bad sort field");
-String dir = "desc".equalsIgnoreCase(requestedDir) ? "DESC" : "ASC";
-
-String sql = "SELECT id, name FROM users ORDER BY " + column + " " + dir + " LIMIT ?";
-```
-
-Never pass user text into SQL structure, even "after escaping". More in [Input Validation and Injection](../21-security/00_input-validation-and-injection.md). Also run the application with a **least-privilege database account**, so a mistake costs less.
+## Table of Contents
+1. [1. What & Why](#1-what--why)
+2. [2. Core Concepts](#2-core-concepts)
+3. [3. How It Works Internally: Server-Side Precompilation & Wire Protocols](#3-how-it-works-internally-server-side-precompilation--wire-protocols)
+4. [4. Syntax & Usage](#4-syntax--usage)
+5. [5. Practical Examples](#5-practical-examples)
+6. [6. Best Practices](#6-best-practices)
+7. [7. Common Mistakes & Pitfalls](#7-common-mistakes--pitfalls)
+8. [8. Performance & Security Notes](#8-performance--security-notes)
+9. [9. Comparison / When to Use What](#9-comparison--when-to-use-what)
+10. [10. Interview Questions](#10-interview-questions)
+11. [11. Practice Exercises](#11-practice-exercises)
+12. [12. Summary / Cheat Sheet](#12-summary--cheat-sheet)
+13. [13. Further Reading](#13-further-reading)
 
 ---
 
-## 3. Setting parameters
+## 1. What & Why
+In relational database systems, executing a SQL string involves parsing SQL text, verifying semantic identifiers, optimizing access paths, compiling an execution plan, and finally executing the plan across table pages.
 
-```java
-ps.setString(1, "Asha");
-ps.setInt(2, 30);
-ps.setLong(3, 42L);
-ps.setBigDecimal(4, new BigDecimal("19.99"));     // money: BigDecimal, never double
-ps.setBoolean(5, true);
+Using raw `Statement` with string concatenation incurs two severe problems:
+1. **Catastrophic SQL Injection Vulnerabilities**: Malicious user input can alter SQL statement syntax, leading to data exfiltration or table destruction.
+2. **CPU Thrashing on the Database Engine**: Every unique string requires the database query planner to re-parse and re-compile execution plans from scratch.
 
-ps.setObject(6, LocalDate.of(2024, 3, 10));              // DATE
-ps.setObject(7, LocalDateTime.of(2024, 3, 10, 9, 30));   // TIMESTAMP (no zone)
-ps.setObject(8, OffsetDateTime.now(ZoneOffset.UTC));     // TIMESTAMP WITH TIME ZONE
-ps.setObject(9, UUID.randomUUID());                      // UUID (driver support: PostgreSQL yes)
-```
-
-JDBC 4.2 requires drivers to support `LocalDate`, `LocalTime`, `LocalDateTime`, `OffsetTime`, and `OffsetDateTime` through `setObject`. `Instant` and `ZonedDateTime` are driver-dependent. Convert an `Instant` with `OffsetDateTime.ofInstant(instant, ZoneOffset.UTC)` ([Date-Time Best Practices](../10-date-and-time/05_date-time-best-practices.md#5-interchange-apis-json-databases)).
-
-### `NULL`
-
-```java
-ps.setNull(3, Types.VARCHAR);                    // explicit: the type is needed by some drivers
-ps.setString(3, null);                           // typed setters with null generally work
-ps.setObject(3, null);                           // may fail on some drivers: they can't infer the type
-```
-
-Optional values: `if (phone == null) ps.setNull(i, Types.VARCHAR); else ps.setString(i, phone);`. For primitives use the wrapper type and `setNull`.
-
-### `LIKE` and wildcards
-
-The parameter holds the whole pattern. Add the `%` yourself, and escape any wildcards that came from the user:
-
-```java
-String escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
-PreparedStatement ps = conn.prepareStatement("SELECT id, name FROM users WHERE name LIKE ? ESCAPE '\\'");
-ps.setString(1, "%" + escaped + "%");
-```
-
-(Leading-`%` patterns can't use a normal B-tree index, see [SQL Essentials](00_sql-and-indexing-essentials.md#things-that-silently-defeat-an-index).)
-
-### `IN` lists
-
-A placeholder is a single value, so `IN (?)` with a list doesn't work directly. Options:
-
-```java
-// 1. Generate one placeholder per element (stay under the driver/DB parameter limit)
-String marks = ids.stream().map(x -> "?").collect(Collectors.joining(", "));
-PreparedStatement ps = conn.prepareStatement("SELECT id, name FROM users WHERE id IN (" + marks + ")");
-for (int i = 0; i < ids.size(); i++) ps.setLong(i + 1, ids.get(i));
-
-// 2. PostgreSQL: pass an array and use = ANY(?)
-Array arr = conn.createArrayOf("bigint", ids.toArray());
-PreparedStatement ps2 = conn.prepareStatement("SELECT id, name FROM users WHERE id = ANY(?)");
-ps2.setArray(1, arr);
-```
-
-The number of parameters per statement is limited (sometimes to around a thousand on some databases, tens of thousands on others). **Chunk big lists** into batches.
+`PreparedStatement` solves both problems fundamentally: it separates SQL code structure from untrusted parameter data, and enables database engines to compile and cache execution plans once and execute them repeatedly with varying parameter bindings.
 
 ---
 
-## 4. Generated keys
-
-To get the auto-generated primary key after an `INSERT`:
-
-```java
-String sql = "INSERT INTO users (email, name) VALUES (?, ?)";
-
-try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-    ps.setString(1, email);
-    ps.setString(2, name);
-    ps.executeUpdate();
-
-    try (ResultSet keys = ps.getGeneratedKeys()) {
-        if (keys.next()) return keys.getLong(1);
-    }
-}
-```
-
-On PostgreSQL (and some others) a clearer alternative is to ask the database to return it:
-
-```java
-try (PreparedStatement ps = conn.prepareStatement(
-        "INSERT INTO users (email, name) VALUES (?, ?) RETURNING id, created_at")) {
-    ps.setString(1, email);
-    ps.setString(2, name);
-    try (ResultSet rs = ps.executeQuery()) {          // run it as a query: it returns a row
-        rs.next();
-        return rs.getLong("id");
-    }
-}
-```
-
-`RETURNING` can return any columns (`id`, `created_at`, defaults), saving a second query.
+## 2. Core Concepts
+- **Statement**: Represents a basic SQL command container. Sends raw SQL text to the database engine on every execution. Suitable only for static DDL commands without user parameters.
+- **PreparedStatement**: Extends `Statement`. Pre-compiles parameterized SQL templates containing parameter placeholders (`?`). Parameters are transmitted out-of-band via binary wire protocol.
+- **CallableStatement**: Extends `PreparedStatement`. Used to execute database stored procedures and user-defined functions with `IN`, `OUT`, and `INOUT` parameters.
+- **Parameter Placeholders (`?`)**: Standard JDBC positional parameter markers (1-based index).
+- **Batch Processing**: Grouping multiple parameter sets into a single network packet transmission via `addBatch()` and `executeBatch()`, drastically reducing network latency.
+- **Generated Keys**: Retrieving auto-generated surrogate keys (e.g., `BIGINT GENERATED ALWAYS AS IDENTITY`) without issuing a separate `SELECT` query.
 
 ---
 
-## 5. Batching
+## 3. How It Works Internally: Server-Side Precompilation & Wire Protocols
 
-Sending 10,000 inserts one at a time costs 10,000 network round trips. **Batching** sends many parameter sets together:
+When using a Type 4 driver (like PostgreSQL or MySQL), `PreparedStatement` communicates via an extended query wire protocol rather than simple text:
 
+```
+Java Client                                Database Server
+    |                                             |
+    |------- 1. Parse (SQL with $1, $2) --------->| Parser / Lexer
+    |                                             | Query Planner
+    |<------ 2. ParseComplete (Plan Cached) ------| Creates Generic Plan
+    |                                             |
+    |------- 3. Bind (Binary Parameter Values) -->| Substitutes values into plan
+    |------- 4. Execute ------------------------->| Executes optimized plan
+    |<------ 5. Data Rows / CommandComplete ------| Returns ResultSet / UpdateCount
+    |                                             |
+```
+
+### PostgreSQL Extended Query Protocol Steps:
+1. **Parse**: The driver sends the SQL template string to the backend. The backend compiles the AST (Abstract Syntax Tree) and caches the generic plan.
+2. **Bind**: The driver transmits binary parameter values corresponding to parameters `$1, $2, \dots`. Because parameters are sent strictly as typed binary payloads, user input can **never** be interpreted as executable SQL syntax.
+3. **Execute**: The server runs the cached plan against the bound parameters and streams results back.
+4. **Server-Side Statement Cache**: Modern drivers (e.g., PgJDBC with `prepareThreshold=5`) automatically promote client-side prepared statements to named server-side prepared statements after repeated executions, bypassing server parsing entirely.
+
+---
+
+## 4. Syntax & Usage
+
+### 4.1 Safe Parameterized Queries
 ```java
-String sql = "INSERT INTO orders (user_id, total, status) VALUES (?, ?, ?)";
+package com.example.jdbc;
 
-conn.setAutoCommit(false);                      // one transaction for the whole load
-try (PreparedStatement ps = conn.prepareStatement(sql)) {
-    int count = 0;
-    for (OrderRow o : rows) {
-        ps.setLong(1, o.userId());
-        ps.setBigDecimal(2, o.total());
-        ps.setString(3, o.status());
-        ps.addBatch();                          // queue this parameter set
+import java.math.BigDecimal;
+import java.sql.*;
+import java.time.Instant;
 
-        if (++count % 1_000 == 0) {
-            ps.executeBatch();                  // send in chunks, so memory and packet sizes stay bounded
+public final class PreparedStatementDemo {
+
+    public static void executeTransfer(Connection conn, long fromAcc, long toAcc, BigDecimal amount) throws SQLException {
+        String deductSql = "UPDATE accounts SET balance = balance - ? WHERE id = ? AND balance >= ?";
+        String creditSql = "UPDATE accounts SET balance = balance + ? WHERE id = ?";
+
+        // PreparedStatement with 1-based indexed parameter binding
+        try (PreparedStatement psDeduct = conn.prepareStatement(deductSql);
+             PreparedStatement psCredit = conn.prepareStatement(creditSql)) {
+
+            // Bind deduction parameters
+            psDeduct.setBigDecimal(1, amount);
+            psDeduct.setLong(2, fromAcc);
+            psDeduct.setBigDecimal(3, amount);
+
+            int rows = psDeduct.executeUpdate();
+            if (rows == 0) {
+                throw new SQLException("Insufficient funds or account not found for ID: " + fromAcc);
+            }
+
+            // Bind credit parameters
+            psCredit.setBigDecimal(1, amount);
+            psCredit.setLong(2, toAcc);
+            psCredit.executeUpdate();
         }
     }
-    ps.executeBatch();                          // the remainder
-    conn.commit();
-} catch (SQLException e) {
-    conn.rollback();
-    throw e;
 }
 ```
 
-Details:
+### 4.2 High-Throughput Batch Processing
+```java
+package com.example.jdbc;
 
-- `executeBatch()` returns an `int[]` of update counts. `Statement.SUCCESS_NO_INFO` (-2) means "succeeded, count unknown". `EXECUTE_FAILED` (-3) means that item failed.
-- On failure you get a `BatchUpdateException` with `getUpdateCounts()`. Whether the remaining items ran depends on the driver, so wrap the batch in a **transaction** and roll back as a unit ([Transactions](04_transactions.md)).
-- Chunk the batches (a few hundred to a few thousand rows). Huge batches use lots of memory and can hit packet limits.
-- Many drivers only get the **real speedup** with a driver option that rewrites batches into multi-row statements or uses the protocol's batch support: for example `reWriteBatchedInserts=true` on the PostgreSQL driver and `rewriteBatchedStatements=true` on MySQL Connector/J. Check your driver's documentation, and measure.
-- For truly bulk loads, use the database's native tool: PostgreSQL `COPY` (through the driver's `CopyManager`), MySQL `LOAD DATA`, SQL Server bulk copy.
-- Batching works for `INSERT`/`UPDATE`/`DELETE`, not `SELECT`.
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.util.List;
+
+public final class BatchInsertDemo {
+    public record OrderItem(long orderId, String sku, int quantity, double price) {}
+
+    public static void insertOrderItemsBatch(Connection conn, List<OrderItem> items) throws SQLException {
+        String sql = "INSERT INTO order_items (order_id, sku, quantity, unit_price) VALUES (?, ?, ?, ?)";
+
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            int batchCount = 0;
+            for (OrderItem item : items) {
+                ps.setLong(1, item.orderId());
+                ps.setString(2, item.sku());
+                ps.setInt(3, item.quantity());
+                ps.setDouble(4, item.price());
+                ps.addBatch();
+
+                // Flush every 500 records to balance memory consumption and network packets
+                if (++batchCount % 500 == 0) {
+                    ps.executeBatch();
+                }
+            }
+            if (batchCount % 500 != 0) {
+                ps.executeBatch(); // Flush remaining
+            }
+        }
+    }
+}
+```
 
 ---
 
-## 6. Calling stored procedures
+## 5. Practical Examples
+
+### Example 1: Basic Parameter Binding with java.time and BigDecimal
+```java
+package com.example.jdbc;
+
+import java.math.BigDecimal;
+import java.sql.*;
+import java.time.Instant;
+
+public final class DateTimeBindingDemo {
+    public static void logAuditRecord(Connection conn, String action, String user, Instant timestamp) throws SQLException {
+        String sql = "INSERT INTO audit_logs (action, username, event_time) VALUES (?, ?, ?)";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, action);
+            ps.setString(2, user);
+            // Binding modern Instant via Timestamp conversion or setObject
+            ps.setTimestamp(3, Timestamp.from(timestamp));
+            ps.executeUpdate();
+        }
+    }
+}
+```
+
+### Example 2: Real-World Batch Insertion with Transaction Control
+```java
+package com.example.jdbc;
+
+import java.sql.*;
+import java.util.Arrays;
+
+public final class TransactionalBatchService {
+    public static void processBatch(Connection conn) throws SQLException {
+        boolean originalAutoCommit = conn.getAutoCommit();
+        conn.setAutoCommit(false); // Begin manual transaction
+
+        String sql = "INSERT INTO metric_samples (metric_name, val, recorded_at) VALUES (?, ?, NOW())";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            for (int i = 0; i < 1000; i++) {
+                ps.setString(1, "cpu_usage");
+                ps.setDouble(2, Math.random() * 100.0);
+                ps.addBatch();
+            }
+
+            int[] updateCounts = ps.executeBatch();
+            System.out.println("Batch executed successfully. Elements: " + updateCounts.length);
+            conn.commit(); // Commit transaction
+        } catch (SQLException ex) {
+            conn.rollback(); // Rollback on failure
+            throw ex;
+        } finally {
+            conn.setAutoCommit(originalAutoCommit);
+        }
+    }
+}
+```
+
+### Example 3: Edge Case - Handling IN Clauses with Dynamic Parameters
+```java
+package com.example.jdbc;
+
+import java.sql.*;
+import java.util.List;
+
+public final class DynamicInClauseDemo {
+    // In standard JDBC, `WHERE id IN (?)` cannot accept a List or Array directly on all databases.
+    public static void queryWithInClause(Connection conn, List<Long> ids) throws SQLException {
+        if (ids.isEmpty()) return;
+
+        // Generate ? placeholders dynamically: "?, ?, ?"
+        StringBuilder sb = new StringBuilder("SELECT id, name FROM users WHERE id IN (");
+        for (int i = 0; i < ids.size(); i++) {
+            sb.append(i == 0 ? "?" : ", ?");
+        }
+        sb.append(")");
+
+        try (PreparedStatement ps = conn.prepareStatement(sb.toString())) {
+            for (int i = 0; i < ids.size(); i++) {
+                ps.setLong(i + 1, ids.get(i)); // 1-based parameter indexing
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    System.out.println("User: " + rs.getString("name"));
+                }
+            }
+        }
+    }
+}
+```
+
+### Example 4: Failure Case - SQL Injection Demonstration
+```java
+// VULNERABLE: Direct string concatenation
+public static void vulnerableLogin(Connection conn, String userInput, String passInput) throws SQLException {
+    Statement stmt = conn.createStatement();
+    // If userInput is: admin' --
+    String sql = "SELECT * FROM users WHERE username = '" + userInput + "' AND password = '" + passInput + "'";
+    // Evaluates to: SELECT * FROM users WHERE username = 'admin' --' AND password = '...'
+    // Bypasses password check completely!
+    ResultSet rs = stmt.executeQuery(sql);
+}
+
+// SAFE: PreparedStatement
+public static void safeLogin(Connection conn, String userInput, String passInput) throws SQLException {
+    String sql = "SELECT * FROM users WHERE username = ? AND password = ?";
+    try (PreparedStatement ps = conn.prepareStatement(sql)) {
+        ps.setString(1, userInput);
+        ps.setString(2, passInput);
+        try (ResultSet rs = ps.executeQuery()) {
+            // Parameter data cannot alter SQL grammar
+        }
+    }
+}
+```
+
+---
+
+## 6. Best Practices
+1. **Always Use PreparedStatement for DML and Queries**: Never use string concatenation to embed variables into SQL strings.
+2. **Batch Large Inserts and Updates**: Use `addBatch()` and `executeBatch()` with chunks of 200–1000 items to avoid network round-trip overhead.
+3. **Use Explicit Parameter Setters**: Call type-safe methods like `setLong`, `setString`, `setBigDecimal` instead of `setObject()` whenever possible.
+4. **Turn Off AutoCommit During Batches**: Disabling autocommit prevents the database from writing a transaction log commit record for each individual row.
+5. **Set Fetch Size on Large ResultSets**: Call `statement.setFetchSize(500)` when iterating over large tables to prevent loading millions of rows into JVM heap memory.
+6. **Reuse PreparedStatements within Loops**: Create the `PreparedStatement` once outside the loop and clear parameters via `ps.clearParameters()` or simply re-bind them.
+7. **Always Close Statements in Try-with-Resources**: Avoid cursor leaks on the database server.
+8. **Check executeBatch Return Array**: Verify the returned `int[]` array for `Statement.EXECUTE_FAILED`.
+
+---
+
+## 7. Common Mistakes & Pitfalls
+
+| Mistake | Why It Fails | Correction |
+|---|---|---|
+| String concatenation in SQL | Allows severe SQL injection attacks | Use `PreparedStatement` with `?` markers |
+| Using 0-based index for parameters | JDBC parameter indexes start at 1; throws `SQLException` | Always use 1-based indexing (`ps.setString(1, ...)`)|
+| Forgetting to call `executeBatch()` | Queued statements remain in client memory and are never sent to DB | Always invoke `ps.executeBatch()` |
+| Passing huge unbatched lists to `IN (?)` | Exceeds database maximum parameter limits (e.g., 32,767 in PostgreSQL) | Batch IDs into chunks of 500 or use temporary tables |
+| Creating PreparedStatement inside tight loop | Defeats statement caching and wastes JVM memory | Create statement once before loop, rebind parameters |
+| Failing to disable autocommit in batches | Each batch item incurs separate disk flush on DB | Execute `conn.setAutoCommit(false)` before batch |
+| Calling `executeBatch()` without checking return codes | Hides partial batch execution failures | Inspect `int[]` return array for `Statement.EXECUTE_FAILED` |
+| Calling `rs.close()` but leaving `ps` open | Causes resource leak in database backend | Enclose in try-with-resources |
+
+---
+
+## 8. Performance & Security Notes
+- **Query Plan Reusability**: PreparedStatement enables database engines to compile an execution plan once. For 10,000 rapid queries, this eliminates seconds of parsing and planning overhead.
+- **Binary Wire Protocol**: Prepared statements transfer parameters in compact binary representation (e.g., 4 bytes for integer, 8 bytes for double) instead of ASCII string representations, reducing network serialization cost.
+- **Client-Side vs Server-Side Statements**: Some drivers (e.g., MySQL Connector/J) emulate prepared statements on the client side by default (`useServerPrepStmts=false`). For true server-side precompilation, configure server-side flags in JDBC URL.
+- **Batch Error Handling**: When a statement in a batch fails, `BatchUpdateException` is thrown. The method `ex.getUpdateCounts()` indicates which statements succeeded before the failure.
+- **Parameter Sensitivity**: Occasionally, generic plans can choose suboptimal paths if the planner doesn't evaluate column histogram values. Modern engines evaluate specific plans on first execution before falling back to generic plans.
+
+---
+
+## 9. Comparison / When to Use What
+
+| Feature | Statement | PreparedStatement | CallableStatement |
+|---|---|---|---|
+| **SQL Injection Safe** | No (requires manual escaping) | Yes (immune by design) | Yes |
+| **Execution Plan Caching** | No (parsed every execution) | Yes (reusable generic plan) | Yes |
+| **Batch Processing** | Yes (concatenates raw SQL) | Yes (efficient parameter arrays)| No |
+| **Stored Procedures** | Limited | Limited | Native (`OUT` parameters) |
+| **Best Used For** | Static DDL (`CREATE`, `DROP`) | 99% of DML and SELECTs | Legacy database stored procedures |
+
+---
+
+## 10. Interview Questions
+
+<details>
+<summary>1. How does PreparedStatement prevent SQL Injection at the database protocol level?</summary>
+PreparedStatement transmits the SQL template and the parameter values separately across the network protocol. The database engine parses and compiles the SQL syntax into an execution plan first. When parameter values are bound in a subsequent step, they are treated strictly as literal data values in memory cells, making it syntactically impossible for input strings like <code>' OR '1'='1</code> to modify the abstract syntax tree or command structure.
+</details>
+
+<details>
+<summary>2. Why are JDBC parameter indexes 1-based instead of 0-based?</summary>
+JDBC was designed to align with the ANSI SQL standard, which historically uses 1-based indexing for ordinal positions of columns and parameters in relational catalogs. Starting at index 1 also differentiates positional parameters from array offsets in C/Java.
+</details>
+
+<details>
+<summary>3. What is the performance impact of autocommit when executing batch updates?</summary>
+When autocommit is enabled (the default), the database engine must commit a separate transaction and synchronously flush its Write-Ahead Log (WAL) to disk for every individual batch statement. Disabling autocommit (<code>conn.setAutoCommit(false)</code>) wraps the entire batch in a single transaction, requiring only one disk flush at the end, improving throughput by orders of magnitude.
+</details>
+
+<details>
+<summary>4. What does the int[] array returned by executeBatch() represent?</summary>
+Each element in the returned <code>int[]</code> array corresponds to the update count of a statement in the batch in the order added. Values $\ge 0$ denote the number of rows affected. <code>Statement.SUCCESS_NO_INFO (-2)</code> indicates successful execution where the row count was not tracked. <code>Statement.EXECUTE_FAILED (-3)</code> denotes failure (in drivers that continue batch execution after errors).
+</details>
+
+<details>
+<summary>5. How do you handle a variable number of parameters in an IN clause with PreparedStatement?</summary>
+Standard JDBC does not allow binding a Java List or collection to a single <code>?</code> placeholder. You must either dynamically construct the SQL string with an exact number of <code>?</code> placeholders matching the collection size, chunk the collection into fixed batches (e.g., 50), or use database-specific array binding (e.g., <code>conn.createArrayOf("BIGINT", ids)</code> and <code>WHERE id = ANY(?)</code> in PostgreSQL).
+</details>
+
+<details>
+<summary>6. What is the difference between client-side prepared statements and server-side prepared statements?</summary>
+In client-side prepared statements, the JDBC driver escapes strings and substitutes parameters locally into raw SQL before sending text to the server. In server-side prepared statements, the driver sends the template to the server to be parsed and prepared (assigning a statement handle), and subsequent executions transmit only the handle and binary parameter values, saving database CPU.
+</details>
+
+<details>
+<summary>7. What happens if you call addBatch() with a SELECT query on a PreparedStatement?</summary>
+The JDBC specification specifies that <code>addBatch()</code> and <code>executeBatch()</code> are designed for statements returning update counts (DML statements like INSERT, UPDATE, DELETE). If a query that produces a <code>ResultSet</code> is added to a batch, calling <code>executeBatch()</code> will throw a <code>SQLException</code>.
+</details>
+
+<details>
+<summary>8. How do you retrieve generated primary keys when executing an INSERT via PreparedStatement?</summary>
+You must pass <code>Statement.RETURN_GENERATED_KEYS</code> as the second argument to <code>conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)</code>. After calling <code>executeUpdate()</code>, call <code>ps.getGeneratedKeys()</code> which returns a <code>ResultSet</code> containing the generated keys.
+</details>
+
+<details>
+<summary>9. What is Statement pooling in connection pools like HikariCP?</summary>
+Statement pooling caches open <code>PreparedStatement</code> instances across transactions on the same physical connection. When an application prepares the exact same SQL string, the pool returns the existing prepared statement rather than re-allocating driver structures and requesting server plan re-parsing.
+</details>
+
+<details>
+<summary>10. What is the function of ps.clearParameters()?</summary>
+<code>clearParameters()</code> immediately clears all parameter bindings on the current <code>PreparedStatement</code>, allowing it to be safely reused with completely new parameter values without retaining references to earlier objects in driver memory.
+</details>
+
+---
+
+## 11. Practice Exercises
+
+<details>
+<summary>Exercise 1: Write a robust batch update method that updates employee salaries and handles BatchUpdateException.</summary>
 
 ```java
-try (CallableStatement cs = conn.prepareCall("{ call transfer_funds(?, ?, ?) }")) {
-    cs.setLong(1, fromId);
-    cs.setLong(2, toId);
-    cs.setBigDecimal(3, amount);
-    cs.execute();
-}
+public static void updateSalariesBatch(Connection conn, Map<Long, BigDecimal> raises) throws SQLException {
+    String sql = "UPDATE employees SET salary = salary + ? WHERE id = ?";
+    boolean autoCommit = conn.getAutoCommit();
+    conn.setAutoCommit(false);
 
-// Functions / OUT parameters
-try (CallableStatement cs = conn.prepareCall("{ ? = call order_total(?) }")) {
-    cs.registerOutParameter(1, Types.NUMERIC);
-    cs.setLong(2, orderId);
-    cs.execute();
-    BigDecimal total = cs.getBigDecimal(1);
+    try (PreparedStatement ps = conn.prepareStatement(sql)) {
+        for (var entry : raises.entrySet()) {
+            ps.setBigDecimal(1, entry.getValue());
+            ps.setLong(2, entry.getKey());
+            ps.addBatch();
+        }
+        int[] results = ps.executeBatch();
+        conn.commit();
+        System.out.println("Updated employees: " + results.length);
+    } catch (BatchUpdateException bue) {
+        conn.rollback();
+        System.err.println("Batch failed! Completed before error: " + bue.getUpdateCounts().length);
+        throw bue;
+    } finally {
+        conn.setAutoCommit(autoCommit);
+    }
 }
 ```
+</details>
 
-The `{ call ... }` escape syntax is portable. Procedure syntax and semantics (especially PostgreSQL functions vs procedures) vary by database. Prefer plain SQL in the application unless stored logic is an existing part of your system.
-
----
-
-## 7. Dynamic queries, safely
-
-Optional search filters are the most common reason people start concatenating. Do it by building the **structure** from fixed fragments and collecting **values** in a parameter list:
+<details>
+<summary>Exercise 2: Write a method using PostgreSQL array binding (ANY) instead of dynamic IN clauses.</summary>
 
 ```java
-StringBuilder sql = new StringBuilder("SELECT id, email, name FROM users WHERE 1 = 1");
-List<Object> params = new ArrayList<>();
-
-if (name != null)  { sql.append(" AND name ILIKE ?");        params.add("%" + name + "%"); }
-if (since != null) { sql.append(" AND created_at >= ?");     params.add(since); }
-if (email != null) { sql.append(" AND email = ?");           params.add(email); }
-sql.append(" ORDER BY id LIMIT ? OFFSET ?");
-params.add(limit); params.add(offset);
-
-try (PreparedStatement ps = conn.prepareStatement(sql.toString())) {
-    for (int i = 0; i < params.size(); i++) ps.setObject(i + 1, params.get(i));
-    ...
+public static void findUsersByIdArray(Connection conn, Long[] userIds) throws SQLException {
+    String sql = "SELECT id, name FROM users WHERE id = ANY(?)";
+    Array sqlArray = conn.createArrayOf("BIGINT", userIds);
+    try (PreparedStatement ps = conn.prepareStatement(sql)) {
+        ps.setArray(1, sqlArray);
+        try (ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                System.out.println("User: " + rs.getString("name"));
+            }
+        }
+    } finally {
+        sqlArray.free(); // Free native driver memory
+    }
 }
 ```
+</details>
 
-Every piece of text appended to `sql` is a literal in your code, and all user input goes through `params`. For complex dynamic queries, a query builder (jOOQ, Spring's `JdbcClient`, JPA Criteria/Specifications) is safer and more readable than hand-rolled `StringBuilder` logic ([From JDBC to ORM](07_from-jdbc-to-orm.md)).
+<details>
+<summary>Exercise 3: Demonstrate how to call a stored procedure returning an OUT parameter via CallableStatement.</summary>
 
-JDBC has **no named parameters** (`:name`). Libraries such as Spring's `NamedParameterJdbcTemplate` and JDBI add them.
+```java
+public static BigDecimal getCustomerTotalSpend(Connection conn, long customerId) throws SQLException {
+    String callSql = "{call calculate_customer_spend(?, ?)}";
+    try (CallableStatement cs = conn.prepareCall(callSql)) {
+        cs.setLong(1, customerId);
+        cs.registerOutParameter(2, Types.NUMERIC);
+        cs.execute();
+        return cs.getBigDecimal(2);
+    }
+}
+```
+</details>
 
----
+<details>
+<summary>Exercise 4: Implement an idempotent upsert method using ON CONFLICT / ON DUPLICATE KEY.</summary>
 
-## 8. Prepared statement performance and reuse
-
-- The database **parses and plans** a statement once, so repeated execution with different parameters avoids re-parsing. Drivers and databases may cache prepared statements per connection (PostgreSQL's driver switches to server-side prepared statements after a threshold of repeated executions).
-- Reuse one `PreparedStatement` across a loop (and batch) instead of preparing the same SQL repeatedly in a loop.
-- Inlining literals (`WHERE id = 42`) produces a *different* SQL text for every value, which defeats statement caching and floods the cache. Parameters keep the text identical.
-- Plans built for one parameter value can be suboptimal for others (skewed data). This "parameter sniffing" behavior is database-specific and uncommon, but worth knowing when a query is fast in a SQL console and slow from the app.
-- Other `Statement` knobs: `setFetchSize` (see [note 03](03_resultset-and-data-mapping.md#5-large-results-and-fetch-size)), `setMaxRows`, `setQueryTimeout`.
-
----
-
-## Common mistakes
-
-| Mistake | Fix |
-|---|---|
-| String concatenation or `String.format` to build SQL with user values | `?` parameters |
-| Trying to parameterize table/column names or `ORDER BY` | Allow-list lookup, then append the safe text |
-| `setObject(i, null)` failing on some drivers | `setNull(i, Types.X)` |
-| Forgetting `LIKE` wildcard escaping from user input | Escape `%`, `_`, `\` |
-| `IN (?)` with a list | Generated placeholders or `= ANY(?)` |
-| One-by-one inserts for bulk loads | Batch in chunks inside one transaction |
-| Not checking `executeUpdate`'s count | `0` often means "no matching row" |
-| Using `double` for money parameters | `BigDecimal` |
-| Passing `java.util.Date` or `String` for dates | `java.time` types via `setObject` |
-| Building a new `PreparedStatement` per row in a loop | Prepare once, execute many (or batch) |
-| Logging SQL with parameter values containing secrets/PII | Mask or avoid |
-
-### Debugging
-
-- `Syntax error at or near "?"` → you parameterized something that isn't a value (identifier, keyword, or `LIMIT` in some dialects).
-- `The column index is out of range` / `No value specified for parameter N` → the number of `?` and `set...` calls differ (common with dynamic SQL).
-- `operator does not exist: character varying = integer` → wrong Java type bound to a parameter. Bind the correct type, because implicit casts also kill index use.
-- A batch that is "not faster" → missing driver rewrite option, autocommit left on, or batches too small.
-- Query fast in `psql`, slow from Java → compare bound parameter *types* and the plan (`EXPLAIN` with the same parameter types), plus fetch size and network latency.
+```java
+public static void upsertUserPreference(Connection conn, long userId, String prefKey, String prefVal) throws SQLException {
+    String sql = """
+        INSERT INTO user_preferences (user_id, pref_key, pref_val)
+        VALUES (?, ?, ?)
+        ON CONFLICT (user_id, pref_key)
+        DO UPDATE SET pref_val = EXCLUDED.pref_val, updated_at = CURRENT_TIMESTAMP
+        """;
+    try (PreparedStatement ps = conn.prepareStatement(sql)) {
+        ps.setLong(1, userId);
+        ps.setString(2, prefKey);
+        ps.setString(3, prefVal);
+        ps.executeUpdate();
+    }
+}
+```
+</details>
 
 ---
 
-## Quick Summary
+## 12. Summary / Cheat Sheet
+- **PreparedStatement**: Always use for queries with user parameters to guarantee SQL injection immunity.
+- **Parameter Markers**: Use `?` placeholders with 1-based indexing (`ps.setString(1, ...)`).
+- **Batch Processing**: Combine `ps.addBatch()` with `ps.executeBatch()` in chunks of 500 rows.
+- **Transaction Boundary**: Always disable autocommit (`conn.setAutoCommit(false)`) before batch processing.
+- **Resource Management**: PreparedStatement and ResultSet must be closed via try-with-resources.
+- **Generated Keys**: Pass `Statement.RETURN_GENERATED_KEYS` to capture surrogate primary keys.
 
-- Use **`PreparedStatement` with `?` placeholders** for every query with variable input. Values travel separately from SQL, which eliminates SQL injection.
-- Parameters are **values only**. Allow-list anything structural (column, table, sort direction).
-- Bind real types: `BigDecimal` for money, `java.time` for dates, `setNull` for nulls. Escape `LIKE` wildcards. Handle `IN` with generated placeholders or `ANY(?)`.
-- Get generated keys with `RETURN_GENERATED_KEYS` (or `RETURNING` on PostgreSQL).
-- **Batch** bulk writes in chunks inside one transaction, and enable your driver's batch rewrite option. Use native bulk-load tools for huge loads.
-- Build dynamic filters from fixed SQL fragments plus a parameter list, or use a query builder.
+---
 
-**Next:** [ResultSet and Data Mapping](03_resultset-and-data-mapping.md)
+## 13. Further Reading
+- OWASP Top 10: SQL Injection Prevention Cheat Sheet
+- PostgreSQL Extended Query Protocol Specification
+- MySQL Connector/J Performance Options: `rewriteBatchedStatements`
+- *Java Persistence with Spring Data and Hibernate* by Christian Bauer

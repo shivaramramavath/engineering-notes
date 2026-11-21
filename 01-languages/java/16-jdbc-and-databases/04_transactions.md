@@ -1,300 +1,472 @@
-# Transactions
+# Database Transactions and Isolation Levels
 
-A **transaction** groups several database operations into one all-or-nothing unit. Either every change in it becomes permanent (**commit**), or none of them do (**rollback**). Without transactions, a crash or exception halfway through "debit one account, credit another" leaves money missing. With concurrent users, interleaved reads and writes produce results no serial execution would give.
+> ACID transaction guarantees, programmatic transaction demarcation, and ANSI SQL isolation anomalies in high-concurrency Java enterprise architectures.
 
-Transactions are the most important correctness tool a database offers, and the source of most subtle data bugs when misunderstood.
-
-**Prerequisites:** [JDBC Fundamentals](01_jdbc-fundamentals.md), [Statements and Prepared Statements](02_statements-and-prepared-statements.md), [Thread Safety](../14-concurrency/02_thread-safety.md) (the same race-condition ideas apply).
-
----
-
-## 1. ACID
-
-| Property | Meaning |
+| Metadata | Details |
 |---|---|
-| **Atomicity** | All changes in the transaction happen, or none do |
-| **Consistency** | The transaction moves the database from one valid state to another (constraints hold) |
-| **Isolation** | Concurrent transactions don't see each other's half-finished work (to a degree you choose) |
-| **Durability** | After commit, the data survives crashes |
-
-Atomicity and durability come from the database engine (a write-ahead log). **Consistency** is a joint effort of your constraints and your logic. **Isolation** is a trade-off you configure ([section 3](#3-isolation-levels-and-anomalies)).
+| **Level** | Core / Advanced |
+| **Prerequisites** | JDBC Fundamentals, Concurrency Basics |
+| **Time to Read** | 30 minutes |
+| **Status** | Complete |
+| **JDK Baseline** | Java 17 / 21 / 25 LTS |
 
 ---
 
-## 2. Transactions in JDBC
+## Table of Contents
+1. [1. What & Why](#1-what--why)
+2. [2. Core Concepts](#2-core-concepts)
+3. [3. How It Works Internally: WAL, Lock Managers & MVCC](#3-how-it-works-internally-wal-lock-managers--mvcc)
+4. [4. Syntax & Usage](#4-syntax--usage)
+5. [5. Practical Examples](#5-practical-examples)
+6. [6. Best Practices](#6-best-practices)
+7. [7. Common Mistakes & Pitfalls](#7-common-mistakes--pitfalls)
+8. [8. Performance & Security Notes](#8-performance--security-notes)
+9. [9. Comparison / When to Use What](#9-comparison--when-to-use-what)
+10. [10. Interview Questions](#10-interview-questions)
+11. [11. Practice Exercises](#11-practice-exercises)
+12. [12. Summary / Cheat Sheet](#12-summary--cheat-sheet)
+13. [13. Further Reading](#13-further-reading)
 
-By default a `Connection` is in **auto-commit** mode: *every statement is its own transaction*, committed immediately. To group statements, turn it off:
+---
 
+## 1. What & Why
+In enterprise business applications, a single logical business operation frequently requires updating multiple relational records across different tables. If an error occurs halfway through—such as debiting account A before credit to account B fails—the database must guarantee that partial changes are cleanly undone.
+
+A **Transaction** is an atomic unit of work providing ACID guarantees (Atomicity, Consistency, Isolation, Durability). In JDBC, transaction control is managed directly on the `Connection` object via `setAutoCommit(false)`, `commit()`, and `rollback()`. Concurrently running transactions face concurrency phenomena (dirty reads, non-repeatable reads, phantom reads, and lost updates). Selecting the proper isolation level balances strict data correctness against transaction throughput and lock contention.
+
+---
+
+## 2. Core Concepts
+- **ACID Guarantees**:
+  - **Atomicity**: All operations succeed or none do ("all-or-nothing").
+  - **Consistency**: Database transitions from one valid state satisfying all declarative constraints to another.
+  - **Isolation**: Concurrent transactions execute without mutual interference.
+  - **Durability**: Committed data survives system crashes, power failures, and OS halts.
+- **AutoCommit**: JDBC defaults to `autoCommit = true`, committing every individual SQL statement automatically. Disabling it initiates a manual transaction boundary.
+- **Savepoints**: Intermediate checkpoint markers within an uncommitted transaction allowing partial rollback without aborting the entire transaction.
+- **Isolation Levels (ANSI SQL)**:
+  1. `TRANSACTION_READ_UNCOMMITTED`: Allows reading uncommitted changes (dirty reads).
+  2. `TRANSACTION_READ_COMMITTED`: Reads only committed data; allows non-repeatable reads and phantom reads.
+  3. `TRANSACTION_REPEATABLE_READ`: Guarantees consistent reads within the same transaction; prevents non-repeatable reads.
+  4. `TRANSACTION_SERIALIZABLE`: Highest isolation; eliminates all concurrency anomalies by enforcing serializable order.
+
+---
+
+## 3. How It Works Internally: WAL, Lock Managers & MVCC
+
+Under the hood, relational engines ensure Atomicity and Durability using a Write-Ahead Log (WAL / Redo Log) and maintain Isolation via Multi-Version Concurrency Control (MVCC) and Lock Managers:
+
+```
++-------------------------------------------------------+
+|                 JDBC Client Thread                    |
+|       conn.setAutoCommit(false); ps.executeUpdate();  |
++-------------------------------------------------------+
+                           |
+                           v
++-------------------------------------------------------+
+|             Database Engine MVCC & Engine             |
+|  1. Writes undo/redo record into WAL Buffer Cache     |
+|  2. Modifies data page in Shared Buffers memory       |
+|  3. Transaction ID assigned (xmin, xmax in Postgres)  |
++-------------------------------------------------------+
+                           |
+                  conn.commit();
+                           |
+                           v
++-------------------------------------------------------+
+|              Synchronous WAL Disk Flush               |
+|  Flushes WAL buffer to physical SSD disk (fsync)      |
+|  Transaction status marked COMMITTED in pg_xact       |
++-------------------------------------------------------+
+```
+
+### MVCC vs Two-Phase Locking (2PL)
+- **Two-Phase Locking (2PL)**: Traditional locking engines (e.g., standard SQL Server without RCSI). Readers acquire Shared (S) locks, blocking writers; writers acquire Exclusive (X) locks, blocking readers and writers. High lock contention.
+- **Multi-Version Concurrency Control (MVCC)**: Modern engines (PostgreSQL, MySQL InnoDB, Oracle). "Readers never block writers, and writers never block readers." When a row is modified, a new version is created with a timestamp/transaction ID. Readers query the snapshot matching their transaction start time without locking table rows.
+
+---
+
+## 4. Syntax & Usage
+
+### 4.1 Programmatic JDBC Transaction Demarcation
 ```java
-void transfer(DataSource ds, long fromId, long toId, BigDecimal amount) throws SQLException {
-    try (Connection conn = ds.getConnection()) {
-        conn.setAutoCommit(false);                       // BEGIN
-        try {
-            debit(conn, fromId, amount);                 // all statements use THE SAME connection
-            credit(conn, toId, amount);
-            conn.commit();                               // make it permanent
-        } catch (SQLException | RuntimeException e) {
-            conn.rollback();                             // undo everything since the last commit
-            throw e;
+package com.example.jdbc;
+
+import java.math.BigDecimal;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import javax.sql.DataSource;
+
+public final class BankTransferService {
+
+    public static void transferFunds(DataSource ds, long fromId, long toId, BigDecimal amount) throws SQLException {
+        String debitSql = "UPDATE accounts SET balance = balance - ? WHERE id = ? AND balance >= ?";
+        String creditSql = "UPDATE accounts SET balance = balance + ? WHERE id = ?";
+
+        try (Connection conn = ds.getConnection()) {
+            // Step 1: Disable autocommit to demarcate transaction start
+            conn.setAutoCommit(false);
+            conn.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
+
+            try (PreparedStatement psDebit = conn.prepareStatement(debitSql);
+                 PreparedStatement psCredit = conn.prepareStatement(creditSql)) {
+
+                // Execute Debit
+                psDebit.setBigDecimal(1, amount);
+                psDebit.setLong(2, fromId);
+                psDebit.setBigDecimal(3, amount);
+                int debitRows = psDebit.executeUpdate();
+                if (debitRows == 0) {
+                    throw new IllegalStateException("Insufficient balance or sender account not found: " + fromId);
+                }
+
+                // Execute Credit
+                psCredit.setBigDecimal(1, amount);
+                psCredit.setLong(2, toId);
+                int creditRows = psCredit.executeUpdate();
+                if (creditRows == 0) {
+                    throw new IllegalStateException("Recipient account not found: " + toId);
+                }
+
+                // Step 2: Explicitly commit all changes
+                conn.commit();
+                System.out.println("Transfer committed successfully.");
+
+            } catch (Exception ex) {
+                // Step 3: Explicitly rollback on any failure
+                conn.rollback();
+                System.err.println("Transaction rolled back due to error: " + ex.getMessage());
+                throw (ex instanceof SQLException sqlEx) ? sqlEx : new SQLException(ex);
+            } finally {
+                // Step 4: Always restore autocommit before returning connection to pool!
+                conn.setAutoCommit(true);
+            }
         }
     }
 }
+```
 
-private void debit(Connection conn, long id, BigDecimal amount) throws SQLException {
-    String sql = "UPDATE accounts SET balance = balance - ? WHERE id = ? AND balance >= ?";
+### 4.2 Savepoint Mechanics
+```java
+package com.example.jdbc;
+
+import java.sql.*;
+
+public final class SavepointDemo {
+    public static void executeWithSavepoint(Connection conn) throws SQLException {
+        conn.setAutoCommit(false);
+
+        try (PreparedStatement ps1 = conn.prepareStatement("INSERT INTO logs (msg) VALUES ('Task A')");
+             PreparedStatement ps2 = conn.prepareStatement("INSERT INTO logs (msg) VALUES ('Task B')")) {
+
+            ps1.executeUpdate();
+            Savepoint sp = conn.setSavepoint("Savepoint_After_A");
+
+            try {
+                ps2.executeUpdate();
+                // If special condition triggers, rollback only Task B:
+                boolean taskBFallbackNeeded = true;
+                if (taskBFallbackNeeded) {
+                    conn.rollback(sp); // Task A remains intact!
+                }
+            } catch (SQLException ex) {
+                conn.rollback(sp); // Undo only Task B
+            }
+
+            conn.commit(); // Task A is committed
+        } finally {
+            conn.setAutoCommit(true);
+        }
+    }
+}
+```
+
+---
+
+## 5. Practical Examples
+
+### Example 1: Basic Isolation Level Configuration
+```java
+package com.example.jdbc;
+
+import java.sql.Connection;
+import java.sql.SQLException;
+
+public final class IsolationDemo {
+    public static void configureSerializable(Connection conn) throws SQLException {
+        if (conn.getMetaData().supportsTransactionIsolationLevel(Connection.TRANSACTION_SERIALIZABLE)) {
+            conn.setTransactionIsolation(Connection.TRANSACTION_SERIALIZABLE);
+        } else {
+            conn.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
+        }
+    }
+}
+```
+
+### Example 2: Real-World Serializable Retry Loop
+```java
+package com.example.jdbc;
+
+import java.sql.Connection;
+import java.sql.SQLException;
+import javax.sql.DataSource;
+
+public final class SerializableRetryManager {
+    // When using SERIALIZABLE isolation, concurrent conflicts throw serialization failure (SQLState 40001)
+    public static void executeSerializableWithRetry(DataSource ds, RunnableTx tx, int maxRetries) throws SQLException {
+        int attempts = 0;
+        while (true) {
+            attempts++;
+            try (Connection conn = ds.getConnection()) {
+                conn.setAutoCommit(false);
+                conn.setTransactionIsolation(Connection.TRANSACTION_SERIALIZABLE);
+                try {
+                    tx.run(conn);
+                    conn.commit();
+                    return; // Success
+                } catch (SQLException ex) {
+                    conn.rollback();
+                    // PostgreSQL 40001 = serialization_failure, 40P01 = deadlock_detected
+                    if ("40001".equals(ex.getSQLState()) && attempts < maxRetries) {
+                        System.out.printf("Serialization conflict, retrying attempt %d...%n", attempts);
+                        try { Thread.sleep((long) (Math.random() * 50 * attempts)); } catch (InterruptedException ignored) {}
+                        continue;
+                    }
+                    throw ex;
+                }
+            }
+        }
+    }
+
+    @FunctionalInterface
+    public interface RunnableTx {
+        void run(Connection conn) throws SQLException;
+    }
+}
+```
+
+### Example 3: Edge Case - Read-Only Transaction Hint
+```java
+package com.example.jdbc;
+
+import java.sql.Connection;
+import java.sql.SQLException;
+
+public final class ReadOnlyTxOptimization {
+    public static void configureReadOnly(Connection conn) throws SQLException {
+        conn.setAutoCommit(false);
+        // Informs driver and DB engine that no writes will occur;
+        // Allows engine to optimize locks and route queries to read-replicas
+        conn.setReadOnly(true);
+    }
+}
+```
+
+### Example 4: Failure Case - Connection Leak with Unclosed Transaction
+```java
+// ANTI-PATTERN: Forgetting rollback on exception leaves locks open
+public void brokenTransaction(DataSource ds) throws SQLException {
+    Connection conn = ds.getConnection();
+    conn.setAutoCommit(false);
+    // If exception occurs here, connection is returned to pool WITH PENDING LOCKS!
+    // Next thread borrowing connection inherits dirty transaction state!
+    throw new RuntimeException("Unexpected crash");
+}
+```
+
+---
+
+## 6. Best Practices
+1. **Always Reset AutoCommit in Finally**: Always restore `conn.setAutoCommit(true)` before closing connection to prevent poisoning connection pool.
+2. **Always Rollback in Catch Block**: Never return an uncommitted connection to a connection pool without rolling back.
+3. **Keep Transactions as Short as Possible**: Holding database locks across network calls, file I/O, or heavy CPU tasks cripples database concurrency.
+4. **Acquire Locks in Consistent Order**: Always update entities in a deterministic order (e.g., sorted by primary key) to avoid deadlocks.
+5. **Use Read-Committed as Default**: `READ_COMMITTED` provides optimal balance of concurrency and consistency for 95% of enterprise applications.
+6. **Implement Retry Logic for Serializable/Deadlocks**: When using `SERIALIZABLE` or optimistic locking, anticipate SQLState `40001` and retry.
+7. **Mark Reporting Queries as Read-Only**: Use `conn.setReadOnly(true)` to assist replication routing and eliminate write lock overhead.
+
+---
+
+## 7. Common Mistakes & Pitfalls
+
+| Mistake | Why It Fails | Correction |
+|---|---|---|
+| Returning uncommitted connection to pool | Next thread that borrows connection inherits uncommitted state | Always call `rollback()` on error and reset `autoCommit` |
+| Long-running operations inside transaction | Holds row locks and exhaust connection pool slots | Move external REST calls and heavy CPU outside transaction |
+| Assuming `SERIALIZABLE` means zero concurrency errors | Triggers serialization failures on conflict | Implement automatic exponential backoff retry loop |
+| Inconsistent lock acquisition order | Thread A locks row 1 then 2; Thread B locks 2 then 1; causes deadlock | Sort keys before acquiring locks |
+| Modifying isolation level mid-transaction | Many database engines reject changing isolation level during active transaction | Set isolation level before executing statements |
+| Relying on autocommit for multi-step workflows | Partial failures leave database corrupted | Wrap multi-step workflows in `setAutoCommit(false)` |
+| Missing `FOR UPDATE` in Read-Committed | Allows lost updates during read-modify-write workflows | Use optimistic locking or `SELECT ... FOR UPDATE` |
+| Forgetting to release savepoints | Accumulates memory structures in database engine | Call `conn.releaseSavepoint(sp)` when done |
+
+---
+
+## 8. Performance & Security Notes
+- **WAL fsync Bottleneck**: Every `conn.commit()` forces the database engine to synchronously flush write-ahead log buffers to physical storage (`fsync`). High transaction rates require battery-backed NVMe storage or group commit batching.
+- **Deadlock Detection**: Database engines run background deadlock detection cycles (e.g., every 1,000 ms). When cycles are found, one transaction is forcibly aborted with an error (PostgreSQL SQLState `40P01`).
+- **Distributed Transactions (XA)**: Two-Phase Commit (`javax.transaction.xa.XAResource`) coordinates transactions across multiple heterogeneous databases or message queues, but incurs substantial coordinator latency. Avoid unless strictly required.
+- **Connection Poisoning**: If an application checks in a connection with dirty transaction state, HikariCP executes a safety rollback and resets state automatically, logging an eviction warning.
+
+---
+
+## 9. Comparison / When to Use What
+
+| ANSI Isolation Level | Dirty Read | Non-Repeatable Read | Phantom Read | Concurrency Throughput | Best Use Case |
+|---|---|---|---|---|---|
+| **Read Uncommitted** | Possible | Possible | Possible | Maximum | Non-critical analytics / dirty telemetry |
+| **Read Committed** | Prevented | Possible | Possible | High | Standard enterprise CRUD microservices |
+| **Repeatable Read** | Prevented | Prevented | Prevented (in MVCC) | Moderate | Financial statements, consistent multi-table reads |
+| **Serializable** | Prevented | Prevented | Prevented | Lowest (Abort rate) | Complex financial balance reconciliations |
+
+---
+
+## 10. Interview Questions
+
+<details>
+<summary>1. What are the three classic ANSI SQL concurrency read phenomena?</summary>
+1. <b>Dirty Read</b>: Transaction A reads data modified by Transaction B before B has committed. If B rolls back, A has read data that never existed.<br>
+2. <b>Non-Repeatable Read (Fuzzy Read)</b>: Transaction A reads a row, Transaction B modifies or deletes that row and commits, and Transaction A reads the row again, observing modified values.<br>
+3. <b>Phantom Read</b>: Transaction A queries a range of rows matching a predicate, Transaction B inserts a new row matching that predicate and commits, and Transaction A re-executes the query, observing a new "phantom" row.
+</details>
+
+<details>
+<summary>2. How does MVCC prevent readers from blocking writers and writers from blocking readers?</summary>
+In an MVCC database engine (like PostgreSQL or InnoDB), updating or deleting a row does not overwrite the existing disk block in place; it writes a new version of the row tagged with transaction visibility IDs. A reading transaction queries a point-in-time snapshot of the database corresponding to its start timestamp, reading the older immutable row version without acquiring locks, while a concurrent writer creates new row versions simultaneously.
+</details>
+
+<details>
+<summary>3. Why must an application implement a retry loop when using SERIALIZABLE isolation?</summary>
+Serializable isolation guarantees that concurrent transactions produce the same result as if executed sequentially. In modern optimistic MVCC engines (Serializable Snapshot Isolation - SSI), the database does not acquire coarse table locks; instead, it tracks dependency graphs. If concurrent read-write dependencies form a dangerous cycle, the engine aborts one of the conflicting transactions with a serialization failure (SQLState 40001), expecting the application to retry.
+</details>
+
+<details>
+<summary>4. What is a Savepoint in JDBC, and how is it used?</summary>
+A <code>Savepoint</code> defines an intermediate checkpoint within a transaction. By calling <code>conn.setSavepoint("sp1")</code>, the application can later invoke <code>conn.rollback(sp1)</code> to undo only changes executed after that savepoint, preserving earlier statements within the transaction before eventually calling <code>conn.commit()</code>.
+</details>
+
+<details>
+<summary>5. What is the difference between Optimistic Locking and Pessimistic Locking?</summary>
+<b>Pessimistic Locking</b> uses database locks (e.g., <code>SELECT ... FOR UPDATE</code>) to lock rows at read time, blocking concurrent access until transaction commit. Best for high-contention, short-duration transactions.<br>
+<b>Optimistic Locking</b> does not lock rows at read time; instead, it tracks a version number (<code>version INT</code>) and checks <code>WHERE id = :id AND version = :version</code> on update. Best for low-contention, long-duration business workflows.
+</details>
+
+<details>
+<summary>6. What happens if a connection is returned to a connection pool while a transaction is still active?</summary>
+If returned with uncommitted modifications, the connection retains database locks. Production connection pools like HikariCP intercept <code>close()</code>, detect uncommitted transactions, invoke <code>rollback()</code>, reset <code>autoCommit = true</code>, and emit a warning log to prevent connection state poisoning.
+</details>
+
+<details>
+<summary>7. How does Two-Phase Commit (2PC / XA) work across distributed databases?</summary>
+In 2PC, a Transaction Manager coordinates multiple resource managers: Phase 1 (Prepare): The coordinator asks all nodes to prepare and write changes to disk; each votes YES or NO. Phase 2 (Commit): If all vote YES, coordinator commands COMMIT; if any node votes NO or times out, coordinator commands ROLLBACK across all nodes.
+</details>
+
+<details>
+<summary>8. Why is it dangerous to perform HTTP calls inside a database transaction?</summary>
+HTTP requests across the internet or local networks have unpredictable latency (tens to thousands of milliseconds) and can stall due to network hiccups. Holding a database transaction open during an external network call keeps row locks and connection pool slots occupied, causing rapid connection pool exhaustion and deadlocking the entire backend.
+</details>
+
+<details>
+<summary>9. What is a Lost Update anomaly, and which isolation level prevents it?</summary>
+A lost update occurs when Transaction A and Transaction B simultaneously read a row with balance 100, Transaction A subtracts 20 and writes 80, and Transaction B adds 50 and writes 150, overwriting and losing Transaction A's update. Prevented by <code>REPEATABLE READ</code>, <code>SERIALIZABLE</code>, or pessimistic <code>SELECT ... FOR UPDATE</code>.
+</details>
+
+<details>
+<summary>10. What is connection poisoning in pooled architectures?</summary>
+Connection poisoning occurs when application code modifies connection session attributes (such as isolation level, catalog, read-only mode, or transaction state) without restoring default values before closing the connection, causing subsequent threads that borrow the connection to execute in an unexpected state.
+</details>
+
+---
+
+## 11. Practice Exercises
+
+<details>
+<summary>Exercise 1: Write a transactional method implementing pessimistic locking with SELECT FOR UPDATE.</summary>
+
+```java
+public static void deductStockPessimistic(Connection conn, long itemId, int qty) throws SQLException {
+    String selectSql = "SELECT stock_count FROM inventory WHERE id = ? FOR UPDATE";
+    String updateSql = "UPDATE inventory SET stock_count = stock_count - ? WHERE id = ?";
+
+    try (PreparedStatement psSelect = conn.prepareStatement(selectSql);
+         PreparedStatement psUpdate = conn.prepareStatement(updateSql)) {
+
+        psSelect.setLong(1, itemId);
+        try (ResultSet rs = psSelect.executeQuery()) {
+            if (!rs.next()) throw new IllegalStateException("Item not found: " + itemId);
+            int currentStock = rs.getInt(1);
+            if (currentStock < qty) throw new IllegalStateException("Insufficient inventory: " + currentStock);
+        }
+
+        psUpdate.setInt(1, qty);
+        psUpdate.setLong(2, itemId);
+        psUpdate.executeUpdate();
+    }
+}
+```
+</details>
+
+<details>
+<summary>Exercise 2: Implement an optimistic concurrency control update checking row version.</summary>
+
+```java
+public static boolean updateOrderOptimistic(Connection conn, long orderId, String newStatus, long expectedVersion) throws SQLException {
+    String sql = "UPDATE orders SET status = ?, version = version + 1 WHERE id = ? AND version = ?";
     try (PreparedStatement ps = conn.prepareStatement(sql)) {
-        ps.setBigDecimal(1, amount);
-        ps.setLong(2, id);
-        ps.setBigDecimal(3, amount);
-        if (ps.executeUpdate() != 1) {
-            throw new InsufficientFundsException(id);    // no row updated: unknown account or not enough money
-        }
+        ps.setString(1, newStatus);
+        ps.setLong(2, orderId);
+        ps.setLong(3, expectedVersion);
+        int rowsUpdated = ps.executeUpdate();
+        return rowsUpdated > 0; // True if update succeeded without concurrent conflict
     }
 }
 ```
+</details>
 
-Key points:
-
-- **A transaction belongs to a single `Connection`.** Every statement that should be part of it must use that same connection. With a pool, calling `ds.getConnection()` again gives a *different* connection, outside your transaction.
-- `commit()` ends the transaction and starts the next one implicitly. `rollback()` discards it.
-- **Always roll back on failure.** If you close a connection with uncommitted work, the behavior is vendor-dependent. Pools typically roll back on return, but don't rely on it.
-- The `balance >= ?` condition inside the `UPDATE` makes the check **atomic with the change**. Reading the balance first and then updating (check-then-act) would race ([Thread Safety](../14-concurrency/02_thread-safety.md#1-the-problem-a-race-condition-you-can-reproduce)).
-- Pools reset auto-commit when a connection is returned, but if you manage connections manually, restore it: `conn.setAutoCommit(true)`.
-- **Savepoints** allow partial rollback inside a transaction:
+<details>
+<summary>Exercise 3: Write a transaction template executing a Supplier functional interface safely.</summary>
 
 ```java
-Savepoint sp = conn.setSavepoint("before-optional");
-try { optionalStep(conn); }
-catch (SQLException e) { conn.rollback(sp); }       // undo only the optional step
-conn.releaseSavepoint(sp);
-```
-
-- **DDL** (`CREATE TABLE`, `ALTER`) is transactional in PostgreSQL, but causes an **implicit commit** in MySQL and Oracle. Know your database.
-
----
-
-## 3. Isolation levels and anomalies
-
-When transactions run concurrently, these things can go wrong:
-
-| Anomaly | What happens |
-|---|---|
-| **Dirty read** | You read data another transaction hasn't committed (and might roll back) |
-| **Non-repeatable read** | You read the same row twice and get different values, because another transaction committed a change in between |
-| **Phantom read** | You run the same query twice and get **different sets of rows** (another transaction inserted/deleted matching rows) |
-| **Lost update** | Two transactions read a value, both compute a new one, and the second write overwrites the first |
-| **Write skew** | Two transactions read overlapping data, each writes something different based on it, and together they violate a rule neither would break alone |
-
-The SQL standard defines four **isolation levels**, each preventing more anomalies at more cost:
-
-| Level | Dirty read | Non-repeatable read | Phantom |
-|---|---|---|---|
-| `READ UNCOMMITTED` | possible | possible | possible |
-| `READ COMMITTED` | prevented | possible | possible |
-| `REPEATABLE READ` | prevented | prevented | possible (standard) |
-| `SERIALIZABLE` | prevented | prevented | prevented |
-
-```java
-conn.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);   // set before starting work
-```
-
-Real databases differ from the textbook, and most use **MVCC** (multi-version concurrency control), where readers see a consistent snapshot and don't block writers:
-
-| Database | Default | Notes |
-|---|---|---|
-| PostgreSQL | **Read Committed** | `READ UNCOMMITTED` behaves as Read Committed. `REPEATABLE READ` is snapshot isolation (no phantoms), and concurrent conflicting updates fail with a serialization error (`40001`). `SERIALIZABLE` also detects write skew |
-| MySQL (InnoDB) | **Repeatable Read** | Uses gap/next-key locks to limit phantoms |
-| Oracle | **Read Committed** | Offers `SERIALIZABLE` (snapshot-based) and read-only |
-| SQL Server | **Read Committed** (locking by default) | `READ_COMMITTED_SNAPSHOT` and `SNAPSHOT` options use row versioning |
-
-How to choose:
-
-- **Read Committed** (the common default) is fine for most operations *if* you protect read-modify-write sequences explicitly (section 4).
-- Move to **Repeatable Read/Serializable** for operations where a consistent view across several reads matters (reports, invariants spanning rows). Be ready to **retry** on serialization failures ([section 6](#6-deadlocks-and-retries)).
-- Higher isolation = more conflicts, retries, or blocking. Don't raise it globally "to be safe".
-
----
-
-## 4. Concurrency control: locks and versions
-
-The classic bug at Read Committed:
-
-```java
-// Two requests run this at the same time
-BigDecimal stock = selectStock(conn, productId);        // both read 1
-if (stock.signum() > 0) updateStock(conn, productId, stock.subtract(BigDecimal.ONE));   // both write 0: sold twice
-```
-
-This is the lost update/oversell problem. There are three robust fixes.
-
-### Make it a single atomic statement (best when possible)
-
-```sql
-UPDATE products SET stock = stock - 1 WHERE id = ? AND stock > 0     -- check the update count: 0 → sold out
-```
-
-### Pessimistic locking: lock the row first
-
-```sql
-SELECT stock FROM products WHERE id = ? FOR UPDATE      -- other transactions block (or fail) on this row until commit
-```
-
-```java
-conn.setAutoCommit(false);
-// SELECT ... FOR UPDATE, then check and UPDATE, then commit: the row stays locked in between
-```
-
-- `FOR UPDATE NOWAIT` fails immediately if the row is locked, and `FOR UPDATE SKIP LOCKED` **skips** locked rows, which makes a database table usable as a **work queue** where many workers each claim different jobs:
-
-```sql
-SELECT id, payload FROM jobs
-WHERE  status = 'PENDING'
-ORDER  BY id
-LIMIT  10
-FOR UPDATE SKIP LOCKED;          -- then mark them IN_PROGRESS and commit
-```
-
-- Locks are held until the transaction ends, so keep these transactions **short**. Lock rows in a consistent order to avoid deadlocks.
-
-### Optimistic locking
-
-Assume conflicts are rare. Don't lock. Add a **version** column and make the update conditional on it:
-
-```sql
-UPDATE orders
-SET    status = ?, version = version + 1
-WHERE  id = ? AND version = ?;           -- 0 rows updated → someone else changed it
-```
-
-```java
-int updated = ps.executeUpdate();
-if (updated == 0) {
-    throw new OptimisticLockException("Order " + id + " was modified by someone else: reload and retry");
-}
-```
-
-Users read the row (with its `version`), edit it for as long as they like (no locks held), and the write succeeds only if nobody changed it in the meantime. It suits web forms and low-conflict updates. JPA provides it via `@Version` ([From JDBC to ORM](07_from-jdbc-to-orm.md)).
-
-| | Pessimistic | Optimistic |
-|---|---|---|
-| Blocks others | Yes (until commit) | No |
-| Best when | Conflicts are frequent or retries are expensive | Conflicts are rare |
-| Failure mode | Waiting, deadlocks | Failed update → retry/reload |
-
-And remember **constraints**: a `UNIQUE` index is the only reliable guard against two concurrent "insert if not exists" operations.
-
----
-
-## 5. Where transaction boundaries belong
-
-- **Business-operation scope:** a transaction should wrap one *unit of work* (place an order = reserve stock + insert order + insert items), usually at the **service** layer, not inside each DAO method. DAO methods then take the shared `Connection` or participate in the current transaction ([JDBC Patterns](06_jdbc-patterns.md)).
-- **Keep transactions short.** An open transaction holds locks, a snapshot, and a pooled connection. Never wait for user input, call remote services, send emails, or sleep inside one. Do that before or after.
-- **Don't swallow exceptions** and then commit. If a statement fails mid-transaction, PostgreSQL marks the transaction as aborted (`current transaction is aborted, commands ignored until end of transaction block`). Roll back, or use a savepoint.
-- **Read-only transactions:** `conn.setReadOnly(true)` is a hint that lets some databases and pools optimize (and route to replicas).
-- **Idempotency:** commit and *then* tell the outside world, and design retries so a repeated request doesn't apply twice ([Idempotency](../25-real-world-patterns/04_idempotency.md)).
-
----
-
-## 6. Deadlocks and retries
-
-A **deadlock** occurs when two transactions each hold a lock the other needs. The database detects the cycle and **aborts one transaction** with an error (PostgreSQL SQLState `40P01`, MySQL error 1213, Oracle `ORA-00060`):
-
-```text
- Tx A: UPDATE accounts ... WHERE id = 1;   (locks row 1)    Tx B: UPDATE accounts ... WHERE id = 2;  (locks row 2)
- Tx A: UPDATE accounts ... WHERE id = 2;   (waits for B)     Tx B: UPDATE accounts ... WHERE id = 1;  (waits for A)  → deadlock
-```
-
-Prevention: **access rows in a consistent order** (always lower account ID first), keep transactions short, and use the lowest isolation level that is correct. The same ideas as application-level deadlocks ([Deadlock, Livelock, Starvation](../14-concurrency/14_deadlock-livelock-starvation.md)).
-
-**Deadlocks and serialization failures are expected under load**, so the correct response is to **retry the whole transaction**:
-
-```java
-@FunctionalInterface interface SqlWork<T> { T run() throws SQLException; }
-
-static <T> T withRetry(int maxAttempts, SqlWork<T> work) throws SQLException {
-    for (int attempt = 1; ; attempt++) {
-        try {
-            return work.run();                              // the work opens its own connection and transaction
-        } catch (SQLException e) {
-            if (!isRetryable(e) || attempt >= maxAttempts) throw e;
-            try { Thread.sleep(ThreadLocalRandom.current().nextLong(10, 50L * attempt)); }   // backoff with jitter
-            catch (InterruptedException ie) { Thread.currentThread().interrupt(); throw e; }
+public final class TxTemplate {
+    public static <T> T executeInTransaction(DataSource ds, TxAction<T> action) throws SQLException {
+        try (Connection conn = ds.getConnection()) {
+            conn.setAutoCommit(false);
+            try {
+                T result = action.execute(conn);
+                conn.commit();
+                return result;
+            } catch (Exception ex) {
+                conn.rollback();
+                throw (ex instanceof SQLException sqlEx) ? sqlEx : new SQLException(ex);
+            } finally {
+                conn.setAutoCommit(true);
+            }
         }
     }
-}
 
-static boolean isRetryable(SQLException e) {
-    String state = e.getSQLState();
-    return e instanceof SQLTransientException            // includes SQLTransactionRollbackException
-        || "40001".equals(state)                         // serialization failure
-        || "40P01".equals(state);                        // deadlock (PostgreSQL)
+    @FunctionalInterface
+    public interface TxAction<T> {
+        T execute(Connection conn) throws Exception;
+    }
 }
 ```
-
-The retry must **re-run the entire transaction** (not just the failed statement), and the work must be safe to repeat: no external side effects inside it. See [Retry and Backoff](../25-real-world-patterns/02_retry-and-backoff.md).
-
----
-
-## 7. Transactions in frameworks
-
-Frameworks manage the connection and the begin/commit/rollback for you. In **Spring**:
-
-```java
-@Service
-class OrderService {
-    @Transactional                                  // begin → run → commit (or rollback on failure)
-    public void placeOrder(NewOrder order) { ... }
-}
-```
-
-What the annotation hides, you now know: one connection is bound to the thread for the duration, all repository calls reuse it, and commit/rollback happens when the method exits. Gotchas:
-
-- **Rollback rules:** by default Spring rolls back on **unchecked** exceptions (and `Error`), and **commits** on checked exceptions unless you configure `rollbackFor`.
-- **Self-invocation:** `@Transactional` works through a **proxy**, so a call from one method to another on `this` bypasses it ([the self-invocation trap](../13-advanced-language-features/02_dynamic-proxies.md#7-the-self-invocation-trap)).
-- **Propagation** (`REQUIRED` by default: join the existing transaction; `REQUIRES_NEW`: suspend it and start another connection and transaction) and **isolation** can be set per method.
-- The transaction is **thread-bound**. Work moved to another thread (`@Async`, executor, `CompletableFuture`) runs **outside** it ([ThreadLocal](../14-concurrency/09_thread-local.md#4-thread-locals-and-asynchronous-code)).
-- Transaction scope is *also* connection-hold time, so a `@Transactional` method that calls a slow API holds a pool connection that whole time ([Connection Pooling](05_connection-pooling.md)).
-
-### Across services and databases
-
-A transaction covers **one database**. Updating a database and sending a message or calling another service can't be made atomic by a local transaction. Distributed transactions (XA/two-phase commit) exist but are slow and fragile. Common alternatives: the **transactional outbox** (write the event into the same database transaction, and publish it afterwards), **sagas** with compensating actions, and **idempotent** consumers ([Idempotency](../25-real-world-patterns/04_idempotency.md), [Background Jobs](../25-real-world-patterns/05_background-jobs.md)).
+</details>
 
 ---
 
-## Common mistakes
-
-| Mistake | Fix |
-|---|---|
-| Assuming auto-commit is off | It's **on** by default. Call `setAutoCommit(false)` for multi-statement work |
-| Not rolling back on exceptions | `try/catch` with `rollback()`, or a framework |
-| Using different pooled connections for steps of one logical transaction | One `Connection` for the whole unit of work |
-| Read-then-write without protection (check-then-act) | Atomic `UPDATE ... WHERE`, `FOR UPDATE`, or a version column |
-| Long transactions with remote calls or user waits | Keep them short and DB-only |
-| Treating a deadlock or `40001` as a fatal error | Retry the whole transaction with backoff |
-| Raising isolation globally "to be safe" | Use the lowest correct level, retry on conflicts |
-| Catching `SQLException` inside the transaction and continuing | In PostgreSQL the transaction is aborted. Roll back or use a savepoint |
-| Assuming `@Transactional` applies to self-calls or other threads | It works through proxies and thread-bound connections |
-| Checked exception in Spring `@Transactional` method and expecting rollback | Configure `rollbackFor` |
-| Relying on application checks for uniqueness | `UNIQUE` constraints, and handle `23505` |
-| Doing side effects (emails, HTTP calls) before commit | Do them after, or via an outbox |
-
-### Debugging
-
-- Intermittent wrong data (oversold stock, duplicate rows, lost updates) → a missing atomic statement, lock, version, or constraint. Reproduce with two concurrent requests.
-- Many connections `idle in transaction` (PostgreSQL: `SELECT * FROM pg_stat_activity WHERE state = 'idle in transaction'`) → code opened a transaction and isn't finishing it (an exception path without rollback, or long non-DB work inside).
-- Blocked queries → find blockers (`pg_locks`, `SHOW ENGINE INNODB STATUS`, `sys.dm_tran_locks`) and the statements holding them.
-- Frequent deadlock errors → inconsistent lock order across code paths. Log the transaction's statements and compare.
-- `current transaction is aborted...` → an earlier statement failed and the code kept going. Roll back.
+## 12. Summary / Cheat Sheet
+- **ACID**: Atomicity (all-or-nothing), Consistency (rules satisfied), Isolation (concurrency control), Durability (WAL fsync).
+- **Transaction Demarcation**: `conn.setAutoCommit(false)`, `conn.commit()`, `conn.rollback()`.
+- **Cleanup**: Always reset `conn.setAutoCommit(true)` in a `finally` block before connection close.
+- **Isolation Hierarchy**: `READ_COMMITTED` (standard) $ightarrow$ `REPEATABLE_READ` $ightarrow$ `SERIALIZABLE` (requires retries).
+- **Concurrency Control**: MVCC provides non-blocking reads; use `SELECT ... FOR UPDATE` or version checking for write protection.
+- **External Calls**: Never invoke external REST endpoints or long compute loops inside active database transactions.
 
 ---
 
-## Quick Summary
-
-- A transaction is **all-or-nothing** (ACID). JDBC connections start in **auto-commit**. Use `setAutoCommit(false)` + `commit()` / `rollback()` on **one connection**.
-- Isolation levels trade anomalies for concurrency: **Read Committed** (common default), Repeatable Read, Serializable. Defaults differ by database (PostgreSQL/Oracle: Read Committed; MySQL: Repeatable Read).
-- Prevent lost updates with an **atomic `UPDATE ... WHERE`**, **`SELECT ... FOR UPDATE`** (pessimistic, `SKIP LOCKED` for queues), or a **version column** (optimistic). Rely on **constraints** for uniqueness.
-- Keep transactions **short**, and DB-only. No remote calls inside.
-- **Deadlocks and serialization failures happen**: lock in a consistent order and **retry the whole transaction** with backoff.
-- `@Transactional` is a proxy over exactly this: mind rollback rules, self-invocation, and thread boundaries. Cross-system consistency needs an outbox/saga, not a bigger transaction.
-
-**Next:** [Connection Pooling](05_connection-pooling.md)
+## 13. Further Reading
+- ANSI/ISO SQL Standard: Transaction Isolation Models
+- PostgreSQL Documentation: Concurrency Control and MVCC Internals
+- *Designing Data-Intensive Applications* by Martin Kleppmann (Transactions and Consistency)
+- *High-Performance Java Persistence* by Vlad Mihalcea (Transactions and Concurrency Control)

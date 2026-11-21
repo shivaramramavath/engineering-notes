@@ -1,311 +1,408 @@
-# Mocking and Mockito
+# Mocking and Mockito: Architecture, Verification, and Best Practices
 
-A **mock** is a stand-in object you can program (return canned values, throw errors) and interrogate (was this method called, with what?). **Mockito** is the standard Java library for creating them. Mocks let you test a class **in isolation** from collaborators that are slow, nondeterministic, or have side effects: a payment gateway, an email service, a remote API.
+> Mocking mechanics in Java: Mockito Architecture, Byte Buddy Inline Mocking, Strict Stubs, ArgumentCaptor, Static Method Mocking, and Avoiding Mock Overuse.
 
-Mocking is also the most overused tool in Java testing. Used well, it isolates boundaries. Used everywhere, it produces tests that verify the mocks rather than the code, and break whenever you refactor. This note covers the mechanics *and* the judgment.
-
-**Prerequisites:** [Unit Testing Fundamentals](00_unit-testing-fundamentals.md#3-test-doubles), [JUnit](01_junit-5.md), [Interfaces](../04-oop/09_interfaces.md).
-
----
-
-## 1. Setup
-
-```xml
-<dependency>
-  <groupId>org.mockito</groupId><artifactId>mockito-core</artifactId><scope>test</scope>
-</dependency>
-<dependency>
-  <groupId>org.mockito</groupId><artifactId>mockito-junit-jupiter</artifactId><scope>test</scope>   <!-- MockitoExtension -->
-</dependency>
-```
-
-(Versions via your BOM. Spring Boot's dependency management includes Mockito.)
-
-```java
-@ExtendWith(MockitoExtension.class)         // creates @Mock fields, validates stubbing
-class OrderServiceTest {
-    @Mock PaymentGateway gateway;
-    @Mock OrderRepository orders;
-    ...
-}
-```
-
-Without the extension you can create mocks manually: `PaymentGateway gateway = Mockito.mock(PaymentGateway.class);`.
+| Metadata | Details |
+|---|---|
+| **Level** | Core / Intermediate |
+| **Prerequisites** | Java Interfaces, Dynamic Proxies, Unit Testing Fundamentals |
+| **Time to Read** | 25 minutes |
+| **Status** | Complete |
+| **JDK Baseline** | Java 17 / 21 / 25 LTS (Mockito 5.x) |
 
 ---
 
-## 2. A realistic example
+## Table of Contents
+1. [1. What & Why](#1-what--why)
+2. [2. Core Concepts](#2-core-concepts)
+3. [3. How It Works Internally: Byte Buddy & Inline Mock Maker](#3-how-it-works-internally-byte-buddy--inline-mock-maker)
+4. [4. Syntax & Usage](#4-syntax--usage)
+5. [5. Practical Examples](#5-practical-examples)
+6. [6. Best Practices](#6-best-practices)
+7. [7. Common Mistakes & Pitfalls](#7-common-mistakes--pitfalls)
+8. [8. Performance & Security Notes](#8-performance--security-notes)
+9. [9. Comparison / When to Use What](#9-comparison--when-to-use-what)
+10. [10. Interview Questions](#10-interview-questions)
+11. [11. Practice Exercises](#11-practice-exercises)
+12. [12. Summary / Cheat Sheet](#12-summary--cheat-sheet)
+13. [13. Further Reading](#13-further-reading)
 
-```java
-public class OrderService {
-    private final OrderRepository orders;
-    private final PaymentGateway gateway;
-    private final Clock clock;
+---
 
-    public OrderService(OrderRepository orders, PaymentGateway gateway, Clock clock) { ... }
+## 1. What & Why
+In unit testing, isolating the System Under Test (SUT) from external collaborators—such as payment gateways, third-party REST clients, or complex message brokers—is essential for fast, deterministic verification.
 
-    public Order place(String customerId, BigDecimal amount) {
-        PaymentResult result = gateway.charge(customerId, amount);
-        if (!result.successful()) throw new PaymentDeclinedException(result.reason());
-        Order order = new Order(customerId, amount, OrderStatus.PAID, result.transactionId(), clock.instant());
-        orders.save(order);
-        return order;
-    }
-}
+**Mockito** is the industry-standard mocking framework for Java. It allows developers to create lightweight proxy objects (test doubles) that simulate collaborator behavior without implementing concrete classes. However, mocking is a double-edged sword: over-mocking creates brittle tests tightly coupled to private implementation details, while outdated stubbing hides real bugs. Modern Mockito (version 5+) introduced the **Inline Mock Maker** by default, native **Java 21 Record** and **final class** mocking, and **Strict Stubbing** to eliminate test rot.
+
+---
+
+## 2. Core Concepts
+- **Mock vs Spy**:
+  - *Mock*: A completely synthetic object generated via bytecode. All methods return default values (`null`, `0`, `false`) unless explicitly stubbed.
+  - *Spy*: A partial mock wrapping a real instance. Real methods execute by default unless explicitly overridden with canned behavior.
+- **Stubbing**: Pre-programming method return values (`when(...).thenReturn(...)` or `doReturn(...).when(...)`).
+- **Verification**: Inspecting that collaborating methods were invoked with specific parameters and frequencies (`verify(mock, times(1)).doAction()`).
+- **Argument Matchers**: Flexible argument constraints (`any()`, `eq()`, `argThat()`). If matchers are used for one parameter, all parameters in that method call must use matchers.
+- **ArgumentCaptor**: Captures actual argument values passed to a mock during execution, allowing deep post-execution assertions.
+- **Strictness (`Strictness.STRICT_STUBS`)**: Enforces clean testing by throwing errors if stubs are declared but never called (unnecessary stubbing) or if arguments mismatch slightly.
+- **Mocking Static Methods (`mockStatic`)**: Scoped mocking of static utility methods within a try-with-resources block.
+
+---
+
+## 3. How It Works Internally: Byte Buddy & Inline Mock Maker
+
+Mockito generates and instruments mock objects dynamically at runtime using Rafael Winterhalter's Byte Buddy library:
+
+```
+[ Mockito.mock(PaymentClient.class) ]
+                  |
+                  v
++-------------------------------------------------------+
+|             Byte Buddy Bytecode Engine                |
+|  - Injects java.lang.instrument agent                 |
+|  - Redefines PaymentClient class bytecode in memory   |
+|  - Intercepts method entries and redirects to handler |
++-------------------------------------------------------+
+                  |
+                  v
++-------------------------------------------------------+
+|              MockHandler / InvocationContainer        |
+|  - Records every method invocation (Arguments, Thread)|
+|  - Matches against stubbing rules in LinkedHashSet    |
+|  - Returns canned value or records invocation history |
++-------------------------------------------------------+
 ```
 
+### Subclass Mocking vs Inline Mocking (Mockito 5+):
+- **Subclass Mock Maker (Legacy)**: Generated a dynamic subclass at runtime (`PaymentClient$MockitoMock$1234`). Failed on `final` classes, `final` methods, and Java Records because final types cannot be subclassed.
+- **Inline Mock Maker (Modern Default)**: Uses JVM bytecode instrumentation (`ClassFileTransformer`) to modify the original class bytecode directly in memory. It transparently mocks `final` classes, `final` methods, Java 21 Records, and static methods without subclassing restrictions.
+
+---
+
+## 4. Syntax & Usage
+
+### 4.1 Production Mockito Test with JUnit 5 Extension & Strict Stubs
 ```java
-@ExtendWith(MockitoExtension.class)
-class OrderServiceTest {
+package com.example.testing;
 
-    @Mock PaymentGateway gateway;
-    @Mock OrderRepository orders;
-    @Captor ArgumentCaptor<Order> orderCaptor;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import java.math.BigDecimal;
+import java.util.Optional;
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
-    private final Clock clock = Clock.fixed(Instant.parse("2026-03-10T10:00:00Z"), ZoneOffset.UTC);
-    private OrderService service;
+@ExtendWith(MockitoExtension.class) // Enables @Mock injection and Strict Stubbing automatically!
+@DisplayName("OrderProcessingService Collaboration Tests")
+class OrderProcessingServiceTest {
 
-    @BeforeEach
-    void setUp() { service = new OrderService(orders, gateway, clock); }
+    @Mock
+    private PaymentGateway paymentGateway;
+
+    @Mock
+    private OrderRepository orderRepository;
+
+    @Mock
+    private NotificationClient notificationClient;
+
+    @InjectMocks
+    private OrderProcessingService orderService;
+
+    @Captor
+    private ArgumentCaptor<PaymentRequest> paymentCaptor;
 
     @Test
-    void savesPaidOrderWhenPaymentSucceeds() {
-        when(gateway.charge("cust-1", new BigDecimal("50.00")))
-                .thenReturn(PaymentResult.success("tx-9"));                 // STUB: canned answer
+    @DisplayName("Process order: charges payment gateway and sends confirmation")
+    void processOrder_successfulPayment_updatesOrderAndNotifies() {
+        // Arrange
+        Order order = new Order("ORD-101", "cust@example.com", new BigDecimal("120.00"));
+        when(orderRepository.findById("ORD-101")).thenReturn(Optional.of(order));
+        when(paymentGateway.charge(any(PaymentRequest.class)))
+                .thenReturn(new PaymentResult(true, "TX-9988"));
 
-        Order placed = service.place("cust-1", new BigDecimal("50.00"));
+        // Act
+        orderService.processOrder("ORD-101");
 
-        assertThat(placed.status()).isEqualTo(OrderStatus.PAID);            // state assertion
-        verify(orders).save(orderCaptor.capture());                         // MOCK: the save side effect
-        assertThat(orderCaptor.getValue().transactionId()).isEqualTo("tx-9");
-        assertThat(orderCaptor.getValue().createdAt()).isEqualTo(Instant.parse("2026-03-10T10:00:00Z"));
+        // Assert: Verify payment gateway received correct payload via ArgumentCaptor
+        verify(paymentGateway, times(1)).charge(paymentCaptor.capture());
+        PaymentRequest capturedRequest = paymentCaptor.getValue();
+        assertThat(capturedRequest.orderId()).isEqualTo("ORD-101");
+        assertThat(capturedRequest.amount()).isEqualByComparingTo(new BigDecimal("120.00"));
+
+        // Verify notification was sent
+        verify(notificationClient, times(1))
+                .sendReceipt(eq("cust@example.com"), eq("TX-9988"));
+
+        // Verify no other unexpected interactions occurred on notification client
+        verifyNoMoreInteractions(notificationClient);
     }
+}
+```
+
+---
+
+## 5. Practical Examples
+
+### Example 1: Mocking Static Methods with Scoped try-with-resources
+```java
+package com.example.testing;
+
+import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+import java.time.Instant;
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+class AuditLoggerTest {
 
     @Test
-    void doesNotSaveAnythingWhenPaymentIsDeclined() {
-        when(gateway.charge(any(), any())).thenReturn(PaymentResult.declined("insufficient funds"));
+    void logEvent_recordsFixedTimestamp() {
+        Instant fixedNow = Instant.parse("2026-11-20T12:00:00Z");
 
-        assertThatThrownBy(() -> service.place("cust-1", new BigDecimal("50.00")))
-                .isInstanceOf(PaymentDeclinedException.class)
-                .hasMessageContaining("insufficient funds");
+        // Mocking static Instant.now() strictly within the try block
+        try (MockedStatic<Instant> mockedInstant = mockStatic(Instant.class, CALLS_REAL_METHODS)) {
+            mockedInstant.when(Instant::now).thenReturn(fixedNow);
 
-        verifyNoInteractions(orders);                                       // nothing may be persisted
+            AuditRecord record = AuditLogger.createRecord("USER_LOGOUT");
+
+            assertThat(record.timestamp()).isEqualTo(fixedNow);
+        }
+        // Outside the try block, Instant.now() is automatically restored to real system clock!
     }
 }
 ```
 
-This shows the sensible split: the **gateway is stubbed** (an input), the **repository is verified** because "an order was saved" is the observable side effect, and time is a fixed `Clock`.
-
----
-
-## 3. Stubbing
-
+### Example 2: Spy vs Mock in Partial Execution
 ```java
-when(repo.findById(1L)).thenReturn(Optional.of(user));              // return a value
-when(repo.findById(2L)).thenReturn(Optional.empty());
-when(gateway.charge(any(), any())).thenThrow(new GatewayTimeoutException());
+package com.example.testing;
 
-when(counter.next()).thenReturn(1).thenReturn(2).thenThrow(new IllegalStateException());   // successive calls
+import org.junit.jupiter.api.Test;
+import java.util.ArrayList;
+import java.util.List;
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
-when(mapper.map(any())).thenAnswer(inv -> "mapped:" + inv.getArgument(0));                 // compute from arguments
+class SpyDemoTest {
+    @Test
+    void spy_executesRealMethods_unlessStubbed() {
+        List<String> realList = new ArrayList<>();
+        List<String> spyList = spy(realList);
 
-// void methods can't use when(...): use the do*/when form
-doThrow(new MailException("down")).when(mailer).send(any());
-doNothing().when(audit).record(any());
-```
+        // Real method executes: element added to underlying list!
+        spyList.add("First");
+        spyList.add("Second");
 
-### Argument matchers
+        assertThat(spyList).hasSize(2);
 
-```java
-when(repo.find(eq(1L), anyString())).thenReturn(...);       // any String
-when(repo.search(argThat(q -> q.length() > 3))).thenReturn(...);
-verify(mailer).send(startsWith("Hello"));
-```
+        // Override size() with canned stub
+        doReturn(100).when(spyList).size();
 
-**The matcher rule:** in one call, use matchers for **all** arguments or for **none**. This is wrong and throws `InvalidUseOfMatchersException`:
-
-```java
-when(repo.find(1L, anyString()))        // WRONG: mixes a raw value with a matcher
-when(repo.find(eq(1L), anyString()))    // right
-```
-
-### Default behavior of an unstubbed mock
-
-A mock returns "empty" defaults: `0`/`false`, an empty `Optional`, empty collections and streams, and **`null` for other objects**. That `null` is the usual source of surprise `NullPointerException`s ("I forgot to stub this").
-
-### BDD style (optional, reads as Given/When/Then)
-
-```java
-given(gateway.charge("c", amount)).willReturn(PaymentResult.success("t"));
-...
-then(orders).should().save(any());
-```
-
----
-
-## 4. Verification
-
-```java
-verify(orders).save(order);                         // exactly once
-verify(orders, times(2)).save(any());
-verify(orders, never()).delete(any());
-verify(mailer, atLeastOnce()).send(any());
-verifyNoInteractions(orders);                       // the mock was never touched
-verifyNoMoreInteractions(gateway);                  // nothing happened beyond what I verified (use rarely)
-
-InOrder inOrder = inOrder(gateway, orders);         // verify call ORDER (only when order is the requirement)
-inOrder.verify(gateway).charge(any(), any());
-inOrder.verify(orders).save(any());
-```
-
-### Capturing arguments
-
-When the code builds an object internally and passes it to a collaborator, capture it and assert on its contents:
-
-```java
-@Captor ArgumentCaptor<Order> orderCaptor;
-verify(orders).save(orderCaptor.capture());
-assertThat(orderCaptor.getValue().status()).isEqualTo(OrderStatus.PAID);
-```
-
-### Verify less
-
-Every `verify` couples the test to an implementation detail. Verify the interactions that **are the behavior** (an email was sent, a payment was requested, nothing was saved on failure). Don't verify queries, getters, or internal helper calls. `verifyNoMoreInteractions` on everything makes tests shatter on harmless refactoring.
-
----
-
-## 5. Strictness
-
-`MockitoExtension` runs in **strict stubs** mode, which keeps tests honest:
-
-- **`UnnecessaryStubbingException`**: you stubbed something the test never used. Remove the stub (the test or the code changed), or you're testing something other than you think.
-- **`PotentialStubbingProblem`**: the code called a stubbed method with *different arguments* than the stub expected, which is often a typo in the test or a real bug.
-
-Relax with `lenient().when(...)` only for genuinely shared setup stubs, and sparingly.
-
----
-
-## 6. Spies, static mocks, and other power tools
-
-### Spy (partial mock)
-
-A spy wraps a **real** object, calls real methods, and lets you stub some:
-
-```java
-@Spy List<String> list = new ArrayList<>();
-doReturn(100).when(list).size();         // use doReturn: when(list.size()) would call the real method first
-```
-
-Needing a spy usually signals that a class does too much. Prefer splitting it.
-
-### Static and constructor mocking
-
-```java
-try (MockedStatic<LegacyUtil> util = mockStatic(LegacyUtil.class)) {      // only inside this block
-    util.when(() -> LegacyUtil.fetch("x")).thenReturn("stubbed");
-    ...
+        assertThat(spyList).hasSize(100);
+        assertThat(spyList.get(0)).isEqualTo("First"); // Real element remains accessible!
+    }
 }
 ```
 
-`mockStatic` and `mockConstruction` exist for **code you can't change** (legacy statics, `new` inside code you don't own). In your own code, prefer **injecting** the dependency (a `Clock` instead of mocking `Instant.now()`, a factory instead of `new`).
-
-### Mockito 5 notes
-
-- Mockito 5 uses the **inline mock maker by default**, so you can mock `final` classes/methods and `static` methods without extra configuration. It requires Java 11+.
-- Inline mocking works by attaching an instrumentation agent. On **JDK 21+** that dynamic self-attachment prints a warning (JEP 451: "dynamic agent loading"), and a future JDK is expected to disallow it by default. The robust fix is to **register Mockito as a `-javaagent`** in the test JVM. Mockito's documentation shows the Maven and Gradle snippets (a pattern like: resolve the `mockito-core` JAR into a property/configuration and pass `-javaagent:<path>` through surefire's `argLine` or Gradle's `jvmArgs`). Check the current guide for your Mockito and JDK versions.
-
----
-
-## 7. Mocks vs fakes: choose deliberately
-
+### Example 3: Edge Case - doThrow for Void Methods
 ```java
-// A FAKE: a real, simple implementation. No stubbing or verification needed
-class InMemoryOrderRepository implements OrderRepository {
-    private final Map<Long, Order> store = new HashMap<>();
-    private long nextId = 1;
+package com.example.testing;
 
-    @Override public Order save(Order o) { Order saved = o.withId(nextId++); store.put(saved.id(), saved); return saved; }
-    @Override public Optional<Order> findById(long id) { return Optional.ofNullable(store.get(id)); }
-    @Override public List<Order> findByCustomer(String c) { return store.values().stream().filter(o -> o.customerId().equals(c)).toList(); }
+import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+class EmailNotificationTest {
+    @Test
+    void sendEmail_networkFailure_handlesGracefully() {
+        EmailSender sender = mock(EmailSender.class);
+        // when(sender.send(...)) does not compile for void methods! Use doThrow:
+        doThrow(new NetworkException("Connection refused"))
+                .when(sender).send(anyString(), anyString());
+
+        NotificationService service = new NotificationService(sender);
+
+        assertThatThrownBy(() -> service.notifyUser("user@example.com", "Hello"))
+                .isInstanceOf(ServiceException.class)
+                .hasCauseInstanceOf(NetworkException.class);
+    }
 }
 ```
 
-| | Mock (Mockito) | Fake |
+---
+
+## 6. Best Practices
+1. **Always Use `MockitoExtension`**: Leverage `@ExtendWith(MockitoExtension.class)` to enable strict stubbing and automatic cleanup of mocks.
+2. **Do Not Mock What You Do Not Own**: Avoid mocking third-party libraries (e.g., Apache HttpClient, Jackson); mock your own domain gateway interfaces that wrap external dependencies.
+3. **Never Mock Data Objects or Java 21 Records**: Never mock value objects, DTOs, Collections, or Records; instantiate real instances directly.
+4. **Prefer ArgumentCaptor over Complex Matchers**: Use `ArgumentCaptor` to capture objects and perform clear, expressive assertions using AssertJ.
+5. **Use Strict Stubbing**: Eliminate unnecessary stubs; unused stubs lead to test rot and mask subtle bugs when production code paths change.
+6. **Limit Mocks per Test Class**: If a test requires more than 3 or 4 mocks, the production class violates the Single Responsibility Principle and should be refactored.
+
+---
+
+## 7. Common Mistakes & Pitfalls
+
+| Mistake | Why It Fails | Correction |
 |---|---|---|
-| Setup | Per test: stubbing | Written once, reused |
-| Verifies | Interactions | Resulting **state** |
-| Resilience to refactoring | Low (tied to calls) | High |
-| Best for | One-off outbound side effects, error injection | Repositories, caches, queues, clocks |
-
-A good rule: **fake the stateful things (repositories), mock/stub the boundaries with side effects or failures (gateways), and use real objects for everything in-process.** Back fakes with a **contract test** run against both the fake and the real implementation so they can't drift ([Testing Patterns](04_testing-patterns.md#2-fakes-and-contract-tests)).
-
----
-
-## 8. What not to mock
-
-| Don't mock | Why | Instead |
-|---|---|---|
-| **The class under test** | Then you test the mock | Real object |
-| **Value objects, records, DTOs, collections, `String`** | Cheap to create for real. Mocks add noise | Real instances (use builders) |
-| **Types you don't own** (JDBC `Connection`, `HttpClient`, a vendor SDK) | Your mock encodes guesses about its behavior, and tests pass while reality fails | Wrap it behind your own small interface, mock *that*, and test the wrapper with an integration test ([Integration Testing](03_integration-testing.md)) |
-| **Everything in a chain** (`RETURNS_DEEP_STUBS`) | A sign of Law-of-Demeter violations | Redesign the API |
-| **Pure functions and logic** | Nothing to isolate | Call them |
-
-Rule of thumb: **mock at architectural boundaries** (ports to the outside world), not between every pair of classes. Too many mocks mean the test mirrors the implementation line by line.
-
-### Mocks in Spring tests
-
-For Spring slice and integration tests, `@MockitoBean` (Spring Framework 6.2+) replaces a bean in the application context with a Mockito mock. It supersedes the older `@MockBean`, which Spring Boot deprecated in 3.4. Check your Boot version. It's a heavier tool than constructor injection in plain unit tests, so prefer plain unit tests where they suffice ([Integration Testing](03_integration-testing.md#3-spring-boot-tests)).
+| Mixing matchers and raw values in one call | Mockito throws `InvalidUseOfMatchersException` | Wrap literal values in `eq(value)` if matchers are used |
+| Mocking value objects / Collections | Adds brittle mocking code for simple data structures | Instantiate real Collections and Records directly |
+| Mocking the Class Under Test (SUT) | Obscures the real behavior being tested | Only mock external collaborators, never the SUT |
+| Using `when(spy.get(0))` on empty spy | Real method executes during stubbing, throwing `IndexOutOfBoundsException` | Use `doReturn(val).when(spy).get(0)` for spies |
+| Forgetting to close `MockedStatic` | Leaves static method mocked globally, breaking subsequent tests | Always enclose `mockStatic` in try-with-resources |
+| Overusing `verifyNoMoreInteractions` | Makes test fragile against minor internal refactoring | Verify only interactions essential to the business contract |
+| Ignoring Unnecessary Stubbing warnings | Dead code accumulates in test suite | Remove unused `when(...)` stubs flagged by strictness |
+| Mocking methods that are never called | Hides dead code or altered business logic | Use `Strictness.STRICT_STUBS` |
 
 ---
 
-## 9. Alternatives for specific boundaries
-
-- **HTTP services:** a fake HTTP server (WireMock, OkHttp `MockWebServer`) exercises your real client code, serialization, and timeouts.
-- **Databases/brokers:** real ones in containers (Testcontainers) beat mocking JDBC.
-- **Time:** an injected `Clock` ([Date-Time Best Practices](../10-date-and-time/05_date-time-best-practices.md#4-make-time-injectable-clock)).
-- **Kotlin:** MockK is the idiomatic equivalent.
+## 8. Performance & Security Notes
+- **Inline Mock Maker Overhead**: The inline mock maker instruments class bytecode via the JVM Attach API. Mockito 5 optimizes this by attaching lazily, keeping startup overhead under 100 ms.
+- **Memory Retention in Mocks**: Mock instances retain all invocation arguments in internal collections to satisfy potential `verify()` calls. For long-running test suites or large byte arrays, avoid holding mock references in static fields.
+- **Deep Stubs Anti-Pattern**: Avoid `RETURNS_DEEP_STUBS` (e.g., `when(a.getB().getC().getD()).thenReturn(...)`). It violates the Law of Demeter and indicates severe coupling.
 
 ---
 
-## Common mistakes
+## 9. Comparison / When to Use What
 
-| Mistake | Fix |
-|---|---|
-| Mocking everything, verifying every call | Mock boundaries only, verify behavior-level side effects |
-| Mixing raw values and matchers in one call | All matchers or none |
-| `when(spy.method())` calling the real method | `doReturn(...).when(spy).method()` |
-| Forgetting to stub, then hitting `NullPointerException` | Remember unstubbed objects return `null`. Stub or use real objects |
-| Unused stubs (strict-mode failures) | Remove them, or find why the code path isn't hit |
-| Mocking types you don't own | Wrap, mock the wrapper, integration-test the wrapper |
-| Using `mockStatic` in new code | Inject the dependency instead |
-| Verifying getters and internal helpers | Verify only meaningful outward interactions |
-| Mocking value objects/collections | Create real ones |
-| Tests that pass although the real integration is broken | Add integration tests for the boundary |
-| Dynamic agent warnings on JDK 21+ | Configure Mockito as a `-javaagent` |
-
-### Debugging Mockito errors
-
-| Message | Meaning / fix |
-|---|---|
-| `Wanted but not invoked: ...` | The code never made that call (or made it on another mock/with different arguments). Compare with the "However, there were other interactions" part |
-| `Argument(s) are different! Wanted: ... Actual invocation has different arguments` | Equal-ness mismatch (`equals` missing, `BigDecimal` scale, mutated object). Use a captor and inspect |
-| `InvalidUseOfMatchersException` | Mixed matchers and raw values, or a matcher used outside a stubbing/verification call |
-| `UnfinishedStubbingException` / `UnfinishedVerificationException` | A previous `when(...)` or `verify(...)` wasn't completed (often nested mock calls inside a stubbing) |
-| `UnnecessaryStubbingException` / `PotentialStubbingProblem` | Strict stubs: unused stub, or stub called with other arguments |
-| `NullPointerException` in code under test | An unstubbed mock returned `null` |
-| `MockitoException: Cannot mock/spy class ...` | Final/native/primitive types or an environment (agent) issue. Check the Mockito version, and the JDK/agent setup |
+| Mockito Feature | Behavior | Execution | Best Use Case |
+|---|---|---|---|
+| **Standard Mock (`mock()`)** | Canned defaults | Synthetic Bytecode | External collaborators (Gateway, Repository) |
+| **Spy (`spy()`)** | Real methods default | Real instance wrapped | Legacy code, partial method overrides |
+| **ArgumentCaptor** | Captures runtime args | Post-execution | Deep inspection of request DTOs sent to collaborators |
+| **mockStatic** | Scoped static intercept | Bytecode instrumentation | Testing legacy code with static utilities (Clock, UUID) |
 
 ---
 
-## Quick Summary
+## 10. Interview Questions
 
-- **Mocks** replace collaborators so a unit can be tested in isolation. **Stub** inputs (`when(...).thenReturn(...)`), **verify** only outward side effects (`verify(...)`, `ArgumentCaptor`).
-- Use `@ExtendWith(MockitoExtension.class)` with `@Mock`/`@Captor`. Strict stubs flag unused or mismatched stubbing.
-- Matcher rule: **all matchers or none**. Unstubbed methods return empty/default values or `null`.
-- Prefer **fakes** (in-memory implementations) for stateful collaborators, and **real objects** in-process. Mock at **boundaries** you own, and wrap third-party types.
-- Spies, `mockStatic`, and deep stubs are smells. **Inject** `Clock`/factories instead.
-- Mockito 5 is inline-by-default (final and static mocking). On JDK 21+, register it as a `-javaagent`.
-- Over-mocking makes tests mirror the implementation and break on refactoring. Add integration tests where mocks end.
+<details>
+<summary>1. How does Mockito 5's Inline Mock Maker differ from the legacy Subclass Mock Maker?</summary>
+The legacy Subclass Mock Maker used CGLIB or Byte Buddy to generate a dynamic subclass extending the target class. This approach fundamentally could not mock <code>final</code> classes, <code>final</code> methods, or Java Records because the JVM prohibits subclassing final types.<br>
+Mockito 5 uses the Inline Mock Maker by default, which leverages the JVM Instrumentation API (<code>ClassFileTransformer</code>) to modify the target class's bytecode directly in memory. This allows seamless mocking of final classes, records, and static methods.
+</details>
 
-**Next:** [Integration Testing](03_integration-testing.md)
+<details>
+<summary>2. Why does Mockito throw an InvalidUseOfMatchersException when mixing matchers with raw literals?</summary>
+Mockito's argument matcher mechanism relies on a static thread-local stack. When an argument matcher like <code>any()</code> is evaluated, it pushes a matcher onto the stack and returns a dummy value (e.g., null, 0). If a method takes three arguments and you write <code>method(any(), eq("b"), "c")</code>, the third argument does not push a matcher onto the stack, creating a count mismatch. Mockito requires either <i>all</i> arguments to use matchers or <i>none</i>.
+</details>
+
+<details>
+<summary>3. What is Strict Stubbing in Mockito and why is it enabled by default in MockitoExtension?</summary>
+Strict Stubbing enforces testing hygiene:
+1. It detects and fails the test if any declared stub is never invoked (Unnecessary Stubbing).<br>
+2. It detects argument mismatches: if code calls a stubbed method with arguments slightly different from what was configured, Mockito throws an exception pointing to the exact mismatch.<br>
+This prevents "test rot" and ensures tests stay synchronized with evolving production code.
+</details>
+
+<details>
+<summary>4. What is the difference between when(spy.method()).thenReturn() and doReturn().when(spy).method()?</summary>
+With <code>when(spy.method()).thenReturn()</code>, the real method is actually invoked once during the stubbing declaration itself before Mockito can register the stub! If the real method has side effects (e.g., database writes or throwing an exception), the test fails during setup.<br>
+With <code>doReturn().when(spy).method()</code>, Mockito intercepts the call before it reaches the real method, safely registering the stub without executing the underlying code.
+</details>
+
+<details>
+<summary>5. When should you choose an in-memory Fake over a Mockito mock?</summary>
+An in-memory Fake should be preferred when:
+- Testing complex domain business workflows where verifying multiple mock interactions makes the test brittle.
+- Simulating a database repository or stateful cache where the SUT performs multiple reads, writes, and deletions.
+- Fakes provide higher fidelity and allow refactoring internal collaborator method calls without breaking tests.
+</details>
+
+<details>
+<summary>6. Why is mocking static methods generally considered a code smell?</summary>
+Reliance on static methods indicates procedural design, tight coupling to global state, and violation of Dependency Injection. While <code>mockStatic()</code> is useful for refactoring legacy code or intercepting system clocks, modern code should inject collaborators (like <code>java.time.Clock</code>) via constructors instead of invoking static methods directly.
+</details>
+
+<details>
+<summary>7. What does verifyNoInteractions(mock) do?</summary>
+<code>verifyNoInteractions(mock)</code> asserts that no methods were ever invoked on the specified mock object throughout the entire test execution. It is ideal for verifying negative branches (e.g., verifying that a payment gateway was never contacted if input validation failed).
+</details>
+
+<details>
+<summary>8. How does ArgumentCaptor help prevent over-specification in tests?</summary>
+Instead of writing complex, brittle custom argument matchers inside <code>verify()</code>, <code>ArgumentCaptor</code> captures the actual object passed to the collaborator. The test can then use standard AssertJ assertions to verify only the relevant properties of the captured object, keeping the test clean and readable.
+</details>
+
+---
+
+## 11. Practice Exercises
+
+<details>
+<summary>Exercise 1: Write a test capturing an argument and asserting its fields with AssertJ.</summary>
+
+```java
+@Test
+void publishEvent_validPayload_sendsToMessageBroker() {
+    MessageBroker broker = mock(MessageBroker.class);
+    EventPublisher publisher = new EventPublisher(broker);
+    ArgumentCaptor<EventMessage> captor = ArgumentCaptor.forClass(EventMessage.class);
+
+    publisher.publishUserCreated("user-123");
+
+    verify(broker).send(captor.capture());
+    EventMessage message = captor.getValue();
+    assertThat(message.topic()).isEqualTo("user-events");
+    assertThat(message.payload()).contains("user-123");
+}
+```
+</details>
+
+<details>
+<summary>Exercise 2: Write a test verifying that no interactions occur on a payment gateway when order is free.</summary>
+
+```java
+@Test
+void checkout_zeroDollarOrder_skipsPaymentGateway() {
+    PaymentGateway gateway = mock(PaymentGateway.class);
+    CheckoutService service = new CheckoutService(gateway);
+
+    service.checkout(new Order("ORD-FREE", BigDecimal.ZERO));
+
+    verifyNoInteractions(gateway);
+}
+```
+</details>
+
+<details>
+<summary>Exercise 3: Demonstrate how to stub a method to throw an exception on first call and succeed on second.</summary>
+
+```java
+@Test
+void retryLogic_recoversAfterFirstFailure() {
+    RemoteService remote = mock(RemoteService.class);
+    when(remote.fetchData())
+            .thenThrow(new RuntimeException("Transient network hiccup"))
+            .thenReturn("Success Payload");
+
+    ResilientClient client = new ResilientClient(remote);
+    String result = client.fetchWithRetry();
+
+    assertThat(result).isEqualTo("Success Payload");
+    verify(remote, times(2)).fetchData();
+}
+```
+</details>
+
+---
+
+## 12. Summary / Cheat Sheet
+- **Mock vs Spy**: Mock = synthetic default stub; Spy = real instance with selective overrides.
+- **Inline Mocking**: Mockito 5 instruments bytecode directly; mocks `final` classes, records, and static methods.
+- **Strict Stubbing**: Enabled via `@ExtendWith(MockitoExtension.class)`; eliminates unused stubs.
+- **Argument Capturing**: Use `ArgumentCaptor<T>` to perform AssertJ assertions on collaborator inputs.
+- **Spies Rule**: Always use `doReturn(val).when(spy).method()` to avoid executing real code during stubbing.
+- **Mock Overuse**: Never mock value objects, Collections, or Java Records; mock only domain service boundaries.
+
+---
+
+## 13. Further Reading
+- Mockito Official Documentation and Release Notes
+- Martin Fowler: Mocks Aren't Stubs
+- Byte Buddy: Runtime Bytecode Generation for the Java Virtual Machine
+- *Effective Java* (3rd Edition) by Joshua Bloch

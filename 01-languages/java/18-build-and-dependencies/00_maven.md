@@ -1,388 +1,418 @@
-# Maven
+# Apache Maven: Lifecycle, Plugins, and Multi-Module Architecture
 
-**Apache Maven** builds Java projects from a declarative description: a `pom.xml` (Project Object Model) states *what* the project is and *which* libraries it needs, and Maven's fixed **lifecycle** and **plugins** know *how* to build it. Its core idea is **convention over configuration**. If you follow the standard directory layout, you need almost no build logic.
+> The standard declarative build tool of the Java ecosystem: Build Lifecycles, POM Anatomy, Dependency Scopes, Plugin Pipelines, and Reactor Multi-Module Builds.
 
-Maven is the most widely used Java build tool, and its concepts (coordinates, repositories, scopes, BOMs) show up everywhere else, Gradle included.
-
-**Prerequisites:** [Classpath and JARs](../05-packages-and-modules/01_classpath-and-jars.md), [First Project with Maven and Gradle](../00-setup/05_first-project-with-maven-and-gradle.md).
+| Metadata | Details |
+|---|---|
+| **Level** | Core / Intermediate |
+| **Prerequisites** | Java Packages, JAR Packaging |
+| **Time to Read** | 25 minutes |
+| **Status** | Complete |
+| **JDK Baseline** | Java 17 / 21 / 25 LTS (Maven 3.9+ / 4.0) |
 
 ---
 
-## 1. The project layout and the POM
+## Table of Contents
+1. [1. What & Why](#1-what--why)
+2. [2. Core Concepts](#2-core-concepts)
+3. [3. How It Works Internally: Lifecycles, Phases, & Reactor Graph](#3-how-it-works-internally-lifecycles-phases--reactor-graph)
+4. [4. Syntax & Usage](#4-syntax--usage)
+5. [5. Practical Examples](#5-practical-examples)
+6. [6. Best Practices](#6-best-practices)
+7. [7. Common Mistakes & Pitfalls](#7-common-mistakes--pitfalls)
+8. [8. Performance & Security Notes](#8-performance--security-notes)
+9. [9. Comparison / When to Use What](#9-comparison--when-to-use-what)
+10. [10. Interview Questions](#10-interview-questions)
+11. [11. Practice Exercises](#11-practice-exercises)
+12. [12. Summary / Cheat Sheet](#12-summary--cheat-sheet)
+13. [13. Further Reading](#13-further-reading)
 
-```text
- my-app/
- ├── pom.xml
- ├── mvnw, mvnw.cmd, .mvn/wrapper/        ← Maven Wrapper (section 8)
- ├── src/
- │   ├── main/java/          production code
- │   ├── main/resources/     config files, templates (copied to the classpath)
- │   ├── test/java/          tests
- │   └── test/resources/
- └── target/                 build output (never commit)
+---
+
+## 1. What & Why
+Apache Maven is the foundational build automation and project management tool that standardized the Java ecosystem. Before Maven, Java projects relied on Apache Ant or custom Makefiles, which lacked standardized directory layouts, dependency management, or universal lifecycle definitions.
+
+Maven introduced convention over configuration: standard directory layouts (`src/main/java`, `src/test/resources`), declarative XML project object models (`pom.xml`), universal artifact coordinates (`groupId:artifactId:version`), and an opinionated build lifecycle. Understanding Maven's three lifecycles, transitive dependency resolution mechanisms, plugin bindings, and multi-module reactor topology is indispensable for reproducible enterprise builds.
+
+---
+
+## 2. Core Concepts
+- **Project Object Model (`pom.xml`)**: The declarative XML descriptor defining project coordinates, dependencies, build plugins, and profiles.
+- **Artifact Coordinates (GAV)**: Unique three-part coordinate: `groupId` (organization reverse domain), `artifactId` (module name), `version` (release or `-SNAPSHOT`).
+- **Standard Lifecycles**:
+  1. `default`: Core lifecycle handling compile, test, package, install, and deploy.
+  2. `clean`: Cleans target build directory (`target/`).
+  3. `site`: Generates HTML project documentation and reports.
+- **Phases vs Goals**: A *Phase* is an abstract step in a lifecycle (e.g., `compile`, `test`, `package`). A *Goal* is an executable task implemented by a Plugin (e.g., `compiler:compile`, `surefire:test`) bound to a phase.
+- **Dependency Scopes**: Control classpath inclusion for compile, runtime, and test phases (`compile`, `provided`, `runtime`, `test`, `system`, `import`).
+- **Reactor & Multi-Module Builds**: Mechanism that calculates the topological sort dependency graph across parent and child modules, building modules in deterministic order.
+- **Bill of Materials (BOM)**: A POM packaging artifact that centralizes dependency versions in `<dependencyManagement>` for consistent multi-module consumption.
+
+---
+
+## 3. How It Works Internally: Lifecycles, Phases, & Reactor Graph
+
+When a developer invokes `mvn clean package`, Maven executes a deterministic sequence of lifecycles and phase bindings:
+
+```
+[ mvn clean package ]
+         |
+         +--> 1. Clean Lifecycle: pre-clean -> clean -> post-clean
+         |
+         +--> 2. Default Lifecycle:
+                   validate
+                      |
+                   compile (maven-compiler-plugin:compile)
+                      |
+                   test (maven-surefire-plugin:test)
+                      |
+                   package (maven-jar-plugin:jar)
 ```
 
-A minimal `pom.xml`:
+### Transitive Dependency Mediation:
+When two dependencies request conflicting versions of the same library:
+- **Nearest Definition Wins (Depth-First)**: If Project depends directly on Library A (depth 1) which depends on Log4j 2.17 (depth 2), and depends on Library B (depth 1) which depends on Library C (depth 2) which depends on Log4j 2.12 (depth 3), Maven selects **Log4j 2.17** because depth 2 is closer to the root than depth 3.
+- **First Declared Wins (Tie-Breaker)**: If two conflicting versions exist at the exact same tree depth, the dependency declared first in the `pom.xml` wins.
 
+---
+
+## 4. Syntax & Usage
+
+### 4.1 Production `pom.xml` Anatomy for Java 21/25
 ```xml
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
-  <modelVersion>4.0.0</modelVersion>
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
+         https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
 
-  <groupId>com.acme</groupId>
-  <artifactId>orders</artifactId>
-  <version>1.0.0-SNAPSHOT</version>
-  <packaging>jar</packaging>
+    <groupId>com.example.service</groupId>
+    <artifactId>order-service</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
 
-  <properties>
-    <maven.compiler.release>21</maven.compiler.release>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-  </properties>
+    <properties>
+        <java.version>21</java.version>
+        <maven.compiler.release>21</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <jackson.version>2.17.2</jackson.version>
+        <junit.jupiter.version>5.10.3</junit.jupiter.version>
+    </properties>
 
-  <dependencies>
-    <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter</artifactId>
-      <version>5.x.y</version>          <!-- use the current JUnit release -->
-      <scope>test</scope>
-    </dependency>
-  </dependencies>
+    <dependencyManagement>
+        <dependencies>
+            <!-- Importing Spring Boot or Cloud BOM -->
+            <dependency>
+                <groupId>com.fasterxml.jackson</groupId>
+                <artifactId>jackson-bom</artifactId>
+                <version>${jackson.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <!-- Standard Compile Dependency -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+
+        <!-- Test Scoped Dependency -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.jupiter.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Compiler Plugin with Modern Java Release Flag -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <release>${maven.compiler.release}</release>
+                    <compilerArgs>
+                        <arg>-Xlint:all</arg>
+                        <arg>-parameters</arg>
+                    </compilerArgs>
+                </configuration>
+            </plugin>
+
+            <!-- Unit Testing Plugin -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.3.0</version>
+            </plugin>
+        </plugins>
+    </build>
 </project>
 ```
 
-### Coordinates
-
-Every artifact is identified by **GAV** coordinates:
-
-| Part | Meaning | Example |
-|---|---|---|
-| `groupId` | Organization/namespace (reverse domain) | `com.fasterxml.jackson.core` |
-| `artifactId` | The library/project name | `jackson-databind` |
-| `version` | Release version | `2.18.0` |
-| `packaging` | `jar` (default), `war`, `pom`, ... | `jar` |
-| (classifier) | A variant (`sources`, `javadoc`, `linux-x86_64`) | |
-
-`1.0.0-SNAPSHOT` means "work in progress": Maven may re-download newer snapshot builds. A version without `-SNAPSHOT` is a **release**, and must be immutable (once published, never changed).
-
-Set the Java version with **`maven.compiler.release`** (not `source`/`target`): it also restricts the APIs you may call to those of that Java release ([Release Timeline](../12-modern-java/00_java-release-timeline.md#4-which-version-should-i-target)).
-
 ---
 
-## 2. The lifecycle: phases and goals
+## 5. Practical Examples
 
-Maven runs **phases** in a fixed order. Each phase executes the **plugin goals** bound to it. Asking for a phase runs every earlier phase too.
-
-```text
- validate → compile → test → package → verify → install → deploy
-    │          │        │        │         │         │         └ upload to a remote repository
-    │          │        │        │         │         └ copy the artifact into your local repo (~/.m2)
-    │          │        │        │         └ integration tests, quality checks
-    │          │        │        └ build the JAR/WAR
-    │          │        └ run unit tests (surefire)
-    │          └ compile (compiler plugin)
-    └ check the project is correct
-```
-
-(Plus `generate-sources`, `process-resources`, `test-compile`, `pre-integration-test`, `integration-test` and others in between.) Two other lifecycles: **`clean`** (delete `target/`) and **`site`** (documentation).
-
-Commands you'll use daily:
-
-```bash
-mvn clean verify            # the standard "build everything and run all tests"
-mvn test                    # compile + unit tests only
-mvn package -DskipTests     # build the artifact, skip tests (use sparingly)
-mvn install                 # also install into ~/.m2 so other local projects can use it
-mvn -B -ntp verify          # CI-friendly: batch mode, no transfer progress noise
-mvn -Dtest=OrderServiceTest test         # one test class
-mvn -Dtest=OrderServiceTest#cancels test # one method
-mvn -pl order-service -am verify         # one module (+ the modules it depends on)
-mvn -T 1C verify            # parallel build: 1 thread per CPU core
-mvn -o verify               # offline: use only the local repository
-mvn -U verify               # force-update snapshots and failed lookups
-mvn -P integration verify   # activate a profile
-mvn -X verify               # debug output (when something is wrong)
-```
-
-You can also invoke a plugin goal directly: `mvn dependency:tree`, `mvn versions:display-dependency-updates`.
-
----
-
-## 3. Dependencies
-
+### Example 1: Multi-Module Root Parent POM Structure
 ```xml
-<dependency>
-  <groupId>com.fasterxml.jackson.core</groupId>
-  <artifactId>jackson-databind</artifactId>
-  <version>2.x.y</version>
-</dependency>
+<!-- Root Aggregator POM -->
+<project>
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.example.enterprise</groupId>
+    <artifactId>enterprise-parent</artifactId>
+    <version>2.0.0</version>
+    <packaging>pom</packaging>
+
+    <modules>
+        <module>common-domain</module>
+        <module>persistence-layer</module>
+        <module>api-gateway</module>
+    </modules>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.example.enterprise</groupId>
+                <artifactId>common-domain</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.example.enterprise</groupId>
+                <artifactId>persistence-layer</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+</project>
 ```
 
-Maven downloads the JAR (and **its** dependencies, transitively) from a repository into your local cache `~/.m2/repository`, and puts them on the classpath.
-
-### Scopes
-
-| Scope | Compile classpath | Test classpath | Runtime classpath | Typical use |
-|---|---|---|---|---|
-| `compile` (default) | ✔ | ✔ | ✔ | Normal libraries |
-| `provided` | ✔ | ✔ | ✘ | APIs supplied by the runtime (servlet API, Lombok) |
-| `runtime` | ✘ | ✔ | ✔ | JDBC drivers, logging backends: needed to run, not to compile |
-| `test` | ✘ | ✔ | ✘ | JUnit, Mockito, Testcontainers |
-| `import` | | | | Only in `dependencyManagement` for BOMs (section 4) |
-
-Pick the narrowest scope that works. It keeps test libraries out of production artifacts and makes accidental coupling to implementation libraries a compile error.
-
-### Transitive dependencies and exclusions
-
-Dependencies bring their own dependencies. See what you actually get:
-
-```bash
-mvn dependency:tree                       # the resolved tree
-mvn dependency:tree -Dverbose             # include omitted duplicates and conflicts
-mvn dependency:analyze                    # declared-but-unused / used-but-undeclared
-```
-
-Remove an unwanted transitive dependency with an exclusion (or declare it `<optional>` in your own library to avoid forcing it on consumers):
-
+### Example 2: Configuring Integration Tests with Failsafe Plugin
 ```xml
-<dependency>
-  <groupId>org.example</groupId>
-  <artifactId>legacy-client</artifactId>
-  <version>1.2.0</version>
-  <exclusions>
-    <exclusion>
-      <groupId>commons-logging</groupId>
-      <artifactId>commons-logging</artifactId>
-    </exclusion>
-  </exclusions>
-</dependency>
-```
-
-How Maven resolves two different versions of the same library in the tree is covered in [Dependency Management](02_dependency-management.md#2-conflicts-how-they-are-resolved).
-
----
-
-## 4. Managing versions: `dependencyManagement` and BOMs
-
-Declaring versions in many places invites drift. `dependencyManagement` centralizes them, and child modules then declare dependencies **without** a version:
-
-```xml
-<dependencyManagement>
-  <dependencies>
-    <!-- import a BOM: a POM that lists compatible versions of a whole library family -->
-    <dependency>
-      <groupId>com.fasterxml.jackson</groupId>
-      <artifactId>jackson-bom</artifactId>
-      <version>2.x.y</version>
-      <type>pom</type>
-      <scope>import</scope>
-    </dependency>
-  </dependencies>
-</dependencyManagement>
-
-<dependencies>
-  <dependency>
-    <groupId>com.fasterxml.jackson.core</groupId>
-    <artifactId>jackson-databind</artifactId>   <!-- version comes from the BOM -->
-  </dependency>
-</dependencies>
-```
-
-A **BOM** (Bill of Materials) guarantees that all artifacts in a family (Jackson, Spring, JUnit, cloud SDKs) use versions tested together. Importing the BOM is the standard way to avoid mixed-version breakage ([Jackson](../17-json-and-data-formats/01_jackson.md#1-setup)).
-
-`dependencyManagement` only **declares** versions. It doesn't add dependencies to the project.
-
----
-
-## 5. Plugins
-
-Maven itself does almost nothing. **Plugins** do the work, and many are bound to the lifecycle by default. The ones you'll meet:
-
-| Plugin | Purpose |
-|---|---|
-| `maven-compiler-plugin` | Compiles Java (`release` setting) |
-| `maven-surefire-plugin` | Runs **unit tests** (in `test`). Default patterns: `*Test`, `Test*`, `*Tests`, `*TestCase` |
-| `maven-failsafe-plugin` | Runs **integration tests** (in `integration-test`/`verify`): default pattern `*IT`, `IT*`, `*ITCase` ([CI/CD](03_ci-cd-pipelines.md#4-test-stages-in-the-pipeline)) |
-| `maven-jar-plugin` | Builds the JAR, sets the manifest (`Main-Class`) |
-| `maven-shade-plugin` / `maven-assembly-plugin` | "Fat" / "uber" JARs containing dependencies |
-| `spring-boot-maven-plugin` | Executable Spring Boot JARs and image building |
-| `maven-enforcer-plugin` | Enforce rules: Java/Maven version, dependency convergence, banned dependencies |
-| `jacoco-maven-plugin` | Code coverage |
-| `versions-maven-plugin` | Report and update dependency/plugin versions |
-| `maven-dependency-plugin` | Tree, analysis, copying dependencies |
-
-Configure a plugin in `<build><plugins>`, and pin versions in `<pluginManagement>` so builds are reproducible:
-
-```xml
-<build>
-  <pluginManagement>
-    <plugins>
-      <plugin>
-        <artifactId>maven-surefire-plugin</artifactId>
-        <version>3.x.y</version>
-      </plugin>
-    </plugins>
-  </pluginManagement>
-  <plugins>
-    <plugin>
-      <artifactId>maven-enforcer-plugin</artifactId>
-      <version>3.x.y</version>
-      <executions>
+<!-- Failsafe runs during 'integration-test' and verifies results during 'verify' -->
+<plugin>
+    <groupId>org.apache.maven.plugins</groupId>
+    <artifactId>maven-failsafe-plugin</artifactId>
+    <version>3.3.0</version>
+    <executions>
         <execution>
-          <goals><goal>enforce</goal></goals>
-          <configuration>
-            <rules>
-              <requireJavaVersion><version>[21,)</version></requireJavaVersion>
-              <dependencyConvergence/>
-            </rules>
-          </configuration>
+            <goals>
+                <goal>integration-test</goal>
+                <goal>verify</goal>
+            </goals>
         </execution>
-      </executions>
-    </plugin>
-  </plugins>
-</build>
+    </executions>
+    <configuration>
+        <includes>
+            <include>**/*IT.java</include>
+            <include>**/*IntegrationTest.java</include>
+        </includes>
+    </configuration>
+</plugin>
 ```
 
-An unpinned plugin version means "whatever Maven's defaults or latest rules choose today", which is a classic cause of builds that break after an upgrade. Run `mvn help:effective-pom` to see the fully resolved configuration.
+### Example 3: Edge Case - Building Fat/Uber Executable JAR with Maven Shade
+```xml
+<plugin>
+    <groupId>org.apache.maven.plugins</groupId>
+    <artifactId>maven-shade-plugin</artifactId>
+    <version>3.6.0</version>
+    <executions>
+        <execution>
+            <phase>package</phase>
+            <goals><goal>shade</goal></goals>
+            <configuration>
+                <transformers>
+                    <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                        <mainClass>com.example.service.ApplicationMain</mainClass>
+                    </transformer>
+                    <!-- Appends SPI services across META-INF/services -->
+                    <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                </transformers>
+            </configuration>
+        </execution>
+    </executions>
+</plugin>
+```
 
 ---
 
-## 6. Multi-module projects
+## 6. Best Practices
+1. **Always Use `<maven.compiler.release>`**: Configure `<release>21</release>` rather than separate `<source>` and `<target>`, ensuring compilation checks against the exact target JDK standard library API signature.
+2. **Commit the Maven Wrapper (`./mvnw`)**: Always commit `.mvn/wrapper/` and `mvnw` scripts to version control, ensuring all team members and CI/CD agents use the exact identical Maven binary.
+3. **Centralize Versions in `<dependencyManagement>`**: Never scatter hardcoded version strings across child POMs; manage versions strictly in the root parent BOM.
+4. **Use `maven-enforcer-plugin`**: Enforce build constraints (e.g., minimum Java version, banning duplicate classes, requiring dependency convergence).
+5. **Separate Unit Tests from Integration Tests**: Run fast in-memory unit tests via Surefire (`*Test.java`), and slow containerized tests via Failsafe (`*IT.java`) during the `verify` phase.
+6. **Pass `-parameters` to the Compiler**: Informs the compiler to store method and record parameter names in bytecode metadata, eliminating manual `@Param` annotations.
 
-Large systems split into modules built together by one **reactor**:
+---
 
-```text
- shop/
- ├── pom.xml                  ← parent + aggregator (packaging: pom)
- ├── shop-domain/pom.xml
- ├── shop-persistence/pom.xml   (depends on shop-domain)
- └── shop-web/pom.xml           (depends on both)
+## 7. Common Mistakes & Pitfalls
+
+| Mistake | Why It Fails | Correction |
+|---|---|---|
+| Using `<source>`/`<target>` instead of `<release>` | Allows code to call newer JDK APIs, failing at runtime on target JDK | Use `<maven.compiler.release>21</maven.compiler.release>` |
+| Committing local `~/.m2/repository` paths | Breaks builds on other developer machines and CI servers | Use relative module paths or published repository coordinates |
+| Transitive dependency version collision | "Nearest definition" selects an older incompatible library | Enforce versions using `<dependencyManagement>` |
+| Running `mvn clean` on every build | Destroys incremental compiler caches, doubling build duration | Run `mvn compile` or `mvn test` directly during development |
+| Shadowing SPI files in Uber JARs | Overwrites `META-INF/services` files from different libraries | Use `ServicesResourceTransformer` in `maven-shade-plugin` |
+| Putting integration tests in Surefire | Slows down `mvn test`, blocks rapid feedback loop | Use `maven-failsafe-plugin` for `*IT.java` tests |
+| Missing `-SNAPSHOT` on development versions | Maven caches release versions permanently, ignoring updates | Append `-SNAPSHOT` to active feature development versions |
+| Forgetting `<scope>test</scope>` on test libraries | Bundles JUnit and Mockito into production runtime JARs | Explicitly declare test scopes on test dependencies |
+
+---
+
+## 8. Performance & Security Notes
+- **Maven Daemon (`mvnd`)**: A background daemon client utilizing GraalVM native binary and multiple worker threads, speeding up Maven builds by 2x to 5x.
+- **Parallel Builds**: Use `mvn -T 1C clean package` (1 thread per CPU core) to build independent multi-module projects concurrently.
+- **Dependency Confusion & Repositories**: Declare trusted internal repository mirrors (`<mirrorOf>*</mirrorOf>`) in `settings.xml` to prevent build systems from fetching malicious packages from untrusted external repositories.
+
+---
+
+## 9. Comparison / When to Use What
+
+| Scope | Compile Classpath | Runtime Classpath | Test Classpath | Packaged in JAR/WAR | Best Use Case |
+|---|---|---|---|---|---|
+| **compile** | Yes | Yes | Yes | Yes | Standard libraries (Jackson, Apache Commons) |
+| **provided**| Yes | No | Yes | No | Container provided (Servlet API, Lombok) |
+| **runtime** | No | Yes | Yes | Yes | JDBC Drivers, Logback implementations |
+| **test** | No | No | Yes | No | Testing libraries (JUnit, Mockito, AssertJ) |
+| **import** | N/A | N/A | N/A | No | Consuming external BOMs in `<dependencyManagement>`|
+
+---
+
+## 10. Interview Questions
+
+<details>
+<summary>1. How does Maven resolve transitive dependency conflicts, and what is the "Nearest Definition" rule?</summary>
+Maven uses a deterministic tree resolution strategy:
+1. <b>Nearest Definition</b>: The version closest to the root project in the dependency tree wins. If project A $	o$ B $	o$ C 1.0 (depth 2) and project A $	o$ D $	o$ E $	o$ C 2.0 (depth 3), C 1.0 is selected because it is at depth 2.<br>
+2. <b>First Declared Wins</b>: If conflicting versions appear at the exact same depth, the one declared first in the <code>pom.xml</code> is chosen.<br>
+To override this behavior, developers must explicitly declare the desired version in the root <code><dependencyManagement></code> block.
+</details>
+
+<details>
+<summary>2. What is the fundamental difference between the Maven Surefire and Failsafe plugins?</summary>
+<code>maven-surefire-plugin</code> is designed for unit tests and executes during the <code>test</code> phase. If any test fails, Surefire immediately aborts the build.<br>
+<code>maven-failsafe-plugin</code> is designed for integration tests. It executes tests during the <code>integration-test</code> phase, but does not abort the build immediately on failure, allowing teardown and cleanup tasks (like stopping Testcontainers) to execute during <code>post-integration-test</code> before evaluating test failures during the <code>verify</code> phase.
+</details>
+
+<details>
+<summary>3. Why is the <release> parameter preferred over <source> and <target> in modern Java builds?</summary>
+Setting <code><source></code> and <code><target></code> instructs the compiler to accept older language syntax and emit older bytecode, but the compiler still resolves against the host JDK's runtime classes (<code>rt.jar</code> / <code>java.base</code>). If a developer uses a method introduced in Java 21 while targeting Java 17, compilation succeeds but throws <code>NoSuchMethodError</code> at runtime. The <code><release></code> flag links against the exact system API signature of the target release, catching version mismatches at compile time.
+</details>
+
+<details>
+<summary>4. What is a Bill of Materials (BOM) in Maven?</summary>
+A BOM is a special POM file with <code><packaging>pom</packaging></code> that centralizes and defines compatible dependency versions within a <code><dependencyManagement></code> block. Downstream projects import the BOM using <code><scope>import</scope></code> and <code><type>pom</type></code>, allowing them to declare dependencies without specifying explicit version tags.
+</details>
+
+<details>
+<summary>5. What does the Maven Reactor do during a multi-module build?</summary>
+The Reactor inspects all modules in a multi-module project, resolves inter-module dependencies, and computes a Directed Acyclic Graph (DAG). It performs a topological sort to establish the exact sequential build order so that upstream dependency modules (e.g., <code>core-domain</code>) are built, tested, and packaged before downstream consumer modules (e.g., <code>web-service</code>).
+</details>
+
+<details>
+<summary>6. What is the Maven Wrapper (mvnw) and why is it standard practice in CI/CD?</summary>
+The Maven Wrapper is a set of small scripts (<code>mvnw</code>, <code>mvnw.cmd</code>) and a bootstrap properties file that automatically downloads and verifies the specified version of Apache Maven before executing the build. It eliminates the requirement to pre-install Maven on developer machines or CI build agents, guaranteeing 100% build environment consistency.
+</details>
+
+<details>
+<summary>7. What is the difference between mvn install and mvn deploy?</summary>
+<code>mvn install</code> copies the packaged artifact (JAR/WAR) into the developer's local repository cache (<code>~/.m2/repository</code>), making it available for other local builds on the same machine.<br>
+<code>mvn deploy</code> copies the final artifact, its POM, and metadata to an external remote artifact repository (e.g., Nexus, Artifactory, or Maven Central) for consumption by other teams.
+</details>
+
+<details>
+<summary>8. How do you resolve shaded SPI conflicts in Uber JARs?</summary>
+When multiple JARs define Service Provider Interface files at <code>META-INF/services/javax.annotation.processing.Processor</code> or similar, merging them into an Uber JAR causes subsequent files to overwrite earlier ones. Using the <code>ServicesResourceTransformer</code> inside <code>maven-shade-plugin</code> forces Maven to append and concatenate SPI entries instead of overwriting them.
+</details>
+
+---
+
+## 11. Practice Exercises
+
+<details>
+<summary>Exercise 1: Write a Maven command to display the resolved dependency tree with conflict details.</summary>
+
+```bash
+# Print standard dependency tree
+./mvnw dependency:tree
+
+# Print verbose tree showing omitted conflicting duplicates
+./mvnw dependency:tree -Dverbose
 ```
+</details>
+
+<details>
+<summary>Exercise 2: Configure the maven-enforcer-plugin to require Java 21 and ban commons-logging.</summary>
 
 ```xml
-<!-- parent pom.xml -->
-<packaging>pom</packaging>
-<modules>
-  <module>shop-domain</module>
-  <module>shop-persistence</module>
-  <module>shop-web</module>
-</modules>
-
-<!-- child pom.xml -->
-<parent>
-  <groupId>com.acme</groupId>
-  <artifactId>shop</artifactId>
-  <version>1.0.0-SNAPSHOT</version>
-</parent>
-<artifactId>shop-persistence</artifactId>
-<dependencies>
-  <dependency>
-    <groupId>com.acme</groupId>
-    <artifactId>shop-domain</artifactId>
-    <version>${project.version}</version>
-  </dependency>
-</dependencies>
+<plugin>
+    <groupId>org.apache.maven.plugins</groupId>
+    <artifactId>maven-enforcer-plugin</artifactId>
+    <version>3.5.0</version>
+    <executions>
+        <execution>
+            <id>enforce-rules</id>
+            <goals><goal>enforce</goal></goals>
+            <configuration>
+                <rules>
+                    <requireJavaVersion>
+                        <version>[21,)</version>
+                    </requireJavaVersion>
+                    <bannedDependencies>
+                        <excludes>
+                            <exclude>commons-logging:commons-logging</exclude>
+                        </excludes>
+                    </bannedDependencies>
+                </rules>
+            </configuration>
+        </execution>
+    </executions>
+</plugin>
 ```
+</details>
 
-- **Parent POM** = shared configuration inherited by children (dependencyManagement, plugins, properties). **Aggregator** = lists `<modules>` to build together. They're often the same file but are distinct ideas.
-- Maven orders module builds by their **dependencies**, not by the order listed.
-- Build a slice: `mvn -pl shop-web -am verify` (`-am` also builds what it needs).
-- Keep module dependencies **acyclic and layered**. Cyclic dependencies are rejected.
-- Maven 4 (pre-release) renames the child list to `<subprojects>` and introduces a new model version with improved inheritance and version inference. The classic 3.x model above remains the supported baseline.
-
-### Profiles
+<details>
+<summary>Exercise 3: Write a parent POM profile activating native compilation on Linux machines only.</summary>
 
 ```xml
 <profiles>
-  <profile>
-    <id>integration</id>
-    <build> ... run failsafe, start containers ... </build>
-  </profile>
+    <profile>
+        <id>linux-native</id>
+        <activation>
+            <os><family>unix</family><name>linux</name></os>
+        </activation>
+        <build>
+            <plugins>
+                <!-- Plugin execution specific to Linux -->
+            </plugins>
+        </build>
+    </profile>
 </profiles>
 ```
-
-Activate with `-P integration`, by JDK, OS, property, or file. Use profiles sparingly: builds that behave differently depending on hidden activation are hard to reproduce.
-
----
-
-## 7. Repositories and `settings.xml`
-
-```text
- your build ──► local repository (~/.m2/repository)   cache of everything downloaded or installed
-            └─► remote repositories: Maven Central (default), your company's Nexus/Artifactory, mirrors
-```
-
-- **Maven Central** is the default remote. Companies usually run a **repository manager** (Nexus, Artifactory) that proxies Central, hosts private artifacts, and acts as a controlled gateway ([Dependency Management](02_dependency-management.md#6-repositories-and-supply-chain-security)).
-- **`~/.m2/settings.xml`** holds *user-specific* configuration, not project config: mirrors (route all downloads through your manager), server credentials (referenced by repository `<id>`), proxies, and profiles. **Never put credentials in the project's `pom.xml`** or commit `settings.xml` secrets. CI injects them through environment variables or secret stores ([Secrets Management](../21-security/03_secrets-management.md)).
-- Publishing: `mvn deploy` uploads to a repository defined in `<distributionManagement>`. Publishing to Maven Central requires signed artifacts (GPG) with sources and Javadoc JARs, and is done through the Sonatype **Central Portal** (the older OSSRH service was retired in 2025). Check the current publishing guide, as this process has changed.
+</details>
 
 ---
 
-## 8. The Maven Wrapper
-
-Different machines having different Maven versions causes "works for me" failures. The **wrapper** pins the Maven version in the repo:
-
-```bash
-mvn wrapper:wrapper                  # generates mvnw, mvnw.cmd, .mvn/wrapper/maven-wrapper.properties
-./mvnw -B verify                      # downloads the pinned Maven on first use, then runs it
-```
-
-Commit `mvnw`, `mvnw.cmd`, and `.mvn/wrapper/`. Use `./mvnw` in documentation and CI. The `.mvn/` directory can also hold `maven.config` (default CLI options) and `jvm.config` (JVM options for Maven itself).
+## 12. Summary / Cheat Sheet
+- **Lifecycles**: `clean` (removes target), `default` (compile $	o$ test $	o$ package $	o$ verify $	o$ install $	o$ deploy), `site`.
+- **Target Java**: Use `<maven.compiler.release>21</maven.compiler.release>` to prevent API signature mismatches.
+- **Dependency Mediation**: Nearest definition wins; tie-breaker: first declared.
+- **BOM Pattern**: Centralize versions in `<dependencyManagement>` using `<scope>import</scope>`.
+- **Testing Plugins**: Surefire for unit tests (`*Test.java`); Failsafe for integration tests (`*IT.java`).
+- **Parallel Builds**: Accelerate builds with `mvn -T 1C clean package`.
 
 ---
 
-## 9. Reproducible and clean builds
-
-- Pin **plugin versions** and use `dependencyManagement`/BOMs for dependency versions. Avoid version ranges (`[1.0,2.0)`) and `LATEST`/`RELEASE`.
-- Set `project.build.outputTimestamp` so identical sources produce **byte-identical** JARs (useful for supply-chain verification and caching).
-- Treat `-SNAPSHOT` dependencies as temporary: a release build shouldn't depend on snapshots.
-- `mvn clean` removes stale outputs when a build behaves strangely, but if you *need* `clean` to get a correct result regularly, something is wrong with the build.
-
----
-
-## 10. Maven 4 status
-
-Maven 4.0.0 has been in release-candidate stages for a long time. It brings a new POM model version, a split between the *build* POM and the *consumer* POM published to repositories, `<subprojects>`, better multi-module and version-inference features, parallel-build improvements, and an `mvnup` tool to help upgrade. Until a GA release, treat it as pre-release: **Maven 3.9.x is the stable choice**, and follow the 4.x release notes when it ships. Most of what's in this note is unchanged between them.
-
----
-
-## Common mistakes
-
-| Mistake | Fix |
-|---|---|
-| Different Maven versions per developer/CI | Commit the wrapper, always use `./mvnw` |
-| `maven.compiler.source/target` only | `maven.compiler.release` |
-| Unpinned plugin versions | `<pluginManagement>` with explicit versions |
-| Versions scattered across modules | Parent `dependencyManagement` / BOM imports |
-| Everything in `compile` scope | `provided`/`runtime`/`test` where appropriate |
-| Version ranges, `LATEST`, snapshots in releases | Fixed release versions |
-| Credentials in `pom.xml` or committed `settings.xml` | CI secrets, user-level `settings.xml` |
-| Integration tests in surefire (slowing every `mvn test`) | Name them `*IT` and run them with failsafe in `verify` |
-| `-DskipTests` as a habit | Fix or isolate slow/flaky tests |
-| Ignoring `dependency:tree` conflicts | Review them and align versions via a BOM |
-| Editing `target/` or committing it | `.gitignore` it |
-| Profiles that silently change what's built | Keep them few, explicit, and documented |
-
-### Debugging
-
-- **`Could not resolve dependencies` / `Could not transfer artifact`** → check network/proxy and mirror settings in `settings.xml`, repository credentials, the exact coordinates, and whether the artifact exists in the repositories you use. Retry with `-U` to bypass cached failures (`.lastUpdated` marker files in `~/.m2`).
-- **`Unsupported class file major version N`** or plugin crashes on a new JDK → an old plugin (compiler, surefire, a bytecode tool) can't read new class files. Upgrade the plugin, or build with a supported JDK ([Class Loading](../15-jvm-internals/01_class-loading.md#5-the-errors-decoded)).
-- **Tests don't run** → check class names against the surefire patterns, the JUnit engine dependency, and `-Dtest` filters. Check `surefire-reports/`.
-- **Works in the IDE, fails in Maven (or vice versa)** → IDE classpath/scopes or JDK differ. Reimport the project, and compare `mvn dependency:tree` to the IDE's module settings.
-- **Which POM settings are actually in effect?** `mvn help:effective-pom`, `mvn help:effective-settings`.
-- **Which JDK is Maven using?** `./mvnw -v`.
-- **Slow builds** → `-T 1C`, skip unneeded modules (`-pl ... -am`), enable a build cache extension if your team uses one, profile with `-Dmaven.test.skip` experiments to find the slow phase, or check for network round-trips to slow mirrors.
-
----
-
-## Quick Summary
-
-- Maven = **declarative POM + fixed lifecycle + plugins**. Follow the standard layout (`src/main/java`, `src/test/java`).
-- Artifacts are identified by **GAV**. Releases are immutable. `-SNAPSHOT` is work in progress.
-- Lifecycle: `validate → compile → test → package → verify → install → deploy`. `mvn clean verify` is the daily command.
-- Use **narrow scopes**, inspect the tree with `dependency:tree`, and manage versions with **`dependencyManagement` and BOMs**.
-- **Pin plugin versions**; surefire = unit tests (`*Test`), failsafe = integration tests (`*IT`).
-- Multi-module: parent/aggregator POM, reactor ordering, `-pl ... -am`.
-- Credentials belong in `settings.xml`/CI secrets. **Commit the wrapper** (`mvnw`). Maven 3.9.x is stable, and Maven 4 is still pre-release.
-
-**Next:** [Gradle](01_gradle.md)
+## 13. Further Reading
+- Apache Maven Official Documentation: Better Builds with Maven
+- Maven: The Complete Reference (Sonatype Guide)
+- Maven Failsafe Plugin and Integration Testing Guide
+- *Continuous Delivery* by Jez Humble and David Farley (Build Automation Patterns)

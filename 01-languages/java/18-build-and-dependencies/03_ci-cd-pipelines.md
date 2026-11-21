@@ -1,295 +1,402 @@
-# CI/CD Pipelines
+# Modern Java CI/CD Pipelines: Automation, Containers, and Deployment
 
-A build that only runs on one developer's laptop isn't really a build. **Continuous Integration (CI)** runs the build and tests automatically on **every change**, on a clean machine, so breakage is found in minutes instead of weeks. **Continuous Delivery/Deployment (CD)** extends that to getting the tested artifact into environments, up to production, in a repeatable, low-risk way.
+> End-to-end continuous integration and deployment for enterprise Java: GitHub Actions, JDK Provisioning, Build Caching, Cloud Native Buildpacks/Jib, and Release Publishing.
 
-The pipeline is where everything in this module (wrappers, reproducible builds, dependency scanning) and the next ones (testing, packaging, deployment) come together.
-
-**Prerequisites:** [Maven](00_maven.md) or [Gradle](01_gradle.md), [Dependency Management](02_dependency-management.md).
-
----
-
-## 1. What CI and CD mean
-
-| Term | Meaning |
+| Metadata | Details |
 |---|---|
-| **Continuous Integration** | Developers merge small changes to the shared branch frequently. Each change triggers an automated build + test. A broken build is fixed immediately |
-| **Continuous Delivery** | Every change that passes the pipeline is **releasable**. Deploying to production is a (usually manual) button press |
-| **Continuous Deployment** | Every change that passes the pipeline is **deployed to production automatically** |
-
-The point isn't tooling. It's **fast, trustworthy feedback** and **small, reversible releases**. Teams that deploy small changes often generally have fewer and shorter failures than teams that deploy rarely and in large batches.
+| **Level** | Core / Advanced |
+| **Prerequisites** | Maven / Gradle Basics, Docker Basics, Git |
+| **Time to Read** | 25 minutes |
+| **Status** | Complete |
+| **JDK Baseline** | Java 17 / 21 / 25 LTS |
 
 ---
 
-## 2. Anatomy of a Java pipeline
+## Table of Contents
+1. [1. What & Why](#1-what--why)
+2. [2. Core Concepts](#2-core-concepts)
+3. [3. How It Works Internally: CI Runner Lifecycle & Container Builds](#3-how-it-works-internally-ci-runner-lifecycle--container-builds)
+4. [4. Syntax & Usage](#4-syntax--usage)
+5. [5. Practical Examples](#5-practical-examples)
+6. [6. Best Practices](#6-best-practices)
+7. [7. Common Mistakes & Pitfalls](#7-common-mistakes--pitfalls)
+8. [8. Performance & Security Notes](#8-performance--security-notes)
+9. [9. Comparison / When to Use What](#9-comparison--when-to-use-what)
+10. [10. Interview Questions](#10-interview-questions)
+11. [11. Practice Exercises](#11-practice-exercises)
+12. [12. Summary / Cheat Sheet](#12-summary--cheat-sheet)
+13. [13. Further Reading](#13-further-reading)
 
-```text
- push / pull request
-     │
-     ▼
- ┌─────────┐  ┌──────────┐  ┌────────────┐  ┌───────────┐  ┌──────────┐
- │ checkout│→ │ build +  │→ │ static     │→ │ package   │→ │ publish  │   ← runs on every PR
- │         │  │ unit test│  │ analysis + │  │ artifact/ │  │ artifact │
- │         │  │          │  │ dependency │  │ image     │  │          │
- └─────────┘  └──────────┘  │ scan       │  └───────────┘  └────┬─────┘
-                            └────────────┘                      │
-                                                                ▼
-        ┌──────────────┐   ┌─────────────┐   ┌────────────┐   ┌───────────────┐
-        │ integration  │ ← │ deploy to   │ ← │ (approve?) │ ← │ same artifact │  ← runs on main / tags
-        │ / smoke tests│   │ staging     │   │            │   │ promoted      │
-        └──────┬───────┘   └─────────────┘   └────────────┘   └───────────────┘
-               ▼
-        deploy to production (rolling / blue-green / canary) → verify health → done (or roll back)
+---
+
+## 1. What & Why
+In modern cloud-native engineering, code does not live on developer workstations; it lives in a continuous integration and continuous deployment (CI/CD) delivery pipeline. Every pull request must be automatically compiled, statically analyzed, unit-tested, integration-tested against live database containers, packaged into secure minimal container images, and deployed to staging environments without human intervention.
+
+Building high-performance CI/CD pipelines for Java requires addressing Java-specific pipeline challenges: cold JVM startup latency, multi-gigabyte dependency cache restoration (`~/.m2` or `~/.gradle`), container layer caching, reproducible builds, and secure credential handling. Mastering pipeline automation transforms slow, fragile 30-minute releases into lightning-fast, reproducible 3-minute deployment workflows.
+
+---
+
+## 2. Core Concepts
+- **Continuous Integration (CI)**: Automatically compiling, testing, and verifying code changes on every commit or pull request to detect regressions immediately.
+- **Continuous Delivery (CD)**: Automatically packaging verified artifacts and deploying them safely into staging and production environments.
+- **JDK Provisioning (`actions/setup-java`)**: Declaratively downloading and configuring verified LTS JDK distributions (Temurin, Corretto, Oracle, Zulu) in CI environments.
+- **Dependency Cache Restoration**: Persisting Maven and Gradle dependency repositories across pipeline runs using cache keys based on POM/Gradle lockfiles.
+- **Test Reporting & Coverage Gates**: Automated generation and publishing of JUnit XML test reports and JaCoCo code coverage thresholds (e.g., requiring 80%+ branch coverage to merge).
+- **OCI Container Packaging (Jib vs Dockerfile)**:
+  - *Google Jib*: Builds optimized, layered Docker/OCI images directly from Maven/Gradle without requiring a local Docker daemon.
+  - *Multi-Stage Dockerfiles*: Standard containerization using minimal Alpine or Distroless runtime base images.
+- **Semantic Versioning & Release Automation**: Automating git tagging, changelog generation, and publishing releases to artifact registries.
+
+---
+
+## 3. How It Works Internally: CI Runner Lifecycle & Container Builds
+
+A high-performance Java pipeline processes code through distinct, cached pipeline stages:
+
+```
+[ Git Push / Pull Request ]
+             |
+             v
++-------------------------------------------------------+
+|             1. Runner Provisioning                    |
+|  - Spins up clean Ubuntu VM / container               |
+|  - Clones Git repository (fetch-depth: 1)             |
+|  - actions/setup-java installs JDK 21 Temurin         |
++-------------------------------------------------------+
+                           |
+                           v
++-------------------------------------------------------+
+|             2. Cache Restoration                      |
+|  - Restores ~/.m2/repository or ~/.gradle/caches      |
+|  - Cache hit skips downloading 500 MB of dependencies |
++-------------------------------------------------------+
+                           |
+                           v
++-------------------------------------------------------+
+|             3. Verification & Testing                 |
+|  - Unit tests executed via Surefire / Gradle          |
+|  - Integration tests against Testcontainers           |
+|  - JaCoCo generates code coverage report              |
++-------------------------------------------------------+
+                           |
+                           v
++-------------------------------------------------------+
+|             4. Container Build & Publish              |
+|  - Google Jib separates application into layers:      |
+|    Layer 1: Dependencies (rarely changes - cached)    |
+|    Layer 2: Application Bytecode (changes frequently) |
+|  - Pushes OCI image to Container Registry             |
++-------------------------------------------------------+
 ```
 
-Core principles:
+### Google Jib vs Standard Dockerfile:
+In a standard `Dockerfile`, running `docker build` copies the entire fat JAR into a single container layer. When a developer changes one line of code, Docker invalidates the layer and pushes an 80 MB image over the network.
 
-- **Same build everywhere.** Use the wrapper (`./mvnw`, `./gradlew`) so CI and your laptop run the same tool versions, and a pinned Java version.
-- **Fast feedback first.** Run the cheap checks (compile, unit tests, lint) before the slow ones, and fail fast.
-- **Build once, deploy many.** Build the artifact **once**, and **promote the same artifact** (same checksum/image digest) through staging to production. Never rebuild for each environment, because then you aren't deploying what you tested.
-- **Pipeline as code.** The pipeline definition lives in the repository, reviewed like any other code.
-- **Keep logic in scripts/build files, not buried in YAML.** If `./mvnw verify` (or a script) works locally, the CI file just calls it.
-- **Immutable artifacts.** A release is never modified after it's published. Config differs per environment, but the artifact doesn't ([Configuration Management](../22-production-engineering/01_configuration-management.md)).
+Google Jib splits Java applications into distinct semantic layers:
+1. `Dependencies` (90% of size, rarely changes) $\rightarrow$ Cached indefinitely on registry.
+2. `Resources` (changes occasionally).
+3. `Classes` (small, changes every commit) $\rightarrow$ Only 200 KB pushed to registry!
 
 ---
 
-## 3. A GitHub Actions workflow
+## 4. Syntax & Usage
 
+### 4.1 Production GitHub Actions Workflow (`.github/workflows/ci.yml`)
 ```yaml
-# .github/workflows/ci.yml
-name: CI
+name: Java CI/CD Pipeline
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   pull_request:
-
-permissions:
-  contents: read                    # least privilege for the default token
-
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true          # cancel superseded runs of the same branch/PR
+    branches: [ main ]
 
 jobs:
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
+
     steps:
-      - uses: actions/checkout@v4                   # use the current major version; pin to a commit SHA for stricter security
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
+      - name: Set up JDK 21 (Eclipse Temurin)
+        uses: actions/setup-java@v4
         with:
-          distribution: temurin
+          distribution: 'temurin'
           java-version: '21'
-          cache: maven                              # caches ~/.m2 keyed on your POM files
+          cache: 'maven' # Automatically caches ~/.m2/repository based on pom.xml hash!
 
-      - name: Build and test
-        run: ./mvnw -B -ntp verify                  # batch mode, no download progress noise
+      - name: Compile and Run Unit Tests
+        run: ./mvnw -B test
 
-      - name: Upload test reports
-        if: always()                                # even when tests fail
+      - name: Run Integration Tests (Failsafe & Testcontainers)
+        run: ./mvnw -B verify -DskipUnitTests
+
+      - name: Verify Code Coverage (JaCoCo)
+        run: ./mvnw -B jacoco:check
+
+      - name: Upload Test Report Artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-reports
-          path: '**/target/surefire-reports/**'
-
-      - name: Upload the built jar
-        uses: actions/upload-artifact@v4
-        with:
-          name: app
-          path: target/*.jar
+          name: surefire-reports
+          path: '**/target/surefire-reports/*.xml'
 ```
 
-For Gradle, use `cache: gradle` in `setup-java` or the dedicated Gradle setup action (which also manages the Gradle caches and build-cache behavior), and run `./gradlew build`.
+### 4.2 Building Layered Container Images with Google Jib
+```xml
+<!-- In pom.xml: Zero Docker daemon required! -->
+<plugin>
+    <groupId>com.google.cloud.tools</groupId>
+    <artifactId>jib-maven-plugin</artifactId>
+    <version>3.4.3</version>
+    <configuration>
+        <from>
+            <!-- Minimal Google Distroless Java 21 Base Image -->
+            <image>gcr.io/distroless/java21-debian12:nonroot</image>
+        </from>
+        <to>
+            <image>registry.example.com/services/order-service:${project.version}</image>
+        </to>
+        <container>
+            <mainClass>com.example.service.ApplicationMain</mainClass>
+            <jvmFlags>
+                <jvmFlag>-XX:+UseZGC</jvmFlag>
+                <jvmFlag>-XX:MaxRAMPercentage=75.0</jvmFlag>
+            </jvmFlags>
+            <ports>
+                <port>8080</port>
+            </ports>
+            <user>nonroot:nonroot</user>
+        </container>
+    </configuration>
+</plugin>
+```
 
-**Matrix builds** test a library against several Java versions:
+---
+
+## 5. Practical Examples
+
+### Example 1: Multi-Stage Production Dockerfile for Java 21
+```dockerfile
+# Stage 1: Build & Package
+FROM eclipse-temurin:21-jdk-alpine AS builder
+WORKDIR /workspace
+
+# Copy wrapper and configuration first to leverage Docker layer caching
+COPY mvnw .
+COPY .mvn .mvn
+COPY pom.xml .
+RUN ./mvnw dependency:go-offline -B
+
+# Copy source code and package application
+COPY src src
+RUN ./mvnw clean package -DskipTests
+
+# Stage 2: Minimal Distroless Runtime
+FROM gcr.io/distroless/java21-debian12:nonroot
+WORKDIR /app
+
+# Run as non-root user for security
+USER nonroot:nonroot
+
+# Copy only the compiled JAR from builder stage
+COPY --from=builder --chown=nonroot:nonroot /workspace/target/*.jar app.jar
+
+ENV JAVA_OPTS="-XX:MaxRAMPercentage=75.0 -XX:+UseZGC -XX:+ExitOnOutOfMemoryError"
+EXPOSE 8080
+
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"]
+```
+
+### Example 2: Automated Semantic Versioning and Release Tagging
+```yaml
+# GitHub Actions release step
+- name: Create Release Tag
+  if: github.ref == 'refs/heads/main'
+  uses: anothrNick/github-tag-action@1.67.0
+  env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    WITH_V: true
+    DEFAULT_BUMP: patch
+```
+
+### Example 3: Edge Case - Reproducible Builds Configuration
+```xml
+<properties>
+    <!-- Fixes build timestamps to git commit timestamp for bit-for-bit reproducible JARs -->
+    <project.build.outputTimestamp>2026-11-20T12:00:00Z</project.build.outputTimestamp>
+</properties>
+```
+
+---
+
+## 6. Best Practices
+1. **Always Use the Maven/Gradle Wrapper in CI**: Invoke `./mvnw` or `./gradlew` rather than relying on system-installed build binaries.
+2. **Use Distroless Runtime Base Images**: Deploy containers using `gcr.io/distroless/java21:nonroot`. Distroless images contain no package managers (`apt`, `apk`), no shells (`/bin/sh`, `/bin/bash`), and run as non-root, neutralizing 99% of CVE vulnerabilities.
+3. **Configure Memory Percentage Flags**: Always set `-XX:MaxRAMPercentage=75.0` in container runtime flags to allow the JVM to adjust heap dynamically to container cgroup memory limits.
+4. **Leverage Dependency Caching**: Use built-in cache mechanisms (`cache: 'maven'` or `cache: 'gradle'`) in `actions/setup-java`.
+5. **Separate Fast Unit Tests from Slow Integration Tests**: Run in-memory unit tests first. If unit tests fail, abort the pipeline immediately before spinning up expensive Docker Testcontainers.
+6. **Set `-XX:+ExitOnOutOfMemoryError`**: Ensure the JVM immediately terminates the container upon OutOfMemoryError, allowing Kubernetes to restart the pod cleanly.
+
+---
+
+## 7. Common Mistakes & Pitfalls
+
+| Mistake | Why It Fails | Correction |
+|---|---|---|
+| Running containers as root | Security violation; container breakouts grant root host access | Use `USER nonroot:nonroot` or Distroless non-root |
+| Hardcoding `-Xmx2g` in container | JVM ignores Kubernetes cgroup limits; pod killed by OOMKilled | Use `-XX:MaxRAMPercentage=75.0` |
+| Missing dependency cache in CI | Downloads 500 MB of dependencies on every build, wasting 5+ minutes | Configure `actions/setup-java` caching |
+| Single-layer Docker builds | Changes in 1 class force rebuilding and pushing 100 MB layers | Use Google Jib or layered multi-stage Dockerfiles |
+| Missing `./mvnw` executable permission | `Permission denied` error on Linux CI runners | Run `git update-index --chmod=+x mvnw` |
+| Skipping integration tests in PRs | Breaking database or contract changes merge undetected | Run Testcontainers in PR pipeline |
+| Leaving sensitive secrets in Docker images | Anyone with image access can extract credentials from history | Pass secrets via environment variables or secret managers |
+| Missing `timeout-minutes` on CI jobs | Stalled tests or hanging deadlocks consume CI runner minutes | Set `timeout-minutes: 15` on all jobs |
+
+---
+
+## 8. Performance & Security Notes
+- **Distroless Container Security**: Distroless images contain strictly the Java runtime and application bytecode. Vulnerability scanners (Trivy, Grype) typically report **zero OS-level CVEs** for distroless images, compared to 50–150 CVEs found in standard Ubuntu/Alpine base images.
+- **Layer Caching Economics**: Because Google Jib stores application dependencies in an independent layer, CI/CD runners only build and push the thin `classes` layer (~100 KB), completing container image deployment in under 5 seconds.
+- **Reproducible Builds**: Reproducible builds guarantee that compiling the exact same source code produces byte-for-byte identical JAR binaries. This allows independent verification that binaries have not been tampered with by compromised CI pipelines.
+
+---
+
+## 9. Comparison / When to Use What
+
+| Packaging Tool | Docker Daemon Needed | Layering Optimization | Speed | Best Use Case |
+|---|---|---|---|---|
+| **Google Jib** | No (Native Java) | Automatic (Fastest) | Ultra Fast | Standard Maven/Gradle microservices |
+| **Cloud Native Buildpacks** | Yes | High (Pack CLI) | Fast | Cloud Foundry, Heroku, Spring Boot `bootBuildImage` |
+| **Multi-Stage Dockerfile** | Yes | Manual Layering | Moderate | Custom OS packages, native C binaries, complex setups |
+
+---
+
+## 10. Interview Questions
+
+<details>
+<summary>1. How does Google Jib optimize container image creation compared to a standard Dockerfile?</summary>
+In a standard Dockerfile, building a container copies the entire fat JAR into a single image layer. Any code change requires invalidating the layer and re-uploading the entire 100 MB JAR. Google Jib builds OCI container images directly from Java AST metadata without requiring a Docker daemon. It automatically separates the application into distinct layers: dependencies, resources, and compiled classes. When code changes, Jib only builds and uploads the tiny (sub-megabyte) classes layer, reducing build and push times from minutes to seconds.
+</details>
+
+<details>
+<summary>2. Why is hardcoding -Xmx flags dangerous inside containerized Java applications?</summary>
+In containerized environments (Docker/Kubernetes), memory constraints are enforced by Linux control groups (cgroups). If a pod limit is set to 2 GB and Java is configured with <code>-Xmx2g</code>, the total process memory (Heap + Metaspace + Thread Stacks + JVM Native Memory + JIT Cache) will exceed 2 GB. The Linux kernel OOM-killer immediately terminates the container process with exit code 137 (OOMKilled). Setting <code>-XX:MaxRAMPercentage=75.0</code> ensures the heap dynamically scales to 75% of container memory, reserving 25% for native JVM structures.
+</details>
+
+<details>
+<summary>3. What is a Distroless container image and why is it recommended for enterprise Java deployments?</summary>
+Distroless images (provided by Google) contain only the application and its runtime dependencies (the Java runtime and glibc). They do not contain package managers (apt, apk), shells (bash, sh), or standard Linux utilities (curl, wget). This drastically reduces the image size (down to ~150 MB), eliminates OS-level security vulnerabilities, and prevents attackers from running interactive shells or downloading secondary exploit payloads if a container is compromised.
+</details>
+
+<details>
+<summary>4. What is the role of -XX:+ExitOnOutOfMemoryError in Kubernetes?</summary>
+When a JVM experiences an <code>OutOfMemoryError</code>, some threads may terminate while others remain running, leaving the service in a zombie/corrupted state where it fails requests but does not crash. Enabling <code>-XX:+ExitOnOutOfMemoryError</code> forces the JVM to terminate immediately with a non-zero exit code upon encountering an OOM, allowing Kubernetes liveness probes to fail and restart the pod cleanly.
+</details>
+
+<details>
+<summary>5. How does actions/setup-java cache dependencies effectively in GitHub Actions?</summary>
+<code>actions/setup-java</code> computes a cryptographic hash of the project's build descriptors (<code>pom.xml</code> or <code>*.gradle*</code>). It restores the cached <code>~/.m2/repository</code> or <code>~/.gradle/caches</code> folder at the start of the job. If the hash matches, no dependencies are downloaded from Maven Central, saving several minutes of network round-trips.
+</details>
+
+<details>
+<summary>6. What are Reproducible Builds and how does project.build.outputTimestamp achieve them?</summary>
+By default, archive formats (JAR, ZIP) record the file creation timestamp for every entry. Compiling the exact same source code on two different days produces different SHA-256 hashes. Setting <code><project.build.outputTimestamp></code> freezes the timestamp metadata inside the JAR to a fixed git commit timestamp, ensuring byte-for-byte identical binaries across independent build machines.
+</details>
+
+<details>
+<summary>7. How do you run Testcontainers inside a containerized CI environment?</summary>
+Testcontainers requires access to a Docker daemon. In CI runners (like GitHub Actions), the Docker socket (<code>/var/run/docker.sock</code>) is available by default on Linux host VMs. In Kubernetes-based CI runners (like GitLab CI or Tekton), you must provide Docker-in-Docker (dind) or mount the host Docker socket with appropriate permissions.
+</details>
+
+<details>
+<summary>8. What is the purpose of passing -B (--batch-mode) to Maven in CI pipelines?</summary>
+The <code>-B</code> flag disables interactive mode and suppresses ANSI color escape codes and dynamic console progress updates. This prevents log spam in CI job output consoles and ensures Maven does not hang waiting for user keyboard input if a plugin prompts for confirmation.
+</details>
+
+---
+
+## 11. Practice Exercises
+
+<details>
+<summary>Exercise 1: Write a complete GitHub Actions matrix build testing against Java 17, 21, and 25.</summary>
 
 ```yaml
+jobs:
+  matrix-test:
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        java: [17, 21, 25]
+        java-version: ['17', '21', '25']
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
-        with: { distribution: temurin, java-version: '${{ matrix.java }}' }
+        with:
+          distribution: 'temurin'
+          java-version: ${{ matrix.java-version }}
+          cache: 'maven'
+      - run: ./mvnw -B test
 ```
+</details>
 
-(Compile with `--release` for the minimum supported version, and run tests on each runtime.)
+<details>
+<summary>Exercise 2: Write a Spring Boot buildpacks command generating a container image.</summary>
 
-The same ideas apply on **GitLab CI** (`.gitlab-ci.yml`), **Jenkins** (`Jenkinsfile`), **Azure DevOps**, **CircleCI**, and **Tekton**. Syntax differs and concepts don't.
-
-### Caching
-
-Downloading the world on every run is slow and flaky. Cache `~/.m2/repository` / `~/.gradle`, **keyed on the dependency files** (POMs, version catalog, lockfiles), so the cache invalidates when dependencies change. Gradle's remote **build cache** lets CI share task outputs, which can skip entire compile/test tasks.
-
----
-
-## 4. Test stages in the pipeline
-
-Separate tests by **speed and needs**, so most feedback is quick ([Testing](../19-testing/README.md)):
-
-| Stage | What | Tools | When |
-|---|---|---|---|
-| **Unit tests** | Fast, no I/O | JUnit, Mockito. Maven **surefire**, Gradle `test` | Every commit |
-| **Integration tests** | Real database/broker/HTTP | Testcontainers; Maven **failsafe** (`*IT`) in `verify`, Gradle `integrationTest` source set | Every PR (if reasonably fast) or on main |
-| **End-to-end / contract / smoke tests** | Deployed system, or consumer-provider contracts | | After deploy to staging |
-| **Performance / load tests** | Throughput and latency regressions | JMH ([Benchmarking](../20-performance/01_benchmarking-with-jmh.md)), load tools | Nightly or before release |
-
-Practices:
-
-- **Docker-based integration tests** need a Docker-capable runner. GitHub-hosted Linux runners have it. Self-hosted ones need setup ([Integration Testing](../19-testing/03_integration-testing.md)).
-- **Fail the build on test failures**, and publish reports (JUnit XML) so the CI UI shows what failed.
-- **Flaky tests destroy trust.** Fix or quarantine them quickly. Don't normalize "just rerun it".
-- **Coverage** (JaCoCo) is a signal, not a goal. Enforce a floor if you must, and prefer reviewing coverage of *changed code* ([Code Coverage and Mutation Testing](../19-testing/05_code-coverage-and-mutation-testing.md)).
-- **Static analysis and formatting:** Checkstyle, SpotBugs, PMD, Error Prone, Sonar, and a formatter (Spotless) run in CI so style debates and common bug patterns never reach review.
-- **Dependency checks:** vulnerability scan (OWASP Dependency-Check, OSV-Scanner, Dependabot alerts) and optionally license checks ([Dependency Management](02_dependency-management.md#6-repositories-and-supply-chain-security)).
-
----
-
-## 5. Packaging and artifacts
-
-What does the pipeline produce?
-
-| Artifact | Notes |
-|---|---|
-| **Library JAR** | Published to a Maven repository with sources/Javadoc, and signed for Central |
-| **Application JAR** | "Fat/uber" JAR (all dependencies), or a **layered** Spring Boot JAR that caches well in images |
-| **Container image** | The usual deployable unit today |
-| **Native binary / custom runtime** | GraalVM native image, or `jlink` minimal runtimes for specific needs |
-
-### Container images
-
-A multi-stage Dockerfile keeps build tools out of the final image:
-
-```dockerfile
-FROM eclipse-temurin:21-jdk AS build
-WORKDIR /src
-COPY . .
-RUN ./mvnw -B -ntp -DskipTests package
-
-FROM eclipse-temurin:21-jre
-RUN useradd --system --create-home app
-# don't run as root
-USER app
-WORKDIR /app
-COPY --from=build /src/target/app.jar app.jar
-ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "app.jar"]
+```bash
+# Using Spring Boot Maven Plugin to build OCI image via Paketo Buildpacks
+./mvnw spring-boot:build-image \
+  -Dspring-boot.build-image.imageName=registry.example.com/order-service:1.0.0
 ```
+</details>
 
-Alternatives that skip writing a Dockerfile: **Jib** (builds optimized, layered images straight from Maven/Gradle without a Docker daemon) and **Cloud Native Buildpacks** (for example Spring Boot's `build-image`).
+<details>
+<summary>Exercise 3: Configure a JaCoCo coverage check failing the build if instruction coverage is under 80%.</summary>
 
-Image practices:
-
-- **Tag with an immutable identifier** (the git commit SHA or version), not just `latest`, and deploy by **digest** or exact tag.
-- Use **small, maintained base images** and rebuild regularly to pick up OS/JDK security patches.
-- **Scan images** (Trivy, Grype, or your registry's scanner) in the pipeline.
-- Set **container-aware JVM flags** (`-XX:MaxRAMPercentage`) and account for non-heap memory ([JVM Memory Areas](../15-jvm-internals/02_jvm-memory-areas.md#7-sizing-for-containers), [Packaging and Deployment](../22-production-engineering/02_packaging-and-deployment.md)).
-- Use a `.dockerignore` so `target/`, `.git`, and secrets never enter the build context.
-
-Publish artifacts to a **registry/repository** (a Maven repository manager for JARs, a container registry for images) and have deployments pull from there.
-
----
-
-## 6. Versioning and releases
-
-- Version with **SemVer** for libraries. For services, a **build number or commit SHA** is often more useful than a human-chosen version.
-- Avoid hand-editing version numbers in POMs on every release. Options: Maven's **CI-friendly versions** (`<version>${revision}</version>` with `-Drevision=1.4.2` and the flatten plugin), the Maven Release Plugin (stateful, commits and tags, widely used but clunky), or **tag-driven releases** where pushing a git tag `v1.4.2` triggers a pipeline that builds and publishes that version.
-- **Release automation tools** (release-please, semantic-release, changelog generators) derive versions and changelogs from conventional commit messages.
-- Releases are **tagged in git**, reproducible from the tag, and **immutable**. Fix forward with a new version.
-- Make builds **reproducible** (`project.build.outputTimestamp`, pinned plugins and dependencies) so a rebuild yields identical artifacts, which helps verification ([Maven](00_maven.md#9-reproducible-and-clean-builds)).
-
----
-
-## 7. Secrets and supply chain in the pipeline
-
-CI systems hold powerful credentials (registry, cloud, signing keys), so they're prime attack targets.
-
-- **Never commit secrets**, and keep them out of logs. Use the CI platform's **secret store**, masked in output. Avoid echoing environment variables ([Secrets Management](../21-security/03_secrets-management.md)).
-- **Prefer short-lived credentials via OIDC federation** (the CI job proves its identity to the cloud provider and receives temporary credentials) over long-lived access keys stored as secrets.
-- **Least privilege:** the default token should be read-only (`permissions: contents: read`), granting extra permissions per job only where needed. Use separate credentials per environment.
-- **Be careful with pull requests from forks:** don't expose secrets to workflows triggered by untrusted code. Understand the difference between events such as `pull_request` and `pull_request_target`, and never run untrusted PR code with privileged tokens.
-- **Treat third-party actions/plugins as dependencies:** pin them to a **full commit SHA** (tags can be moved), prefer well-maintained ones, and minimize their number. Avoid `curl ... | bash` in pipelines.
-- **Protect branches:** required reviews and status checks, no force-pushes to main, code owners for sensitive paths (pipeline definitions, build scripts).
-- **Produce provenance:** generate an **SBOM** (CycloneDX/SPDX), **sign** artifacts and images (for example with Sigstore's cosign), and record build **attestations/provenance** (SLSA-style) so consumers can verify what built an artifact. Run **dependency review** on PRs that change dependencies.
-- **Separate build from deploy credentials.** The job that runs untrusted-ish test code shouldn't hold production deploy rights.
+```xml
+<plugin>
+    <groupId>org.jacoco</groupId>
+    <artifactId>jacoco-maven-plugin</artifactId>
+    <version>0.8.12</version>
+    <executions>
+        <execution>
+            <id>check-coverage</id>
+            <goals><goal>check</goal></goals>
+            <configuration>
+                <rules>
+                    <rule>
+                        <element>BUNDLE</element>
+                        <limits>
+                            <limit>
+                                <counter>INSTRUCTION</counter>
+                                <value>COVEREDRATIO</value>
+                                <minimum>0.80</minimum>
+                            </limit>
+                        </limits>
+                    </rule>
+                </rules>
+            </configuration>
+        </execution>
+    </executions>
+</plugin>
+```
+</details>
 
 ---
 
-## 8. Deployment strategies
-
-How a new version reaches users matters as much as the build:
-
-| Strategy | How it works | Trade-offs |
-|---|---|---|
-| **Rolling** | Replace instances gradually | Simple, needs backward-compatible versions running side by side |
-| **Blue-green** | Run the new version fully beside the old, then switch traffic | Fast rollback by switching back. Doubles capacity temporarily |
-| **Canary** | Send a small percentage of traffic to the new version, watch metrics, then expand | Catches problems with limited blast radius. Needs good observability |
-| **Feature flags** | Deploy code dark, enable features separately from deploys | Decouples deploy from release. Adds flag-management discipline |
-
-Essentials for any strategy:
-
-- **Health checks:** readiness (can serve traffic) and liveness probes, so bad instances never receive traffic ([Observability](../22-production-engineering/03_observability.md)).
-- **Database migrations must be backward-compatible** with the *previous* app version (expand/contract), because old and new versions run together during a rollout ([JDBC Patterns](../16-jdbc-and-databases/06_jdbc-patterns.md#7-schema-migrations)). Run migrations as a pipeline step with Flyway/Liquibase.
-- **Automated smoke tests** after deploy, and **automatic rollback** on failed health or error-rate checks.
-- **Observability and alerting** tied to deploys, so you can see what a release changed.
-- **GitOps** (Argo CD, Flux) treats the deployed state as declarative config in git, with the cluster reconciling toward it.
-- **Approvals** for production where required, but don't use manual gates to compensate for weak automated tests.
-
-Teams commonly measure delivery health with the four **DORA metrics**: deployment frequency, lead time for changes, change failure rate, and time to restore service.
+## 12. Summary / Cheat Sheet
+- **Pipeline Stages**: Compile $\rightarrow$ Unit Test $\rightarrow$ Integration Test $\rightarrow$ Coverage Check $\rightarrow$ Container Build $\rightarrow$ Publish.
+- **Base Images**: Use Distroless Java (`gcr.io/distroless/java21:nonroot`); never run containers as root.
+- **JVM Flags**: Always configure `-XX:MaxRAMPercentage=75.0` and `-XX:+ExitOnOutOfMemoryError`.
+- **Google Jib**: Fast, daemonless container creation with intelligent layer separation.
+- **CI Caching**: Leverage `actions/setup-java` caching to skip downloading external dependencies.
+- **CLI Flags**: Always run Maven with `-B` (batch mode) in CI to avoid console hangs.
 
 ---
 
-## 9. Keeping pipelines healthy
-
-- **Speed:** aim for PR feedback in **minutes** (a common target is under ~10). Slow pipelines get bypassed. Cache dependencies, run independent jobs in parallel, build only affected modules (`-pl ... -am`, Gradle's up-to-date/caching), and split test suites.
-- **Reliability:** pin tool and action versions, retry only genuinely transient *infrastructure* steps (not tests), and fix flaky tests.
-- **Visibility:** publish test reports and logs, and surface build times and failure rates. A pipeline you can't debug is a liability.
-- **Reproducibility:** you should be able to run the same steps locally (`./mvnw verify`, a script, or a container). If the only way to test pipeline changes is to push commits, iteration will be slow.
-- **Maintenance:** treat pipeline code and build scripts as production code: review, refactor, delete dead jobs, and keep the dependency updates flowing (Dependabot/Renovate cover GitHub Actions and Docker base images too).
-
----
-
-## Common mistakes
-
-| Mistake | Fix |
-|---|---|
-| Rebuilding the artifact for each environment | Build once, promote the same artifact/digest |
-| Using system Maven/Gradle/JDK on CI | Wrapper + explicit Java version setup |
-| Secrets in the repo, in logs, or as long-lived keys | Secret store, OIDC, least privilege |
-| Unpinned third-party actions/plugins | Pin by commit SHA, review, minimize |
-| Running unit and slow integration tests as one big step | Separate stages (surefire/failsafe, test tasks) |
-| Tolerating flaky tests ("just re-run") | Fix or quarantine, and track them |
-| `latest` image tags in production | Immutable tags/digests |
-| Containers running as root with full JDKs | Non-root user, JRE/slim base, scanned images |
-| No dependency or image scanning | Automated SCA and image scans, plus SBOM |
-| Backward-incompatible DB migrations deployed with the app | Expand/contract, migrate first, then deploy |
-| Manual production steps nobody documented | Automate, or at least script and document |
-| No rollback plan | Blue-green/canary/feature flags and tested rollback |
-| Pipeline logic only in YAML, impossible to run locally | Move logic into scripts/build tool tasks |
-| Giant 40-minute pipelines | Parallelize, cache, split, run affected modules |
-
-### Debugging: "works locally, fails in CI" (or vice versa)
-
-1. **Different Java/tool versions** → print `java -version` and `./mvnw -v` in the log. Use the wrapper and a pinned JDK.
-2. **Environment defaults** → time zone, locale, and default charset differ ([Date-Time Best Practices](../10-date-and-time/05_date-time-best-practices.md), [I/O Streams](../11-io-and-networking/00_io-streams-readers-writers.md#6-charsets-the-usual-source-of-garbled-text)). Set them explicitly in tests and builds.
-3. **Case-sensitive file systems** (Linux CI vs macOS/Windows laptops): `Foo.java` vs `foo.java`, resource paths.
-4. **Missing network/Docker/services** in CI: integration tests needing them.
-5. **Resource limits:** the build is killed (exit code 137 often means out-of-memory). Tune `MAVEN_OPTS` / `org.gradle.jvmargs`, reduce parallelism.
-6. **Order-dependent or concurrent tests** that pass sequentially on a laptop but collide in parallel CI.
-7. **Stale or poisoned caches:** include dependency file hashes in the cache key. Try a run with the cache disabled.
-8. **Uncommitted generated or local files** that your laptop has and the repo doesn't.
-9. **Verbose logs:** `./mvnw -X`, `./gradlew --info --stacktrace`, and your CI's step-debug option. Read the *first* error, not the last.
-10. Reproduce locally in a clean container (`docker run` with the same image and commands as CI).
-
----
-
-## Quick Summary
-
-- **CI** = automatic build + test on every change; **CD** = every passing change is releasable (delivery) or released (deployment). The goal is **fast, trustworthy feedback and small, reversible releases**.
-- Pipeline shape: checkout → build + unit tests → static analysis + dependency scan → package → publish → deploy staging → integration/smoke → deploy production.
-- **Use the wrapper and a pinned JDK**, cache dependencies, keep pipeline logic in scripts, and **build once, promote the same immutable artifact**.
-- Separate **unit** (surefire/`test`) from **integration** (failsafe/Testcontainers) stages. Fix flaky tests. Run static analysis and scans in CI.
-- Package as JARs and **container images** (multi-stage, non-root, immutable tags, scanned), publish to registries.
-- Guard the pipeline: **secret stores, OIDC, least privilege, pinned actions, branch protection, SBOM, signing**.
-- Deploy with **rolling/blue-green/canary** plus feature flags, health checks, backward-compatible migrations, and a rollback plan.
-
-**Next module:** [Testing](../19-testing/README.md)
+## 13. Further Reading
+- GitHub Actions Documentation: Building and Testing Java
+- Google Jib Containerization Guide and Best Practices
+- Google Distroless Container Images Repository
+- *Continuous Delivery* by Jez Humble and David Farley (Deployment Pipelines)

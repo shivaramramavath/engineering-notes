@@ -1,274 +1,421 @@
-# Unit Testing Fundamentals
+# Unit Testing Fundamentals and Testable Architecture
 
-A **unit test** checks one small piece of behavior (a method, a class, a tight cluster of collaborating objects) in isolation, quickly, and automatically. The value isn't the test itself. It's what the suite gives you: the freedom to refactor, upgrade, and ship without re-checking everything by hand.
+> The foundational philosophy of software verification: Arrange-Act-Assert, Gerard Meszaros's Test Double Taxonomy, Testable Code Design, and Test Smells.
 
-This note is tool-independent: the habits that make tests valuable rather than burdensome. The next notes cover [JUnit](01_junit-5.md) and [Mockito](02_mocking-and-mockito.md) syntax.
-
-**Prerequisites:** [Interfaces](../04-oop/09_interfaces.md), [Exceptions](../06-exceptions-and-debugging/README.md).
+| Metadata | Details |
+|---|---|
+| **Level** | Core |
+| **Prerequisites** | Java OOP, Exceptions, Interfaces |
+| **Time to Read** | 25 minutes |
+| **Status** | Complete |
+| **JDK Baseline** | Java 17 / 21 / 25 LTS |
 
 ---
 
-## 1. A first test
+## Table of Contents
+1. [1. What & Why](#1-what--why)
+2. [2. Core Concepts](#2-core-concepts)
+3. [3. How It Works Internally: Test Runners, ClassLoaders, & Assertions](#3-how-it-works-internally-test-runners-classloaders--assertions)
+4. [4. Syntax & Usage](#4-syntax--usage)
+5. [5. Practical Examples](#5-practical-examples)
+6. [6. Best Practices](#6-best-practices)
+7. [7. Common Mistakes & Pitfalls](#7-common-mistakes--pitfalls)
+8. [8. Performance & Security Notes](#8-performance--security-notes)
+9. [9. Comparison / When to Use What](#9-comparison--when-to-use-what)
+10. [10. Interview Questions](#10-interview-questions)
+11. [11. Practice Exercises](#11-practice-exercises)
+12. [12. Summary / Cheat Sheet](#12-summary--cheat-sheet)
+13. [13. Further Reading](#13-further-reading)
 
-```java
-public class PriceCalculator {
-    public BigDecimal totalWithTax(BigDecimal net, BigDecimal taxRate) {
-        return net.add(net.multiply(taxRate)).setScale(2, RoundingMode.HALF_UP);
-    }
-}
+---
+
+## 1. What & Why
+In professional software engineering, writing code without automated unit tests is technical negligence. Unit testing is the systematic practice of verifying that individual units of source code—typically single classes or methods—operate correctly in total isolation from external infrastructure, databases, network sockets, or file systems.
+
+Good unit tests are not merely regression safety nets; they are living documentation, design feedback instruments, and refactoring enablers. When code is difficult to test, it is almost always due to architectural flaws: tight coupling, hidden state, hardcoded singletons, or violation of the Single Responsibility Principle. Mastering unit testing fundamentals, the AAA pattern, test double taxonomy, and smell diagnosis enables engineers to create trustworthy, millisecond-fast test suites that run continuously.
+
+---
+
+## 2. Core Concepts
+- **Unit of Work**: The smallest testable piece of application software. In object-oriented Java, this is typically a method or an aggregate class.
+- **Arrange-Act-Assert (AAA)**: The universal structural pattern for unit test design:
+  1. *Arrange*: Set up test inputs, mock expectations, and the system under test (SUT).
+  2. *Act*: Invoke the target method or operation under verification.
+  3. *Assert*: Verify that expected return values or state mutations occurred.
+- **Gerard Meszaros's Test Double Taxonomy**:
+  - **Dummy**: An object passed around solely to satisfy method parameters (e.g., logger or filler argument), never actually used or inspected.
+  - **Stub**: Provides hardcoded canned responses to method calls during the test.
+  - **Spy**: Wraps a real object or stub to record runtime interactions (number of calls, arguments passed) for post-execution verification.
+  - **Mock**: An object pre-programmed with explicit expectations (which calls must occur in what order) that fails the test if expectations are violated.
+  - **Fake**: A working software implementation with a simplified shortcut (e.g., in-memory `ConcurrentHashMap` repository instead of a real SQL database).
+- **Test Smells**: Anti-patterns in test code (e.g., Flaky Tests, Mystery Guest, Fragile Test, Mocking the SUT).
+- **Fast, Independent, Repeatable, Self-Validating, Timely (FIRST)**: The classic principles of effective unit tests.
+
+---
+
+## 3. How It Works Internally: Test Runners, ClassLoaders, & Assertions
+
+When a build tool executes `mvn test` or `./gradlew test`:
+
+```
++-------------------------------------------------------+
+|             Surefire / Gradle Test Runner             |
+|  - Spawns isolated worker JVM process                 |
+|  - Scans test classpath for @Test annotated classes   |
++-------------------------------------------------------+
+                           |
+                           v
++-------------------------------------------------------+
+|             JUnit Platform / Jupiter Engine           |
+|  - Instantiates Test Class (new per method by default)|
+|  - Executes @BeforeEach -> @Test method -> @AfterEach |
++-------------------------------------------------------+
+                           |
+                           v
++-------------------------------------------------------+
+|               Assertion Engine (AssertJ)              |
+|  - Evaluates expected vs actual boolean condition     |
+|  - On failure: Throws org.opentest4j.AssertionFailedError |
+|  - Caught by Jupiter engine; logs failure stack trace |
++-------------------------------------------------------+
 ```
 
+### The Per-Method Instance Lifecycle:
+By default, JUnit Jupiter creates a **fresh instance of the test class** before invoking each `@Test` method. This guarantees that instance fields modified in Test A do not leak into Test B, maintaining strict test isolation and preventing ordering dependencies.
+
+---
+
+## 4. Syntax & Usage
+
+### 4.1 Clean Arrange-Act-Assert Structure with AssertJ
 ```java
-class PriceCalculatorTest {
+package com.example.testing;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import java.math.BigDecimal;
+import static org.assertj.core.api.Assertions.*;
+
+@DisplayName("BankAccount State Transitions")
+class BankAccountTest {
+
+    private BankAccount account;
+
+    @BeforeEach
+    void setUp() {
+        // Arrange: Shared fresh instance for every test
+        account = new BankAccount("ACC-101", new BigDecimal("100.00"));
+    }
 
     @Test
-    void addsTaxToNetAmount() {
+    @DisplayName("Depositing positive amount increases balance accurately")
+    void deposit_positiveAmount_increasesBalance() {
         // Arrange
-        var calculator = new PriceCalculator();
+        BigDecimal depositAmount = new BigDecimal("50.00");
 
         // Act
-        BigDecimal total = calculator.totalWithTax(new BigDecimal("100.00"), new BigDecimal("0.18"));
+        account.deposit(depositAmount);
+
+        // Assert: Fluent, readable assertion via AssertJ
+        assertThat(account.getBalance())
+                .isEqualByComparingTo(new BigDecimal("150.00"));
+    }
+
+    @Test
+    @DisplayName("Withdrawing amount exceeding balance throws InsufficientFundsException")
+    void withdraw_exceedingBalance_throwsException() {
+        // Arrange
+        BigDecimal excessiveAmount = new BigDecimal("150.00");
+
+        // Act & Assert combined: Type-safe exception verification
+        assertThatThrownBy(() -> account.withdraw(excessiveAmount))
+                .isInstanceOf(InsufficientFundsException.class)
+                .hasMessageContaining("Insufficient balance")
+                .hasMessageContaining("ACC-101");
+
+        // Verify balance remained unchanged
+        assertThat(account.getBalance())
+                .isEqualByComparingTo(new BigDecimal("100.00"));
+    }
+}
+```
+
+---
+
+## 5. Practical Examples
+
+### Example 1: Hand-Crafted In-Memory Fake Repository
+```java
+package com.example.testing;
+
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+
+// A Fake implementation: Fully functional in-memory storage, zero database overhead!
+public final class InMemoryUserRepository implements UserRepository {
+    private final Map<Long, User> storage = new ConcurrentHashMap<>();
+    private long idSequence = 1;
+
+    @Override
+    public Optional<User> findById(long id) {
+        return Optional.ofNullable(storage.get(id));
+    }
+
+    @Override
+    public User save(User user) {
+        long id = user.id() <= 0 ? idSequence++ : user.id();
+        User saved = new User(id, user.email(), user.name());
+        storage.put(id, saved);
+        return saved;
+    }
+
+    @Override
+    public void deleteById(long id) {
+        storage.remove(id);
+    }
+}
+```
+
+### Example 2: Testing Business Logic with Fake instead of Mock
+```java
+package com.example.testing;
+
+import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.*;
+
+class RegistrationServiceTest {
+
+    @Test
+    void registerUser_validRequest_persistsUserInRepository() {
+        // Arrange: Using in-memory fake instead of heavy Mockito mocks!
+        UserRepository fakeRepo = new InMemoryUserRepository();
+        RegistrationService service = new RegistrationService(fakeRepo);
+
+        // Act
+        User registered = service.register("engineer@example.com", "Alice");
 
         // Assert
-        assertEquals(new BigDecimal("118.00"), total);
+        assertThat(registered.id()).isPositive();
+        assertThat(fakeRepo.findById(registered.id()))
+                .isPresent()
+                .hasValueSatisfying(u -> assertThat(u.email()).isEqualTo("engineer@example.com"));
     }
 }
 ```
 
-### Arrange-Act-Assert (Given-When-Then)
-
-Every good test has three visible parts:
-
-1. **Arrange (Given):** set up the object under test and its inputs.
-2. **Act (When):** do **one** thing: call the method you're testing.
-3. **Assert (Then):** check the outcome.
-
-If you can't separate them (an Act in the middle of Arranging, several Acts per test), the test is trying to verify too much. Split it.
-
----
-
-## 2. What makes a good unit test: F.I.R.S.T.
-
-| Property | Meaning | Violated by |
-|---|---|---|
-| **Fast** | Milliseconds. You'll run thousands often | Network, disk, databases, `Thread.sleep` |
-| **Isolated / Independent** | No test depends on another or on run order | Shared mutable static state, order-dependent data |
-| **Repeatable** | Same result every run, on any machine | Current time, randomness, time zones, environment |
-| **Self-validating** | Pass or fail automatically: no human inspection | Tests that only print output |
-| **Timely** | Written close to the code (ideally just before or with it) | Tests added months later, if ever |
-
-Add two more that matter in practice: **readable** (a test is documentation; a failure message should tell you what broke) and **focused** (one behavior per test, so failures point at one cause).
-
----
-
-## 3. Test doubles
-
-A unit under test usually collaborates with others (a repository, a payment gateway, the clock). To test it in isolation, you replace collaborators with **test doubles**:
-
-| Double | What it does | Example |
-|---|---|---|
-| **Dummy** | Passed around, never used | `null`-like filler for a required parameter |
-| **Stub** | Returns canned answers | `findUser(42)` always returns a fixed user |
-| **Fake** | A *working*, simplified implementation | An in-memory `UserRepository` backed by a `HashMap` |
-| **Spy** | Wraps a real object and records calls | Real object plus "was `send` called?" |
-| **Mock** | Pre-programmed with *expectations*, verifies interactions | "`gateway.charge(...)` must be called once with 50.00" |
-
-Prefer **state-based verification** (call the method, assert on the result or resulting state), using stubs and fakes, over **interaction-based verification** (asserting that specific calls happened). Interaction checks couple the test to *how* the code works instead of *what* it achieves, and break on harmless refactoring. Reserve mocks for **side effects that are the observable outcome** (an email was sent, a payment was requested). See [Mocking and Mockito](02_mocking-and-mockito.md).
-
----
-
-## 4. Design for testability
-
-Hard-to-test code is usually badly designed code. Testability comes from a few habits:
-
-- **Inject collaborators** through the constructor instead of creating them inside (`new PaymentGateway()`) or reaching for static singletons.
-
+### Example 3: Edge Case - Testing Floating Point Precision and Rounding
 ```java
-// Hard to test: hidden dependencies, real clock, real network
-class Invoicing {
-    void send(long orderId) {
-        Order o = Database.INSTANCE.find(orderId);
-        if (LocalDate.now().isAfter(o.dueDate())) { new SmtpClient().send(o.email(), "Overdue!"); }
-    }
-}
+package com.example.testing;
 
-// Testable: dependencies are explicit, time is injected
-class Invoicing {
-    private final OrderRepository orders;
-    private final Notifier notifier;
-    private final Clock clock;
+import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.*;
 
-    Invoicing(OrderRepository orders, Notifier notifier, Clock clock) { ... }
+class FinancialCalculatorTest {
+    @Test
+    void calculateTax_withRounding_matchesFinancialPrecision() {
+        double subtotal = 19.99;
+        double taxRate = 0.0825; // 8.25%
 
-    void send(long orderId) {
-        Order o = orders.find(orderId);
-        if (LocalDate.now(clock).isAfter(o.dueDate())) notifier.send(o.email(), "Overdue!");
+        double tax = FinancialCalculator.computeTax(subtotal, taxRate);
+
+        // In floating-point tests, ALWAYS provide an explicit offset/epsilon tolerance!
+        assertThat(tax).isCloseTo(1.65, within(0.001));
     }
 }
 ```
 
-- **Inject time** (`Clock`) and **randomness** (a `Random`/ID supplier) so tests are deterministic ([Date-Time Best Practices](../10-date-and-time/05_date-time-best-practices.md#4-make-time-injectable-clock)).
-- **Prefer pure functions** (output depends only on input, no side effects). They need no setup at all ([Functional Patterns](../09-functional-java/08_functional-patterns.md)).
-- **Separate decisions from I/O.** Put business logic in plain objects, and keep the thin I/O shell (HTTP, SQL, files) separate and tested by integration tests.
-- **Depend on interfaces at boundaries** (repositories, gateways), so you can substitute fakes.
-- **Avoid hidden global state.** Static mutable fields and singletons leak between tests.
-- Don't make things `public` or add test-only hooks just to test them. If a private method seems to need its own test, it's often a **separate class** waiting to be extracted ([Common Java Mistakes](../23-design-and-clean-code/06_common-java-mistakes.md)).
+### Example 4: Failure Case - The "Mystery Guest" Anti-Pattern
+```java
+// ANTI-PATTERN: Test relies on external file "test-data.json" on disk.
+// Readers cannot see inputs in test code; if file is moved or modified, test breaks mysteriously!
+@Test
+void brokenMysteryGuestTest() {
+    // Hidden dependency: Where did test-data.json come from? What are its contents?
+    Order order = DataLoader.loadOrderFromFile("test-data.json");
+    assertThat(order.getTotal()).isEqualTo(150.0);
+}
+```
 
 ---
 
-## 5. What to test (and what not to)
-
-### Test behavior, not implementation
-
-Assert **what** the unit promises (its observable results), not **how** it does it. A test that survives a correct refactoring is a good test:
-
-```java
-// Brittle: tied to internals (which helper is called, in what order)
-verify(helper).normalize(input);  verify(helper).validate(input);
-
-// Robust: observable behavior
-assertEquals("asha@example.com", service.register("  ASHA@Example.com ").email());
-```
-
-### Cases to cover
-
-For each unit, think in **equivalence classes and boundaries**:
-
-| Category | Examples |
-|---|---|
-| **Typical** ("happy path") | A normal valid input |
-| **Boundaries** | `0`, `1`, `-1`, `max`, `max+1`; the exact threshold (age 17/18/19); empty vs one vs many |
-| **Empty/null/blank** | `null`, `""`, `"   "`, empty list, empty `Optional` |
-| **Invalid input** | Out of range, wrong format → expected exception or error result |
-| **State transitions** | Calling in the wrong order, calling twice |
-| **Error paths** | Collaborator throws, returns nothing, times out |
-| **Special values** | Duplicates, unicode, very long strings, large numbers and overflow, negative zero |
-
-Boundaries are where bugs live. `age >= 18` and `age > 18` differ at exactly one value, and only a test at 18 can tell them apart ([Mutation Testing](05_code-coverage-and-mutation-testing.md#3-mutation-testing)).
-
-### What not to test
-
-- **Trivial code** (getters, setters, simple records): the compiler checks it, and coverage targets shouldn't push you there.
-- **The framework or library:** don't test that Jackson serializes a field. Test *your* configuration and contracts.
-- **Private methods directly:** test through the public API. If that's impossible, reconsider the design.
-- **Implementation details that may legitimately change.**
+## 6. Best Practices
+1. **Follow the Arrange-Act-Assert Pattern Strictly**: Separate each test logically into three distinct visual blocks with single-line whitespace.
+2. **One Logical Assertion Concept per Test**: A test should verify one specific business rule or outcome; multiple assertions are acceptable only if they verify aspects of the same single state transition.
+3. **Use Descriptive Test Names**: Name tests after business behavior: `methodUnderTest_stateUnderTest_expectedBehavior` or use JUnit 5 `@DisplayName`.
+4. **Prefer In-Memory Fakes over Deep Mocking**: When testing business services, in-memory fakes provide higher fidelity and resilience against refactoring compared to brittle mock method verifications.
+5. **Never Sleep in Unit Tests**: Never use `Thread.sleep()` to wait for asynchronous behavior; use Awaitility or explicit latch synchronizers.
+6. **Eliminate Test Interdependence**: Tests must be 100% independent; test suite execution order should be completely randomized without affecting pass/fail outcomes.
 
 ---
 
-## 6. Writing readable tests
+## 7. Common Mistakes & Pitfalls
 
-### Names say what and when
-
-```java
-@Test void rejectsRegistrationWhenEmailAlreadyExists() { ... }
-@Test void appliesTenPercentDiscountToOrdersOverOneHundred() { ... }
-@Test void withdraw_throwsInsufficientFunds_whenBalanceTooLow() { ... }   // another common style
-```
-
-A failing test's name should read like the bug report. Avoid `test1`, `testRegister`, and `shouldWork`.
-
-### One behavior per test, with focused assertions
-
-Several asserts about one *outcome* (a returned object's fields) are fine. Asserting several unrelated behaviors in one test is not, because the first failure hides the rest and the name can't describe them.
-
-### No logic in tests
-
-No `if`, loops, or computing the expected value with the same algorithm as the code under test (which just repeats its bug). Use literal expected values:
-
-```java
-assertEquals(new BigDecimal("118.00"), calculator.totalWithTax(new BigDecimal("100.00"), new BigDecimal("0.18")));   // literal
-```
-
-### DAMP, not only DRY
-
-Production code values DRY. In tests, readability beats deduplication: a reader should understand a test **without scrolling** to a base class or shared setup. Extract *helpers* (builders, factory methods) for noisy setup, but keep each test's essential data visible.
-
-### Use test data builders for objects with many fields
-
-```java
-Order order = anOrder().withCustomer("asha").withItem("book", 2).paid().build();   // intent is obvious; irrelevant fields default
-```
-
-See [Testing Patterns](04_testing-patterns.md#1-test-data-builders-and-object-mothers).
-
----
-
-## 7. Test-driven development (TDD)
-
-TDD flips the order: **write a failing test first**, make it pass with the simplest code, then clean up.
-
-```text
- RED      write a small test that fails (for the right reason)
- GREEN    write the simplest code to make it pass
- REFACTOR improve the design with the safety net of passing tests
- (repeat in small steps)
-```
-
-Benefits: you design the API from the caller's side, you only write code a test demands, and every line has a test by construction. It's especially effective for algorithmic and business-rule code. It's less natural for exploratory work, UI layout, or heavily framework-driven glue code, where integration tests and fast feedback matter more. You don't have to be a purist: "write tests alongside the code, in small steps" captures most of the value.
-
----
-
-## 8. Test smells
-
-| Smell | Why it hurts | Fix |
+| Mistake | Why It Fails | Correction |
 |---|---|---|
-| **Fragile tests** (break on any refactoring) | Coupled to implementation, over-mocked | Assert on behavior and state, use fakes |
-| **Over-mocking** (everything mocked, nothing real) | The test verifies the mocks, not the code | Use real objects/fakes for in-process collaborators |
-| **Huge setup** | The unit has too many dependencies | Simplify the design, use builders |
-| **Shared mutable state / order dependence** | Passes alone, fails in a suite (or vice versa) | Fresh state per test, no statics |
-| **Conditional logic or loops in tests** | The test may be wrong | Literal expectations, parameterized tests |
-| **Assertion-free tests** | Pass without checking anything (and inflate coverage) | Always assert something meaningful |
-| **Testing the framework / getters** | Noise | Delete |
-| **Flaky tests** (sometimes fail) | Destroys trust and CI value | Find the nondeterminism (time, threads, order, network) and remove it. Don't normalize "re-run" |
-| **`Thread.sleep` in tests** | Slow *and* flaky | Latches, `Awaitility`, injected schedulers/clocks |
-| **Commented-out or `@Disabled` tests that rot** | Dead weight | Fix or delete |
-| **Mystery guest** (data hidden in files/DB) | Can't see why it passes | Keep key data in the test |
-| **Giant "god" tests** | Failures are undiagnosable | Split by behavior |
+| Sharing mutable state across tests | Test A pollutes state, causing Test B to fail intermittently | Use `@BeforeEach` or immutable fakes |
+| Using `Thread.sleep()` for async tests | Introduces flaky failures on slow CI runners | Use Awaitility or `CountDownLatch` |
+| Mocking everything blindly | Tests verify mock wiring rather than real business behavior | Use real objects or in-memory Fakes |
+| Testing private methods directly | Couples test to implementation details, breaking refactoring | Test public API behavior; private methods are verified transitively |
+| Comparing floats with `==` | Floating point representation introduces tiny precision errors | Use `isCloseTo(expected, within(epsilon))` |
+| Asserting on exception without type check | Passes if completely unrelated exception is thrown | Use `assertThatThrownBy().isInstanceOf(...)` |
+| "The Liar" test smell | Test passes but contains zero assertions | Ensure every test contains at least one meaningful assertion |
+| Huge multi-screen test setup | Indicates class violates Single Responsibility Principle | Refactor production class into smaller components |
 
 ---
 
-## 9. Beyond example-based tests
-
-- **Parameterized tests:** one test body, many inputs/expectations ([JUnit](01_junit-5.md#4-parameterized-tests)). Great for boundary tables.
-- **Property-based testing** (for example the jqwik library): state a *property* that must hold for all inputs ("decoding an encoded value returns the original", "sorting is idempotent") and let the framework generate hundreds of inputs and shrink failures to a minimal case ([Testing Patterns](04_testing-patterns.md#8-property-based-testing)).
-- **Mutation testing:** checks that your tests would actually notice bugs ([Code Coverage and Mutation Testing](05_code-coverage-and-mutation-testing.md)).
-
----
-
-## Common mistakes
-
-| Mistake | Fix |
-|---|---|
-| Testing implementation details (private calls, order of internal calls) | Test observable behavior |
-| Mocking everything | Fakes/real objects for in-process collaborators. Mock only boundaries and side effects |
-| Using the real clock, randomness, or environment | Inject `Clock`/seeded `Random`/config |
-| Tests that depend on each other or on execution order | Independent, fresh state |
-| Expected values computed with the code's own algorithm | Literal expected values |
-| One giant test per class | One behavior per test, descriptive names |
-| Chasing 100% coverage with assertion-free tests | Meaningful assertions, mutation testing |
-| Ignoring edge cases and error paths | Boundaries, empties, failures |
-| Writing code that's untestable, then calling testing "hard" | Inject dependencies, separate logic from I/O |
-| Tolerating flaky tests | Eliminate the nondeterminism |
-| Slow unit tests (I/O, sleeps) | Move I/O to integration tests, fake time |
-
-### Debugging failing tests
-
-- **Read the assertion message first.** Expected vs actual usually points at the cause. Improve failure messages (AssertJ descriptions) if they don't.
-- **Reproduce in isolation:** run the single test. Passes alone but fails in a suite → shared state or order dependence.
-- **Fails only on CI** → time zone, locale, charset, file system case sensitivity, concurrency, environment ([CI debugging](../18-build-and-dependencies/03_ci-cd-pipelines.md#debugging-works-locally-fails-in-ci-or-vice-versa)).
-- **Intermittent failure** → timing, threads, random data, unordered collections (`HashMap` iteration order), or leaked state.
-- **Use the debugger and stack traces** ([Stack Traces and Debugging](../06-exceptions-and-debugging/06_stack-traces-and-debugging.md)).
+## 8. Performance & Security Notes
+- **Sub-Second Execution Target**: A healthy unit test suite should execute 1,000 tests in under 2 seconds. Any individual unit test taking $> 50	ext{ ms}$ is either doing I/O or indicates architectural coupling.
+- **Randomized Execution Order**: Configure `junit.jupiter.testclass.order.default = org.junit.jupiter.api.ClassOrderer$Random` to expose hidden cross-test state pollution immediately.
+- **Security in Test Data**: Never use production credentials, real API tokens, or real customer Personally Identifiable Information (PII) in unit test fixture files.
 
 ---
 
-## Quick Summary
+## 9. Comparison / When to Use What
 
-- A unit test verifies one behavior quickly and deterministically. Structure it as **Arrange-Act-Assert**, and follow **F.I.R.S.T.** (fast, independent, repeatable, self-validating, timely).
-- **Test doubles:** stubs/fakes for inputs, mocks only for outbound side effects. Prefer **state-based** over interaction-based assertions.
-- **Design for testability:** inject dependencies (including `Clock`), prefer pure functions, separate logic from I/O, avoid hidden global state.
-- Test **behavior, not implementation**. Cover typical, **boundary**, empty/null, invalid, and error cases.
-- Keep tests **readable**: descriptive names, literal expectations, no logic, builders for setup, DAMP over DRY.
-- Watch for **smells**: over-mocking, shared state, `sleep`, flaky tests, assertion-free tests.
-- Use **TDD** where it fits, parameterized and property-based tests for breadth, and mutation testing to check test quality.
+| Test Double Type | Has Implementation? | Returns Canned Data? | Records Calls? | Best Use Case |
+|---|---|---|---|---|
+| **Dummy** | No | No | No | Parameter filler (e.g., unused logger) |
+| **Stub** | Partial | Yes (Fixed) | No | Providing fixed query data (e.g., pricing table) |
+| **Spy** | Real or partial | Optional | Yes | Verifying method call counts on real object |
+| **Mock** | Dynamic proxy | Yes | Yes (Strict) | Verifying mandatory interaction contracts |
+| **Fake** | Yes (Simplified) | Dynamic | No | In-memory repositories, simulated auth services |
 
-**Next:** [JUnit 5 and 6](01_junit-5.md)
+---
+
+## 10. Interview Questions
+
+<details>
+<summary>1. What are the five types of Test Doubles defined in Gerard Meszaros's taxonomy?</summary>
+1. <b>Dummy</b>: Objects passed to satisfy signatures, never actually used.<br>
+2. <b>Stub</b>: Provides hardcoded canned responses to method calls.<br>
+3. <b>Spy</b>: A stub or real wrapper that records invocations and arguments for later inspection.<br>
+4. <b>Mock</b>: Pre-programmed with expected calls; fails execution if expectations are not met.<br>
+5. <b>Fake</b>: A working implementation with a simplified in-memory shortcut (e.g., H2 or ConcurrentHashMap).
+</details>
+
+<details>
+<summary>2. Why does JUnit Jupiter instantiate a new test class instance for every @Test method?</summary>
+To enforce strict test isolation. If a single instance were shared across all tests, any modification to instance fields made by Test A would persist into Test B. Re-instantiating the class guarantees a pristine, empty heap environment for every test, allowing tests to run in parallel or in random order without state leakage.
+</details>
+
+<details>
+<summary>3. Why is testing private methods directly considered an architectural anti-pattern?</summary>
+Private methods represent internal implementation details, not contracts. Tests should verify public behavior (the <i>what</i>, not the <i>how</i>). Testing private methods couples the test suite to internal code structure; any internal refactoring breaks the test suite even if the public behavior remains 100% correct. If a private method is so complex that it demands isolated testing, it should be extracted into a separate, focused class.
+</details>
+
+<details>
+<summary>4. What is a "Flaky Test" and what are its primary root causes?</summary>
+A flaky test passes or fails nondeterministically without any code changes. Primary root causes include:
+- Relying on system clock or timezones (`new Date()`).
+- Using fixed `Thread.sleep()` rather than event-driven synchronizers.
+- Shared mutable static state across tests.
+- Undocumented test execution order dependencies.
+- Network or file system I/O inside unit tests.
+</details>
+
+<details>
+<summary>5. What are the key differences between state-based verification and interaction-based verification?</summary>
+<b>State-Based Verification</b>: Verifies the final state of the system or return value after an action (e.g., checking that account balance is 150). Resilient to refactoring.<br>
+<b>Interaction-Based Verification</b>: Verifies which methods were called on collaborating dependencies with what arguments (e.g., verifying `auditLogger.log()` was invoked once). Prone to brittleness if internal calls change.
+</details>
+
+<details>
+<summary>6. What is the Arrange-Act-Assert (AAA) pattern and how does it map to Given-When-Then?</summary>
+Arrange maps to <b>Given</b> (pre-conditions and inputs). Act maps to <b>When</b> (the behavior or command under test). Assert maps to <b>Then</b> (verifying expected outcomes and observable side effects). Both patterns enforce clean separation between setup, execution, and verification.
+</details>
+
+<details>
+<summary>7. What is the "Mystery Guest" test smell?</summary>
+The Mystery Guest smell occurs when a test relies on external data sources (e.g., a file on disk or database pre-loaded data) that is not visible inside the test method. When reading the test, the engineer cannot understand why certain assertions are expected without hunting down external files.
+</details>
+
+<details>
+<summary>8. How do you design classes to make them easily testable without mocks?</summary>
+Apply Dependency Injection: accept dependencies via constructors rather than instantiating them internally (`new`). Program to interfaces so in-memory fakes can be substituted. Separate pure domain logic (calculations, rules) from I/O infrastructure (databases, HTTP).
+</details>
+
+---
+
+## 11. Practice Exercises
+
+<details>
+<summary>Exercise 1: Write a test verifying that an Order accurately calculates discounts using AssertJ.</summary>
+
+```java
+@Test
+void calculateTotal_withTenPercentDiscount_appliesDiscountAccurately() {
+    // Arrange
+    Order order = new Order("ORD-1", new BigDecimal("100.00"));
+    DiscountPolicy tenPercent = new PercentageDiscountPolicy(10);
+
+    // Act
+    BigDecimal finalTotal = order.applyDiscount(tenPercent);
+
+    // Assert
+    assertThat(finalTotal).isEqualByComparingTo(new BigDecimal("90.00"));
+}
+```
+</details>
+
+<details>
+<summary>Exercise 2: Implement an in-memory FakeClock to test time-dependent expiration logic deterministically.</summary>
+
+```java
+public final class FakeClock extends Clock {
+    private Instant currentInstant;
+    private final ZoneId zone;
+
+    public FakeClock(Instant initial) {
+        this.currentInstant = initial;
+        this.zone = ZoneId.of("UTC");
+    }
+
+    public void advanceTime(Duration duration) {
+        this.currentInstant = this.currentInstant.plus(duration);
+    }
+
+    @Override public ZoneId getZone() { return zone; }
+    @Override public Clock withZone(ZoneId zone) { return this; }
+    @Override public Instant instant() { return currentInstant; }
+}
+```
+</details>
+
+<details>
+<summary>Exercise 3: Write a test verifying that expired authentication tokens are rejected.</summary>
+
+```java
+@Test
+void isTokenExpired_afterOneHour_returnsTrue() {
+    // Arrange
+    Instant now = Instant.parse("2026-11-20T12:00:00Z");
+    FakeClock clock = new FakeClock(now);
+    AuthToken token = new AuthToken("secret", now.plus(Duration.ofMinutes(30)));
+
+    // Act: Advance clock by 31 minutes
+    clock.advanceTime(Duration.ofMinutes(31));
+
+    // Assert
+    assertThat(token.isExpired(clock.instant())).isTrue();
+}
+```
+</details>
+
+---
+
+## 12. Summary / Cheat Sheet
+- **Structure**: Arrange $ightarrow$ Act $ightarrow$ Assert (AAA) with clear visual separation.
+- **Test Doubles**: Dummy (filler), Stub (canned data), Spy (recorder), Mock (expectations), Fake (in-memory shortcut).
+- **Isolation**: JUnit creates a fresh test class instance per method; never share mutable static state.
+- **AssertJ**: Use fluent, readable assertions (`assertThat(x).isEqualByComparingTo(y)`).
+- **Fast Feedback**: Unit tests must run in milliseconds with zero disk/network I/O.
+- **Smells**: Eliminate Flaky Tests, Mystery Guests, and testing private methods directly.
+
+---
+
+## 13. Further Reading
+- *xUnit Test Patterns: Refactoring Test Code* by Gerard Meszaros
+- *Growing Object-Oriented Software, Guided by Tests* by Steve Freeman and Nat Pryce
+- AssertJ Core Documentation and Best Practices
+- Martin Fowler: Mocks Aren't Stubs

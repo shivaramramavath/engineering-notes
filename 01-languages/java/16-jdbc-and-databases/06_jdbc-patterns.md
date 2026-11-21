@@ -1,327 +1,505 @@
-# JDBC Patterns
+# JDBC Architectural Patterns
 
-Raw JDBC is verbose, and the same few mistakes recur: leaked connections, missing rollbacks, SQL built by concatenation, N+1 queries, offset pagination that gets slower every page. This note collects the patterns that tame the boilerplate and avoid the traps. Many of them are what frameworks like Spring's `JdbcClient`, JDBI, and jOOQ do for you, so understanding them also shows you what those libraries are *for*.
+> Production design patterns for clean persistence architecture: Repository, DAO, Unit of Work, Keyset Paging, and Transient Error Retry.
 
-**Prerequisites:** all earlier notes in this module, plus [Functional Patterns](../09-functional-java/08_functional-patterns.md) (the execute-around idea).
+| Metadata | Details |
+|---|---|
+| **Level** | Core / Advanced |
+| **Prerequisites** | JDBC Fundamentals, Java Generics, OOP Patterns |
+| **Time to Read** | 25 minutes |
+| **Status** | Complete |
+| **JDK Baseline** | Java 17 / 21 / 25 LTS |
 
 ---
 
-## 1. A small JDBC helper: reduce the boilerplate
+## Table of Contents
+1. [1. What & Why](#1-what--why)
+2. [2. Core Concepts](#2-core-concepts)
+3. [3. How It Works Internally: Data Access Layer Architecture](#3-how-it-works-internally-data-access-layer-architecture)
+4. [4. Syntax & Usage](#4-syntax--usage)
+5. [5. Practical Examples](#5-practical-examples)
+6. [6. Best Practices](#6-best-practices)
+7. [7. Common Mistakes & Pitfalls](#7-common-mistakes--pitfalls)
+8. [8. Performance & Security Notes](#8-performance--security-notes)
+9. [9. Comparison / When to Use What](#9-comparison--when-to-use-what)
+10. [10. Interview Questions](#10-interview-questions)
+11. [11. Practice Exercises](#11-practice-exercises)
+12. [12. Summary / Cheat Sheet](#12-summary--cheat-sheet)
+13. [13. Further Reading](#13-further-reading)
 
-The "get connection, prepare, bind, execute, map, close" ceremony is identical every time. Capture it once with functional interfaces:
+---
 
+## 1. What & Why
+Writing raw JDBC statements directly within business services creates tight coupling, duplicated boilerplate, and leaky abstractions. When database access code is scattered across controllers or business components, changing a database column, switching dialect, or tuning transaction isolation requires refactoring hundreds of files.
+
+Architectural patterns—including the **Data Access Object (DAO)**, **Repository Pattern**, **Unit of Work**, **RowMapper abstraction**, and **Keyset Cursor Paging**—isolate persistence logic into clean, testable, and reusable components. These patterns decouple business domain models from SQL relational representations and provide centralized locations for query optimization, retry handling, and metrics collection.
+
+---
+
+## 2. Core Concepts
+- **Data Access Object (DAO)**: A structural pattern that encapsulates all access to a data source. Maps directly to relational database tables or views.
+- **Repository Pattern**: A domain-driven design (DDD) pattern that provides an in-memory collection abstraction for accessing domain aggregates, decoupling domain entities from table schemas.
+- **Unit of Work**: Maintains a list of business objects affected by a business transaction and coordinates writing out changes and resolving concurrency conflicts.
+- **Template Method Pattern**: Eliminates repetitive connection acquisition, error translation, and resource closing boilerplate (e.g., Spring's `JdbcTemplate` or custom `JdbcExecutor`).
+- **Keyset Pagination Pattern**: High-performance cursor-based pagination utilizing tuple comparison (`WHERE (created_at, id) < (:last_ts, :last_id)`).
+- **Transient Error Retry**: Pattern that intercepts transient network or concurrency errors (e.g., deadlock `40P01`, serialization failure `40001`) and retries the operation with exponential backoff.
+
+---
+
+## 3. How It Works Internally: Data Access Layer Architecture
+
+A clean enterprise persistence layer strictly separates concerns across architectural boundaries:
+
+```
++-------------------------------------------------------+
+|             Business Service Layer                    |
+|       (OrderService, AccountTransferService)          |
++-------------------------------------------------------+
+                           |
+       Domain Aggregate Objects / Java Records
+                           |
+                           v
++-------------------------------------------------------+
+|             Repository / DAO Layer                    |
+|       (OrderRepository, AccountDao)                   |
+|       - Encapsulates SQL statements                   |
+|       - Executes parameter binding                    |
++-------------------------------------------------------+
+                           |
+       RowMapper / ResultExtractor Interfaces
+                           |
+                           v
++-------------------------------------------------------+
+|             JDBC Execution Infrastructure             |
+|       (HikariDataSource, Connection, PreparedStatement) |
++-------------------------------------------------------+
+```
+
+### Decoupling Data Flow:
+1. **Service Layer**: Never imports `java.sql.*`. Operates purely on immutable domain records or entities.
+2. **Repository Implementation**: Takes a `DataSource`, executes SQL via `PreparedStatement`, handles mapping through functional `RowMapper` lambdas, and translates checked `SQLException` into unchecked domain exceptions (e.g., `DataAccessException`, `EntityNotFoundException`).
+3. **Connection Demarcation**: Transaction boundaries are coordinated either via contextual thread-local connection holders or explicit Unit of Work containers.
+
+---
+
+## 4. Syntax & Usage
+
+### 4.1 Production Repository Implementation with Java 21 Records
 ```java
-@FunctionalInterface interface RowMapper<T> { T map(ResultSet rs) throws SQLException; }
-@FunctionalInterface interface TxWork<T>   { T apply(Connection c) throws SQLException; }
+package com.example.jdbc.repository;
 
-final class Jdbc {
-    private final DataSource ds;
-    Jdbc(DataSource ds) { this.ds = ds; }
+import java.math.BigDecimal;
+import java.sql.*;
+import java.time.Instant;
+import java.util.*;
+import javax.sql.DataSource;
 
-    // --- queries and updates on a borrowed connection -------------------------------------------
-    <T> List<T> query(String sql, RowMapper<T> mapper, Object... params) throws SQLException {
-        try (Connection c = ds.getConnection()) { return query(c, sql, mapper, params); }
+public record Account(long id, String accountNumber, String holderName, BigDecimal balance, Instant createdAt) {}
+
+public interface AccountRepository {
+    Optional<Account> findById(long id);
+    Optional<Account> findByAccountNumber(String accNumber);
+    Account create(String accNumber, String holderName, BigDecimal initialBalance);
+    boolean updateBalance(long id, BigDecimal newBalance);
+}
+
+public final class JdbcAccountRepository implements AccountRepository {
+    private final DataSource dataSource;
+
+    public JdbcAccountRepository(DataSource dataSource) {
+        this.dataSource = Objects.requireNonNull(dataSource);
     }
 
-    <T> Optional<T> queryOne(String sql, RowMapper<T> mapper, Object... params) throws SQLException {
-        List<T> rows = query(sql, mapper, params);
-        return rows.isEmpty() ? Optional.empty() : Optional.of(rows.get(0));
+    private static Account mapRow(ResultSet rs) throws SQLException {
+        return new Account(
+            rs.getLong("id"),
+            rs.getString("account_number"),
+            rs.getString("holder_name"),
+            rs.getBigDecimal("balance"),
+            rs.getTimestamp("created_at").toInstant()
+        );
     }
 
-    int update(String sql, Object... params) throws SQLException {
-        try (Connection c = ds.getConnection()) { return update(c, sql, params); }
-    }
-
-    // --- the same operations on a connection you already hold (inside a transaction) -------------
-    static <T> List<T> query(Connection c, String sql, RowMapper<T> mapper, Object... params) throws SQLException {
-        try (PreparedStatement ps = c.prepareStatement(sql)) {
-            bind(ps, params);
+    @Override
+    public Optional<Account> findById(long id) {
+        String sql = "SELECT id, account_number, holder_name, balance, created_at FROM accounts WHERE id = ?";
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, id);
             try (ResultSet rs = ps.executeQuery()) {
-                List<T> out = new ArrayList<>();
-                while (rs.next()) out.add(mapper.map(rs));
-                return out;
+                if (rs.next()) {
+                    return Optional.of(mapRow(rs));
+                }
+                return Optional.empty();
             }
+        } catch (SQLException ex) {
+            throw new RuntimeException("Database failure finding account by ID: " + id, ex);
         }
     }
 
-    static int update(Connection c, String sql, Object... params) throws SQLException {
-        try (PreparedStatement ps = c.prepareStatement(sql)) {
-            bind(ps, params);
+    @Override
+    public Optional<Account> findByAccountNumber(String accNumber) {
+        String sql = "SELECT id, account_number, holder_name, balance, created_at FROM accounts WHERE account_number = ?";
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, accNumber);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return Optional.of(mapRow(rs));
+                }
+                return Optional.empty();
+            }
+        } catch (SQLException ex) {
+            throw new RuntimeException("Database failure finding account: " + accNumber, ex);
+        }
+    }
+
+    @Override
+    public Account create(String accNumber, String holderName, BigDecimal initialBalance) {
+        String sql = "INSERT INTO accounts (account_number, holder_name, balance) VALUES (?, ?, ?) RETURNING id, created_at";
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, accNumber);
+            ps.setString(2, holderName);
+            ps.setBigDecimal(3, initialBalance);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    long id = rs.getLong("id");
+                    Instant created = rs.getTimestamp("created_at").toInstant();
+                    return new Account(id, accNumber, holderName, initialBalance, created);
+                }
+                throw new SQLException("Failed to retrieve generated account fields");
+            }
+        } catch (SQLException ex) {
+            throw new RuntimeException("Database error creating account: " + accNumber, ex);
+        }
+    }
+
+    @Override
+    public boolean updateBalance(long id, BigDecimal newBalance) {
+        String sql = "UPDATE accounts SET balance = ? WHERE id = ?";
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setBigDecimal(1, newBalance);
+            ps.setLong(2, id);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException ex) {
+            throw new RuntimeException("Database error updating account balance: " + id, ex);
+        }
+    }
+}
+```
+
+---
+
+## 5. Practical Examples
+
+### Example 1: Basic Keyset Pagination Pattern Implementation
+```java
+package com.example.jdbc.repository;
+
+import java.sql.*;
+import java.time.Instant;
+import java.util.*;
+import javax.sql.DataSource;
+
+public final class KeysetPaginationService {
+    public record TransactionRecord(long id, long accountId, double amount, Instant txTimestamp) {}
+
+    public static List<TransactionRecord> fetchNextPage(
+            DataSource ds, long accountId, Instant lastTimestamp, Long lastId, int pageSize) throws SQLException {
+
+        // When requesting first page, lastTimestamp and lastId are null
+        String sql;
+        if (lastTimestamp == null || lastId == null) {
+            sql = """
+                SELECT id, account_id, amount, tx_timestamp
+                FROM account_transactions
+                WHERE account_id = ?
+                ORDER BY tx_timestamp DESC, id DESC
+                LIMIT ?
+                """;
+        } else {
+            sql = """
+                SELECT id, account_id, amount, tx_timestamp
+                FROM account_transactions
+                WHERE account_id = ?
+                  AND (tx_timestamp, id) < (?, ?)
+                ORDER BY tx_timestamp DESC, id DESC
+                LIMIT ?
+                """;
+        }
+
+        try (Connection conn = ds.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            int idx = 1;
+            ps.setLong(idx++, accountId);
+            if (lastTimestamp != null && lastId != null) {
+                ps.setTimestamp(idx++, Timestamp.from(lastTimestamp));
+                ps.setLong(idx++, lastId);
+            }
+            ps.setInt(idx, pageSize);
+
+            List<TransactionRecord> results = new ArrayList<>();
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    results.add(new TransactionRecord(
+                        rs.getLong("id"),
+                        rs.getLong("account_id"),
+                        rs.getDouble("amount"),
+                        rs.getTimestamp("tx_timestamp").toInstant()
+                    ));
+                }
+            }
+            return results;
+        }
+    }
+}
+```
+
+### Example 2: Real-World Transient Fault Retry Handler
+```java
+package com.example.jdbc.pattern;
+
+import java.sql.SQLException;
+import java.util.Set;
+
+public final class TransientDbRetryHandler {
+    // Known transient error SQLState codes:
+    // 40001: serialization_failure
+    // 40P01: deadlock_detected
+    // 08006: connection_failure_during_transaction
+    private static final Set<String> TRANSIENT_SQL_STATES = Set.of("40001", "40P01", "08006");
+
+    @FunctionalInterface
+    public interface SqlCallable<T> {
+        T call() throws SQLException;
+    }
+
+    public static <T> T executeWithRetry(SqlCallable<T> operation, int maxAttempts, long initialBackoffMs) throws SQLException {
+        int attempt = 0;
+        while (true) {
+            attempt++;
+            try {
+                return operation.call();
+            } catch (SQLException ex) {
+                if (TRANSIENT_SQL_STATES.contains(ex.getSQLState()) && attempt < maxAttempts) {
+                    long backoff = (long) (initialBackoffMs * Math.pow(2, attempt - 1) + (Math.random() * 20));
+                    System.err.printf("[WARN] Transient error [%s]. Retrying attempt %d after %d ms...%n",
+                            ex.getSQLState(), attempt, backoff);
+                    try { Thread.sleep(backoff); } catch (InterruptedException ignored) {}
+                    continue;
+                }
+                throw ex; // Re-throw non-transient or exhausted exception
+            }
+        }
+    }
+}
+```
+
+### Example 3: Edge Case - Handling Partial Updates with Dynamic SQL Builder
+```java
+package com.example.jdbc.pattern;
+
+import java.sql.*;
+import java.util.*;
+
+public final class DynamicUpdateBuilder {
+    public static int updateCustomerFields(Connection conn, long customerId, Map<String, Object> fieldsToUpdate) throws SQLException {
+        if (fieldsToUpdate.isEmpty()) return 0;
+
+        StringBuilder sb = new StringBuilder("UPDATE customers SET ");
+        List<Object> values = new ArrayList<>();
+
+        int i = 0;
+        for (var entry : fieldsToUpdate.entrySet()) {
+            if (i > 0) sb.append(", ");
+            sb.append(entry.getKey()).append(" = ?");
+            values.add(entry.getValue());
+            i++;
+        }
+        sb.append(", updated_at = NOW() WHERE id = ?");
+        values.add(customerId);
+
+        try (PreparedStatement ps = conn.prepareStatement(sb.toString())) {
+            for (int idx = 0; idx < values.size(); idx++) {
+                ps.setObject(idx + 1, values.get(idx));
+            }
             return ps.executeUpdate();
         }
     }
+}
+```
 
-    // --- transactions ----------------------------------------------------------------------------
-    <T> T inTransaction(TxWork<T> work) throws SQLException {
-        try (Connection c = ds.getConnection()) {
-            c.setAutoCommit(false);
-            try {
-                T result = work.apply(c);
-                c.commit();
-                return result;
-            } catch (SQLException | RuntimeException e) {
-                c.rollback();
-                throw e;
-            }
+---
+
+## 6. Best Practices
+1. **Never Leak `java.sql.*` Types to Domain/Service Layers**: Repositories must map relational data to POJOs, DTOs, or Java Records.
+2. **Translate Checked SQLExceptions to Unchecked Runtime Exceptions**: Decouple service layers from JDBC-specific checked exceptions.
+3. **Use Keyset Pagination for High-Scale APIs**: Avoid `OFFSET` pagination on datasets with more than a few thousand records.
+4. **Centralize Row Mapping Logic**: Define reusable static `RowMapper` lambdas or methods to avoid duplicating column extraction code.
+5. **Implement Retry Logic for Transient Failures**: Protect mission-critical transactions from deadlocks and network blips with exponential backoff retries.
+6. **Program Against Interfaces**: Define repository interfaces (`AccountRepository`) so mock implementations can be injected easily into unit tests.
+
+---
+
+## 7. Common Mistakes & Pitfalls
+
+| Mistake | Why It Fails | Correction |
+|---|---|---|
+| Leaking `ResultSet` to service layer | Keeps database connection open outside repository scope | Map rows into domain objects before returning |
+| Scattering raw SQL strings across application | High duplication; schema refactoring becomes a nightmare | Centralize SQL strings inside dedicated Repository classes |
+| Deep `OFFSET` pagination in public endpoints | Causes database CPU saturation and slow API response | Implement Keyset (seek) pagination using cursor tokens |
+| Forgetting to wrap multi-repository calls in transaction | Partial repository writes cause data inconsistency | Use Unit of Work or declarative transaction manager |
+| Failing to retry on SQLState `40001` / `40P01` | Aborts legitimate user transactions under concurrent load | Add automated exponential backoff retry loop |
+| Re-inventing dynamic SQL concatenation | Introduces SQL injection if column names are unvalidated | Whitelist dynamic column names against schema constants |
+| Swallowing SQLExceptions in catch blocks | Leaves caller blind to database write failures | Wrap and propagate as domain runtime exception |
+| Instantiating new Repository per request | Wastes GC memory; repositories are stateless singletons | Register repositories as singletons in DI container |
+
+---
+
+## 8. Performance & Security Notes
+- **Column Whitelisting in Dynamic Queries**: If building dynamic `ORDER BY` or `SET` clauses, never concatenate raw user input strings as column names. Always validate against an enumerated whitelist of allowed column identifiers.
+- **Garbage Collection Optimization**: Java 21 Records generate compact heap representations and allow JVM escape analysis to eliminate temporary object allocations during row mapping loops.
+- **Connection Affinity**: When multiple repository methods participate in a single business transaction, they must share the exact same physical `Connection`. This is accomplished using thread-local contextual connection holders.
+
+---
+
+## 9. Comparison / When to Use What
+
+| Pattern | Scope | Key Benefit | Trade-Off |
+|---|---|---|---|
+| **DAO** | 1:1 with DB Tables | Fine-grained CRUD control, straightforward mapping | Tight coupling to relational table structure |
+| **Repository** | 1:1 with Domain Aggregates | Decouples business logic from persistence mechanism | Requires aggregate root orchestration |
+| **Unit of Work** | Business Transaction | Tracks changes, optimizes batch commits, handles rollbacks | Higher architectural complexity |
+| **Template Method** | JDBC Execution | Eliminates try-with-resources and error handling boilerplate | Inversion of control |
+
+---
+
+## 10. Interview Questions
+
+<details>
+<summary>1. What is the fundamental difference between the DAO pattern and the Repository pattern?</summary>
+The <b>DAO pattern</b> is data-centric; it provides a 1:1 abstraction over a specific database table or view, focusing strictly on CRUD operations and relational persistence details.<br>
+The <b>Repository pattern</b> is domain-centric (from Domain-Driven Design); it provides an in-memory collection-like abstraction for a Domain Aggregate Root, encapsulating the complex persistence of the aggregate and its child entities across multiple tables.
+</details>
+
+<details>
+<summary>2. How does Keyset Pagination eliminate the O(N) performance degradation of OFFSET pagination?</summary>
+<code>OFFSET N</code> forces the database engine to traverse, sort, and discard all preceding $N$ records before returning the requested page. Keyset pagination uses an indexed composite seek predicate (<code>WHERE (created_at, id) < (:last_ts, :last_id)</code>) that leverages B-tree indexes to jump directly to the target record in $O(\log N)$ time, maintaining constant response latency regardless of whether accessing page 1 or page 50,000.
+</details>
+
+<details>
+<summary>3. Why should checked SQLExceptions be translated into unchecked exceptions in Repository classes?</summary>
+<code>SQLException</code> is a checked exception coupled directly to JDBC and vendor wire protocols. Forcing service and business layers to catch or declare <code>SQLException</code> violates separation of concerns and prevents switching persistence technologies (e.g., to NoSQL or memory). Translating into unchecked domain exceptions (e.g., <code>DataAccessException</code>) allows clean error propagation.
+</details>
+
+<details>
+<summary>4. What is the Unit of Work pattern and how does it prevent inconsistent transaction writes?</summary>
+The Unit of Work pattern tracks all domain entities created, modified, or deleted during a business transaction. At transaction commit time, it opens a single JDBC connection, coordinates database writes in a deterministic order to prevent deadlocks, executes statements as an atomic batch, and commits or rolls back as a single atomic unit.
+</details>
+
+<details>
+<summary>5. How can multiple repositories share a single JDBC transaction without passing Connection objects explicitly?</summary>
+In modern frameworks (like Spring) or custom architectures, connection sharing is achieved using a <code>ThreadLocal<Connection></code> contextual holder or Scoped Values in Java 21+. When a transactional boundary is initiated, a connection is acquired from the DataSource and bound to the current thread. Repositories retrieve this contextual connection; when the transaction concludes, the holder commits and returns the connection to the pool.
+</details>
+
+<details>
+<summary>6. Which SQLState codes represent transient errors that can be safely retried?</summary>
+Common transient error SQLState codes include:
+- <code>40001</code>: Serialization failure (transaction conflict in SERIALIZABLE isolation).
+- <code>40P01</code>: Deadlock detected (one transaction was aborted by the database engine).
+- <code>08006</code>: Connection failure during transaction (temporary network disruption).
+</details>
+
+<details>
+<summary>7. Why is dynamic SQL construction in repositories dangerous even when using PreparedStatements for values?</summary>
+While <code>PreparedStatement</code> parameters (<code>?</code>) safely sanitize literal values, they cannot be used for SQL identifiers such as table names, column names, or sort directions (<code>ASC</code>/<code>DESC</code>). If column names are concatenated dynamically from user inputs, attackers can inject arbitrary SQL. Column names must always be validated against a strict whitelist.
+</details>
+
+<details>
+<summary>8. How do Java 21 Records improve data access layer implementation?</summary>
+Java Records provide transparent, immutable data carriers with concise syntax, built-in <code>equals</code>, <code>hashCode</code>, and <code>toString</code>. Their compact memory footprint reduces heap allocations during high-volume query mapping, and their immutability guarantees thread safety across service boundaries.
+</details>
+
+---
+
+## 11. Practice Exercises
+
+<details>
+<summary>Exercise 1: Implement an audited repository method that captures row count and query execution duration.</summary>
+
+```java
+public static <T> T timedQuery(String operationName, SqlSupplier<T> query) throws SQLException {
+    long start = System.nanoTime();
+    try {
+        return query.get();
+    } finally {
+        long durationMs = (System.nanoTime() - start) / 1_000_000;
+        System.out.printf("[METRICS] %s executed in %d ms%n", operationName, durationMs);
+    }
+}
+
+@FunctionalInterface
+public interface SqlSupplier<T> {
+    T get() throws SQLException;
+}
+```
+</details>
+
+<details>
+<summary>Exercise 2: Write a safe column whitelister for dynamic sorting.</summary>
+
+```java
+public final class SafeSorter {
+    private static final Set<String> ALLOWED_SORT_COLUMNS = Set.of("id", "created_at", "total_amount", "customer_id");
+
+    public static String buildOrderClause(String userRequestedCol, boolean ascending) {
+        if (!ALLOWED_SORT_COLUMNS.contains(userRequestedCol.toLowerCase())) {
+            throw new IllegalArgumentException("Invalid sort column: " + userRequestedCol);
         }
-    }
-
-    private static void bind(PreparedStatement ps, Object[] params) throws SQLException {
-        for (int i = 0; i < params.length; i++) ps.setObject(i + 1, params[i]);   // null needs a typed setNull on some drivers
+        return "ORDER BY " + userRequestedCol + (ascending ? " ASC" : " DESC");
     }
 }
 ```
+</details>
 
-Usage reads like intent instead of plumbing:
-
-```java
-Optional<User> user = jdbc.queryOne(
-        "SELECT id, email, name, created_at FROM users WHERE email = ?", Mappers::user, email);
-
-jdbc.inTransaction(c -> {
-    Jdbc.update(c, "UPDATE accounts SET balance = balance - ? WHERE id = ? AND balance >= ?", amt, from, amt);
-    Jdbc.update(c, "UPDATE accounts SET balance = balance + ? WHERE id = ?", amt, to);
-    return null;
-});
-```
-
-This is the **execute-around** pattern: the helper owns the resource lifecycle, so callers *cannot* forget to close or roll back. Treat the helper above as a teaching sketch. In real projects use a library (Spring `JdbcClient`/`JdbcTemplate`, JDBI, jOOQ) that adds named parameters, null-type handling, exception translation, and battle-testing.
-
----
-
-## 2. Repositories (DAOs) and transaction scope
-
-Keep SQL in a **repository/DAO** class per aggregate, and keep business logic and transaction boundaries in a **service** ([Repository and DAO](../24-design-patterns/04-architecture/02_repository-and-dao.md)):
+<details>
+<summary>Exercise 3: Implement a generic RowMapper for a Customer entity.</summary>
 
 ```java
-final class AccountRepository {
-    Optional<Account> findForUpdate(Connection c, long id) throws SQLException {
-        return Jdbc.query(c, "SELECT id, balance FROM accounts WHERE id = ? FOR UPDATE",
-                          Mappers::account, id).stream().findFirst();
-    }
-    void updateBalance(Connection c, long id, BigDecimal newBalance) throws SQLException {
-        Jdbc.update(c, "UPDATE accounts SET balance = ? WHERE id = ?", newBalance, id);
-    }
-}
+public record Customer(long id, String email, String name, boolean active) {}
 
-final class TransferService {
-    private final Jdbc jdbc; private final AccountRepository accounts;
-
-    void transfer(long from, long to, BigDecimal amount) throws SQLException {
-        jdbc.inTransaction(c -> {                          // ONE connection/transaction for the whole operation
-            Account a = accounts.findForUpdate(c, Math.min(from, to)).orElseThrow();   // lock in a consistent order
-            Account b = accounts.findForUpdate(c, Math.max(from, to)).orElseThrow();
-            ...
-            return null;
-        });
+public final class CustomerRowMapper implements RowMapper<Customer> {
+    @Override
+    public Customer mapRow(ResultSet rs, int rowNum) throws SQLException {
+        return new Customer(
+            rs.getLong("id"),
+            rs.getString("email"),
+            rs.getString("name"),
+            rs.getBoolean("active")
+        );
     }
 }
 ```
-
-Repository methods take the **`Connection`** (so several can join one transaction) or, in frameworks, rely on a **thread-bound transaction** that they join automatically ([Transactions](04_transactions.md#7-transactions-in-frameworks)). Don't open a new connection per repository call inside one business operation. That breaks atomicity and burns pool connections.
-
----
-
-## 3. Pagination
-
-### Offset pagination (simple, scales badly)
-
-```sql
-SELECT id, total, created_at FROM orders WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?
-```
-
-The database must **read and discard** all `OFFSET` rows, so page 1,000 is far slower than page 1. Results also **shift** if rows are inserted while the user pages (duplicates or skipped items).
-
-### Keyset (seek) pagination: stable and fast
-
-Remember the last row of the previous page and ask for rows *after* it:
-
-```sql
-SELECT id, total, created_at
-FROM   orders
-WHERE  user_id = ?
-  AND  (created_at, id) < (?, ?)          -- row-value comparison (PostgreSQL, MySQL 8+); else expand with OR
-ORDER  BY created_at DESC, id DESC
-LIMIT  ?;                                  -- ask for pageSize + 1 to know whether another page exists
-```
-
-```java
-List<OrderRow> rows = jdbc.query(sql, Mappers::order, userId, lastCreatedAt, lastId, pageSize + 1);
-boolean hasNext = rows.size() > pageSize;
-List<OrderRow> page = hasNext ? rows.subList(0, pageSize) : rows;
-Cursor next = hasNext ? new Cursor(page.get(page.size() - 1).createdAt(), page.get(page.size() - 1).id()) : null;
-```
-
-Back it with a matching index: `CREATE INDEX ON orders (user_id, created_at DESC, id DESC)`. Always include a **unique tiebreaker** (`id`) in the sort. The cost is that you can't jump to "page 57", which is fine for feeds and infinite scroll. More in [Pagination](../25-real-world-patterns/01_pagination.md).
+</details>
 
 ---
 
-## 4. Upserts and idempotent writes
-
-"Insert, or update if it exists" done as *select, then insert-or-update* is a race. Use the database's atomic upsert:
-
-```sql
--- PostgreSQL
-INSERT INTO page_views (page_id, day, views) VALUES (?, ?, 1)
-ON CONFLICT (page_id, day) DO UPDATE SET views = page_views.views + 1;
-
--- MySQL
-INSERT INTO page_views (page_id, day, views) VALUES (?, ?, 1)
-ON DUPLICATE KEY UPDATE views = views + 1;
-
--- SQL standard / Oracle / SQL Server: MERGE
-```
-
-Idempotent inserts (safe to retry) use a **unique key** plus "do nothing on conflict":
-
-```sql
-INSERT INTO processed_events (event_id) VALUES (?) ON CONFLICT (event_id) DO NOTHING
--- executeUpdate() == 1 → first time: process it.   == 0 → duplicate: skip.
-```
-
-Do the claim-and-process inside one transaction so a crash doesn't mark an event processed without doing the work ([Idempotency](../25-real-world-patterns/04_idempotency.md)). Counters should use `SET views = views + 1` in SQL rather than read-modify-write in Java ([Transactions](04_transactions.md#4-concurrency-control-locks-and-versions)).
+## 12. Summary / Cheat Sheet
+- **DAO Pattern**: 1:1 mapping with relational tables; encapsulates low-level SQL operations.
+- **Repository Pattern**: Domain aggregate abstraction; decouples business domain models from database schemas.
+- **Keyset Pagination**: Seek using `WHERE (col, id) < (:val, :last_id)` to ensure $O(\log N)$ paging speed.
+- **Transient Retries**: Automatically retry on SQLState `40001` (serialization failure) and `40P01` (deadlock).
+- **Dynamic SQL**: Never concatenate untrusted column names; always whitelist against schema constants.
+- **Exception Boundary**: Translate checked `SQLException` into unchecked domain runtime exceptions.
 
 ---
 
-## 5. The N+1 problem
-
-The single most common performance bug in data access:
-
-```java
-List<User> users = findUsers();                          // 1 query
-for (User u : users) {
-    u.setOrders(findOrdersForUser(u.id()));              // N more queries: one per user
-}
-```
-
-For 1,000 users that's 1,001 round trips. At 2 ms each it's 2 seconds, and it grows with the data. It's invisible in tests with 3 rows.
-
-**Fixes:**
-
-```java
-// A. Batch the second query: 2 queries total
-Map<Long, List<Order>> ordersByUser = jdbc.query(
-        "SELECT id, user_id, total FROM orders WHERE user_id = ANY(?)", Mappers::order, userIdsArray)
-        .stream().collect(Collectors.groupingBy(Order::userId));
-
-// B. Or a JOIN and group the rows in Java ([ResultSet note](03_resultset-and-data-mapping.md#4-joins-and-one-to-many-results))
-```
-
-How to find it:
-
-- Count queries per request (logs, APM, a datasource proxy), and **fail tests if a request issues more than an expected number of queries**.
-- A request spending its time in "many tiny, similar queries" is the signature.
-
-ORMs create N+1 *implicitly* through lazy loading ([From JDBC to ORM](07_from-jdbc-to-orm.md#4-the-classic-traps)).
-
----
-
-## 6. Error translation
-
-Don't let `SQLException` leak through the application. Translate it at the repository boundary into errors your domain understands:
-
-```java
-try {
-    jdbc.update("INSERT INTO users (email, name) VALUES (?, ?)", email, name);
-} catch (SQLException e) {
-    if ("23505".equals(e.getSQLState())) {                      // unique violation
-        throw new DuplicateEmailException(email, e);            // callers can show "email already registered"
-    }
-    if (isRetryable(e)) throw new TransientDataAccessException(e);
-    throw new DataAccessFailure("Failed to insert user", e);    // unchecked: nothing the caller can fix
-}
-```
-
-- Branch on **SQLState/subclass**, never on message text ([JDBC Fundamentals](01_jdbc-fundamentals.md#6-sqlexception)).
-- To tell *which* constraint fired, use the constraint name, which many drivers expose (for example PostgreSQL's driver exposes it through its server error message). It is driver-specific.
-- Wrap in **unchecked** exceptions at this boundary so higher layers aren't forced to declare `throws SQLException` ([Exception Handling Patterns](../06-exceptions-and-debugging/05_exception-handling-patterns.md)). Frameworks ship such a translation layer (Spring's `DataAccessException` hierarchy).
-- Pair the unique-violation handler with a **`UNIQUE` constraint** as the real guard. The application check is only for a friendly message.
-
----
-
-## 7. Schema migrations
-
-The schema is code, so version it. Use a migration tool such as **Flyway** or **Liquibase**:
-
-```text
- db/migration/
-   V1__create_users.sql
-   V2__create_orders.sql
-   V3__add_orders_status_index.sql
-```
-
-Principles:
-
-- **Versioned, ordered, immutable.** Once a migration has run anywhere shared, never edit it. Add a new one.
-- Run migrations as part of **deployment** (by one process, before or at app start), not by every instance racing.
-- **Don't let the ORM generate the production schema** (`hbm2ddl.auto=update` and similar are for experiments).
-- **Make changes backward-compatible** so old and new application versions can run against the schema during a rolling deploy (the *expand/contract* approach): add a nullable column → deploy code that writes both → backfill (in batches) → make it required → later drop the old column.
-- Big tables: add indexes without long locks (`CREATE INDEX CONCURRENTLY` on PostgreSQL), and batch backfills.
-- Keep migrations tested: they run in your integration-test database too.
-
----
-
-## 8. Testing database code
-
-- **Test against the real database engine.** In-memory H2 behaves differently (types, `ON CONFLICT`, locking, isolation, JSON, case sensitivity), so tests pass and production fails. **Testcontainers** starts a throwaway real database in Docker. A special JDBC URL is enough for many setups:
-
-```java
-String url = "jdbc:tc:postgresql:16:///testdb";      // Testcontainers JDBC URL: starts a PostgreSQL 16 container (needs the Testcontainers dependency)
-DataSource ds = new HikariDataSource(configFor(url));
-// apply migrations (Flyway), then run tests
-```
-
-(Testcontainers' Java API has evolved across versions. See its documentation for the current module setup.)
-
-- **Apply real migrations** to the test database so tests exercise the real schema.
-- **Isolate tests:** truncate tables between tests, or run each test in a transaction that is rolled back (only works when the code under test doesn't commit its own transaction).
-- **Test the constraints and edge cases:** unique violations, foreign keys, `NULL`s, optimistic-lock conflicts, empty results.
-- **Test concurrency** where it matters: two threads doing the "reserve stock" operation, and assert no oversell ([Testing Patterns](../19-testing/04_testing-patterns.md)).
-- **Assert query counts** for key endpoints, to catch N+1 regressions.
-- Use realistic **data volumes** in a separate performance environment to validate indexes and `EXPLAIN` plans.
-
-See [Integration Testing](../19-testing/03_integration-testing.md).
-
----
-
-## 9. Observability and security checklist
-
-- **Log slow queries** (database slow-query log, `pg_stat_statements`, APM spans) and include the SQL *shape*, not sensitive parameter values.
-- **Expose metrics:** pool active/pending, query latency histograms, error counts by SQLState ([Connection Pooling](05_connection-pooling.md#5-monitoring)).
-- **Least privilege:** the application's database user shouldn't own the schema, create tables, or have superuser rights. Use a separate migration user.
-- **Secrets** from a secrets manager, **TLS** to the database ([Secrets Management](../21-security/03_secrets-management.md)).
-- **Parameterize everything** ([Prepared Statements](02_statements-and-prepared-statements.md#2-sql-injection-the-problem)), and allow-list dynamic identifiers.
-- **Time-box queries:** query timeouts, statement timeouts on the server for application roles.
-- **Plan for failure:** retries for transient errors, idempotent writes, connection-loss handling.
-
----
-
-## Common mistakes
-
-| Mistake | Fix |
-|---|---|
-| Copy-pasted connection/statement boilerplate with subtle leaks | A helper (or library) that owns the lifecycle |
-| A new connection per repository call inside one business operation | One connection/transaction per unit of work |
-| Offset pagination for large or deep lists | Keyset pagination with a unique tiebreaker and a matching index |
-| Select-then-insert-or-update | Atomic upsert, with a unique constraint |
-| N+1 queries | Batch (`ANY(?)`) or join, and assert query counts in tests |
-| Leaking `SQLException` through layers | Translate at the repository boundary |
-| Branching on error message text | SQLState / subclass |
-| ORM-generated or hand-edited production schema | Versioned migrations (Flyway/Liquibase) |
-| Editing an already-applied migration | Add a new migration |
-| Testing only on H2 | Testcontainers with the real engine |
-| Logging parameter values containing PII/secrets | Log SQL shape and IDs only |
-| DDL and long backfills in one blocking migration on a big table | Expand/contract, concurrent index builds, batched backfills |
-
----
-
-## Quick Summary
-
-- Wrap the connection/statement/result lifecycle once (**execute-around**), or use a library (`JdbcClient`, JDBI, jOOQ).
-- Put SQL in repositories and **transaction boundaries in the service**. One connection per unit of work.
-- Prefer **keyset pagination** over deep offsets. Use **atomic upserts** and unique constraints for idempotent writes.
-- **N+1** = one query per row of a previous query. Fix with batched or joined queries, and guard with query-count tests.
-- **Translate** `SQLException` by SQLState at the boundary into domain/unchecked exceptions.
-- Version the schema with **migrations**, test on the **real database** (Testcontainers), and monitor slow queries and the pool.
-
-**Next:** [From JDBC to ORM](07_from-jdbc-to-orm.md)
+## 13. Further Reading
+- *Patterns of Enterprise Application Architecture* by Martin Fowler (Repository, DAO, Unit of Work)
+- *Domain-Driven Design: Tackling Complexity in the Heart of Software* by Eric Evans
+- *High-Performance Java Persistence* by Vlad Mihalcea
+- Spring Framework: Data Access Architecture and Exception Translation
