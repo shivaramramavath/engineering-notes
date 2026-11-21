@@ -7,7 +7,7 @@
 | **Module Code** | `03-intermediate/data-structures` |
 | **Prerequisites** | [02-core-concepts/03-pointers.md](../../02-core-concepts/03-pointers.md), [02-core-concepts/08-memory-management.md](../../02-core-concepts/08-memory-management.md), [03-intermediate/13-opaque-pointers-and-adts.md](../13-opaque-pointers-and-adts.md) |
 | **Duration** | ~20 hours |
-| **Status** | In Progress (Batches 14–16) |
+| **Status** | Complete (Batches 14–16) |
 | **Standard Baseline**| ISO C11 / C17 / C23 |
 
 ---
@@ -40,12 +40,12 @@ In this module, you will master:
 | **11** | [Union-Find](./11-union-find.md) | Intermediate | Complete | Disjoint-set data structure, path compression, union by rank |
 | **12** | [Sorting Algorithms](./12-sorting-algorithms.md) | Intermediate | Complete | Quicksort, mergesort, heapsort, insertion sort, hybrid sort |
 | **13** | [Searching Algorithms](./13-searching-algorithms.md) | Intermediate | Complete | Binary search, interpolation search, exponential search |
-| **14** | [Algorithm Complexity](./14-algorithm-complexity.md) | Intermediate | Planned | Big-O, Big-Omega, Big-Theta, amortized analysis, cache complexity |
-| **15** | [Skip Lists](./15-skip-lists.md) | Intermediate | Planned | Probabilistic balance, multi-level pointer skips, concurrent lookups |
-| **16** | [Bloom Filters](./16-bloom-filters.md) | Intermediate | Planned | Space-efficient probabilistic set membership, false positive math |
-| **17** | [LRU Cache Structure](./17-lru-cache-structure.md) | Intermediate | Planned | Hash table + doubly linked list $O(1)$ eviction policy |
-| **18** | [Graph Algorithms](./18-graph-algorithms.md) | Intermediate | Planned | Dijkstra's shortest path, Bellman-Ford, Kruskal/Prim MST, topological sort |
-| **19** | [String Algorithms](./19-string-algorithms.md) | Intermediate | Planned | KMP (Knuth-Morris-Pratt), Rabin-Karp rolling hash, Boyer-Moore |
+| **14** | [Algorithm Complexity](./14-algorithm-complexity.md) | Intermediate | Complete | Big-O, Big-Omega, Big-Theta, amortized analysis, cache complexity |
+| **15** | [Skip Lists](./15-skip-lists.md) | Intermediate | Complete | Probabilistic balance, multi-level pointer skips, concurrent lookups |
+| **16** | [Bloom Filters](./16-bloom-filters.md) | Intermediate | Complete | Space-efficient probabilistic set membership, false positive math |
+| **17** | [LRU Cache Structure](./17-lru-cache-structure.md) | Intermediate | Complete | Hash table + doubly linked list $O(1)$ eviction policy |
+| **18** | [Graph Algorithms](./18-graph-algorithms.md) | Intermediate | Complete | Dijkstra's shortest path, Bellman-Ford, Kruskal/Prim MST, topological sort |
+| **19** | [String Algorithms](./19-string-algorithms.md) | Intermediate | Complete | KMP (Knuth-Morris-Pratt), Rabin-Karp rolling hash, Boyer-Moore |
 
 ---
 

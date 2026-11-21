@@ -127,12 +127,12 @@
 - [x] `data-structures/11-union-find.md` (Complete - 536 lines)
 - [x] `data-structures/12-sorting-algorithms.md` (Complete - 506 lines)
 - [x] `data-structures/13-searching-algorithms.md` (Complete - 472 lines)
-- [ ] `data-structures/14-algorithm-complexity.md` (Not started)
-- [ ] `data-structures/15-skip-lists.md` (Not started)
-- [ ] `data-structures/16-bloom-filters.md` (Not started)
-- [ ] `data-structures/17-lru-cache-structure.md` (Not started)
-- [ ] `data-structures/18-graph-algorithms.md` (Not started)
-- [ ] `data-structures/19-string-algorithms.md` (Not started)
+- [x] `data-structures/14-algorithm-complexity.md` (Complete - 490 lines)
+- [x] `data-structures/15-skip-lists.md` (Complete - 515 lines)
+- [x] `data-structures/16-bloom-filters.md` (Complete - 499 lines)
+- [x] `data-structures/17-lru-cache-structure.md` (Complete - 521 lines)
+- [x] `data-structures/18-graph-algorithms.md` (Complete - 467 lines)
+- [x] `data-structures/19-string-algorithms.md` (Complete - 489 lines)
 
 ---
 

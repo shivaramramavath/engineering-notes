@@ -561,3 +561,12 @@ All modifications, error fixes, technical corrections, and structural extensions
 - Authored `12-sorting-algorithms.md` (506 lines): Quicksort (Lomuto vs Hoare), Mergesort, Heapsort, Insertion sort, standard library qsort() comparator contracts, 8 interview Qs, 9 exercises with full solutions.
 - Authored `13-searching-algorithms.md` (472 lines): overflow-safe binary search `low + (high - low)/2`, branch-free binary search, interpolation search, exponential search, standard bsearch(), 8 interview Qs, 9 exercises with full solutions.
 - Compiled and executed companion programs in scratch directory; verified stdout captured in notes.
+
+## Batch 16 - Sub-Module Data Structures Advanced & Algorithms (2026-11-21)
+- Authored `14-algorithm-complexity.md` (490 lines): asymptotic bounds, amortized analysis, potential method, ideal cache model, spatial locality, 8 interview Qs, 9 exercises with full solutions.
+- Authored `15-skip-lists.md` (515 lines): probabilistic balance, multi-level express lanes, coin-flip height determination, update arrays, Redis zset mechanics, 8 interview Qs, 9 exercises with full solutions.
+- Authored `16-bloom-filters.md` (499 lines): space-efficient probabilistic set membership, Kirsch-Mitzenmacher 2-hash optimization, false positive math, counting bloom filters, 8 interview Qs, 9 exercises with full solutions.
+- Authored `17-lru-cache-structure.md` (521 lines): hash table + doubly linked list with dummy sentinels, O(1) recency promotion and eviction, in-place node recycling, 8 interview Qs, 9 exercises with full solutions.
+- Authored `18-graph-algorithms.md` (467 lines): Dijkstra's shortest path, Bellman-Ford negative cycle detection, Floyd-Warshall all-pairs, Tarjan's strongly connected components, 8 interview Qs, 9 exercises with full solutions.
+- Authored `19-string-algorithms.md` (489 lines): Knuth-Morris-Pratt (KMP) failure table, Rabin-Karp polynomial rolling hash, Boyer-Moore bad character heuristic, 8 interview Qs, 9 exercises with full solutions.
+- Completed full Data Structures sub-module: 19 concept notes + README, 100% complete with verified companion code outputs.
