@@ -7,7 +7,7 @@
 | **Module Code** | `05-systems-programming` |
 | **Prerequisites** | [02-core-concepts/11-file-io.md](../02-core-concepts/11-file-io.md), [03-intermediate/03-error-handling.md](../03-intermediate/03-error-handling.md), [04-advanced/01-custom-allocators-and-arenas.md](../04-advanced/01-custom-allocators-and-arenas.md) |
 | **Duration** | ~35 hours |
-| **Status** | In Progress (Batches 19–20) |
+| **Status** | Complete (17 Notes) |
 | **Standard Baseline**| POSIX.1-2008 / ISO C11 / C17 / C23 (Linux kernel 5.x+, glibc 2.28+, Win32/WSL2 cross-notes) |
 
 ---
@@ -44,11 +44,11 @@ In this module, you will master:
 | **10** | [I/O Multiplexing: select, poll, epoll](./10-io-multiplexing-select-poll-epoll.md) | Systems | Complete | Event notification, `FD_SETSIZE` limits, `pollfd`, Linux `epoll` Edge vs Level triggered |
 | **11** | [Memory Mapping (mmap) & Shared Memory](./11-mmap-and-shared-memory.md) | Systems | Complete | Virtual memory, `mmap`, `munmap`, `MAP_SHARED`, `shm_open`, zero-copy IPC |
 | **12** | [Daemons and Direct System Calls](./12-daemons-and-system-calls.md) | Systems | Complete | Unix daemonization, double-fork, `setsid`, `/dev/null` redirection, `syslog`, `syscall()` |
-| **13** | [Terminals and termios](./13-terminals-and-termios.md) | Systems | Planned | Canonical vs raw mode, `tcgetattr`/`tcsetattr`, ANSI escape codes, terminal TUIs |
-| **14** | [Filesystem APIs: stat & dirent](./14-filesystem-apis-stat-dirent.md) | Systems | Planned | `stat`, `lstat`, inode metadata, recursive directory traversal (`opendir`/`readdir`) |
-| **15** | [System Error Handling & errno](./15-errno-and-system-error-handling.md) | Systems | Planned | Thread-local `errno`, `strerror_r`, `EINTR` restart loops, error propagation idioms |
-| **16** | [POSIX Time and Timers](./16-time-and-timers-posix.md) | Systems | Planned | `clock_gettime`, `CLOCK_MONOTONIC`, `timerfd_create`, `nanosleep` vs busy wait |
-| **17** | [Resource Limits and Process Control](./17-resource-limits-and-process-control.md) | Systems | Planned | `getrlimit`, `setrlimit`, `RLIMIT_NOFILE`, core dump limits, nice values, cgroups |
+| **13** | [Terminals and termios](./13-terminals-and-termios.md) | Systems | Complete | Canonical vs raw mode, `tcgetattr`/`tcsetattr`, ANSI escape codes, terminal TUIs |
+| **14** | [Filesystem APIs: stat & dirent](./14-filesystem-apis-stat-dirent.md) | Systems | Complete | `stat`, `lstat`, inode metadata, recursive directory traversal (`opendir`/`readdir`) |
+| **15** | [System Error Handling & errno](./15-errno-and-system-error-handling.md) | Systems | Complete | Thread-local `errno`, `strerror_r`, `EINTR` restart loops, error propagation idioms |
+| **16** | [POSIX Time and Timers](./16-time-and-timers-posix.md) | Systems | Complete | `clock_gettime`, `CLOCK_MONOTONIC`, `timerfd_create`, `nanosleep` vs busy wait |
+| **17** | [Resource Limits and Process Control](./17-resource-limits-and-process-control.md) | Systems | Complete | `getrlimit`, `setrlimit`, `RLIMIT_NOFILE`, core dump limits, nice values, cgroups |
 
 ---
 

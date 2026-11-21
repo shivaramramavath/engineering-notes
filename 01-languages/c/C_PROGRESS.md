@@ -154,7 +154,7 @@
 ---
 
 ## Module 05: Systems Programming (`05-systems-programming/`)
-- [x] `05-systems-programming/README.md` (In progress - 64 lines)
+- [x] `05-systems-programming/README.md` (Complete - 64 lines)
 - [x] `05-systems-programming/01-file-descriptors-and-posix-io.md` (Complete - 461 lines)
 - [x] `05-systems-programming/02-processes-fork-exec-wait.md` (Complete - 462 lines)
 - [x] `05-systems-programming/03-signals.md` (Complete - 419 lines)
@@ -167,11 +167,11 @@
 - [x] `05-systems-programming/10-io-multiplexing-select-poll-epoll.md` (Complete - 447 lines)
 - [x] `05-systems-programming/11-mmap-and-shared-memory.md` (Complete - 401 lines)
 - [x] `05-systems-programming/12-daemons-and-system-calls.md` (Complete - 429 lines)
-- [ ] `05-systems-programming/13-terminals-and-termios.md` (Not started)
-- [ ] `05-systems-programming/14-filesystem-apis-stat-dirent.md` (Not started)
-- [ ] `05-systems-programming/15-errno-and-system-error-handling.md` (Not started)
-- [ ] `05-systems-programming/16-time-and-timers-posix.md` (Not started)
-- [ ] `05-systems-programming/17-resource-limits-and-process-control.md` (Not started)
+- [x] `05-systems-programming/13-terminals-and-termios.md` (Complete - 408 lines)
+- [x] `05-systems-programming/14-filesystem-apis-stat-dirent.md` (Complete - 407 lines)
+- [x] `05-systems-programming/15-errno-and-system-error-handling.md` (Complete - 400 lines)
+- [x] `05-systems-programming/16-time-and-timers-posix.md` (Complete - 410 lines)
+- [x] `05-systems-programming/17-resource-limits-and-process-control.md` (Complete - 400 lines)
 
 ---
 
