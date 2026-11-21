@@ -693,3 +693,17 @@ All modifications, error fixes, technical corrections, and structural extensions
   - `10-inlining-and-code-size.md` (493 lines): Inlining cost-benefit models, stack frame elimination, L1 instruction cache thrashing, `static inline` vs `always_inline` vs `cold`, 10 interview Qs, 3 exercises with full solutions.
   - `README.md` marked Complete (56 lines)
 - **Verification**: All companion C test code executed in scratch; verified real outputs captured in `real_outputs_b21_p4.json`. All 10 notes in Module 09 meet >= 400 line standard with 13 standard sections.
+
+
+### Batch 22: Module 10 Completion (Design and Architectural Patterns in C)
+- **Completed Module**: `10-design-and-patterns/` (100% Complete)
+- **Completed Notes**:
+  - `README.md` (51 lines)
+  - `01-modular-design-in-c.md` (560 lines): Single-responsibility modules, interface headers (`.h`), opaque pointer encapsulation (`typedef struct Foo Foo;`), loose coupling, ABI stability, 10 interview Qs, 3 exercises with full solutions.
+  - `02-design-patterns-in-c.md` (523 lines): GoF patterns in procedural C: Strategy, Observer, Factory, Iterator, State Machine tables, runtime polymorphism via static `const` Vtables in `.rodata`, single inheritance via first-member struct embedding, 10 interview Qs, 3 exercises with full solutions.
+  - `03-error-handling-patterns.md` (540 lines): Status code returns with dedicated out-parameters, centralized `goto cleanup` stack unwinding idiom, structured error context objects (`Error**`), thread-local `errno` conventions, 10 interview Qs, 3 exercises with full solutions.
+  - `04-coding-style-guide.md` (446 lines): Systematic identifier prefixing (`lib_module_action`), strict const-correctness, header hygiene (`extern "C"` and guards), exact-width types (`<stdint.h>`), defensive macros (`do { ... } while(0)`), 10 interview Qs, 3 exercises with full solutions.
+  - `05-resource-management-patterns.md` (528 lines): Scope-bound RAII via compiler cleanup attributes (`__attribute__((cleanup))`), high-speed $O(1)$ bump arena allocators, atomic reference counting retain/release semantics, paired init/destroy contracts, 10 interview Qs, 3 exercises with full solutions.
+  - `06-api-design-for-c-libraries.md` (532 lines): Long-term ABI stability, forward-compatible configuration structs (`struct_size` field), symbol export control (`-fvisibility=hidden`, `visibility("default")`), reentrant interfaces, 10 interview Qs, 3 exercises with full solutions.
+  - `07-ownership-and-lifetime-conventions.md` (554 lines): Caller-allocates (borrowing) vs Callee-allocates (ownership transfer) paradigms, stack vs heap lifetime boundaries, documenting ownership annotations, preventing UAF and double free, 10 interview Qs, 3 exercises with full solutions.
+- **Verification**: All companion C test code executed in scratch; verified real outputs captured in `real_outputs_b22_p1.json` and `real_outputs_b22_p2.json`. All 7 notes in Module 10 meet >= 400 line standard with all 13 standard sections.

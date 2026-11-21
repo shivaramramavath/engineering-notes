@@ -234,15 +234,15 @@
 
 ---
 
-## Module 10: Design & Patterns (`10-design-and-patterns/`)
-- [ ] `10-design-and-patterns/README.md` (Not started)
-- [ ] `10-design-and-patterns/01-modular-design-in-c.md` (Not started)
-- [ ] `10-design-and-patterns/02-design-patterns-in-c.md` (Not started)
-- [ ] `10-design-and-patterns/03-error-handling-patterns.md` (Not started)
-- [ ] `10-design-and-patterns/04-coding-style-guide.md` (Not started)
-- [ ] `10-design-and-patterns/05-resource-management-patterns.md` (Not started)
-- [ ] `10-design-and-patterns/06-api-design-for-c-libraries.md` (Not started)
-- [ ] `10-design-and-patterns/07-ownership-and-lifetime-conventions.md` (Not started)
+## Module 10: Design & Patterns (`10-design-and-patterns/`) - 100% Complete
+- [x] `10-design-and-patterns/README.md` (Complete - 51 lines)
+- [x] `10-design-and-patterns/01-modular-design-in-c.md` (Complete - 560 lines)
+- [x] `10-design-and-patterns/02-design-patterns-in-c.md` (Complete - 523 lines)
+- [x] `10-design-and-patterns/03-error-handling-patterns.md` (Complete - 540 lines)
+- [x] `10-design-and-patterns/04-coding-style-guide.md` (Complete - 446 lines)
+- [x] `10-design-and-patterns/05-resource-management-patterns.md` (Complete - 528 lines)
+- [x] `10-design-and-patterns/06-api-design-for-c-libraries.md` (Complete - 532 lines)
+- [x] `10-design-and-patterns/07-ownership-and-lifetime-conventions.md` (Complete - 554 lines)
 
 ---
 
