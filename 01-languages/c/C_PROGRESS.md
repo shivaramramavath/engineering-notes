@@ -203,7 +203,7 @@
 
 ---
 
-## Module 08: Security & Safety (`08-security-and-safety/`) - In Progress (Batch 21 Part 1)
+## Module 08: Security & Safety (`08-security-and-safety/`) - 100% Complete
 - [x] `08-security-and-safety/README.md` (Complete - 56 lines)
 - [x] `08-security-and-safety/01-buffer-overflows.md` (Complete - 429 lines)
 - [x] `08-security-and-safety/02-format-string-vulnerabilities.md` (Complete - 405 lines)
@@ -211,11 +211,11 @@
 - [x] `08-security-and-safety/04-use-after-free-and-double-free.md` (Complete - 439 lines)
 - [x] `08-security-and-safety/05-secure-coding-cert-c.md` (Complete - 416 lines)
 - [x] `08-security-and-safety/06-misra-c-overview.md` (Complete - 424 lines)
-- [ ] `08-security-and-safety/07-hardening-flags.md` (Not started)
-- [ ] `08-security-and-safety/08-race-conditions-and-toctou.md` (Not started)
-- [ ] `08-security-and-safety/09-safe-string-handling-patterns.md` (Not started)
-- [ ] `08-security-and-safety/10-secure-random-and-crypto-pitfalls.md` (Not started)
-- [ ] `08-security-and-safety/11-exploit-mitigations-explained.md` (Not started)
+- [x] `08-security-and-safety/07-hardening-flags.md` (Complete - 409 lines)
+- [x] `08-security-and-safety/08-race-conditions-and-toctou.md` (Complete - 412 lines)
+- [x] `08-security-and-safety/09-safe-string-handling-patterns.md` (Complete - 404 lines)
+- [x] `08-security-and-safety/10-secure-random-and-crypto-pitfalls.md` (Complete - 471 lines)
+- [x] `08-security-and-safety/11-exploit-mitigations-explained.md` (Complete - 408 lines)
 
 ---
 

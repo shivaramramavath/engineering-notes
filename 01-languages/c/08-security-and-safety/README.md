@@ -7,7 +7,7 @@
 | **Module Code** | `08-security-and-safety` |
 | **Prerequisites** | [02-core-concepts/03-pointers.md](../02-core-concepts/03-pointers.md), [02-core-concepts/08-memory-management.md](../02-core-concepts/08-memory-management.md), [04-advanced/10-symbol-visibility-and-elf-basics.md](../04-advanced/10-symbol-visibility-and-elf-basics.md) |
 | **Duration** | ~30 hours |
-| **Status** | In Progress (Batch 21 Part 1) |
+| **Status** | Complete (Batch 21 Part 2) |
 | **Standard Baseline**| C99 / C11 / C17 / C23 / CERT C / MISRA C:2012 / POSIX.1-2008 |
 
 ---
@@ -37,19 +37,19 @@ In this module, you will master:
 | **04** | [Use-After-Free and Double-Free](./04-use-after-free-and-double-free.md) | Advanced | Complete | Heap allocator internals, dangling pointers, pointer nullification idioms |
 | **05** | [CERT C Coding Standard](./05-secure-coding-cert-c.md) | Advanced | Complete | Key rules (MEM, INT, STR, ENV), automated compliance with static analysis |
 | **06** | [MISRA C Overview](./06-misra-c-overview.md) | Advanced | Complete | Embedded safety, mandatory vs required rules, deviation tracking, ISO 26262 |
-| **07** | [Compiler Hardening Flags](./07-compiler-hardening-flags.md) | Advanced | Planned | Stack canaries, `_FORTIFY_SOURCE`, Full RELRO, PIE, ASLR integration |
-| **08** | [Race Conditions and TOCTOU](./08-race-conditions-and-toctou.md) | Advanced | Planned | Time-of-check to time-of-use, symlink attacks, POSIX `openat()` and `O_NOFOLLOW` |
-| **09** | [Safe String Handling](./09-safe-string-handling.md) | Intermediate | Planned | `strlcpy`/`strlcat`, C11 Annex K (`strcpy_s`), dynamic bounded string libraries |
-| **10** | [Cryptography Pitfalls in C](./10-cryptography-pitfalls-in-c.md) | Advanced | Planned | Side-channel timing attacks, `explicit_bzero`, CSPRNG `/dev/urandom` vs `rand()` |
-| **11** | [Modern Exploit Mitigations](./11-exploit-mitigations.md) | Advanced | Planned | ASLR, DEP/NX, Control Flow Integrity (CFI), Intel CET shadow stacks |
+| **07** | [Compiler Hardening Flags](./07-hardening-flags.md) | Advanced | Complete | Stack canaries, `_FORTIFY_SOURCE`, Full RELRO, PIE, ASLR integration |
+| **08** | [Race Conditions and TOCTOU](./08-race-conditions-and-toctou.md) | Advanced | Complete | Time-of-check to time-of-use, symlink attacks, POSIX `openat()` and `O_NOFOLLOW` |
+| **09** | [Safe String Handling](./09-safe-string-handling-patterns.md) | Intermediate | Complete | `strlcpy`/`strlcat`, C11 Annex K (`strcpy_s`), dynamic bounded string libraries |
+| **10** | [Cryptography Pitfalls in C](./10-secure-random-and-crypto-pitfalls.md) | Advanced | Complete | Side-channel timing attacks, `explicit_bzero`, CSPRNG `/dev/urandom` vs `rand()` |
+| **11** | [Modern Exploit Mitigations](./11-exploit-mitigations-explained.md) | Advanced | Complete | ASLR, DEP/NX, Control Flow Integrity (CFI), Intel CET shadow stacks |
 
 ---
 
 ## Suggested Study Order
 1. **Core Vulnerability Mechanics**: Master [Buffer Overflows](./01-buffer-overflows.md), [Format Strings](./02-format-string-vulnerabilities.md), and [Integer Pitfalls](./03-integer-overflow-and-wraparound.md).
-2. **Heap & Dynamic Safety**: Study [Use-After-Free and Double-Free](./04-use-after-free-and-double-free.md) and [Safe String Handling](./09-safe-string-handling.md).
+2. **Heap & Dynamic Safety**: Study [Use-After-Free and Double-Free](./04-use-after-free-and-double-free.md) and [Safe String Handling](./09-safe-string-handling-patterns.md).
 3. **Formal Standards**: Learn [CERT C](./05-secure-coding-cert-c.md) for enterprise servers and [MISRA C](./06-misra-c-overview.md) for safety-critical systems.
-4. **Platform & Hardware Hardening**: Apply [Compiler Hardening Flags](./07-compiler-hardening-flags.md), [TOCTOU Race Prevention](./08-race-conditions-and-toctou.md), [Cryptography Pitfalls](./10-cryptography-pitfalls-in-c.md), and [Modern Exploit Mitigations](./11-exploit-mitigations.md).
+4. **Platform & Hardware Hardening**: Apply [Compiler Hardening Flags](./07-hardening-flags.md), [TOCTOU Race Prevention](./08-race-conditions-and-toctou.md), [Cryptography Pitfalls](./10-secure-random-and-crypto-pitfalls.md), and [Modern Exploit Mitigations](./11-exploit-mitigations-explained.md).
 
 ---
 

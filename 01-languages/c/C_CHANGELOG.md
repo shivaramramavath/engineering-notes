@@ -660,3 +660,14 @@ All modifications, error fixes, technical corrections, and structural extensions
   - `05-secure-coding-cert-c.md` (416 lines)
   - `06-misra-c-overview.md` (424 lines)
 - **Verification**: All companion C test code executed in scratch; verified real outputs captured in `real_outputs_b21_p1.json`. All 6 notes meet >= 400 line standard with 13 standard sections.
+
+### Batch 21 Part 2: Module 08 Completion (Security & Safety Notes 07-11)
+- **Completed Module**: `08-security-and-safety/` (100% Complete)
+- **Completed Notes**:
+  - `07-hardening-flags.md` (409 lines)
+  - `08-race-conditions-and-toctou.md` (412 lines)
+  - `09-safe-string-handling-patterns.md` (404 lines)
+  - `10-secure-random-and-crypto-pitfalls.md` (471 lines)
+  - `11-exploit-mitigations-explained.md` (408 lines)
+  - `README.md` marked Complete (56 lines)
+- **Verification**: All companion C test code executed in scratch; verified real outputs captured in `real_outputs_b21_p2.json`. All 11 notes in Module 08 meet >= 400 line standard with 13 standard sections.
