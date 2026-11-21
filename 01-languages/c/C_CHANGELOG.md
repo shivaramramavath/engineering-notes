@@ -92,3 +92,32 @@ All modifications, error fixes, technical corrections, and structural extensions
   - Detailed forward declarations to prevent circular dependencies, and `extern "C"` wrapper guards for C++ ABI compatibility.
   - Added compilation example and real output verification from `examples/11-headers-and-include-guards-intro.c`.
   - Added 6-row common pitfalls table, 8 interview questions, and 3 practice exercises with full solutions.
+
+---
+
+## Batch 3: Module 01 Fundamentals Part 1 (Notes 01–04)
+- **`01-fundamentals/01-program-structure.md`**:
+  - Rewritten from 79 lines to 402 lines, adhering strictly to the 13 required sections.
+  - Fixed syntax error from Block #2 in original note (unclosed `main` fragment).
+  - Detailed translation unit generation, linkage types (`static` vs `extern`), object file symbol tables (`.symtab`), ELF bindings (`STB_LOCAL` vs `STB_GLOBAL`), and hosted vs freestanding execution environments.
+  - Added runnable example `examples/01-program-structure.c` and verified real output.
+  - Added 6-row common pitfalls table, 8 interview questions, and 3 practice exercises with full solutions.
+- **`01-fundamentals/02-data-types.md`**:
+  - Rewritten from 115 lines to 414 lines, adhering strictly to the 13 required sections.
+  - Added standards minimum widths, LP64 (Linux/macOS) vs LLP64 (Windows) data models, IEEE 754 floating-point internal representations.
+  - Added `<stdint.h>` exact-width types, `<inttypes.h>` portable format specifiers (`PRIu32`, `PRId64`), and C23 native keywords (`nullptr_t`, `bool`, `0b...` literals, `1'000'000` digit separators).
+  - Added runnable example `examples/02-data-types.c` and verified real output demonstrating 32-bit vs 64-bit platform width divergence.
+  - Added 6-row common pitfalls table, 8 interview questions, and 3 practice exercises with full solutions.
+- **`01-fundamentals/03-integer-representation.md`**:
+  - Rewritten from 131 lines to 402 lines, adhering strictly to the 13 required sections.
+  - Detailed two's complement arithmetic (mandated as sole representation in ISO C23), signed overflow undefined behavior vs unsigned modular wrap-around ($2^N$).
+  - Detailed endianness (Little-Endian vs Big-Endian/Network order), byte-swapping, sign vs zero extension (`movsx` vs `movzx`), C23 bit-precise integers (`_BitInt(N)`), and `<stdckdint.h>` checked arithmetic.
+  - Added runnable example `examples/03-integer-representation.c` and verified real memory bytes and endianness output.
+  - Added 6-row common pitfalls table, 10 interview questions, and 3 practice exercises with full solutions.
+- **`01-fundamentals/04-variables-constants.md`**:
+  - Rewritten from 124 lines to 410 lines, adhering strictly to the 13 required sections.
+  - Fixed Block #2 compilation error from original note (uninitialized variable read under `-Werror`).
+  - Detailed the 4 storage durations (automatic, static, allocated, thread), the 4 scopes (block, file, function, function-prototype), and ELF memory segment placement (`.text`, `.rodata`, `.data`, `.bss`, heap, stack).
+  - Clarified why `const` variables are not compile-time constants in C11/C17 (creating VLAs if used in array bounds), demonstrated enum constant idiom, and detailed C23 `constexpr` objects.
+  - Added runnable example `examples/04-variables-constants.c` and verified real output.
+  - Added 6-row common pitfalls table, 8 interview questions, and 3 practice exercises with full solutions.
