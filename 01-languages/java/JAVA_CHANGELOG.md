@@ -255,3 +255,27 @@ All notable changes, structural migrations, and note creations in the Java learn
   - Module README with pattern selection matrix.
 ### Verification
 - Tested and verified on Oracle JDK 25.0.1 LTS via `scratch/Batch9Verification.java` (6/6 test suites passed with assertions enabled).
+
+---
+
+## [Batch 10] - 2026-11-21: 15 Production-Grade Systems & Applications
+### Added & Expanded
+- **26-projects (15 complete applications + README, 401-594 lines each):**
+  - **`01_http-server.md` (540 lines):** Compliant HTTP/1.1 web server using Java 21+ Virtual Threads, zero-allocation request parser, routing trie, chunked transfer encoding, and Keep-Alive support.
+  - **`02_key-value-store.md` (582 lines):** Persistent LSM-tree storage engine with `ConcurrentSkipListMap` MemTable, Write-Ahead Log (WAL) with CRC32 checksums, immutable SSTables, and Bloom filters.
+  - **`03_rate-limiter.md` (421 lines):** Multi-tenant rate limiting gateway service with lock-free Token Bucket and Sliding Window Counter implementing RFC 6585 standard headers (`429 Too Many Requests`).
+  - **`04_json-parser.md` (594 lines):** RFC 8259 JSON parser & serializer from scratch with lexical tokenizer, recursive-descent parser, sealed AST interfaces (`JsonValue`), and streaming pretty-printer.
+  - **`05_search-engine.md` (439 lines):** In-memory full-text search engine with inverted index, text tokenization, stopword removal, suffix stemming, and Okapi BM25 statistical relevance ranking.
+  - **`06_task-scheduler.md` (475 lines):** Asynchronous distributed task scheduler with `DelayQueue`, priority scheduling, cron cadence evaluation, exponential backoff retries, and Dead-Letter Queue (DLQ).
+  - **`07_classfile-analyzer.md` (406 lines):** JVM bytecode disassembler and class-file inspector built natively on the Java 24/25 Class-File API (`java.lang.classfile`, JEP 484).
+  - **`08_database-engine.md` (498 lines):** Embedded relational DBMS engine with SQL parser (CREATE, INSERT, SELECT), table catalog, in-memory B+Tree index, and slotted-page record layout.
+  - **`09_message-broker.md` (413 lines):** Distributed commit log message broker inspired by Apache Kafka with topics, multiple partitions, consumer group offsets, and replayability.
+  - **`10_order-matching-engine.md` (513 lines):** Ultra-low-latency financial Limit Order Book (LOB) matching engine implementing price-time priority (FIFO), market/limit orders, and trade execution logs.
+  - **`11_raft-consensus.md` (461 lines):** Raft distributed consensus protocol implementation with leader election, randomized election timers, term state machines, and RequestVote/AppendEntries RPCs.
+  - **`12_git-object-store.md` (401 lines):** Git content-addressable storage engine with SHA-1 hashing, Blob/Tree/Commit objects, Zlib compression, and `.git/objects` hierarchy.
+  - **`13_api-gateway.md` (428 lines):** High-throughput microservices API Gateway with path routing, cryptographic JWT verification (HMAC-SHA256), rate limiting, and reverse proxy forwarding.
+  - **`14_file-streaming-service.md` (452 lines):** Reactive file streaming and compression daemon using zero-copy DMA, Java Flow API reactive backpressure, and streaming Gzip.
+  - **`15_realtime-chat-server.md` (475 lines):** Real-time full-duplex WebSocket messaging server with RFC 6455 handshake, frame masking, room pub/sub multiplexing, and Structured Concurrency.
+  - **`README.md` (61 lines):** Complete project catalog, architectural highlights, and technology matrix.
+### Verification
+- Tested and verified on Oracle JDK 25.0.1 LTS via `scratch/Batch10Verification.java` (4/4 test suites passed with assertions enabled).
