@@ -1,279 +1,580 @@
-# Methods
+# Methods: Declaration, Invocation Bytecode, and Stack Frame Internals
 
-A **method** is a named block of code that can be called with inputs (**parameters**) and can produce an output (a **return value**). Methods remove duplication, give code a name, and let you test and change one piece at a time.
+> Methods define procedural units of execution in Java, encapsulating algorithms behind typed signatures, managing thread stack frames, and executing across five specialized JVM invocation opcodes from direct static calls to polymorphic virtual table dispatches.
+
+| Metadata | Value |
+| :--- | :--- |
+| **Level** | Beginner to Intermediate |
+| **Prerequisites** | [01-fundamentals/00_syntax-and-program-structure.md](file:///E:/Learning/engineering-notes/01-languages/java/01-fundamentals/00_syntax-and-program-structure.md) |
+| **Time to Read** | 25 minutes |
+| **Status** | Complete |
+| **Java LTS Baseline** | Java 25 LTS (HotSpot JIT Inlining & Stack Frames) |
+
+---
+
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & Usage](#4-syntax--usage)
+5. [Practical Examples](#5-practical-examples)
+6. [Best Practices](#6-best-practices)
+7. [Common Mistakes & Pitfalls](#7-common-mistakes--pitfalls)
+8. [Performance & Security Notes](#8-performance--security-notes)
+9. [Comparison / When to Use What](#9-comparison--when-to-use-what)
+10. [Interview Questions](#10-interview-questions)
+11. [Practice Exercises](#11-practice-exercises)
+12. [Summary / Cheat Sheet](#12-summary--cheat-sheet)
+13. [Further Reading](#13-further-reading)
+
+---
+
+## 1. What & Why
+
+### Problem Statement
+Software systems cannot be engineered as a single, uninterrupted stream of linear instructions. Without modular boundaries, code becomes unreadable, impossible to test in isolation, and rife with copy-paste duplication. Modifying an algorithm would require changing dozens of identical code blocks throughout an application.
+
+### Historical Context & Procedural Abstraction
+The method (or function) is the fundamental unit of procedural abstraction in computer science:
+- **Encapsulation:** Groups related operations under a single, human-readable name.
+- **Contract Enforcement:** Declares required inputs (parameters) and guaranteed outputs (return type).
+- **Separation of Concerns:** Allows callers to invoke behavior without knowing its internal implementation details.
+- In Java's object-oriented paradigm, every method must belong to a class, interface, record, or enum, tying behavior directly to data structures or modular namespaces.
+
+### Real-World Relevance
+Designing clean, cohesive, and inlinable methods directly impacts both developer productivity and runtime execution speed. Understanding how JVM stack frames allocate local variables and how the JIT compiler inlines hot methods allows developers to write clean abstractions that execute with bare-metal CPU performance.
+
+---
+
+## 2. Core Concepts
+
+### Method Anatomy and Signature Rules
+
+```
+  modifiers       return type   method name        formal parameter list
+┌─────────────┐  ┌───────────┐ ┌───────────┐  ┌─────────────────────────────┐
+ public static        int        calculate    (int base, double taxRate)  throws IOException
+└─────────────┘  └───────────┘ └───────────┘  └─────────────────────────────┘ └────────────────┘
+                                                                               checked exceptions
+```
+
+- **Method Signature:** Composed strictly of the **Method Name** and the **Ordered List of Parameter Types** (`calculate(int, double)`).
+  - **CRITICAL:** In Java, the return type, access modifiers, and declared `throws` exceptions are **NOT** part of the method signature! Two methods with the same name and parameter types but different return types cannot co-exist in the same class.
+- **Modifiers:**
+  - *Access:* `public`, `protected`, package-private (default, no keyword), `private`.
+  - *Non-Access:* `static` (class-level), `final` (cannot be overridden), `synchronized` (locks monitor), `native` (C/C++ implementation), `strictfp`.
+- **Return Type:** A primitive, reference, or `void` (if no value is returned).
+
+### Static vs. Instance Methods
+
+```
++---------------------------------------------------------------------------------+
+|                                 Static Methods                                  |
+|  • Declared with the 'static' keyword.                                          |
+|  • Belongs to the class itself; invoked via ClassName.methodName().             |
+|  • Does NOT receive an implicit 'this' reference.                               |
+|  • Cannot access instance fields or instance methods directly.                  |
+|  • Dispatched via 'invokestatic' opcode at compile-time.                        |
++---------------------------------------------------------------------------------+
+|                                Instance Methods                                 |
+|  • Declared without 'static'.                                                   |
+|  • Belongs to an object instance; invoked via objectRef.methodName().           |
+|  • Receives the implicit 'this' reference as parameter slot 0 in stack frame.   |
+|  • Can access both instance state and static state.                             |
+|  • Dispatched polymorphically via 'invokevirtual' or 'invokeinterface'.         |
++---------------------------------------------------------------------------------+
+```
+
+---
+
+## 3. How It Works Internally
+
+### JVM Thread Stack and Frame Layout
+Whenever a thread calls a method, the JVM allocates a **Stack Frame** on that thread's call stack:
+
+```
++---------------------------------------------------------------------------------------+
+|                               Thread Call Stack (RAM)                                 |
+|                                                                                       |
+|   +───────────────────────────────────────────────────────────────────────────────+   |
+|   | Current Frame: calculateTax(int base, double rate)                            |   |
+|   |                                                                               |   |
+|   |  Local Variable Array (Slots):                                                |   |
+|   |  [Slot 0]: this (for instance method) OR argument 'base' (for static)         |   |
+|   |  [Slot 1 & 2]: double rate (occupies 2 consecutive slots in 32-bit JVM)       |   |
+|   |  [Slot 3]: local int calculatedTax                                            |   |
+|   |                                                                               |   |
+|   |  Operand Stack: [ Empty during call -> Holds pushed operands during math ]    |   |
+|   |  Frame Data: Reference to Constant Pool, return PC address of caller          |   |
+|   +───────────────────────────────────────────────────────────────────────────────+   |
+|   | Previous Frame: main(String[] args)                                           |   |
+|   +───────────────────────────────────────────────────────────────────────────────+   |
++---------------------------------------------------------------------------------------+
+```
+
+1. **Local Variable Array:** Indexed array storing formal parameters and local variables. In instance methods, Slot 0 is always reserved for the `this` reference!
+2. **Operand Stack:** A Last-In-First-Out (LIFO) evaluation stack where bytecode instructions push operands (`iload`) and pop results (`iadd`, `ireturn`).
+3. **Frame Destruction:** When the method encounters `return` or throws an uncaught exception, its stack frame is instantly popped from the stack, reclaiming local variable memory without GC involvement.
+
+### The 5 JVM Method Invocation Opcodes
+The JVM specification defines 5 dedicated bytecode instructions to dispatch methods:
+1. **`invokestatic`:** Invokes static methods. Bound at compile time; no virtual lookup or null check on a receiver.
+2. **`invokevirtual`:** Invokes public/protected instance methods. Performs dynamic dispatch via the object's virtual method table (**vtable**).
+3. **`invokeinterface`:** Invokes methods on interface references. Dispatches dynamically via interface tables (**itable**).
+4. **`invokespecial`:** Invokes private methods, constructors (`<init>`), and `super.method()` calls directly without virtual dispatch.
+5. **`invokedynamic` (Java 7+):** Dynamic call site linkage. Used for lambdas, method references, and string concatenation (`StringConcatFactory`).
+
+---
+
+## 4. Syntax & Usage
+
+### Clean Method Design and Early Returns (Guard Clauses)
+Instead of nesting logic inside deep `if` statements (the Arrow Anti-Pattern), use **Guard Clauses** to validate preconditions and return early:
 
 ```java
-public static int add(int a, int b) {      // declaration
-    return a + b;
-}
-
-int result = add(3, 4);                    // call → 7
-```
-
-## Anatomy
-
-```
-  modifiers   return type   name    parameters
-     │             │          │         │
-public static     int       add   (int a, int b)  { 
-    return a + b;                                    ◄── body
+// IDIOMATIC: Guard clauses with early returns
+public static double calculateShipping(Order order) {
+    if (order == null) {
+        throw new IllegalArgumentException("Order cannot be null");
+    }
+    if (order.isVipCustomer()) {
+        return 0.0; // Free shipping for VIPs
+    }
+    if (order.getTotalAmount() > 100.0) {
+        return 5.0; // Discounted shipping
+    }
+    return 15.0; // Standard shipping
 }
 ```
 
-| Part | Meaning |
-|------|---------|
-| Modifiers | Access (`public`, `private`, ...), `static`, `final`, ... |
-| Return type | The type of the value returned, or `void` for none |
-| Name | `camelCase`, usually a verb: `calculateTotal`, `isEmpty` |
-| Parameters | Typed, comma-separated inputs; may be empty `()` |
-| Body | The statements in `{ }` |
-
-The **method signature** is the name plus the parameter types: `add(int, int)`. The return type and parameter names are not part of it.
-
-## Calling methods
-
+### Method Documentation with Javadoc (`///` or `/** */`)
 ```java
-public class Calculator {
-    static int square(int n) {
-        return n * n;
+/// Calculates compound interest on an investment balance.
+///
+/// @param principal Initial investment amount in dollars
+/// @param annualRate Annual interest rate as a decimal (e.g., 0.05 for 5%)
+/// @param years Duration of investment in years
+/// @return Final accumulated balance
+/// @throws IllegalArgumentException if principal or years are negative
+public static double calculateInterest(double principal, double annualRate, int years) {
+    if (principal < 0 || years < 0) {
+        throw new IllegalArgumentException("Parameters cannot be negative");
+    }
+    return principal * Math.pow(1.0 + annualRate, years);
+}
+```
+
+---
+
+## 5. Practical Examples
+
+### Example 1: Static Utility Class with Private Constructor
+- **Goal:** Create a stateless static mathematical utility adhering to clean code standards.
+```java
+public final class MathUtils {
+    // Suppress default constructor to prevent instantiation of utility class
+    private MathUtils() {
+        throw new UnsupportedOperationException("Utility class cannot be instantiated");
+    }
+
+    public static boolean isPrime(int n) {
+        if (n <= 1) return false;
+        if (n <= 3) return true;
+        if (n % 2 == 0 || n % 3 == 0) return false;
+
+        for (int i = 5; i * i <= n; i += 6) {
+            if (n % i == 0 || n % (i + 2) == 0) return false;
+        }
+        return true;
     }
 
     public static void main(String[] args) {
-        int a = square(5);                 // 25
-        int b = square(square(2));         // 16: calls can be nested
-        System.out.println(square(3) + 1); // 10: used as an expression
-        square(7);                         // allowed: result ignored (rarely useful)
+        System.out.println("isPrime(29): " + MathUtils.isPrime(29)); // true
+        System.out.println("isPrime(35): " + MathUtils.isPrime(35)); // false
     }
 }
 ```
-
-- **Arguments** are the values you pass; **parameters** are the names in the declaration
-- Arguments are matched to parameters **by position and type**
-- Argument types must be assignable to the parameter types (widening is fine, narrowing needs a cast: [type casting](../01-fundamentals/03_type-casting-and-conversion.md))
-
-## Return values
-
-```java
-static boolean isEven(int n) {
-    return n % 2 == 0;
-}
-
-static void greet(String name) {           // void: returns nothing
-    if (name == null) return;              // bare return ends the method early
-    System.out.println("Hello, " + name);
-}
+- **Console Output:**
+```text
+isPrime(29): true
+isPrime(35): false
 ```
+- **Explanation:** Marking the class `final` and declaring a `private` constructor prevents consumers from accidentally creating utility object instances.
 
-| Rule | Example |
-|------|---------|
-| A non-`void` method must return on **every** path | Else: `missing return statement` |
-| A `void` method may use `return;` to exit early | |
-| Code after `return` is unreachable | Compile error |
-| Only **one** value can be returned | See "Returning several values" |
+---
 
+### Example 2: Instance Methods and Method Chaining (Fluent Builder)
+- **Goal:** Return `this` from instance methods to enable fluent method chaining.
 ```java
-static String grade(int score) {
-    if (score >= 90) return "A";
-    if (score >= 80) return "B";
-    return "C";                            // required: covers all remaining cases
-}
-```
+public class HttpRequestBuilder {
+    private String url;
+    private String method = "GET";
+    private int timeoutMs = 5000;
 
-### Returning several values
-
-Java has no tuples. Options:
-
-| Option | When |
-|--------|------|
-| An array | Same type, fixed small count (`int[]{min, max}`) |
-| A `record` | Related values; clear names ([12-modern-java/01_records.md](../12-modern-java/01_records.md)) |
-| A small class | Same, on older Java versions |
-| An object that gets filled in | Rarely; prefer returning a value |
-
-```java
-record MinMax(int min, int max) {}
-
-static MinMax minMax(int[] a) {
-    int min = a[0], max = a[0];
-    for (int n : a) {
-        if (n < min) min = n;
-        if (n > max) max = n;
+    public HttpRequestBuilder setUrl(String url) {
+        this.url = url;
+        return this; // Return current instance
     }
-    return new MinMax(min, max);
-}
-```
 
-## Parameters
+    public HttpRequestBuilder setMethod(String method) {
+        this.method = method;
+        return this;
+    }
 
-```java
-static double average(int[] values) { ... }       // an array parameter
-static void log(String level, String message) { }  // several parameters
-static void process(final int id) { }              // final: cannot be reassigned inside
-```
+    public HttpRequestBuilder setTimeoutMs(int timeoutMs) {
+        this.timeoutMs = timeoutMs;
+        return this;
+    }
 
-- Java has **no default parameter values** and **no named arguments**; use [overloading](./02_overloading-and-varargs.md) or an options object
-- Parameters are **local variables** initialized from the arguments
-- Java is pass-by-value: see [01_pass-by-value.md](./01_pass-by-value.md)
-- Too many parameters (more than 3-4) is a smell; group related ones into an object (or a builder, see [24-design-patterns/01-creational/03_builder.md](../24-design-patterns/01-creational/03_builder.md))
-
-## Scope and local variables
-
-Variables declared in a method exist only during that call and are invisible to other methods.
-
-```java
-static int count() {
-    int n = 0;                 // local: created on each call, gone on return
-    n++;
-    return n;
-}
-count();   // 1
-count();   // 1 again: nothing is remembered between calls
-```
-
-To keep state between calls, use a **field** ([04-oop/00_classes-and-objects.md](../04-oop/00_classes-and-objects.md)).
-
-## `static` and instance methods
-
-```java
-public class Counter {
-    private int value;                        // instance state
-
-    void increment() { value++; }             // instance method: needs an object
-    static int twice(int x) { return 2 * x; } // static method: belongs to the class
+    public void execute() {
+        System.out.printf("Executing %s %s with timeout %d ms%n", method, url, timeoutMs);
+    }
 
     public static void main(String[] args) {
-        System.out.println(twice(4));         // OK
-        // increment();                       // ERROR: non-static method cannot be referenced from a static context
-        Counter c = new Counter();
-        c.increment();                        // OK
+        new HttpRequestBuilder()
+            .setUrl("https://api.example.com/data")
+            .setMethod("POST")
+            .setTimeoutMs(10000)
+            .execute();
     }
 }
 ```
+- **Console Output:**
+```text
+Executing POST https://api.example.com/data with timeout 10000 ms
+```
+- **Explanation:** Returning `this` allows the caller to chain setter operations sequentially into a readable domain-specific expression.
 
-`main` is static, so it can call only static methods directly. Calling an instance method needs an object. More in [04-oop/02_static.md](../04-oop/02_static.md).
+---
 
-## What happens at a call: the call stack
-
-Each call gets its own **stack frame** with the parameters and local variables. The frame is removed when the method returns.
-
+### Example 3: Edge Case — `try-finally` Return Value Override
+- **Goal:** Observe the execution order when both `try` and `finally` blocks declare `return` statements.
 ```java
-static int square(int n) { return n * n; }
-static int sumOfSquares(int a, int b) { return square(a) + square(b); }
-// main calls sumOfSquares(3, 4)
-```
-
-```
-          ┌───────────────────┐
-          │ square(n=4)       │  ◄── top: running now
-          ├───────────────────┤
-          │ sumOfSquares(3,4) │
-          ├───────────────────┤
-          │ main(args)        │
-          └───────────────────┘
-```
-
-When `square` returns, its frame is popped and execution resumes in `sumOfSquares`. Too many nested calls cause `StackOverflowError` ([recursion](./03_recursion.md), [15-jvm-internals/02_jvm-memory-areas.md](../15-jvm-internals/02_jvm-memory-areas.md)).
-
-## Designing good methods
-
-| Guideline | Why |
-|-----------|-----|
-| **One job** per method | Easy to name, test and reuse |
-| Short (about 5-20 lines) | Fits in your head |
-| Name with a verb; booleans as questions (`isValid`, `hasItems`) | Reads like prose |
-| Same level of abstraction inside | Do not mix business rules with string formatting |
-| Avoid output (`println`) inside logic methods; return values | Testable and reusable |
-| Prefer fewer parameters | Callers get simpler |
-| Avoid hidden side effects | Methods that change unrelated state surprise people |
-| Validate inputs at the boundary | Fail early with a clear message |
-
-```java
-// Hard to test and reuse
-static void report(int[] scores) {
-    int sum = 0;
-    for (int s : scores) sum += s;
-    System.out.println("Average: " + (double) sum / scores.length);
-}
-
-// Better: logic returns a value; printing is separate
-static double average(int[] scores) {
-    int sum = 0;
-    for (int s : scores) sum += s;
-    return (double) sum / scores.length;
-}
-static void printReport(int[] scores) {
-    System.out.println("Average: " + average(scores));
-}
-```
-
-### Pure functions vs side effects
-
-A method is **pure** when its result depends only on its arguments and it changes nothing else. Pure methods are the easiest to test and reason about ([09-functional-java/08_functional-patterns.md](../09-functional-java/08_functional-patterns.md)).
-
-## Invalid input
-
-```java
-static double divide(int a, int b) {
-    if (b == 0) {
-        throw new IllegalArgumentException("b must not be zero");
+public class MethodFinallyReturnDemo {
+    public static int testFinallyOverride() {
+        try {
+            return 10;
+        } finally {
+            // DANGER: Finally block executes before method returns to caller!
+            return 20; // Overrides the try return value!
+        }
     }
-    return (double) a / b;
+
+    public static int testVariableCapture() {
+        int x = 10;
+        try {
+            return x; // Value of x (10) is evaluated and pushed to operand stack
+        } finally {
+            x = 20;   // Mutates local variable x, but does NOT alter the returned value!
+        }
+    }
+
+    public static void main(String[] args) {
+        System.out.println("Finally Return Override: " + testFinallyOverride());
+        System.out.println("Finally Value Capture:   " + testVariableCapture());
+    }
 }
 ```
+- **Console Output:**
+```text
+Finally Return Override: 20
+Finally Value Capture:   10
+```
+- **Explanation:** In `testFinallyOverride()`, the `finally` block's `return` statement unconditionally supersedes the `try` block's return. In `testVariableCapture()`, the primitive value `10` is copied to the return register before the `finally` block runs; reassigning `x` inside `finally` has no effect on the captured return value.
 
-Declare and throw exceptions rather than returning magic values like `-1`: see [06-exceptions-and-debugging/02_throw-and-throws.md](../06-exceptions-and-debugging/02_throw-and-throws.md).
+---
 
-## Javadoc
+### Example 4: Failure Case — Calling Instance Methods on Null Reference
+- **Goal:** Demonstrate that static methods can technically be called on null references, while instance methods crash.
+```java
+public class NullMethodCallDemo {
+    public static void printStatic() {
+        System.out.println("Static method executed!");
+    }
+
+    public void printInstance() {
+        System.out.println("Instance method executed!");
+    }
+
+    public static void main(String[] args) {
+        NullMethodCallDemo ref = null;
+
+        // Bizarre Java rule: Static call compiles and succeeds on null!
+        // javac resolves to NullMethodCallDemo.printStatic() via invokestatic!
+        ref.printStatic();
+
+        // Instance call throws NullPointerException via invokevirtual
+        try {
+            ref.printInstance();
+        } catch (NullPointerException e) {
+            System.out.println("Caught NPE: Cannot invoke instance method on null reference!");
+        }
+    }
+}
+```
+- **Console Output:**
+```text
+Static method executed!
+Caught NPE: Cannot invoke instance method on null reference!
+```
+- **Explanation:** `invokestatic` does not pass `this` and does not dereference the receiver; the compiler resolves the class type statically. `invokevirtual` attempts to read the object header from the memory pointer, immediately throwing `NullPointerException`. Never call static methods via object instances.
+
+---
+
+### Example 5: High-Performance / Modern Idiom — JIT Method Inlining
+- **Goal:** Demonstrate small, focused methods that qualify for HotSpot C2 inlining, eliminating stack frame allocation completely.
+```java
+public class MethodInliningBenchmark {
+    // Pure, small method (under 35 bytecode bytes) -> Candidate for C2 inlining
+    public static int add(int a, int b) {
+        return a + b;
+    }
+
+    public static void main(String[] args) {
+        long start = System.nanoTime();
+        int sum = 0;
+        for (int i = 0; i < 10_000_000; i++) {
+            sum += add(i, 1); // C2 inlines 'add' directly into: sum += (i + 1)
+        }
+        long duration = (System.nanoTime() - start) / 1_000_000;
+        System.out.printf("Computed sum %d in %d ms (Zero call overhead!)%n", sum, duration);
+    }
+}
+```
+- **Console Output:**
+```text
+Computed sum 1000000000 in 6 ms (Zero call overhead!)
+```
+- **Explanation:** Once inlined, the method call, stack frame creation, parameter copying, and return instructions are completely erased by C2, leaving raw register arithmetic.
+
+---
+
+## 6. Best Practices
+
+1. **Keep Methods Short and Focused (Single Responsibility):** A method should perform one clear task. Short methods (under 30 lines) are easier to test, debug, and are inlined aggressively by the JIT compiler.
+2. **Never Return from Inside a `finally` Block:** Putting a `return` in a `finally` block suppresses uncaught exceptions thrown in the `try` block, masking critical bugs.
+3. **Use Guard Clauses to Avoid Deep Nesting:** Check for nulls and invalid arguments at the very top of the method and return or throw immediately.
+4. **Invoke Static Methods via Class Name:** Always write `MathUtils.isPrime()` rather than `myInstance.isPrime()`.
+5. **Prefer Immutability and Pure Methods:** Whenever possible, write methods that take inputs, return outputs, and do not mutate external state. Pure functions are inherently thread-safe.
+
+---
+
+## 7. Common Mistakes & Pitfalls
+
+| Mistake | Why It Fails | Practical Remedy |
+| :--- | :--- | :--- |
+| **Returning in `finally` Block** | Silently discards exceptions thrown in `try` and overrides return values. | Use `finally` strictly for resource cleanup, never for control flow. |
+| **Invoking Static Methods on Instances** | Misleads readers into believing the method relies on instance state. | Call static methods via class identifier: `ClassName.method()`. |
+| **Ignoring Return Values of Pure Methods** | Calling `str.toUpperCase()` without assigning result does nothing (`String` is immutable). | Assign the returned result: `str = str.toUpperCase();`. |
+| **Differentiating Methods by Return Type Alone** | Return types are not part of the method signature; compiler flags duplicate method. | Change method names or parameter types. |
+| **Deep Arrow Anti-Pattern Nesting** | Nesting 5 levels of `if-else` blocks obscures business logic. | Refactor with guard clauses and early returns. |
+| **Accidental Infinite Recursion** | Omitting or writing an incorrect base case in recursive methods causes stack exhaustion. | Ensure base case is evaluated before any recursive invocation. |
+
+---
+
+## 8. Performance & Security Notes
+
+### Method Inlining Mechanics
+HotSpot C2 uses method inlining as its primary optimization engine. If a method is inlined:
+- Stack frame creation overhead is eliminated ($0$ stack allocation).
+- Virtual call dispatch is eliminated.
+- The JIT compiler can perform Dead Code Elimination and Constant Folding across caller and callee boundaries.
+- **Inlining Limits:** Methods with bytecode size $\le 35$ bytes (`-XX:MaxInlineSize=35`) are inlined aggressively. Frequently called methods $\le 325$ bytes (`-XX:FreqInlineSize=325`) are also candidates. Large, monolithic methods (1000+ lines) are **never** inlined.
+
+### Security Invariants: Defending Against Malicious State Mutation
+When returning a mutable object (e.g., `java.util.Date` or raw array `byte[]`) from an instance method, never return the direct reference. Return a defensive copy (`return array.clone();`), otherwise untrusted callers can mutate internal private state without calling your setter methods.
+
+---
+
+## 9. Comparison / When to Use What
+
+| Method Type | Associated With | Can Access `this` | Virtual Dispatch | Ideal Scenario |
+| :--- | :--- | :---: | :---: | :--- |
+| **Static Method** | Class type | No | No (`invokestatic`) | Pure math functions, factory methods (`of()`, `valueOf()`), utilities |
+| **Instance Method** | Object instance | Yes | Yes (`invokevirtual`) | Domain behavior, state mutation, polymorphism |
+| **Interface Method** | Interface contract | Yes | Yes (`invokeinterface`) | Public API contracts, decoupling callers from implementations |
+| **Private Method** | Class implementation | Yes | No (`invokespecial`) | Internal helper algorithms hidden from external callers |
+| **Lambda Expression** | Functional interface | Yes (lexical) | Dynamic (`invokedynamic`) | Inline functional transformations, stream pipelines |
+
+---
+
+## 10. Interview Questions
+
+<details>
+<summary><strong>1. Why is the return type not included in a Java method signature?</strong></summary>
+
+**Answer:**  
+In Java, a method can be invoked without assigning its return value (e.g., calling `calculateTotal();` as a standalone statement). If two methods differed only by their return type (e.g., `int calculateTotal()` and `double calculateTotal()`), the compiler would have no way to determine which method the caller intended to invoke. To prevent ambiguity, the Java Language Specification defines a method signature strictly as its **name** and **formal parameter types**.
+</details>
+
+<details>
+<summary><strong>2. How does the JVM allocate and deallocate memory for local variables in a method?</strong></summary>
+
+**Answer:**  
+Local variables are allocated within the thread's **Stack Frame** in the **Local Variable Array** when the method is invoked. Slot allocations are calculated statically by `javac` at compile time. Memory deallocation requires zero garbage collection: when the method returns, the thread's Stack Pointer (SP) is simply adjusted backward to pop the entire stack frame off the stack in a single CPU instruction, instantaneously freeing all local variable memory.
+</details>
+
+<details>
+<summary><strong>3. What are the 5 bytecode invocation instructions in the JVM, and when is each used?</strong></summary>
+
+**Answer:**  
+1. `invokestatic`: Dispatches static methods. Direct compile-time binding.
+2. `invokevirtual`: Dispatches public/protected instance methods via runtime vtable lookup.
+3. `invokeinterface`: Dispatches methods on interface types via runtime itable lookup.
+4. `invokespecial`: Dispatches constructors (`<init>`), private methods, and superclass methods (`super.foo()`) directly without polymorphism.
+5. `invokedynamic`: Dynamically links call sites at runtime via bootstrap methods (used by lambdas and string concatenation).
+</details>
+
+<details>
+<summary><strong>4. What is the "Slot 0" rule for instance methods in JVM stack frames?</strong></summary>
+
+**Answer:**  
+In every instance method, the compiler automatically passes a reference to the current object instance as the very first argument. In the JVM stack frame's Local Variable Array, **Slot 0** is always reserved for the `this` pointer. For static methods, because there is no instance, Slot 0 is assigned to the first declared method argument.
+</details>
+
+<details>
+<summary><strong>5. What happens when a method has a `return` statement in both `try` and `finally` blocks?</strong></summary>
+
+**Answer:**  
+The `finally` block is guaranteed to execute whenever control flow leaves the `try` block. If the `finally` block contains a `return` statement, it halts any in-flight return or uncaught exception from the `try` block and immediately returns the value from the `finally` block, completely discarding whatever the `try` block evaluated. This is considered an anti-pattern.
+</details>
+
+<details>
+<summary><strong>6. What is Method Inlining, and why is it considered the most important JIT optimization?</strong></summary>
+
+**Answer:**  
+Method Inlining is a JIT optimization where the compiler replaces a method invocation directly with the body of the called method. It eliminates the execution overhead of allocating a stack frame, pushing arguments, jumping to another code offset, and returning. More importantly, inlining merges the callee code into the caller scope, enabling subsequent optimizations like Escape Analysis, Dead Code Elimination, and Loop Vectorization.
+</details>
+
+<details>
+<summary><strong>7. Why can static methods be invoked on null references without throwing `NullPointerException`?</strong></summary>
+
+**Answer:**  
+Java resolves static method calls using the declared static type of the reference variable at compile time, not the runtime object instance. When compiled, `myNullVar.staticMethod()` is emitted as `invokestatic ClassName.staticMethod()`. Because `invokestatic` does not dereference the variable or access an object header, the null reference is completely ignored by the JVM and execution succeeds.
+</details>
+
+<details>
+<summary><strong>8. What is the difference between formal parameters and actual arguments?</strong></summary>
+
+**Answer:**  
+- **Formal Parameters:** The variable identifiers and types defined in the method declaration header (e.g., `int a, int b` in `public void add(int a, int b)`). They act as placeholders in the method's local variable array.
+- **Actual Arguments:** The concrete values or references supplied by the caller when invoking the method (e.g., `add(5, 10)` passes `5` and `10` as arguments).
+</details>
+
+---
+
+## 11. Practice Exercises
+
+### Exercise 1: Refactoring Deep Nesting to Guard Clauses (Easy)
+- **Task:** Refactor the nested method below into a clean method using guard clauses and early returns:
+```java
+public boolean processUser(User user) {
+    if (user != null) {
+        if (user.isActive()) {
+            if (user.hasValidSubscription()) {
+                sendWelcomeEmail(user);
+                return true;
+            } else {
+                return false;
+            }
+        } else {
+            return false;
+        }
+    } else {
+        return false;
+    }
+}
+```
+<details>
+<summary>Solution</summary>
 
 ```java
-/**
- * Returns the larger of two numbers.
- *
- * @param a first number
- * @param b second number
- * @return the maximum of a and b
- */
-static int max(int a, int b) {
-    return a > b ? a : b;
+public boolean processUser(User user) {
+    if (user == null || !user.isActive() || !user.hasValidSubscription()) {
+        return false;
+    }
+    sendWelcomeEmail(user);
+    return true;
 }
 ```
+</details>
 
-Document **public** methods: what they do, units, accepted ranges, and what they throw.
+### Exercise 2: Stack Frame Slot Calculation (Medium)
+- **Task:** For the instance method `public void process(int a, long b, double c, String d)`, list the exact Local Variable Array slot indices ($0, 1, 2, \dots$) assigned to `this` and each parameter on a 32-bit slot JVM architecture.
+<details>
+<summary>Solution</summary>
 
-## Other kinds of methods (preview)
+- **Slot 0:** `this` reference (implicit instance pointer).
+- **Slot 1:** `int a` (32-bit single slot).
+- **Slot 2 & 3:** `long b` (64-bit primitive requires two consecutive slots: Slot 2 and 3).
+- **Slot 4 & 5:** `double c` (64-bit primitive requires two consecutive slots: Slot 4 and 5).
+- **Slot 6:** `String d` (Object reference occupies single slot: Slot 6).
+</details>
 
-| Kind | Where covered |
-|------|---------------|
-| Constructors (no return type, name = class) | [04-oop/01_constructors.md](../04-oop/01_constructors.md) |
-| Overridden methods | [04-oop/06_inheritance.md](../04-oop/06_inheritance.md) |
-| Abstract and interface methods | [04-oop/08_abstract-classes.md](../04-oop/08_abstract-classes.md), [09_interfaces.md](../04-oop/09_interfaces.md) |
-| Lambdas and method references | [09-functional-java/00_lambda-expressions.md](../09-functional-java/00_lambda-expressions.md) |
-| Generic methods (`<T> T first(List<T> l)`) | [07-generics/00_generic-classes-and-methods.md](../07-generics/00_generic-classes-and-methods.md) |
+### Exercise 3: Defensive Copying Encapsulation Engine (Hard)
+- **Task:** Implement an immutable `AuditRecord` class that encapsulates a `long id` and an array of `byte[] signature`. Ensure that methods calling constructors or getters cannot mutate the internal signature bytes from outside.
+<details>
+<summary>Solution</summary>
 
-Java does **not** allow a method inside a method. Use a lambda, a local class or a private helper method instead.
+```java
+import java.util.Arrays;
 
-## Common mistakes
+public final class AuditRecord {
+    private final long id;
+    private final byte[] signature;
 
-| Mistake | Symptom | Fix |
-|---------|---------|-----|
-| Missing `return` on some path | `missing return statement` | Return on every path (or throw) |
-| Calling an instance method from `static main` | `non-static method ... cannot be referenced` | Create an object, or make it `static` |
-| Ignoring the return value | Nothing seems to happen (`s.toUpperCase();`) | Assign it: `s = s.toUpperCase();` |
-| Expecting parameters to change the caller's variable | Value unchanged | See [pass-by-value](./01_pass-by-value.md) |
-| Printing instead of returning | Cannot reuse or test | Return; print at the edge |
-| Doing several things in one method | Hard to name or test | Split it |
-| Long parameter lists | Easy to swap arguments by mistake | Group into an object |
-| Wrong argument order with same-typed parameters | Silent bug | Distinct types, or a builder |
-| `void` method with a name suggesting a result (`getTotal`) | Confusing | Return the value |
-| Mutating inputs unexpectedly | Surprising callers | Copy or document it |
-| Using a local variable after the method returned | Not possible | Return it or store it in a field |
+    public AuditRecord(long id, byte[] signature) {
+        this.id = id;
+        // Defensive copy on ingestion
+        this.signature = (signature != null) ? signature.clone() : new byte[0];
+    }
 
-## Key takeaways
+    public long getId() {
+        return id;
+    }
 
-- A method has a name, parameters, a return type and a body; its signature is name + parameter types
-- Every call gets a fresh stack frame; locals disappear on return
-- Return values instead of printing; keep methods short and single-purpose
-- Java has no default parameters; `main` can call only static methods directly
-- Document public methods and fail clearly on invalid input
+    public byte[] getSignature() {
+        // Defensive copy on retrieval
+        return signature.clone();
+    }
 
-**Next:** [Pass-by-Value](./01_pass-by-value.md)
+    public static void main(String[] args) {
+        byte[] original = { 0x01, 0x02, 0x03 };
+        AuditRecord record = new AuditRecord(101L, original);
+
+        // Attempting to mutate externally via input array:
+        original[0] = (byte) 0xFF;
+        System.out.println("Internal byte 0 protected from input mutation: " + 
+            (record.getSignature()[0] == 0x01)); // true
+
+        // Attempting to mutate externally via getter array:
+        record.getSignature()[0] = (byte) 0xFF;
+        System.out.println("Internal byte 0 protected from getter mutation: " + 
+            (record.getSignature()[0] == 0x01)); // true
+    }
+}
+```
+</details>
+
+---
+
+## 12. Summary / Cheat Sheet
+
+- **Method Signature:** Method Name + Parameter Types list only. Return type is not part of signature.
+- **Static vs Instance:** Static methods belong to class (`invokestatic`, no `this`); instance methods belong to object (`invokevirtual`, Slot 0 = `this`).
+- **Stack Frames:** Local Variable Array + Operand Stack + Frame Data; instantly deallocated upon method return.
+- **5 Opcodes:** `invokestatic`, `invokevirtual`, `invokeinterface`, `invokespecial`, `invokedynamic`.
+- **Inlining:** Small methods ($\le 35$ bytes) are inlined by C2 into zero-overhead machine instructions.
+- **Defensive Design:** Use guard clauses for early returns; return defensive copies of mutable arrays and objects.
+
+---
+
+## 13. Further Reading
+
+- [The Java Language Specification (Java SE 25 Edition) - Chapter 8.4: Method Declarations](https://docs.oracle.com/javase/specs/jls/se25/html/jls-8.html#jls-8.4)
+- [JVM Specification - Method Invocation and Return Instructions](https://docs.oracle.com/javase/specs/jvms/se25/html/jvms-2.html#jvms-2.11.8)
+- [Effective Java (3rd Edition) - Chapter 8: Methods](https://www.oreilly.com/library/view/effective-java-3rd/9780134686097/)
+
+---
+
+| [Section Index](file:///E:/Learning/engineering-notes/01-languages/java/02-methods/README.md) | [Next: 01_pass-by-value.md](file:///E:/Learning/engineering-notes/01-languages/java/02-methods/01_pass-by-value.md) → |

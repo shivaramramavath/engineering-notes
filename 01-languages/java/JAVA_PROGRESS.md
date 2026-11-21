@@ -18,10 +18,10 @@
   - [x] Renumbered `29-cheatsheets/dsa-patterns-and-complexity.md` to `09_dsa-patterns-and-complexity.md`
   - [x] Authored `JAVA_COMPLETION_PLAN.md`, `JAVA_DECISIONS.md`, `JAVA_PROGRESS.md`, `JAVA_CHANGELOG.md`
   - [x] Git commit Batch 1
-- [ ] **Batch 2: Core Language (Modules 00, 01, 02)**
-  - [ ] `00-setup` (7 notes)
-  - [ ] `01-fundamentals` (11 notes)
-  - [ ] `02-methods` (5 notes)
+- [x] **Batch 2: Core Language (Modules 00, 01, 02)**
+  - [x] `00-setup` (6 concept notes + README expanded to 466-557 lines)
+  - [x] `01-fundamentals` (10 concept notes + README expanded to 507-556 lines)
+  - [x] `02-methods` (4 concept notes + README expanded to 577-595 lines)
 - [ ] **Batch 3: Text, OOP & Modules (Modules 03, 04, 05)**
   - [ ] `03-strings-and-text` (9 notes)
   - [ ] `04-oop` (17 notes)

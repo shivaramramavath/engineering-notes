@@ -1,49 +1,53 @@
-# 02 - Methods
+# Module 02: Methods, Parameter Evaluation, Overloading, and Recursion
 
-Methods are how you name, reuse and organize behavior. This folder also covers the two most common sources of confusion at this stage: **what really happens when you pass arguments**, and **how a method can call itself**.
+> Procedural abstraction and execution dynamics in the JVM: method anatomy, stack frame allocation, strict pass-by-value semantics, the three-phase overload resolution protocol, variable-arity parameters (`T...`), call stack limits, and functional trampolines.
+
+| Metadata | Value |
+| :--- | :--- |
+| **Track Section** | 01-languages / java |
+| **Module Number** | 02 |
+| **Prerequisites** | [01-fundamentals](../01-fundamentals/README.md) |
+| **Baseline Runtime** | Oracle JDK 25 LTS / Eclipse Temurin 25 LTS |
+| **Core Concepts** | Stack Frames, `invokevirtual` vs `invokestatic`, Pass-by-Value, Overload Resolution, TCO limits |
+
+---
+
+## 1. Architectural Overview & Conceptual Flow
 
 ```
-methods ─► pass-by-value ─► overloading & varargs ─► recursion
+[ 00 Method Declarations ] ──► [ 01 Pass-by-Value ]
+  (Signature, Stack Frames,      (Bit copying, Reference copying,
+   JVM Invocation Opcodes)        Reassignment vs Mutation)
+           │
+           ▼
+[ 02 Overloading & Varargs ] ──► [ 03 Recursion Mechanics ]
+  (Three-Phase Resolution,         (Call stack depth, No native TCO,
+   Array desugaring, @SafeVarargs)  Memoization, Trampoline Pattern)
 ```
 
-## Prerequisites
+---
 
-[01-fundamentals](../01-fundamentals/README.md), mainly variables, operators, conditionals, loops and arrays.
+## 2. Topic Directory & Navigation
 
-## Reading order
+| # | Topic Document | Primary Engineering Focus | Target Lines |
+|---|---|---|---|
+| 00 | [00_methods.md](./00_methods.md) | Method anatomy, signatures, return rules, JVM stack frames (Local Variable Array, Slot 0 `this`), the 5 invocation opcodes (`invokestatic`, `invokevirtual`, `invokespecial`, `invokeinterface`, `invokedynamic`), and HotSpot C2 method inlining. | 580 |
+| 01 | [01_pass-by-value.md](./01_pass-by-value.md) | Unconditional pass-by-value law: primitive bit copying vs reference pointer copying, why `swap(a, b)` fails in Java, defensive copying against reference hijacking, and immutable records. | 592 |
+| 02 | [02_overloading-and-varargs.md](./02_overloading-and-varargs.md) | Compile-time static binding, the JLS §15.12.2 three-phase resolution protocol (Widening $\to$ Boxing $\to$ Varargs), ambiguous calls with `null`, generic heap pollution, and `@SafeVarargs`. | 577 |
+| 03 | [03_recursion.md](./03_recursion.md) | Base case vs recursive step, stack frame memory growth, `StackOverflowError` limits (`-Xss`), lack of native Tail Call Optimization in HotSpot, memoization, and the functional Trampoline pattern. | 595 |
 
-| # | File | You will learn |
-|---|------|----------------|
-| 0 | [00_methods.md](./00_methods.md) | Declaring and calling methods, parameters, return values, scope, good design |
-| 1 | [01_pass-by-value.md](./01_pass-by-value.md) | Why Java is always pass-by-value, including for objects |
-| 2 | [02_overloading-and-varargs.md](./02_overloading-and-varargs.md) | Same name, different parameters; overload resolution; `T...` |
-| 3 | [03_recursion.md](./03_recursion.md) | Base case, call stack, memoization, recursion vs iteration |
+---
 
-## Practice
+## 3. Core Engineering Competency Verification
 
-| After file | Try |
-|------------|-----|
-| 00 | Write `isPrime(int)`, `max(int[])`, `average(int[])`, `isLeapYear(int)`; keep each under 15 lines |
-| 01 | Predict the output of the examples before running them; write a `swap` that works for two `int`s |
-| 02 | Write `sum(int...)`, `max(int, int...)`; add overloads and predict which one runs for `m(5)`, `m('a')`, `m(null)` |
-| 03 | Factorial, Fibonacci (naive, then memoized), `gcd`, `power(x, n)` in O(log n), palindrome check, Tower of Hanoi |
+You have mastered Java Methods when you can definitively:
+- [x] Trace stack frame allocation during an instance method call, explaining why Slot 0 is reserved for `this`.
+- [x] Prove why writing `p = new Person()` inside a method has zero effect on the caller's reference variable, while `p.setName()` mutates the shared heap object.
+- [x] Predict the exact compile-time overload chosen across complex competing signatures (primitive widening vs boxing vs varargs).
+- [x] Explain why `Arrays.asList(new int[]{1, 2, 3}).size()` returns `1` instead of `3`.
+- [x] Explain the architectural reasons why the HotSpot JVM does not implement Tail Call Optimization (TCO).
+- [x] Implement the functional Trampoline pattern to execute deeply recursive algorithms with $O(1)$ constant call stack space.
 
-**Project:** [26-projects/01-cli-application](../26-projects/01-cli-application/) becomes comfortable once you finish this folder and `03-strings-and-text`.
+---
 
-## You are done when you can
-
-- [ ] Split a 50-line `main` into small methods that each do one thing
-- [ ] Explain in two sentences why a `swap(int a, int b)` method cannot swap the caller's variables
-- [ ] Explain why changing `person.name` inside a method is visible to the caller but `person = new Person()` is not
-- [ ] Predict which overload is chosen for `m(5)` when `m(long)`, `m(Integer)` and `m(Object)` exist
-- [ ] Write a recursive method with a correct base case and explain its call stack
-- [ ] Say when to prefer iteration over recursion in Java
-
-## Key takeaways
-
-- A method = name + parameter list + return type + body; the name and parameter types form its **signature**
-- Java passes **everything by value**; for objects the value is a copy of the reference
-- Overloads are chosen at **compile time** from the static types of the arguments
-- Recursion needs a base case and consumes stack space; Java does not optimize tail calls
-
-**Next:** [03-strings-and-text](../03-strings-and-text/README.md)
+| [← Previous Module: 01-fundamentals](../01-fundamentals/README.md) | [Next Module: 03-strings-and-text →](../03-strings-and-text/README.md) |

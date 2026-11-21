@@ -1,271 +1,577 @@
-# Overloading and Varargs
+# Method Overloading, Varargs, and Compile-Time Resolution in Java
 
-**Overloading** means several methods in the same class share a name but have **different parameter lists**. **Varargs** (`T...`) lets one method accept any number of arguments. The compiler picks the overload at **compile time** from the static types of the arguments, and the rules produce many interview puzzles.
+> Method overloading delivers ad-hoc compile-time polymorphism through a three-phase resolution protocol (Primitive Widening $\to$ Boxing $\to$ Varargs), while variable-arity parameters (`T...`) automate array creation at call sites subject to heap allocation and generic safety rules.
 
+| Metadata | Value |
+| :--- | :--- |
+| **Level** | Intermediate |
+| **Prerequisites** | [00_methods.md](file:///E:/Learning/engineering-notes/01-languages/java/02-methods/00_methods.md) |
+| **Time to Read** | 25 minutes |
+| **Status** | Complete |
+| **Java LTS Baseline** | Java 25 LTS (with `@SafeVarargs` and Heap Pollution Protections) |
+
+---
+
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & Usage](#4-syntax--usage)
+5. [Practical Examples](#5-practical-examples)
+6. [Best Practices](#6-best-practices)
+7. [Common Mistakes & Pitfalls](#7-common-mistakes--pitfalls)
+8. [Performance & Security Notes](#8-performance--security-notes)
+9. [Comparison / When to Use What](#9-comparison--when-to-use-what)
+10. [Interview Questions](#10-interview-questions)
+11. [Practice Exercises](#11-practice-exercises)
+12. [Summary / Cheat Sheet](#12-summary--cheat-sheet)
+13. [Further Reading](#13-further-reading)
+
+---
+
+## 1. What & Why
+
+### Problem Statement
+In procedural languages without overloading (like standard C), if you need to calculate the maximum of two numbers, you must invent distinct function names for each supported type: `max_int()`, `max_double()`, `max_long()`. This clutters the global namespace, increases API cognitive load, and forces callers to memorize artificial function suffixes. Furthermore, methods needing to accept an arbitrary number of parameters historically forced callers to explicitly construct and wrap arguments in an array before invoking the method.
+
+### Historical Context & Design Principles
+Java introduced:
+- **Compile-Time Method Overloading:** Multiple methods in the same class may share the exact same identifier, provided their formal parameter lists differ in type, count, or order.
+- **Varargs (Java 5 - JSR 201):** Allows declaring a method with a variable number of arguments (`Type... args`), automating array creation at call sites.
+- **Safe Varargs (Java 7+ JEP 110):** Added `@SafeVarargs` to suppress compiler warnings when combining generic types with variable-arity arrays.
+
+### Real-World Relevance
+Understanding the compiler's strict three-phase overload resolution rules is critical. Misunderstandings lead to subtle bugs: invoking a varargs method when an exact overload was intended, accidental autoboxing overhead in tight loops, and ambiguous compilation errors when passing `null` across overloaded signatures.
+
+---
+
+## 2. Core Concepts
+
+### What Constitutes a Valid Overload
+Two methods in the same class are valid overloads if they have the same name but different formal parameter lists:
+
+| Valid Overload Criterion | Example Overloads |
+| :--- | :--- |
+| **Different Number of Parameters** | `print(int a)` and `print(int a, int b)` |
+| **Different Types of Parameters** | `print(int a)` and `print(String a)` |
+| **Different Order of Parameter Types** | `print(int a, String b)` and `print(String b, int a)` |
+
+**CRITICAL INVARIANT:** Changing only the **return type** or declared **checked exceptions** does **NOT** constitute an overload. The following will fail compilation with `method is already defined`:
 ```java
-static int    max(int a, int b)       { return a > b ? a : b; }
-static double max(double a, double b) { return a > b ? a : b; }
-static int    max(int a, int b, int c){ return max(max(a, b), c); }
+// ILLEGAL: Duplicate method declaration
+public int calculate(double x) { return 0; }
+public double calculate(double x) { return 0.0; } // COMPILE ERROR!
 ```
 
-## What counts as a different overload
+### The Three-Phase Overload Resolution Protocol (JLS §15.12.2)
+When resolving which overloaded method to invoke, `javac` executes a strict three-phase search:
 
-| Different | Example |
-|-----------|---------|
-| Number of parameters | `f(int)` and `f(int, int)` |
-| Types of parameters | `f(int)` and `f(String)` |
-| Order of different types | `f(int, String)` and `f(String, int)` |
-
-| Does **not** make an overload | Why |
-|-------------------------------|-----|
-| Return type alone | `int f(int)` and `long f(int)` is a compile error: the call site cannot tell them apart |
-| Parameter names | Not part of the signature |
-| `throws` clause, modifiers | Not part of the signature |
-
-```java
-int  parse(String s) { ... }
-long parse(String s) { ... }       // ERROR: method parse(String) is already defined
+```
+Method Call: process(arg)
+       │
+       ▼
+[ Phase 1: Strict Primitive Widening ]
+Does an overload match without Autoboxing, Unboxing, or Varargs?
+(e.g., int -> long -> double)
+       │
+       ├── Yes ──► Match Found! Emits direct bytecode call.
+       │
+       └── No
+           ▼
+[ Phase 2: Autoboxing / Unboxing Allowed ]
+Does an overload match allowing Boxing or Unboxing (NO Varargs)?
+(e.g., int -> Integer)
+           │
+           ├── Yes ──► Match Found! Emits boxing + method call.
+           │
+           └── No
+               ▼
+[ Phase 3: Variable-Arity (Varargs) Allowed ]
+Does an overload match allowing Varargs packaging?
+(e.g., int -> int...)
+               │
+               ├── Yes ──► Match Found! Allocates array & calls varargs.
+               │
+               └── No  ──► COMPILE ERROR: Cannot resolve method.
 ```
 
-## Overloading vs overriding
+### Varargs Mechanics (`Type...`)
+1. **Positioning Rule:** A varargs parameter must be the **last** parameter in the parameter list.
+2. **Cardinality Rule:** A method can have at most **one** varargs parameter.
+3. **Array Desugaring:** At compile time, `Type... args` is desugared directly into `Type[] args`.
+4. **Call Versatility:** Callers can supply zero arguments, one argument, a comma-separated list of arguments, or pass an existing array directly.
 
-| | Overloading | Overriding |
-|---|-------------|-----------|
-| Where | Same class (or inherited) | Subclass redefines a parent method |
-| Signature | Different parameters | Same signature |
-| Resolved | **Compile time**, by static argument types | **Runtime**, by the actual object type |
-| Also called | Static / compile-time polymorphism | Dynamic polymorphism |
+---
 
-```java
-static void print(Object o) { System.out.println("Object"); }
-static void print(String s) { System.out.println("String"); }
+## 3. How It Works Internally
 
-Object o = "hello";
-print(o);            // Object: chosen by the static type Object, not the runtime String
-print("hello");      // String
+### Static Compile-Time Binding vs. Dynamic Runtime Dispatch
+
+```
+                     Method Resolution in Java
+                                │
+                 ┌──────────────┴──────────────┐
+                 ▼                             ▼
+       [ Method Overloading ]        [ Method Overriding ]
+         Compile-Time Binding          Runtime Dynamic Dispatch
+         Resolved by compiler via      Resolved by JVM at runtime
+         STATIC reference types.       via object VTABLE header.
+         Emits exact bytecode sig.     Achieves true polymorphism.
 ```
 
-Overriding is covered in [04-oop/06_inheritance.md](../04-oop/06_inheritance.md) and [07_polymorphism.md](../04-oop/07_polymorphism.md).
-
-## How the compiler chooses: three phases
-
-The compiler tries each phase in order and stops at the first one that finds an applicable method:
-
-| Phase | Allowed conversions |
-|-------|---------------------|
-| 1 | Exact match and **widening** (`int → long → double`, subtype); **no** boxing, **no** varargs |
-| 2 | Phase 1 plus **boxing/unboxing** |
-| 3 | Phase 2 plus **varargs** |
-
-If several methods apply in the same phase, the **most specific** wins. If none is most specific, it is a compile error (ambiguous).
-
-### Examples
-
-```java
-static void m(long x)    { System.out.println("long"); }
-static void m(Integer x) { System.out.println("Integer"); }
-static void m(Object x)  { System.out.println("Object"); }
-static void m(int... x)  { System.out.println("varargs"); }
-
-m(5);    // long: phase 1 (widening) beats boxing
+Overloading is **static**: `javac` examines the declared static reference type of the arguments at compile time and hardcodes the selected method descriptor into the class constant pool:
+```text
+invokevirtual #7 // Method print:(Ljava/lang/String;)V
 ```
+Even if the actual runtime object passed is a subclass, the overload decision made at compile time is permanent and immutable.
 
-Remove `m(long)`:
-
+### Varargs Heap Allocation Mechanics
+When you invoke a varargs method:
 ```java
-m(5);    // Integer: phase 2 (box to Integer); Integer is more specific than Object
+public static int sum(int... numbers) { ... }
+sum(10, 20, 30);
 ```
-
-Remove `m(Integer)` too:
-
+`javac` desugars the call into:
 ```java
-m(5);    // Object: phase 2 (box, then widen to Object) beats varargs
+sum(new int[]{ 10, 20, 30 });
 ```
+- Every invocation of a varargs method allocates a **new array object on the heap**.
+- If called millions of times inside a loop, varargs generates substantial garbage collection churn unless mitigated by targeted overloads.
 
-Remove `m(Object)`:
+---
 
+## 4. Syntax & Usage
+
+### Varargs Declaration Syntax
 ```java
-m(5);    // varargs: only phase 3 applies
-```
-
-### Primitives and widening
-
-```java
-static void p(int x)    { System.out.println("int"); }
-static void p(long x)   { System.out.println("long"); }
-static void p(double x) { System.out.println("double"); }
-
-byte b = 1;  short s = 2;  char c = 'a';
-p(b);        // int    (byte widens to int: the closest match)
-p(s);        // int
-p(c);        // int    (char → int)
-p(3L);       // long
-p(3.0f);     // double (float → double)
-```
-
-The closest widening wins: `int` is more specific than `long`, which is more specific than `double`. If `p(char)` also existed, `p('a')` would call it.
-
-### `null` arguments
-
-```java
-static void f(Object o) { System.out.println("Object"); }
-static void f(String s) { System.out.println("String"); }
-f(null);                     // String: String is more specific than Object
-
-static void g(String s)  { }
-static void g(Integer i) { }
-g(null);                     // ERROR: reference to g is ambiguous
-g((String) null);            // OK: cast picks one
-```
-
-### Overloading with `remove`
-
-```java
-List<Integer> list = new ArrayList<>(List.of(10, 20, 30));
-list.remove(1);                     // remove(int index) → removes 20
-list.remove(Integer.valueOf(10));   // remove(Object)    → removes the value 10
-```
-
-See [wrappers](../01-fundamentals/04_wrapper-classes-and-autoboxing.md).
-
-## Varargs
-
-```java
-static int sum(int... nums) {
-    int total = 0;
-    for (int n : nums) total += n;
-    return total;
+// Standard varargs method:
+public static void log(String level, String format, Object... args) {
+    String message = String.format(format, args);
+    System.out.printf("[%s] %s%n", level, message);
 }
-
-sum();                 // 0   (zero arguments allowed)
-sum(5);                // 5
-sum(1, 2, 3);          // 6
-sum(new int[]{4, 5});  // 9   (an array can be passed directly)
 ```
 
-Inside the method, `nums` is just an **array** (`int[]`); the compiler creates it at the call site.
-
-| Rule | Detail |
-|------|--------|
-| Syntax | `Type... name` |
-| Position | Must be the **last** parameter |
-| Count | At most **one** varargs parameter per method |
-| Zero arguments | Allowed: the array is empty (not `null`) |
-| Passing `null` | `sum((int[]) null)` gives a `null` array; avoid |
-
-```java
-static String join(String sep, String... parts) {     // OK
-    return String.join(sep, parts);
-}
-static void bad(int... a, String s) { }               // ERROR: varargs must be last
-```
-
-Familiar varargs methods: `String.format(fmt, args...)`, `System.out.printf`, `Arrays.asList(T...)`, `List.of(E...)`, `Path.of(first, more...)`.
-
-### Requiring at least one argument
-
-```java
-static int max(int first, int... rest) {
-    int m = first;
-    for (int n : rest) if (n > m) m = n;
-    return m;
-}
-max();         // compile error: good
-max(7);        // 7
-max(3, 9, 4);  // 9
-```
-
-### Varargs ambiguity
-
-```java
-static void f(int... a)       { System.out.println("A"); }
-static void f(int a, int... b){ System.out.println("B"); }
-f(1);          // ERROR: ambiguous
-f();           // A
-```
-
-A method with fixed arity is always preferred to varargs (phases 1 and 2 before phase 3):
-
-```java
-static void h(int a, int b) { System.out.println("fixed"); }
-static void h(int... a)     { System.out.println("varargs"); }
-h(1, 2);       // fixed
-h(1, 2, 3);    // varargs
-```
-
-### Varargs and generics
+### The `@SafeVarargs` Annotation
+When combining varargs with generic types (`T... args`), the compiler creates an array of generic types (`new T[]`), which can lead to **Heap Pollution** (storing an incompatible object into the array).
+If you know your method does not store into the array or leak its reference, annotate it with `@SafeVarargs` (applicable only to `static`, `final`, or `private` methods):
 
 ```java
 @SafeVarargs
-static <T> List<T> listOf(T... items) {          // generic array creation warning without the annotation
-    return new ArrayList<>(Arrays.asList(items));
+public static <T> List<T> createList(T... elements) {
+    List<T> list = new ArrayList<>(elements.length);
+    for (T element : elements) {
+        list.add(element);
+    }
+    return list;
 }
 ```
 
-Generic varargs create an array of a non-reifiable type (**heap pollution** risk). Use `@SafeVarargs` only when the method does not store or expose the array ([07-generics/03_type-erasure.md](../07-generics/03_type-erasure.md)).
+---
 
-### Cost
+## 5. Practical Examples
 
-Every call allocates a new array. For hot paths with a few arguments, provide fixed overloads (`of(a)`, `of(a, b)`, ...). `List.of` does exactly this.
+### Example 1: Three-Phase Overload Resolution Demonstration
+- **Goal:** Verify that the compiler strictly prioritizes Primitive Widening over Autoboxing, and Autoboxing over Varargs.
+```java
+public class OverloadResolutionTest {
+    public static String test(int a) { return "int (exact/primitive widening)"; }
+    public static String test(long a) { return "long (primitive widening)"; }
+    public static String test(Integer a) { return "Integer (autoboxing)"; }
+    public static String test(int... a) { return "int... (varargs)"; }
 
-## Design guidelines
+    public static void main(String[] args) {
+        System.out.println("test(42):          " + test(42));
+        System.out.println("test(42L):         " + test(42L));
+        System.out.println("test((Integer)42): " + test(Integer.valueOf(42)));
+        System.out.println("test(1, 2):        " + test(1, 2));
+    }
+}
+```
+- **Console Output:**
+```text
+test(42):          int (exact/primitive widening)
+test(42L):         long (primitive widening)
+test((Integer)42): Integer (autoboxing)
+test(1, 2):        int... (varargs)
+```
+- **Explanation:** Calling `test(42)` matches Phase 1 (`int`). Calling `test(42L)` widens to `long`. Explicit `Integer` matches Phase 2. Multiple arguments `test(1, 2)` fall back to Phase 3 (`varargs`).
 
-| Guideline | Why |
-|-----------|-----|
-| Overload only for the **same operation** on different inputs | `print(int)`, `print(String)` |
-| Use different names when the meaning differs | `removeAt(int)` and `remove(Object)` would avoid the list trap |
-| Avoid overloads whose parameter types are related (`Object`/`String`, `int`/`Integer`, `long`/`Integer`) | Hard to predict which runs |
-| Avoid two overloads with the same number of **functional-interface** parameters | Lambda calls become ambiguous (`submit(Runnable)` vs `submit(Callable)`) |
-| Prefer a varargs method over a long list of arity overloads, unless performance matters | Less code |
-| Use overloading to simulate default parameters | See below |
-| Keep behavior of all overloads consistent | Surprises hurt |
+---
 
-### Simulating default arguments
+### Example 2: Ambiguous Method Resolution with `null`
+- **Goal:** Demonstrate the compiler error that occurs when two overloaded methods are equally specific for a `null` argument.
+```java
+public class AmbiguousNullDemo {
+    public static void display(String s) {
+        System.out.println("String overload: " + s);
+    }
+
+    public static void display(Integer i) {
+        System.out.println("Integer overload: " + i);
+    }
+
+    public static void main(String[] args) {
+        // COMPILE ERROR if uncommented:
+        // display(null); // error: reference to display is ambiguous
+        // Both String and Integer accept null, and neither inherits from the other!
+
+        // RESOLUTION: Explicit cast resolves ambiguity
+        display((String) null);
+        display((Integer) null);
+    }
+}
+```
+- **Console Output:**
+```text
+String overload: null
+Integer overload: null
+```
+- **Explanation:** Under JLS §15.12.2.5 (Most Specific Method), `String` and `Integer` are peer types in the hierarchy. Neither is more specific than the other, forcing the compiler to reject `display(null)` as ambiguous unless disambiguated with an explicit cast.
+
+---
+
+### Example 3: Varargs Calling Flexibility (Zero Arguments vs Array Reuse)
+- **Goal:** Demonstrate calling a varargs method with zero arguments, multiple values, or an existing pre-allocated array.
+```java
+public class VarargsFlexibilityDemo {
+    public static int sum(int base, int... numbers) {
+        int total = base;
+        for (int n : numbers) {
+            total += n;
+        }
+        return total;
+    }
+
+    public static void main(String[] args) {
+        // 1. Zero varargs passed: numbers becomes an empty array int[0]
+        System.out.println("Zero varargs:    " + sum(100)); // 100
+
+        // 2. Comma-separated values: JVM creates new int[]{1, 2, 3}
+        System.out.println("Multiple values: " + sum(100, 1, 2, 3)); // 106
+
+        // 3. Pre-allocated array: JVM reuses array without allocating a new one
+        int[] cached = { 5, 10, 15 };
+        System.out.println("Passed array:    " + sum(100, cached)); // 130
+    }
+}
+```
+- **Console Output:**
+```text
+Zero varargs:    100
+Multiple values: 106
+Passed array:    130
+```
+- **Explanation:** Passing zero varargs arguments instantiates a zero-length array. Passing an existing array bypasses array allocation entirely, passing the existing reference.
+
+---
+
+### Example 4: Failure Case — The Primitive Array in `Arrays.asList()` Trap
+- **Goal:** Demonstrate the classic production bug where passing a primitive array (`int[]`) to a generic varargs method treats the entire array as a single object!
+```java
+import java.util.Arrays;
+import java.util.List;
+
+public class PrimitiveVarargsTrap {
+    public static void main(String[] args) {
+        int[] primitiveArray = { 1, 2, 3, 4, 5 };
+
+        // TRAP: Arrays.asList accepts <T>... a (Object array).
+        // A primitive 'int[]' cannot be converted to 'Integer[]'.
+        // Therefore, the JVM infers T = int[], treating the ENTIRE array as element 0!
+        List<int[]> trappedList = Arrays.asList(primitiveArray);
+
+        System.out.println("List size: " + trappedList.size()); // 1, NOT 5!
+        System.out.println("Element 0 type: " + trappedList.get(0).getClass().getSimpleName());
+
+        // CORRECT FIX (Java 8+): Use Arrays.stream() or boxed array
+        Integer[] boxedArray = { 1, 2, 3, 4, 5 };
+        List<Integer> correctList = Arrays.asList(boxedArray);
+        System.out.println("Correct list size: " + correctList.size()); // 5
+    }
+}
+```
+- **Console Output:**
+```text
+List size: 1
+Element 0 type: int[]
+Correct list size: 5
+```
+- **Explanation:** Because generic type parameters cannot bind to primitive types, `Arrays.asList(int[])` treats the `int[]` object as a single argument of type `Object`, producing a `List<int[]>` of length 1!
+
+---
+
+### Example 5: High-Performance / Modern Idiom — Overload Optimization Pattern
+- **Goal:** Avoid varargs array allocation overhead in high-throughput APIs (used heavily in `List.of()` and Log4j2).
+```java
+public class OptimizedVarargsPattern {
+    // Fast path: Zero allocations for 1, 2, or 3 arguments
+    public static void process(String a) {
+        execute(a);
+    }
+
+    public static void process(String a, String b) {
+        execute(a); execute(b);
+    }
+
+    public static void process(String a, String b, String c) {
+        execute(a); execute(b); execute(c);
+    }
+
+    // Fallback path: Only allocates array when caller supplies 4 or more arguments
+    public static void process(String a, String b, String c, String... others) {
+        execute(a); execute(b); execute(c);
+        for (String s : others) execute(s);
+    }
+
+    private static void execute(String item) {
+        // simulated low-latency handler
+    }
+
+    public static void main(String[] args) {
+        // High-frequency calls use exact overloads, generating ZERO garbage:
+        process("Alpha");
+        process("Alpha", "Beta");
+        process("Alpha", "Beta", "Gamma");
+        System.out.println("Fast path executed with zero heap allocation.");
+    }
+}
+```
+- **Console Output:**
+```text
+Fast path executed with zero heap allocation.
+```
+- **Explanation:** In the JDK standard library, `List.of()` provides overloads for 0 through 10 parameters (`List.of(E e1)`, `List.of(E e1, E e2)`, etc.) before falling back to `List.of(E... elements)`. This prevents millions of ephemeral array allocations in common workflows.
+
+---
+
+## 6. Best Practices
+
+1. **Avoid Overloads with the Same Number of Parameters and Primitive Subtypes:** Do not declare `foo(int)` and `foo(short)` in the same class. Callers passing literals or expressions will constantly struggle with unintended type promotions.
+2. **Require at Least One Mandatory Parameter in Varargs:** If a method requires at least one argument, declare it as `foo(T first, T... rest)` rather than `foo(T... all)`. This enforces at compile time that the caller cannot pass zero arguments!
+3. **Use the Fast-Path Overload Pattern for Hot APIs:** For high-throughput services, provide dedicated overloads for 1, 2, and 3 parameters to spare the garbage collector from array allocation churn.
+4. **Always Annotate Generic Varargs with `@SafeVarargs`:** If a method accepts `T...` and does not store incompatible elements into the array or leak the array reference, add `@SafeVarargs` to suppress compiler warnings for callers.
+5. **Never Overload Methods Where Parameters Differ Only by `Object` vs `Interface`:** Causes ambiguity when callers pass instances that implement the interface.
+
+---
+
+## 7. Common Mistakes & Pitfalls
+
+| Mistake | Why It Fails | Practical Remedy |
+| :--- | :--- | :--- |
+| **Passing Primitive Array to `Arrays.asList()`** | Produces a `List<int[]>` of length 1 instead of a list of elements. | Use `IntStream.of(arr).boxed().toList()` or use boxed `Integer[]`. |
+| **Ambiguous Method Call on `null`** | Two peer reference types both match `null` with equal specificity. | Cast the argument explicitly: `foo((String) null)`. |
+| **Placing Varargs Parameter First** | Syntax error; varargs must be the final parameter in the formal parameter list. | Move varargs to the end: `foo(int id, String... tags)`. |
+| **Declaring Multiple Varargs in One Method** | Grammar error; a method can have at most one varargs parameter. | Use arrays or collections for multiple variable-length parameters. |
+| **Assuming Overload Resolution is Dynamic** | Overloads are selected at compile time based on static reference types, not runtime types. | Use method overriding (polymorphism) for dynamic dispatch. |
+| **Modifying Varargs Array Received from Callers** | If the caller passed an existing array (`foo(myArray)`), mutating the varargs array mutates the caller's array! | Make a defensive copy if the array must be modified. |
+
+---
+
+## 8. Performance & Security Notes
+
+### Heap Allocation of Varargs Arrays
+Every invocation of `method(a, b, c)` desugars into `new Object[]{ a, b, c }`. In performance-critical microservice loops, this can result in gigabytes of short-lived heap allocations per minute. Always use fast-path overloads (1, 2, 3 parameters) in hot code paths.
+
+### Security Invariants: Heap Pollution via Generic Varargs
+Because Java implements Generics via Type Erasure, arrays of generic types cannot be reified. When `javac` compiles:
+```java
+public static <T> void addToList(List<T> list, T... elements)
+```
+The parameter `elements` is physically compiled into `Object[] elements`. If malicious or broken code casts this `Object[]` to `String[]` and stores an `Integer`, the JVM will throw a hidden `ClassCastException` in code that contains no visible casts. Mark methods with `@SafeVarargs` only after rigorously proving the method is memory-safe.
+
+---
+
+## 9. Comparison / When to Use What
+
+| Feature / Dimension | Method Overloading | Method Overriding |
+| :--- | :--- | :--- |
+| **Resolution Timing** | **Compile Time** (Static binding by `javac`) | **Runtime** (Dynamic dispatch by JVM vtable) |
+| **Location** | Same class (or inherited into same class) | Subclass overriding parent class method |
+| **Method Signature** | **Must be different** (different parameter types/count) | **Must be identical** (same name and parameters) |
+| **Return Type** | Can be identical or completely different | Must be identical or covariant (subtype) |
+| **Access Modifiers** | Can be anything | Cannot reduce visibility (e.g., cannot make public private) |
+| **Checked Exceptions** | Can declare any exceptions independently | Cannot declare new or broader checked exceptions |
+| **Purpose** | Readability and syntactic convenience | Polymorphic behavior and extensible design |
+
+---
+
+## 10. Interview Questions
+
+<details>
+<summary><strong>1. What are the three phases of method overload resolution specified by JLS §15.12.2?</strong></summary>
+
+**Answer:**  
+To determine the applicable method overload, the Java compiler executes three distinct phases in order:
+1. **Phase 1 (Strict Invocation):** Searches for matching methods using subtyping and primitive widening only, without permitting autoboxing, auto-unboxing, or variable-arity (varargs) invocations.
+2. **Phase 2 (Loose Invocation):** Searches for matching methods allowing autoboxing and auto-unboxing, but still strictly disallowing varargs.
+3. **Phase 3 (Variable-Arity Invocation):** Searches for matching methods allowing variable-arity (varargs) parameter packaging.
+The compiler stops as soon as a phase finds one or more applicable methods.
+</details>
+
+<details>
+<summary><strong>2. Why does the compiler prioritize primitive widening over autoboxing in overload resolution?</strong></summary>
+
+**Answer:**  
+Backward compatibility. Java introduced primitive widening in Java 1.0, while autoboxing was added in Java 5. If a class declared `foo(long)` in Java 1.0, and a developer upgraded to Java 5 where `foo(Integer)` was added, calling `foo(42)` had to continue invoking `foo(long)` to ensure existing legacy applications did not change behavior upon recompilation.
+</details>
+
+<details>
+<summary><strong>3. What is the "Most Specific Method" rule, and when does it cause a compile-time ambiguity error?</strong></summary>
+
+**Answer:**  
+If multiple overloaded methods are applicable at the end of a resolution phase, the compiler selects the **most specific method**: method $M_1$ is more specific than $M_2$ if any invocation that can be handled by $M_1$ could also be passed to $M_2$ without compile errors (i.e., $M_1$'s parameter types are subtypes of $M_2$'s parameter types). If neither method is more specific than the other (e.g., `foo(String, Object)` vs `foo(Object, String)` called with `foo(null, null)`), the compiler cannot decide and reports an ambiguity error.
+</details>
+
+<details>
+<summary><strong>4. How is a varargs parameter desugared by the Java compiler?</strong></summary>
+
+**Answer:**  
+At the method declaration level, `Type... args` is desugared directly into `Type[] args` in the compiled class bytecode. At the call site, if the caller provides zero or more arguments of type `Type`, the compiler inserts bytecode that allocates a new array: `new Type[]{ arg1, arg2 }` and passes that array reference to the method. If the caller passes an existing `Type[]` array directly, the compiler passes the array as-is without creating a wrapper.
+</details>
+
+<details>
+<summary><strong>5. What is "Heap Pollution", and why does `@SafeVarargs` exist?</strong></summary>
+
+**Answer:**  
+Heap pollution occurs when a variable of a parameterized type references an object that is not of that type. Because generic array creation is forbidden in Java due to type erasure, declaring a generic varargs method (`<T> void foo(T... args)`) forces the compiler to create an `Object[]` array. If the method writes an incompatible type into that array or exposes the array reference to external code, a `ClassCastException` will occur at runtime. `@SafeVarargs` is an assertion by the developer that the method does not pollute the heap, suppressing the compiler's safety warning.
+</details>
+
+<details>
+<summary><strong>6. Can two methods be overloaded if they differ only in their return types? Why or why not?</strong></summary>
+
+**Answer:**  
+No. In Java, callers can invoke a method as a statement without capturing its return value (e.g., `calculate();`). If two methods had identical names and parameter lists but different return types (`int calculate()` vs `void calculate()`), the compiler would have no way to determine which method the caller intended to execute, creating an unsolvable ambiguity.
+</details>
+
+<details>
+<summary><strong>7. Why does `Arrays.asList(new int[]{1, 2, 3}).size()` return `1` instead of `3`?</strong></summary>
+
+**Answer:**  
+`Arrays.asList` is declared as `<T> List<T> asList(T... a)`. Generics can only bind to reference types extending `Object`. A primitive array `int[]` is a single `Object`, but it is **not** an `Object[]`. Therefore, the compiler cannot unpack the primitive array; it binds `T = int[]`, treating the entire `int[]` array as a single argument. It creates a `List<int[]>` containing exactly one element (the array itself).
+</details>
+
+<details>
+<summary><strong>8. How does the JDK standard library optimize `List.of()` against varargs allocation overhead?</strong></summary>
+
+**Answer:**  
+In Java 9+, `List.of()` defines eleven distinct overloaded methods:
+`List.of()`, `List.of(E e1)`, `List.of(E e1, E e2)`, ..., up to `List.of(E e1, ..., E e10)`, before finally offering the varargs fallback `List.of(E... elements)`. Since the vast majority of immutable lists are created with 1 to 10 elements, the compiler matches the fixed-parameter overloads, completely avoiding the temporary array allocation required by varargs.
+</details>
+
+---
+
+## 11. Practice Exercises
+
+### Exercise 1: Predicting Overload Resolution Output (Easy)
+- **Task:** Trace which overloaded method will be invoked for each call below:
+```java
+public class OverloadPuzzle {
+    static void test(Object o)  { System.out.println("Object"); }
+    static void test(String s)  { System.out.println("String"); }
+    static void test(Integer i) { System.out.println("Integer"); }
+
+    public static void main(String[] args) {
+        test("Hello");
+        test(42);
+        // test(null); // What happens if this line is compiled?
+    }
+}
+```
+<details>
+<summary>Solution</summary>
+
+- `test("Hello")` prints **String** (exact type match).
+- `test(42)` boxes `42` to `Integer`, printing **Integer** (matches Phase 2 autoboxing).
+- `test(null)` fails compilation with: `reference to test is ambiguous`. Both `String` and `Integer` are equally specific subtypes of `Object`.
+</details>
+
+### Exercise 2: Enforcing Mandatory Arguments in Varargs (Medium)
+- **Task:** Write a method `int findMin(int first, int... rest)` that finds the minimum value among a list of integers, ensuring through its method signature that calling `findMin()` with zero arguments is a compile-time error.
+<details>
+<summary>Solution</summary>
 
 ```java
-static void connect(String host, int port, int timeoutMs) { ... }
-static void connect(String host, int port) { connect(host, port, 5000); }
-static void connect(String host)           { connect(host, 80); }
+public class MandatoryVarargs {
+    public static int findMin(int first, int... rest) {
+        int min = first;
+        for (int n : rest) {
+            if (n < min) {
+                min = n;
+            }
+        }
+        return min;
+    }
+
+    public static void main(String[] args) {
+        System.out.println("Min: " + findMin(42));             // 42
+        System.out.println("Min: " + findMin(10, 5, 20, 3));   // 3
+        // findMin(); // COMPILE ERROR: Requires at least 1 int argument!
+    }
+}
 ```
+</details>
 
-All overloads funnel into one implementation. Constructors do the same with `this(...)` ([04-oop/01_constructors.md](../04-oop/01_constructors.md)).
-
-## Predict the output
+### Exercise 3: Safe Generic Varargs Flattener (Hard)
+- **Task:** Implement a safe generic method `@SafeVarargs public static <T> List<T> flatten(List<T>... lists)` that combines multiple lists into a single unmodifiable `List<T>`, ensuring no heap pollution occurs.
+<details>
+<summary>Solution</summary>
 
 ```java
-static void show(double d)  { System.out.println("double"); }
-static void show(Integer i) { System.out.println("Integer"); }
-static void show(Object o)  { System.out.println("Object"); }
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
-show(1);          // ?
-show(1L);         // ?
-show('a');        // ?
-show("x");        // ?
+public class GenericFlattener {
+    @SafeVarargs
+    public static <T> List<T> flatten(List<T>... lists) {
+        if (lists == null || lists.length == 0) {
+            return Collections.emptyList();
+        }
+
+        List<T> result = new ArrayList<>();
+        for (List<T> list : lists) {
+            if (list != null) {
+                result.addAll(list);
+            }
+        }
+        return Collections.unmodifiableList(result);
+    }
+
+    public static void main(String[] args) {
+        var l1 = List.of("A", "B");
+        var l2 = List.of("C", "D");
+        var l3 = List.of("E");
+
+        List<String> combined = flatten(l1, l2, l3);
+        System.out.println("Combined: " + combined); // [A, B, C, D, E]
+    }
+}
 ```
+</details>
 
-Answers: `double` (widening beats boxing), `double` (long widens to double), `double` (char widens to double), `Object`.
+---
 
-## Common mistakes
+## 12. Summary / Cheat Sheet
 
-| Mistake | Symptom | Fix |
-|---------|---------|-----|
-| Overloading by return type only | `already defined` | Change the parameters or the name |
-| Expecting runtime-type dispatch for overloads | The `Object` version runs | Overloads use **static** types; use overriding or `instanceof` |
-| Passing `null` to overloaded methods | `ambiguous` | Cast the argument |
-| Mixing `int` and `Integer`/`Object` overloads | Surprising choice | Rename the methods |
-| Varargs not in last position | Compile error | Move it to the end |
-| Two ambiguous varargs overloads | `reference is ambiguous` | Make one fixed-arity or rename |
-| `varargs` called with a single `null` | `null` array or a warning | Pass an empty array or cast |
-| Modifying the varargs array | May affect the array you passed in | Copy first |
-| Varargs in hot loops | Extra allocations | Add fixed-arity overloads |
-| Generic varargs without `@SafeVarargs` | Unchecked warnings, possible heap pollution | Avoid, or annotate when safe |
+- **Valid Overloads:** Same name, different parameter types, count, or order. Changing only the return type is illegal.
+- **Three-Phase Resolution:**
+  1. Primitive Widening (no boxing, no varargs).
+  2. Autoboxing / Unboxing (no varargs).
+  3. Varargs packaging.
+- **Ambiguity:** Occurs when two applicable overloads are equally specific for the supplied arguments (e.g., `null`).
+- **Varargs Rules:** Must be last parameter; at most one varargs parameter per method; desugars into `Type[]`.
+- **Varargs Heap Cost:** Calling varargs allocates a new heap array; use fixed-parameter overloads (1, 2, 3 args) for performance-critical APIs.
+- **Safety:** Use `@SafeVarargs` on static/final/private methods to suppress heap pollution warnings when using generic varargs.
 
-## Key takeaways
+---
 
-- Overloads differ in parameter lists, never only in return type
-- The compiler chooses at compile time: exact/widening, then boxing, then varargs; the most specific match wins
-- Overloading uses the static type; overriding uses the runtime type
-- Varargs is an array in disguise; it must be the last parameter, and zero arguments are allowed
-- Avoid clever overload sets; use different names when the meaning differs
+## 13. Further Reading
 
-**Next:** [Recursion](./03_recursion.md)
+- [The Java Language Specification (Java SE 25 Edition) - Chapter 15.12.2: Determine Method Signature](https://docs.oracle.com/javase/specs/jls/se25/html/jls-15.html#jls-15.12.2)
+- [JEP 110: Safe Varargs Annotation](https://openjdk.org/jeps/110)
+- [Effective Java (3rd Edition) - Item 52: Use overloading judiciously](https://www.oreilly.com/library/view/effective-java-3rd/9780134686097/)
+- [Effective Java (3rd Edition) - Item 53: Use varargs judiciously](https://www.oreilly.com/library/view/effective-java-3rd/9780134686097/)
+
+---
+
+| [← Previous: 01_pass-by-value.md](file:///E:/Learning/engineering-notes/01-languages/java/02-methods/01_pass-by-value.md) | [Section Index](file:///E:/Learning/engineering-notes/01-languages/java/02-methods/README.md) | [Next: 03_recursion.md](file:///E:/Learning/engineering-notes/01-languages/java/02-methods/03_recursion.md) → |
