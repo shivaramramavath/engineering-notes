@@ -26,13 +26,13 @@
 - [x] `00-setup/02-editor-setup.md` (Done)
 - [x] `00-setup/03-compilation-process.md` (Done)
 - [x] `00-setup/04-first-program.md` (Done)
-- [ ] `00-setup/05-c-standards-history.md` (Not started)
-- [ ] `00-setup/06-debugging-with-gdb.md` (Not started)
-- [ ] `00-setup/07-makefile-basics.md` (Not started)
-- [ ] `00-setup/08-compiler-flags-and-warnings.md` (Not started)
-- [ ] `00-setup/09-reading-assembly-godbolt.md` (Not started)
-- [ ] `00-setup/10-c-project-layout.md` (Not started)
-- [ ] `00-setup/11-headers-and-include-guards-intro.md` (Not started)
+- [x] `00-setup/05-c-standards-history.md` (Done)
+- [x] `00-setup/06-debugging-with-gdb.md` (Done)
+- [x] `00-setup/07-makefile-basics.md` (Done)
+- [x] `00-setup/08-compiler-flags-and-warnings.md` (Done)
+- [x] `00-setup/09-reading-assembly-godbolt.md` (Done)
+- [x] `00-setup/10-c-project-layout.md` (Done)
+- [x] `00-setup/11-headers-and-include-guards-intro.md` (Done)
 
 ---
 

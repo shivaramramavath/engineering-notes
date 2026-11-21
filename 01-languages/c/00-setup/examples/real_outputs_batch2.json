@@ -1,0 +1,9 @@
+{
+  "05-c-standards-history.c": "=== C Standards Compliance Matrix ===\nActive Standard Macro (__STDC_VERSION__): 201112L\n[C99] For-loop scoped iterator sum: 15\n[C11] Generic selection for 'a' (10): signed int\n[C11] Generic selection for 'b' (3.14): double precision float\n[C11/C17 Baseline] Stable LTS configuration verified\n",
+  "06-debugging-with-gdb.c": "=== GDB Debugging Target Program ===\nTracing call stack for factorial calculation...\nFactorial of 5 is 120\n",
+  "07-makefile-basics.c": "=== Makefile Target Execution ===\nResult of 6 * 7 = 42\n",
+  "08-compiler-flags-and-warnings.c": "=== Compiler Flags & Warning Hygiene Demo ===\nCalculated checksum: 160 (0xA0)\n",
+  "09-reading-assembly-godbolt.c": "=== Assembly Translation Target ===\nadd_and_scale(3, 5) = 32\n",
+  "10-c-project-layout.c": "=== Modular Project Architecture Demo ===\nSubsystem [ID: 1, Module: NetworkingEngine] initialized.\n",
+  "11-headers-and-include-guards-intro.c": "=== Idempotent Header Guard Demonstration ===\nEngine API Version: 2.1\n"
+}

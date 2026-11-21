@@ -44,3 +44,51 @@ All modifications, error fixes, technical corrections, and structural extensions
   - Highlighted C23 change: empty parameter list `int main()` is now strictly equivalent to `(void)`.
   - Added `<details>` interview questions (program exit codes, `atexit()`) and exercises with solutions.
   - Linked to compilable example `examples/04-first-program.c`.
+
+---
+
+## Batch 2: Module 00 Setup Complete (Notes 05–11 + Updated Module README)
+- **`00-setup/README.md`**: Updated with full 11-note roadmap, outcomes, and cross-module navigation to Module 01.
+- **`00-setup/05-c-standards-history.md`**:
+  - Rewritten from 94 lines to 453 lines, adhering strictly to the 13 required sections.
+  - Added standards timeline from K&R, C89/C90, C99, C11, C17, to C23 (`ISO/IEC 9899:2024`).
+  - Added preprocessor detection macros (`__STDC_VERSION__`), C11 `_Generic`, C23 native keywords (`nullptr`, `bool`, `constexpr`, `typeof`, `[[attributes]]`).
+  - Added compilation example and real output verification from `examples/05-c-standards-history.c`.
+  - Added 6-row common pitfalls table, 8 interview questions, and 3 practice exercises with full solutions.
+- **`00-setup/06-debugging-with-gdb.md`**:
+  - Authored complete 433-line deep dive into GDB debugging.
+  - Detailed internal mechanism of software breakpoints (`INT 3` opcode injection) vs hardware watchpoints (x86 `DR0`-`DR7` registers).
+  - Detailed DWARF symbol formats, core dump generation and post-mortem backtracing (`bt full`).
+  - Added compilation example and real output verification from `examples/06-debugging-with-gdb.c`.
+  - Added 6-row common pitfalls table, 8 interview questions, and 3 practice exercises with full solutions.
+- **`00-setup/07-makefile-basics.md`**:
+  - Authored complete 415-line guide to GNU Make in C environments.
+  - Detailed dependency DAGs, timestamp comparison algorithm, subshell execution rules, and automatic variables (`$@`, `$<`, `$^`).
+  - Detailed automated header dependency tracking using `-MMD -MP` and `-include $(DEPS)`.
+  - Added compilation example and real output verification from `examples/07-makefile-basics.c`.
+  - Added 6-row common pitfalls table, 8 interview questions, and 3 practice exercises with full solutions.
+- **`00-setup/08-compiler-flags-and-warnings.md`**:
+  - Authored complete 402-line reference for GCC/Clang warning hygiene and compiler flags.
+  - Detailed warning tiers (`-Wall`, `-Wextra`, `-Wpedantic`, `-Wconversion`, `-Wsign-conversion`, `-Wshadow`, `-Werror`).
+  - Detailed optimizer transformations (`-O0` to `-O3`, `-Os`, `-Og`), strict aliasing analysis (TBAA), SSA form, and security hardening flags (`-fstack-protector-strong`, `-D_FORTIFY_SOURCE=2`, `-fPIE -pie`, `-Wl,-z,relro,-z,now`).
+  - Added compilation example and real output verification from `examples/08-compiler-flags-and-warnings.c`.
+  - Added 7-row common pitfalls table, 10 interview questions, and 3 practice exercises with full solutions.
+- **`00-setup/09-reading-assembly-godbolt.md`**:
+  - Authored complete 400-line engineer's guide to x86-64 assembly and Compiler Explorer.
+  - Detailed x86-64 register hierarchy, System V AMD64 ABI vs Microsoft x64 ABI, stack frame anatomy, and the 128-byte Red Zone.
+  - Detailed SIMD vector extensions (SSE, AVX, AVX-512), `lea` arithmetic decomposition, `cmov` branchless idioms, and Tail Call Optimization.
+  - Added compilation example and real output verification from `examples/09-reading-assembly-godbolt.c`.
+  - Added 7-row common pitfalls table, 12 interview questions, and 3 practice exercises with full solutions.
+- **`00-setup/10-c-project-layout.md`**:
+  - Authored complete 468-line guide to scalable modular C repository architecture.
+  - Detailed separation of public API headers (`include/<project>/`) from private implementation headers (`src/`).
+  - Detailed the Opaque Pointer (PIMPL) encapsulation pattern for ABI stability, out-of-tree object builds (`build/obj/`), static archives (`.a`), and shared objects (`.so`) with symbol visibility hardening (`-fvisibility=hidden`).
+  - Added compilation example and real output verification from `examples/10-c-project-layout.c`.
+  - Added 6-row common pitfalls table, 8 interview questions, and 3 practice exercises with full solutions.
+- **`00-setup/11-headers-and-include-guards-intro.md`**:
+  - Authored complete 448-line guide to C header hygiene and idempotency.
+  - Detailed preprocessor text substitution, the One Definition Rule (ODR), and include guard mechanics.
+  - Compared `#ifndef` guards vs `#pragma once` (portability, symlinks, network drives) and the Include Guard Optimization (IGO) in GCC/Clang.
+  - Detailed forward declarations to prevent circular dependencies, and `extern "C"` wrapper guards for C++ ABI compatibility.
+  - Added compilation example and real output verification from `examples/11-headers-and-include-guards-intro.c`.
+  - Added 6-row common pitfalls table, 8 interview questions, and 3 practice exercises with full solutions.
