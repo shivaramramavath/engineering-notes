@@ -1,65 +1,85 @@
-# 14 - Type System Internals
+# Module 14: Type System Internals and Compiler Extensibility in TypeScript
 
-What TypeScript's types actually are, how the compiler relates them, and where the system is deliberately loose. The earlier sections teach you to *use* types. This one explains *why they behave as they do*: why types disappear at runtime, what "assignable" really means, why `Dog[]` can stand in for `Animal[]`, when a literal widens, where the type system cannot be trusted, and how the compiler is organized.
+Welcome to **Module 14: Type System Internals and Compiler Extensibility in TypeScript**. This module provides a complete, deep-level exploration of TypeScript's internal type-checking engine, subtyping rules, variance mechanics, compiler pipeline phases, and programmatic APIs.
 
-You can write good TypeScript without reading this section. It pays off when you are debugging a confusing error, designing a library's public types, reviewing risky casts, or tracking down slow type-checking.
+---
 
-## Prerequisites
+## Module Overview
 
-- [06 Generics](../06-generics/README.md) and [10 Advanced Types](../10-advanced-types/README.md): variance and inference rely on them
-- [04 Objects and Interfaces: structural typing](../04-objects-and-interfaces/04-structural-typing.md)
-- [13 Compiler and tsconfig](../13-compiler-and-tsconfig/README.md): especially [strict mode](../13-compiler-and-tsconfig/01-strict-mode.md)
+| Note | Title | Level | Core Topics |
+| :--- | :--- | :--- | :--- |
+| **00** | [Type Erasure and Runtime Representation](./00-type-erasure-and-runtime.md) | Advanced | Compile-time vs runtime, syntax downleveling, reflection limits, TC39 erasable syntax |
+| **01** | [Assignability, Subtyping, and Freshness](./01-assignability-and-subtyping.md) | Advanced | Structural subtyping, assignability relation, identity, excess property checks, weak types |
+| **02** | [Variance Mechanics](./02-variance.md) | Advanced | Covariance, contravariance, invariance, method bivariance, TS 4.7 `in`/`out` annotations |
+| **03** | [Type Widening and Contextual Typing](./03-type-widening-and-inference.md) | Advanced | Literal widening, `let` vs `const`, property widening, `as const`, contextual typing |
+| **04** | [Soundness and Escape Hatches](./04-soundness-and-escape-hatches.md) | Advanced | Intentional unsoundness (Non-Goal 3), array covariance, `any`, `unknown`, `as`, `!`, `@ts-expect-error` |
+| **05** | [Compiler Architecture: The 5 Phases](./05-compiler-architecture.md) | Advanced | Scanner -> Parser -> Binder -> Type Checker -> Emitter, AST, Symbols, FlowGraphs |
+| **06** | [TypeScript Compiler API and AST](./06-ast-and-compiler-api.md) | Advanced | `ts.createProgram`, `ts.SourceFile`, visitors, `ts.factory` AST nodes, custom transformers |
+| **07** | [Programmatic AST with ts-morph](./07-ts-morph-and-programmatic-ast-manipulation.md) | Advanced | `ts-morph` Project, wrapped nodes, symbol navigation, automated codemods, code generation |
+| **08** | [Custom Language Service Plugins](./08-writing-a-custom-language-service-plugin.md) | Advanced | TSServer plugin architecture, intercepting diagnostics, autocompletions, hover quick info, quick fixes |
 
-## Notes in this section
+---
 
-| # | Note | Covers |
-|---|---|---|
-| 00 | [Type erasure and runtime](./00-type-erasure-and-runtime.md) | What disappears at compile time, what emits code, why you cannot check types at runtime |
-| 01 | [Assignability and subtyping](./01-assignability-and-subtyping.md) | The compatibility rules, `unknown`/`never`/`any`, freshness, weak types, reading errors |
-| 02 | [Variance](./02-variance.md) | Covariance, contravariance, invariance, bivariance, `in`/`out` annotations |
-| 03 | [Type widening and inference](./03-type-widening-and-inference.md) | `const` vs `let`, literal widening, contextual typing, generic inference, `const` type parameters |
-| 04 | [Soundness and escape hatches](./04-soundness-and-escape-hatches.md) | Where TypeScript is unsound, the escape hatches ranked by safety, containing risk |
-| 05 | [Compiler architecture](./05-compiler-architecture.md) | Scanner, parser, binder, checker, emitter, `Program`, language service, performance tooling |
+## Learning Path
 
-Read 00 to 02 in order. 03 and 04 can follow in either order. 05 is background that explains tooling and performance behavior.
+```
+                    +------------------------------------+
+                    | 00-type-erasure-and-runtime        |
+                    | (Type erasure, TC39 erasable)      |
+                    +-----------------+------------------+
+                                      |
+                                      v
+                    +------------------------------------+
+                    | 01-assignability-and-subtyping     |
+                    | (Structural subtyping, freshness)  |
+                    +-----------------+------------------+
+                                      |
+                                      v
+                    +------------------------------------+
+                    | 02-variance                        |
+                    | (Covariance, contravariance, in/out|
+                    +-----------------+------------------+
+                                      |
+                                      v
+                    +------------------------------------+
+                    | 03-type-widening-and-inference     |
+                    | (Literal widening, contextual type)|
+                    +-----------------+------------------+
+                                      |
+                                      v
+                    +------------------------------------+
+                    | 04-soundness-and-escape-hatches    |
+                    | (Unsound trade-offs, any, unknown) |
+                    +-----------------+------------------+
+                                      |
+                                      v
+                    +------------------------------------+
+                    | 05-compiler-architecture           |
+                    | (Scanner, Parser, Binder, Checker) |
+                    +-----------------+------------------+
+                                      |
+                 +--------------------+--------------------+
+                 |                                         |
+                 v                                         v
++------------------------------------+   +------------------------------------+
+| 06-ast-and-compiler-api            |   | 07-ts-morph-and-programmatic-ast   |
+| (Compiler API, ts.factory, visitors|   | (ts-morph Project, codemods)       |
++----------------+-------------------+   +-----------------+------------------+
+                 |                                         |
+                 +-------------------+---------------------+
+                                     |
+                                     v
+                   +----------------------------------+
+                   | 08-writing-a-custom-plugin       |
+                   | (TSServer language service, IDE) |
+                   +----------------------------------+
+```
 
-## Which note answers my question?
+---
 
-| Question | Go to |
-|---|---|
-| Why can't I use `instanceof` with an interface? | [00](./00-type-erasure-and-runtime.md) |
-| Why does `JSON.parse(...) as User` not protect me? | [00](./00-type-erasure-and-runtime.md) and [04](./04-soundness-and-escape-hatches.md) |
-| Why does this extra property error only sometimes appear? | [01](./01-assignability-and-subtyping.md) (freshness) |
-| What does "Type X is not assignable to type Y" mean, and how do I read it? | [01](./01-assignability-and-subtyping.md) |
-| Why is `Dog[]` assignable to `Animal[]`, but `(d: Dog) => void` is not assignable to `(a: Animal) => void`? | [02](./02-variance.md) |
-| What do `in` and `out` on a type parameter do? | [02](./02-variance.md) |
-| Why is my object property `string`, not `"dark"`? | [03](./03-type-widening-and-inference.md) |
-| Why did a generic infer `unknown` or a weird union? | [03](./03-type-widening-and-inference.md) |
-| What are the risks of `as`, `!`, and `any`? Which one should I use? | [04](./04-soundness-and-escape-hatches.md) |
-| Where can TypeScript's types lie to me? | [04](./04-soundness-and-escape-hatches.md) |
-| Why is type-checking slow, and why is stripping types fast? | [05](./05-compiler-architecture.md) |
-| Why do the editor and `tsc` disagree? | [05](./05-compiler-architecture.md) |
-
-## Ideas that recur across the section
-
-- **Types are erased.** They guide the compiler and vanish in the output. Anything needed at runtime must exist as a value.
-- **Compatibility is structural.** Shape, not name, decides assignability, except for private and protected members.
-- **Direction matters.** Whether `F<Dog>` fits `F<Animal>` depends on how `F` uses its parameter: outputs are covariant, inputs contravariant.
-- **Inference follows rules.** Mutable positions widen literals. Context flows inward. Generic arguments contribute candidates.
-- **Types are claims, not proofs.** Assertions, `any`, declaration files, and external data can all make the types disagree with reality.
-- **Checking is separate from emitting.** The compiler has distinct stages, and many tools use only some of them.
-
-## Related sections
-
-- [03 Unions and Narrowing](../03-unions-and-narrowing/README.md): narrowing is control-flow refinement of declared types
-- [09 Declaration Files](../09-declaration-files/README.md): declarations are unchecked claims about runtime code
-- [10 Advanced Types: branded types](../10-advanced-types/07-branded-types.md): nominal-style typing on top of structural rules
-- [15 Runtime Validation](../15-runtime-validation/README.md): checking the data that types only describe
-- [18 Testing and Debugging: reading type errors](../18-testing-and-debugging/06-reading-type-errors.md)
-- [22 Performance: type-checking performance](../22-performance/00-type-checking-performance.md)
-- [23 Security: unsafe types and assertions](../23-security/00-unsafe-types-and-assertions.md)
-- [27 Interview: type system and runtime](../27-interview/01-type-system-and-runtime.md)
-
-## Next
-
-[15 Runtime Validation](../15-runtime-validation/README.md)
+## Key Best Practices
+1. **Embrace Purely Erasable Syntax**: Avoid `enum`, `namespace`, and constructor parameter properties to ensure compatibility with modern fast runtimes (Node 22, Bun, SWC).
+2. **Beware the Freshness Bypass**: Pass object literals inline to API calls to ensure excess property checks catch typos.
+3. **Use Property Syntax for Callbacks**: Declare callback signatures as properties (`cb: (x: T) => void`) rather than methods to enforce strict contravariant parameter checking.
+4. **Prefer `@ts-expect-error` Over `@ts-ignore`**: Ensure every suppression is justified and fails when the underlying issue is resolved.
+5. **Decouple AST Traversal from Type Checking**: In custom tools, avoid instantiating the heavy `TypeChecker` if pure syntactic analysis is sufficient.

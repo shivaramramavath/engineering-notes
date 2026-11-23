@@ -123,7 +123,7 @@
 - [ ] \`13-compiler-and-tsconfig/\` expansion (composite monorepos, \`--explainFiles\`, \`--generateTrace\`, TS 7 Native Go compiler)
 - [ ] \`14-type-system-internals/\` expansion (Compiler API, ts-morph, language service plugins, codemods)
 
-## Batch 6: Runtime Validation, APIs, Patterns & Testing (Modules 15, 16, 17, 18) (Pending)
+## Batch 6: Runtime Validation, APIs, Patterns & Testing (Modules 15, 16, 17, 18) (NEXT) (Pending)
 - [ ] \`15-runtime-validation/\` expansion (Valibot, ArkType, TypeBox, Zod, JSON schema)
 - [ ] \`16-type-safe-apis/\` expansion (tRPC, OpenAPI/GraphQL codegen, typed routing/WebSockets)
 - [ ] \`17-design-patterns/\` expansion (Command, typed Observer, State with discriminated unions, Visitor, DI Containers, SOLID)

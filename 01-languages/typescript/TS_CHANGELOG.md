@@ -127,3 +127,49 @@
   - `10-deep-keys-and-path-navigation.md` (455 lines - NEW): Exhaustive nested dotted paths (`DeepPaths`), path value extraction (`DeepPathValue`), type-safe lens setters.
   - `11-type-arithmetic-and-tuple-manipulation.md` (354 lines - NEW): Peano number simulation, tuple length arithmetic (`Add`, `Subtract`, `GreaterThan`), tensor dimension verification.
   - Authored comprehensive `10-advanced-types/README.md` (50 lines).
+
+## [Batch 5] - 2026-11-24 - Modules 11, 12, 13, 14 (Error Handling, Async & Iteration, Compiler & tsconfig, Type System Internals)
+
+### Added & Expanded
+- **Module 11: Error Handling** (6 concept notes + README, 3,090 total lines):
+  - `00-catching-and-narrowing-errors.md` (519 lines, 13 sections): `catch (e: unknown)`, `useUnknownInCatchVariables`, prototype narrowing, cross-realm error guards, `Error.cause` chaining.
+  - `01-custom-errors.md` (567 lines, 13 sections): Subclassing `Error`, prototype downleveling (`Object.setPrototypeOf`), nominal branding, `.toJSON()` serialization, V8 stack frame pruning.
+  - `02-result-pattern.md` (473 lines, 13 sections): Discriminated unions, `ok`/`err` constructors, functor `map`, monad `flatMap`, eliminating runtime exceptions, sub-millisecond trading case study.
+  - `03-error-handling-strategies.md` (520 lines, 13 sections): Operational errors vs programmer bugs, global boundaries, fail-fast vs graceful degradation, structured logging, PII sanitization.
+  - `04-neverthrow-and-functional-error-handling.md` (499 lines, 13 sections): `neverthrow` library patterns, `ResultAsync`, `fromPromise`, `fromThrowable`, `safeTry` coroutines, parallel combining.
+  - `05-effect-ts-error-management-and-defects.md` (456 lines, 13 sections): `Effect<A, E, R>`, expected failures vs defects (`die`), `Data.TaggedError`, `catchTag`, `Cause<E>`, fiber recovery.
+  - `README.md` (63 lines): Comprehensive module roadmap, relationship diagram, and architectural principles.
+
+- **Module 12: Asynchronous Programming and Iteration** (8 concept notes + README, 3,964 total lines):
+  - `00-event-loop.md` (505 lines, 13 sections): Event loop mechanics, microtasks vs macrotasks, event loop starvation, cross-environment timer handles, queueMicrotask batching.
+  - `01-promises.md` (459 lines, 13 sections): `Promise<T>`, executor typing, `Promise.all`, `Promise.allSettled`, `Promise.race`, `Promise.any`, AggregateError handling.
+  - `02-async-await.md` (398 lines, 13 sections): `async`/`await`, `Awaited<T>` recursive unwrapping, top-level `await`, floating promises prevention, transactional execution.
+  - `03-async-generics.md` (567 lines, 13 sections): Higher-order async wrappers, in-flight deduplication (thundering-herd prevention), async semaphores, batched queues.
+  - `04-iterators-and-generators.md` (480 lines, 13 sections): `Generator<TYield, TReturn, TNext>`, `AsyncIterable<T>`, `for-await-of`, coroutine state machines, S3 audit streaming.
+  - `05-concurrency-patterns.md` (494 lines, 13 sections): Node.js `worker_threads`, structured cloning, thread pools, `SharedArrayBuffer` with `Atomics` spinlocks.
+  - `06-explicit-resource-management-and-using.md` (484 lines, 13 sections): TypeScript 5.2+ `using` and `await using`, `Disposable`, `AsyncDisposable`, `Symbol.dispose`, `DisposableStack`, `SuppressedError`.
+  - `07-abortsignal-and-cancellation-tokens.md` (491 lines, 13 sections): `AbortController`, `AbortSignal.timeout`, `AbortSignal.any`, `signal.throwIfAborted()`, autocomplete race prevention.
+  - `README.md` (75 lines): Module navigation, flowcharts, and concurrent programming best practices.
+
+- **Module 13: Compiler Internals, tsconfig, and Tooling** (8 concept notes + README, 3,524 total lines):
+  - `00-compiler-options.md` (436 lines, 13 sections): Schema anatomy, `include`/`exclude`, `extends`, emit controls (`noEmit`, `emitDeclarationOnly`), sourcemaps, JSX modes.
+  - `01-strict-mode.md` (399 lines, 13 sections): `"strict": true` family breakdown, pedantic flags (`noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`), portfolio crash case study.
+  - `02-target-module-and-lib.md` (400 lines, 13 sections): Syntax downleveling (`ES2022`), module formats (`NodeNext`, `bundler`, `preserve`), declaration header sets (DOM vs Node).
+  - `03-module-resolution-and-paths.md` (417 lines, 13 sections): `NodeNext` mandatory `.js` extensions, `moduleResolution: "bundler"`, `package.json` `"exports"` and subpath imports (`#`).
+  - `04-project-references-and-incremental-builds.md` (494 lines, 13 sections): `composite: true`, `references: [{ path }]`, `tsc --build`, `.tsbuildinfo` caching, DAG cycle detection.
+  - `05-tsconfig-recipes.md` (481 lines, 13 sections): Production recipes for Node 22 ESM, Vite React 19, Next.js 14/15 App Router, dual-package libraries, monorepo base.
+  - `06-extended-diagnostics-and-generate-trace.md` (395 lines, 13 sections): `--extendedDiagnostics`, `--generateTrace`, Chromium Perfetto flamegraphs, `@typescript/analyze-trace`, Cartesian explosion fixes.
+  - `07-typescript-7-native-go-compiler-tsgo.md` (423 lines, 13 sections): TypeScript 7.0 native Go port (`tsgo`), parallel multi-threaded type checking, 10x-15x performance gains, isolated declarations synergy.
+  - `README.md` (79 lines): Complete compiler module reference, architecture diagrams, and optimization rules.
+
+- **Module 14: Type System Internals and Extensibility** (9 concept notes + README, 4,142 total lines):
+  - `00-type-erasure-and-runtime.md` (438 lines, 13 sections): Type erasure mechanics, compile-time vs runtime, Node 22 `--experimental-strip-types`, TC39 type annotations proposal.
+  - `01-assignability-and-subtyping.md` (423 lines, 13 sections): Structural subtyping, assignability relation, identity, fresh literal excess property checks, weak type rules.
+  - `02-variance.md` (411 lines, 13 sections): Covariance, contravariance, invariance, method bivariance, TS 4.7 explicit variance annotations (`in`/`out`).
+  - `03-type-widening-and-inference.md` (400 lines, 13 sections): Literal widening, `let` vs `const`, property widening, `as const` assertions, top-down contextual typing.
+  - `04-soundness-and-escape-hatches.md` (394 lines, 13 sections): Deliberate non-sound design goals (Non-Goal 3), array covariance holes, escape hatches (`any`, `unknown`, `as`, `!`, `@ts-expect-error`).
+  - `05-compiler-architecture.md` (450 lines, 13 sections): The 5 compilation phases: Scanner -> Parser -> Binder -> Type Checker -> Emitter, AST, Symbols, FlowGraphs.
+  - `06-ast-and-compiler-api.md` (498 lines, 13 sections): Programmatic Compiler API, `ts.createProgram`, `ts.factory` immutable nodes, AST visitors, automated codemod runners.
+  - `07-ts-morph-and-programmatic-ast-manipulation.md` (469 lines, 13 sections): `ts-morph` Project, wrapped nodes, symbol navigation, automated migrations, in-memory testing.
+  - `08-writing-a-custom-language-service-plugin.md` (563 lines, 13 sections): TSServer plugins, intercepting diagnostics, custom autocompletions, hover quick info, quick fixes in VS Code.
+  - `README.md` (86 lines): Module architecture, learning paths, and compiler extensibility best practices.

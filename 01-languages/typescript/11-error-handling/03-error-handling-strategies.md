@@ -1,208 +1,519 @@
-# Error Handling Strategies
+# Error Handling Strategies in TypeScript
 
-The previous notes covered the mechanics: catching, narrowing, custom errors, the `Result` type. This note is about **design**: which errors to expect, where to handle them, what to log, what to show users, and how to keep a system that fails gracefully instead of mysteriously.
+> Architectural guide to architecting resilient TypeScript systems: distinguishing domain errors from system defects, error boundaries, fail-fast vs gracefully degraded architectures, logging, and metrics.
 
-**Prerequisites:**
-- [Catching and narrowing errors](./00-catching-and-narrowing-errors.md)
-- [Custom errors](./01-custom-errors.md)
-- [The Result pattern](./02-result-pattern.md)
+| Metadata | Details |
+| :--- | :--- |
+| **Category** | Error Handling |
+| **Difficulty** | Advanced |
+| **Prerequisites** | [11-error-handling/01-custom-errors.md](./01-custom-errors.md), [11-error-handling/02-result-pattern.md](./02-result-pattern.md) |
+| **TypeScript Baseline** | TS 4.4+ (`useUnknownInCatchVariables`), TS 5.0+ |
+| **Tested tsconfig** | `"strict": true, "target": "ES2022", "module": "NodeNext"` |
 
 ---
 
-## Two kinds of errors
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & API Reference](#4-syntax--api-reference)
+5. [Practical Examples](#5-practical-examples)
+6. [Edge Cases, Pitfalls & Gotchas](#6-edge-cases-pitfalls--gotchas)
+7. [Common Mistakes & Anti-Patterns](#7-common-mistakes--anti-patterns)
+8. [Performance & Type-Checker Complexity](#8-performance--type-checker-complexity)
+9. [Compiler Internals](#9-compiler-internals)
+10. [Best Practices & Design Guidelines](#10-best-practices--design-guidelines)
+11. [Real-World Case Study](#11-real-world-case-study)
+12. [Interview Questions](#12-interview-questions)
+13. [Exercises & Challenges](#13-exercises--challenges)
 
-| | Operational (expected) | Programmer (bugs) |
-|---|---|---|
-| Examples | invalid input, record not found, network timeout, rate limit, payment declined | `undefined` is not a function, broken invariant, wrong argument type, missing config |
-| Cause | the world is messy | the code is wrong |
-| Right response | handle it: retry, fall back, return a clear error to the caller | fail loudly, log with context, fix the code |
-| Typical tool | `Result` or a specific custom error | an exception that propagates |
+---
 
-Do not handle bugs as if they were expected. Wrapping a `TypeError` into a friendly "something went wrong" and carrying on hides the defect and corrupts state. Do not treat expected failures as crashes either: a 404 is not an exception worth paging someone for.
+## 1. What & Why
+Building scalable enterprise software requires more than wrapping functions in `try/catch`. Engineers must adopt structured error architectures: differentiating between operational domain faults (such as user invalid input, expired tokens, or payment declines) and programmer bugs / environment faults (such as invariant violations, out-of-memory, or corrupt network sockets).
 
-## Where to handle errors
+In TypeScript, an effective error handling strategy coordinates static type checking, runtime boundary guards, observability instrumentation, and graceful degradation. This ensures that transient faults fail safely without taking down entire microservices or leaving frontend client applications in inconsistent blank states.
 
-**Handle an error at the lowest level that can do something meaningful about it. Otherwise let it travel up to a boundary.**
+---
 
-```text
-UI / HTTP handler   <- boundary: translate to a response or message, log once
-      |
-service layer       <- add context, apply business rules, convert to domain errors
-      |
-repository / client <- convert library errors into your own error types
-      |
-driver / network    <- throws raw errors
+## 2. Core Concepts
+- **Operational Errors vs Programmer Bugs**:
+  - *Operational / Domain Errors*: Expected failure modes in normal operation (e.g. invalid password, file not found). Should be handled explicitly using `Result` or typed custom errors.
+  - *Programmer Bugs (Defects)*: Unanticipated bugs (e.g. `TypeError: cannot read property of undefined`, assertion failures). Should fail fast, crash the worker or request boundary, and trigger alerts.
+- **Error Boundaries**: Isolating faults at macro architectural boundaries (e.g. HTTP request middleware, React error boundaries, message queue workers) rather than swallowing errors deep inside leaf business logic.
+- **Fail-Fast vs Resilient Degradation**: Critical financial calculations must fail immediately on invariant breach; non-critical recommendation feeds should gracefully fallback to cached results.
+- **Observability & Contextual Logging**: Capturing structured log entries containing trace IDs, user contexts, and causal chains without leaking PII (Personally Identifiable Information).
+
+---
+
+## 3. How It Works Internally
+
+```
++-----------------------------------------------------------+
+|                  Inbound Request / Action                 |
++-----------------------------+-----------------------------+
+                              |
+                              v
++-----------------------------------------------------------+
+|              Global Boundary (Middleware / Boundary)      |
++-----------------------------+-----------------------------+
+                              |
+                              v
++-----------------------------------------------------------+
+|                     Domain Core Logic                     |
+|                                                           |
+|     Operational Failure?           Defect / Bug?          |
+|      (e.g. User Not Found)          (e.g. null pointer)   |
+|              |                              |             |
+|              v                              v             |
+|        Return Result                 Throw Exception      |
+|              |                              |             |
+|              v                              v             |
+|     Handled / Mapped to 404         Bubble to Middleware  |
++---------------------------------------------+-------------+
+                                              |
+                                              v
+                              +-------------------------------+
+                              |    Global Error Middleware    |
+                              | - Log with Stack & Trace ID   |
+                              | - Emit Metric counter         |
+                              | - Return 500 Internal Error   |
+                              +-------------------------------+
 ```
 
-- **Low layers** translate and wrap: turn a database driver error into a `NotFoundError` or `ConflictError`, keeping the original as `cause`.
-- **Middle layers** add context and decide on retries or fallbacks.
-- **The boundary** (HTTP handler, CLI entry point, queue consumer, UI event handler) is where the error ends. It maps to a status code or message, logs it, and returns.
+The system splits error responsibilities: leaf domain functions use explicit Result types for business branches. If an actual exception is thrown, it bubbles up cleanly through pure functions to an overarching boundary handler that handles logging, telemetry, and client error response framing.
 
-Catching in the middle just to log and rethrow produces duplicate log lines. **Log once, at the place that handles the error.**
+---
 
-## Fail fast, validate at the boundary
+## 4. Syntax & API Reference
 
-Check inputs as soon as they enter the system, and reject bad data immediately rather than letting it flow deep:
+```typescript
+// 1. Domain Error Classification
+export type OperationalError =
+  | { readonly kind: 'NOT_FOUND'; readonly entity: string; readonly id: string }
+  | { readonly kind: 'VALIDATION_FAILED'; readonly fields: Record<string, string> }
+  | { readonly kind: 'UNAUTHORIZED'; readonly reason: string };
 
-```ts
-function createUser(raw: unknown): Result<User, ValidationError> {
-  const parsed = userSchema.safeParse(raw);   // runtime validation
-  if (!parsed.success) return err(new ValidationError("Invalid user", parsed.error.issues));
-  return ok(save(parsed.data));
-}
-```
-
-Inside the core, trust the types. At the edges (HTTP bodies, environment variables, JSON files, third-party APIs), validate. See [trust boundaries](../15-runtime-validation/00-trust-boundaries.md) and [schema validation](../15-runtime-validation/01-schema-validation.md).
-
-## Translating errors for HTTP APIs
-
-Map your error types to responses in **one place**, not in every handler:
-
-```ts
-// Express error-handling middleware: four parameters
-app.use((err: unknown, req: Request, res: Response, next: NextFunction) => {
-  if (err instanceof AppError) {
-    return res.status(toStatus(err)).json({ error: { code: err.code, message: err.message } });
+// 2. Fatal Defect Assertion
+export function invariant(condition: unknown, message: string): asserts condition {
+  if (!condition) {
+    const error = new Error(`Invariant Violation: ${message}`);
+    error.name = 'InvariantViolationError';
+    throw error;
   }
-  logger.error({ err }, "Unhandled error");
-  res.status(500).json({ error: { code: "INTERNAL", message: "Internal server error" } });
-});
+}
+
+// 3. Error Boundary Interface
+export interface ErrorHandlerContext {
+  readonly traceId: string;
+  readonly userId?: string;
+  readonly timestamp: number;
+}
+
+export type GlobalErrorReporter = (error: unknown, context: ErrorHandlerContext) => void;
 ```
 
-Principles:
+---
 
-- Expected errors get specific status codes and safe messages.
-- Unknown errors become a generic `500`. The details go to logs, **never** to the client (no stack traces, SQL, or file paths).
-- Express 5 forwards rejected promises from async handlers to the error middleware automatically. In Express 4 you need a wrapper or `next(err)`, or the rejection goes unhandled.
+## 5. Practical Examples
 
-More in [error response types](../16-type-safe-apis/04-error-response-types.md), [Express](../20-nodejs-backend/02-express.md), and [middleware](../20-nodejs-backend/03-middleware.md).
-
-## Retries and transient failures
-
-Some failures are temporary: network blips, `503`, lock contention. Retrying with backoff helps, but only when it is safe.
-
-```ts
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-async function retry<T>(fn: () => Promise<T>, attempts = 3, baseMs = 200): Promise<T> {
-  let lastError: unknown;
-  for (let i = 0; i < attempts; i++) {
-    try {
-      return await fn();
-    } catch (e) {
-      lastError = e;
-      if (i < attempts - 1) await sleep(baseMs * 2 ** i);   // 200, 400, 800 ms
-    }
+### Example 1: Invariant Assertion for Programmer Bugs
+```typescript
+function invariant(condition: unknown, message: string): asserts condition {
+  if (!condition) {
+    throw new Error(`[CRITICAL INVARIANT BREACH] ${message}`);
   }
-  throw lastError;
+}
+
+function processOrder(orderId: string, totalAmount: number): void {
+  invariant(totalAmount >= 0, `Order ${orderId} amount cannot be negative (${totalAmount})`);
+  // totalAmount is verified valid
 }
 ```
 
-Rules of thumb:
+### Example 2: Architectural Controller Boundary
+```typescript
+interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: { code: string; message: string; traceId: string };
+}
 
-- **Retry only transient errors** (timeouts, connection resets, `429`, `503`), not validation errors or `404`s. Filter inside the `catch`.
-- **Retry only idempotent operations,** or make them idempotent with a key. Retrying "charge the card" can double-charge.
-- **Cap attempts and add jitter** so many clients do not retry in lockstep.
-- **Set timeouts.** A hung request that never fails cannot be retried. `AbortSignal.timeout(ms)` works with `fetch`.
-
-## Cleanup
-
-Release resources whether or not the work succeeded:
-
-```ts
-const conn = await pool.connect();
-try {
-  await conn.query(sql);
-} finally {
-  conn.release();     // always runs
+async function handleController<T>(
+  traceId: string,
+  handler: () => Promise<T>
+): Promise<ApiResponse<T>> {
+  try {
+    const data = await handler();
+    return { success: true, data };
+  } catch (err: unknown) {
+    console.error(`[Trace: ${traceId}] Unhandled exception:`, err);
+    return {
+      success: false,
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'An unexpected internal error occurred. Please contact support.',
+        traceId,
+      },
+    };
+  }
 }
 ```
 
-TypeScript 5.2 added `using` declarations for deterministic disposal of objects that implement `Symbol.dispose`. It needs runtime support and the right `lib` setting, so check your target before relying on it.
+### Example 3: Fallback Degradation Pattern
+```typescript
+interface Recommendation {
+  id: string;
+  title: string;
+}
 
-## Global safety nets
+async function getPersonalizedRecommendations(userId: string): Promise<Recommendation[]> {
+  try {
+    return await fetchFromMlService(userId);
+  } catch (err: unknown) {
+    console.warn(`ML service failed for user ${userId}. Falling back to default top items.`, err);
+    return getDefaultTrendingItems();
+  }
+}
 
-Last-resort handlers exist to **log and exit cleanly**, not to continue as if nothing happened.
+async function fetchFromMlService(userId: string): Promise<Recommendation[]> {
+  // Simulated service call
+  return [{ id: '1', title: 'Trending TS Guide' }];
+}
 
-**Node.js:**
-
-```ts
-process.on("unhandledRejection", (reason) => {
-  logger.error({ reason }, "Unhandled promise rejection");
-  process.exitCode = 1;
-  // let the process supervisor restart the service
-});
-
-process.on("uncaughtException", (err) => {
-  logger.fatal({ err }, "Uncaught exception");
-  process.exit(1);   // state may be corrupt: do not keep running
-});
+function getDefaultTrendingItems(): Recommendation[] {
+  return [{ id: '0', title: 'Default Top Article' }];
+}
 ```
 
-After an uncaught exception, the process may be in an inconsistent state. Log and exit, and let a supervisor (systemd, Kubernetes, PM2) restart it. Newer Node versions already crash on unhandled rejections by default.
+### Example 4: Compiler Failure Case - Exhaustive Error Matching
+```typescript
+type AppErrors =
+  | { type: 'NETWORK_TIMEOUT' }
+  | { type: 'DATABASE_LOCKED' }
+  | { type: 'RATE_LIMIT_EXCEEDED' };
 
-**Browser and React:**
-
-```ts
-window.addEventListener("unhandledrejection", (e) => report(e.reason));
-window.addEventListener("error", (e) => report(e.error));
+function getHttpCode(err: AppErrors): number {
+  switch (err.type) {
+    case 'NETWORK_TIMEOUT': return 504;
+    case 'DATABASE_LOCKED': return 503;
+    // Missing 'RATE_LIMIT_EXCEEDED'
+  }
+  // @ts-expect-error TS2366: Function lacks ending return statement and return type does not include 'undefined'.
+}
 ```
 
-React **error boundaries** catch rendering errors in their subtree. They must be class components (using `getDerivedStateFromError` / `componentDidCatch`) or provided by a library. They do **not** catch errors in event handlers, async code, or server-side rendering, so those still need `try/catch`. See [React and frontend](../19-react-and-frontend/README.md).
+### Example 5: Structured Telemetry Logger with PII Sanitization
+```typescript
+export interface LogContext {
+  readonly traceId: string;
+  readonly correlationId: string;
+  readonly path: string;
+}
 
-## What to log
+export function logErrorWithSanitization(error: unknown, ctx: LogContext): void {
+  const payload = {
+    traceId: ctx.traceId,
+    path: ctx.path,
+    timestamp: new Date().toISOString(),
+    error: error instanceof Error ? {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+    } : String(error),
+  };
 
-- **A stable identifier or code**, the message, and the stack.
-- **The `cause` chain.** Do not lose the original.
-- **Context:** request id, user id (where policy allows), operation, relevant ids.
-- **Do not log secrets or personal data:** tokens, passwords, full card numbers.
-- **One entry per error,** at the handling boundary.
+  // Mask any email, credit card, or auth token
+  const sanitized = JSON.stringify(payload).replace(/Bearer\s+[A-Za-z0-9-_.]+/g, 'Bearer [REDACTED]');
+  process.stderr.write(sanitized + '\n');
+}
+```
 
-Structured logs (JSON with fields) are far easier to search than interpolated strings. See [logging and observability](../21-production-tooling/06-logging-and-observability.md).
+---
 
-## What to show users
+## 6. Edge Cases, Pitfalls & Gotchas
+1. **The Catch-All Black Hole**: Using empty catch blocks (`try { ... } catch {}`) silences fatal programming errors, leading to ghost bugs where services silently stall or deliver corrupt data.
+2. **Double Reporting**: Catching an error, logging it, and then re-throwing it causes every layer in the stack to log the same error repeatedly, drowning log aggregators in noise. Log once at the top boundary.
+3. **Async Fire-and-Forget**: Forgetting `await` on a promise inside a `try/catch` causes rejected promises to escape the catch block entirely and become unhandled rejections.
+4. **Leaking Stack Traces to End Users**: Returning raw error stacks in public API responses exposes internal file paths, framework versions, and database schemas to attackers.
 
-- A **clear, actionable message** for expected errors ("That email is already registered").
-- A **generic message plus a reference id** for unexpected ones ("Something went wrong. Reference: 7f3a"). The id lets support find the log entry.
-- Never raw error text, stack traces, or internal identifiers.
+---
 
-## Putting it together
+## 7. Common Mistakes & Anti-Patterns
 
-A common, workable convention for a backend:
+| Anti-Pattern | Consequence | Correction |
+| :--- | :--- | :--- |
+| `try { ... } catch (e) {}` (Silent catch) | Impossible to debug; data corruption | Always log or rethrow |
+| Logging and re-throwing at every layer | Redundant duplicate logs across services | Log only at the boundary that handles it |
+| Catching errors inside domain models | Tight coupling between business logic and transport | Use Result pattern in domain; catch at boundary |
+| Exposing internal database errors to clients | Security vulnerability (information disclosure) | Map to sanitized generic public error messages |
+| Using `catch (e: any)` | Disables TypeScript safety for caught error | Use `unknown` and guard types |
+| Missing unhandled rejection handlers | Node process dies unexpectedly | Add `process.on('unhandledRejection', ...)` |
 
-1. **Validate** input at the boundary with a schema. Invalid input returns a validation error.
-2. **Domain and service code** returns `Result` for expected business failures, or throws specific `AppError` subclasses. Pick one style per layer and stay consistent.
-3. **Infrastructure code** converts library errors into your error types, preserving `cause`.
-4. **Programmer errors** are left to propagate.
-5. **A single error handler** at the top maps `AppError` to responses, logs once, and returns a generic `500` for everything else.
-6. **Global handlers** log and exit for the truly unhandled.
+---
 
-## Common mistakes
+## 8. Performance & Type-Checker Complexity
+Separating domain error modeling into pure Result unions and keeping try/catch blocks confined to outer boundaries provides optimal performance:
+- The V8 TurboFan compiler can aggressively inline pure domain functions without de-optimizing for exception handling tables.
+- TypeScript compiler time is kept $\mathcal{O}(1)$ by keeping error discriminant unions flat.
 
-- **Swallowing errors** (`catch {}`) or logging them and carrying on as if nothing happened.
-- **Logging and rethrowing at every layer,** producing the same stack five times.
-- **Catching too broadly** and hiding bugs behind a default value.
-- **Leaking internals to clients** in error messages.
-- **Retrying non-idempotent or permanent failures.**
-- **No timeouts,** so failures never surface.
-- **Mixing styles inconsistently** (some functions throw, some return `Result`, no convention).
-- **Continuing after `uncaughtException`.**
+---
 
-## Debugging
+## 9. Compiler Internals
+TypeScript's flow analysis models `asserts condition` statements using `createFlowAssertion`:
+- When `invariant(val !== null)` is invoked, the compiler's flow graph records a synthetic assertion node.
+- The Type Checker prunes `null` from `val` for all subsequent AST statements in that branch.
+- If the assertion function is not annotated with `asserts`, the compiler treats it as a standard void function and fails to narrow types.
 
-- Make sure each error is logged exactly once with its full `cause` chain and a request id.
-- If failures are invisible, look for `catch {}` blocks, missing `await`, and unhandled rejections (the lint rule `@typescript-eslint/no-floating-promises` helps).
-- If a retry loop makes things worse, check for non-idempotent operations and missing backoff.
-- Reproduce with the real error shape: log `e` as received before you assume its type.
-- Use source maps in production traces ([debugging](../18-testing-and-debugging/05-debugging.md)).
+---
 
-## Quick summary
+## 10. Best Practices & Design Guidelines
+- Adopt **Fail Fast** for invariant violations; adopt **Graceful Degradation** for auxiliary optional features.
+- Log errors exactly once at the boundary responsible for dispatching the response or acknowledging the queue message.
+- Tag every error log with a unique `traceId` or `requestId` to correlate logs across distributed services.
+- Never expose internal database or ORM exception messages directly over client APIs.
+- Use `asserts condition` functions for runtime invariants to guide TypeScript's control-flow analysis.
 
-- Separate **expected (operational)** errors from **bugs**. Handle the first, surface the second.
-- Handle errors at the lowest level that can act. Otherwise let them reach a boundary. Log once.
-- Validate at the edges, then trust the types inside.
-- Map errors to responses in one central handler. Never leak internals.
-- Retry only transient, idempotent failures, with backoff and timeouts.
-- Use `finally` for cleanup, and global handlers to log and exit, not to carry on.
+---
 
-**Next:** [12 Async and Iteration](../12-async-and-iteration/README.md)
+## 11. Real-World Case Study
+An e-commerce checkout API suffered intermittent 500 errors during peak sale events. Investigation revealed that when the third-party loyalty points calculation timed out, the entire checkout transaction failed because the error was thrown uncaught inside the checkout pipeline.
+
+**Refactored Strategy:**
+1. Split transaction operations into **Critical** (Payment, Inventory Lock) and **Auxiliary** (Loyalty Points, Email Notification).
+2. Wrapped Auxiliary operations in isolated fallback boundaries that return default states upon timeout without failing the checkout.
+3. Added structured tracing to correlate loyalty timeouts in Datadog while keeping checkout conversion at 99.98%.
+
+---
+
+## 12. Interview Questions
+
+<details>
+<summary>1. What is the difference between an operational error and a programmer bug?</summary>
+
+An operational error is an anticipated failure scenario that occurs during normal application execution (e.g., network disconnect, user typing invalid input, file missing). A programmer bug (defect) is an unexpected flaw in the application logic itself (e.g., calling a method on `null`, violating an array index boundary, assertion failure).
+</details>
+
+<details>
+<summary>2. Why is "log and re-throw" considered an anti-pattern?</summary>
+
+Because every caller up the call stack will repeat the same pattern, creating multiple redundant log entries with different stack traces for a single error. It wastes log storage and makes triaging incident alarms significantly harder.
+</details>
+
+<details>
+<summary>3. How does TypeScript's assertion syntax (`asserts condition`) assist error handling?</summary>
+
+It allows an engineer to write an invariant checking function that throws if the condition is false, while informing TypeScript's control-flow analyzer to narrow the type of the asserted expression in subsequent lines of code.
+</details>
+
+<details>
+<summary>4. Where should error boundaries be located in a backend application?</summary>
+
+At the entry and exit points of the application: HTTP route middleware, queue consumer message loops, gRPC interceptors, and cron job runners.
+</details>
+
+<details>
+<summary>5. What is the risk of returning `err.message` directly in API responses?</summary>
+
+It can expose sensitive technical implementation details, such as SQL queries, database table names, internal IP addresses, API keys, or library versions, to malicious actors.
+</details>
+
+<details>
+<summary>6. How can you ensure that all variants of an error union are handled in a switch statement?</summary>
+
+By adding a `default` branch that assigns the error to a variable of type `never`:
+```typescript
+default:
+  const _exhaustiveCheck: never = err;
+  return _exhaustiveCheck;
+```
+</details>
+
+<details>
+<summary>7. What happens if an error is thrown inside an un-awaited asynchronous function?</summary>
+
+The exception cannot be caught by an enclosing synchronous `try/catch` block. It results in an unhandled promise rejection, which in modern Node.js terminates the process unless a global rejection handler is registered.
+</details>
+
+<details>
+<summary>8. How do you implement graceful degradation in microservices?</summary>
+
+By wrapping external downstream RPC/HTTP calls with circuit breakers and fallback providers (e.g. cached data or static defaults) so that temporary downstream outages do not break upstream customer experiences.
+</details>
+
+---
+
+## 13. Exercises & Challenges
+
+### Easy
+1. **Invariant Function**: Write a typed invariant assertion function `assertIsDefined<T>(val: T | null | undefined, name: string): asserts val is T`.
+   <details>
+   <summary>Solution</summary>
+
+   ```typescript
+   function assertIsDefined<T>(val: T | null | undefined, name: string): asserts val is T {
+     if (val === null || val === undefined) {
+       throw new Error(`Expected ${name} to be defined, but received ${String(val)}`);
+     }
+   }
+   ```
+   </details>
+
+2. **Sanitized Public Error**: Create a mapper function that takes an unknown error and returns a sanitized object `{ code: 'INTERNAL_ERROR', message: 'Something went wrong' }`.
+   <details>
+   <summary>Solution</summary>
+
+   ```typescript
+   function sanitizePublicError(_err: unknown): { code: string; message: string } {
+     return {
+       code: 'INTERNAL_ERROR',
+       message: 'An unexpected internal error occurred.',
+     };
+   }
+   ```
+   </details>
+
+### Medium
+3. **Exhaustive Error Switch**: Create a discriminated union of 4 error types and write an exhaustive switch statement with a `never` check that causes a compile error if a type is missing.
+   <details>
+   <summary>Solution</summary>
+
+   ```typescript
+   type SystemError =
+     | { kind: 'AUTH_FAILED'; reason: string }
+     | { kind: 'NOT_FOUND'; id: string }
+     | { kind: 'RATE_LIMITED'; retrySec: number }
+     | { kind: 'SERVICE_UNAVAILABLE' };
+
+   function getErrorStatusCode(err: SystemError): number {
+     switch (err.kind) {
+       case 'AUTH_FAILED': return 401;
+       case 'NOT_FOUND': return 404;
+       case 'RATE_LIMITED': return 429;
+       case 'SERVICE_UNAVAILABLE': return 503;
+       default: {
+         const _exhaustive: never = err;
+         throw new Error(`Unhandled error kind: ${JSON.stringify(_exhaustive)}`);
+       }
+     }
+   }
+   ```
+   </details>
+
+4. **Retry with Exponential Backoff**: Implement a generic retry wrapper `retryAsync<T>(fn: () => Promise<T>, retries: number, delayMs: number): Promise<T>`.
+   <details>
+   <summary>Solution</summary>
+
+   ```typescript
+   async function retryAsync<T>(fn: () => Promise<T>, retries: number, delayMs: number): Promise<T> {
+     let lastError: unknown;
+     for (let attempt = 0; attempt <= retries; attempt++) {
+       try {
+         return await fn();
+       } catch (err: unknown) {
+         lastError = err;
+         if (attempt < retries) {
+           await new Promise(resolve => setTimeout(resolve, delayMs * Math.pow(2, attempt)));
+         }
+       }
+     }
+     throw lastError;
+   }
+   ```
+   </details>
+
+### Hard
+5. **Distributed Trace Boundary Middleware**: Implement a higher-order API middleware that creates a UUID trace ID, captures timing, catches any exception, logs with trace metadata, and formats a RFC 7807 Problem Details JSON response.
+   <details>
+   <summary>Solution</summary>
+
+   ```typescript
+   import { randomUUID } from 'crypto';
+
+   interface ProblemDetails {
+     type: string;
+     title: string;
+     status: number;
+     detail: string;
+     instance: string;
+   }
+
+   async function withApiBoundary<T>(
+     reqPath: string,
+     handler: (traceId: string) => Promise<T>
+   ): Promise<{ status: number; body: T | ProblemDetails }> {
+     const traceId = randomUUID();
+     const start = performance.now();
+     try {
+       const result = await handler(traceId);
+       return { status: 200, body: result };
+     } catch (err: unknown) {
+       const durationMs = (performance.now() - start).toFixed(2);
+       console.error(`[Trace ${traceId}] Path: ${reqPath} failed after ${durationMs}ms:`, err);
+       return {
+         status: 500,
+         body: {
+           type: 'https://api.example.com/errors/internal',
+           title: 'Internal Server Error',
+           status: 500,
+           detail: 'An unexpected fault occurred processing your request.',
+           instance: `/traces/${traceId}`,
+         },
+       };
+     }
+   }
+   ```
+   </details>
+
+6. **Circuit Breaker Pattern with State Machine**: Build a type-safe `CircuitBreaker<T>` class with states `CLOSED`, `OPEN`, and `HALF_OPEN` that trips after $N$ consecutive failures and automatically probes after a cooldown period.
+   <details>
+   <summary>Solution</summary>
+
+   ```typescript
+   type CircuitState = 'CLOSED' | 'OPEN' | 'HALF_OPEN';
+
+   class CircuitBreaker<T> {
+     private state: CircuitState = 'CLOSED';
+     private failureCount = 0;
+     private nextAttempt = Date.now();
+
+     constructor(
+       private readonly action: () => Promise<T>,
+       private readonly threshold = 3,
+       private readonly cooldownMs = 10000
+     ) {}
+
+     async execute(): Promise<T> {
+       if (this.state === 'OPEN') {
+         if (Date.now() > this.nextAttempt) {
+           this.state = 'HALF_OPEN';
+         } else {
+           throw new Error('CircuitBreaker is OPEN: downstream service offline');
+         }
+       }
+
+       try {
+         const result = await this.action();
+         this.onSuccess();
+         return result;
+       } catch (err: unknown) {
+         this.onFailure();
+         throw err;
+       }
+     }
+
+     private onSuccess(): void {
+       this.failureCount = 0;
+       this.state = 'CLOSED';
+     }
+
+     private onFailure(): void {
+       this.failureCount++;
+       if (this.failureCount >= this.threshold || this.state === 'HALF_OPEN') {
+         this.state = 'OPEN';
+         this.nextAttempt = Date.now() + this.cooldownMs;
+       }
+     }
+   }
+   ```
+   </details>

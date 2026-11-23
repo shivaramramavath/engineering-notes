@@ -1,157 +1,435 @@
-# Compiler Options
+# Compiler Options and tsconfig Reference in TypeScript
 
-`tsconfig.json` tells the TypeScript compiler **which files are in the program** and **how to check and emit them**. Editors read it too, so it also controls what you see in your IDE. This note covers the file's structure, how files get selected, how `extends` works, the options you meet most often, and the CLI commands for inspecting what the compiler is actually doing.
+> Master reference for `tsconfig.json` architecture: schema anatomy, `compilerOptions`, file inclusion rules (`include`, `exclude`, `files`), emit controls, source maps, and JSX transpilation modes.
 
-**Prerequisites:**
-- [Toolchain](../00-setup/00-toolchain.md)
-- [First project](../00-setup/01-first-project.md)
+| Metadata | Details |
+| :--- | :--- |
+| **Category** | Compiler & Configuration |
+| **Difficulty** | Intermediate |
+| **Prerequisites** | [00-setup/00-toolchain.md](../00-setup/00-toolchain.md), [08-modules/00-imports-and-exports.md](../08-modules/00-imports-and-exports.md) |
+| **TypeScript Baseline** | TS 5.0+ (`verbatimModuleSyntax`, `moduleResolution: bundler`), TS 5.4+ |
+| **Tested tsconfig** | `"strict": true, "target": "ES2022", "module": "NodeNext"` |
 
 ---
 
-## Structure of a tsconfig
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & API Reference](#4-syntax--api-reference)
+5. [Practical Examples](#5-practical-examples)
+6. [Edge Cases, Pitfalls & Gotchas](#6-edge-cases-pitfalls--gotchas)
+7. [Common Mistakes & Anti-Patterns](#7-common-mistakes--anti-patterns)
+8. [Performance & Type-Checker Complexity](#8-performance--type-checker-complexity)
+9. [Compiler Internals](#9-compiler-internals)
+10. [Best Practices & Design Guidelines](#10-best-practices--design-guidelines)
+11. [Real-World Case Study](#11-real-world-case-study)
+12. [Interview Questions](#12-interview-questions)
+13. [Exercises & Challenges](#13-exercises--challenges)
 
-```jsonc
+---
+
+## 1. What & Why
+The `tsconfig.json` file is the central command center for any TypeScript project. It directs how the compiler (`tsc`) discovers files, performs type analysis, handles imports, and emits JavaScript artifacts. A misconfigured `tsconfig.json` can cause false compile-time errors, runtime module resolution crashes, invisible type unsafety, or 10x slower build times.
+
+Understanding the interaction between root fields (`compilerOptions`, `include`, `exclude`, `files`, `references`, `extends`) and emit flags ensures your project compiles reliably across local development, CI test pipelines, and multi-package monorepos.
+
+---
+
+## 2. Core Concepts
+- **Top-Level Schema Anatomy**:
+  - `compilerOptions`: Fine-grained configuration for syntax parsing, type checking, and output generation.
+  - `include`: Glob patterns matching files to compile (e.g. `["src/**/*"]`).
+  - `exclude`: Glob patterns for files to ignore (default: `["node_modules", "bower_components", "jspm_packages"]`).
+  - `files`: Explicit list of exact file paths to include (overrides `exclude`).
+  - `extends`: Path to a base tsconfig to inherit settings from (TS 5.0+ supports array of strings).
+  - `references`: Composite project references for monorepo incremental builds.
+- **Emit Controls**:
+  - `noEmit: true`: Disables emitting `.js` or `.d.ts` files (used when Vite/Babel/esbuild/swc handles bundling).
+  - `emitDeclarationOnly: true`: Emits only `.d.ts` declaration files while letting native bundlers compile code.
+  - `declaration: true` & `declarationMap: true`: Generates `.d.ts` files and sourcemaps linking declarations back to source TypeScript files for IDE "Go to Definition".
+- **Source Map Mechanics**: `sourceMap: true` produces external `.js.map` files; `inlineSourceMap: true` embeds base64 sourcemaps directly into emitted `.js`.
+- **JSX Compilation Modes**:
+  - `react-jsx`: Modern React 17+ transform (automatically imports from `react/jsx-runtime`).
+  - `preserve`: Keeps JSX intact (`<div />`) for downstream bundlers (esbuild, Vite, Next.js).
+  - `react`: Legacy transform to `React.createElement(...)`.
+
+---
+
+## 3. How It Works Internally
+
+```
+                         tsconfig.json
+                               |
+                               v
+                     ts.parseConfigFileTextToJson
+                               |
+                               v
+                  ts.parseJsonConfigFileContent
+                               |
+         +---------------------+---------------------+
+         |                                           |
+         v                                           v
+  File Discovery                         CompilerOptions Validation
+  - Match include globs                  - Merge 'extends' hierarchy
+  - Prune exclude globs                  - Apply strict defaults
+  - Include files array                  - Validate module/target compatibility
+         |                                           |
+         +---------------------+---------------------+
+                               |
+                               v
+                      ts.createProgram()
+```
+
+The compiler reads `tsconfig.json`, resolves any inherited `extends` chains recursively, and computes an absolute list of root filenames using fast directory scanning. It then passes these inputs to `ts.createProgram`, initiating the AST parsing, type binding, and type-checking phases.
+
+---
+
+## 4. Syntax & API Reference
+
+```json
 {
-  "extends": "./tsconfig.base.json",      // inherit from another config
-  "compilerOptions": {                     // how to check and emit
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "@tsconfig/node22/tsconfig.json",
+  "compilerOptions": {
     "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022"],
     "strict": true,
-    "outDir": "dist"
+    "noEmit": true,
+    "isolatedDeclarations": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
   },
-  "include": ["src"],                      // which files to load
-  "exclude": ["src/**/*.test.ts"],         // subtract from include
-  "files": [],                             // explicit file list (rarely needed)
-  "references": []                         // other projects (see project references note)
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.spec.ts"]
 }
 ```
 
-`tsconfig.json` is parsed as JSONC: comments and trailing commas are allowed.
+---
 
-Generate a starter file with:
+## 5. Practical Examples
 
-```bash
-npx tsc --init
-```
-
-The generated file is heavily commented. Trim it down to the options you actually use.
-
-## Which files are included
-
-- If neither `files` nor `include` is given, **all** `.ts`, `.tsx`, and `.d.ts` files under the config's directory are included (`.js` too with `allowJs`).
-- `include` and `exclude` take glob patterns: `*` (any characters except `/`), `**/` (any directory depth), and `?` (one character).
-- `exclude` defaults to `node_modules`, `bower_components`, `jspm_packages`, and your `outDir`. If you **set** `exclude`, the defaults no longer apply, so add `node_modules` back yourself if needed.
-- `exclude` only filters what `include` found. A file excluded here can still be pulled in by an `import` from an included file.
-- `files` lists exact paths and fails if one is missing. It suits tiny projects. Use `include` otherwise.
-
-Files **imported** by included files are part of the program, even if `include` did not match them. That is why `tsc` may check files outside `src` when an import reaches them.
-
-## `extends`
-
-```jsonc
-// tsconfig.json
+### Example 1: Typecheck-Only Config for Vite / Modern Bundlers
+```json
 {
-  "extends": "./tsconfig.base.json",
-  "compilerOptions": { "outDir": "dist" },
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "module": "ESNext",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolvePackageJsonExports": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "strict": true,
+    "jsx": "react-jsx"
+  },
   "include": ["src"]
 }
 ```
 
-Merging rules:
-
-- `compilerOptions` are **merged**: the child overrides individual options.
-- `files`, `include`, and `exclude` are **replaced** (not merged) if the child specifies them.
-- Relative paths inside an inherited config (such as `outDir` or `paths`) resolve **relative to the config file where they were written**, not the child.
-- `extends` can be an array in TS 5.0+, with later entries overriding earlier ones.
-- You can extend from packages: community bases such as `@tsconfig/node20` or `@tsconfig/strictest` give you vetted starting points.
-- TS 5.5 added the `${configDir}` template variable, which makes shared base configs able to refer to the *consuming* project's directory (for example `"${configDir}/src"`).
-
-## Options you will use constantly
-
-| Option | What it does |
-|---|---|
-| `strict` | enables the strict family ([strict mode](./01-strict-mode.md)) |
-| `target` | JavaScript version to emit ([target, module, lib](./02-target-module-and-lib.md)) |
-| `module` | output module format |
-| `moduleResolution` | how import specifiers are looked up ([module resolution](./03-module-resolution-and-paths.md)) |
-| `lib` | which built-in type declarations exist |
-| `outDir` / `rootDir` | where emitted files go, and the root of the source tree |
-| `noEmit` | type-check only, write no files (common when a bundler builds) |
-| `declaration` / `declarationMap` | emit `.d.ts` files and maps ([declaration files](../09-declaration-files/00-declaration-files.md)) |
-| `sourceMap` | emit `.js.map` for debuggers |
-| `skipLibCheck` | skip type-checking of all `.d.ts` files |
-| `esModuleInterop` | sane default imports from CommonJS |
-| `isolatedModules` | require that every file can be transpiled alone (needed by Babel, esbuild, SWC) |
-| `verbatimModuleSyntax` | emit imports/exports as written, except `import type` |
-| `resolveJsonModule` | allow `import data from "./data.json"` |
-| `jsx` | how JSX is emitted (`react-jsx`, `preserve`, ...) |
-| `allowJs` / `checkJs` | include and optionally type-check `.js` files |
-| `incremental` | cache results between runs ([incremental builds](./04-project-references-and-incremental-builds.md)) |
-| `noEmitOnError` | do not emit if there are type errors |
-| `forceConsistentCasingInFileNames` | error when the same file is imported with different casing (a real problem across macOS/Windows and Linux) |
-
-Rough categories, useful for finding things in the [official option reference](https://www.typescriptlang.org/tsconfig): *Type Checking*, *Modules*, *Emit*, *JavaScript Support*, *Interop Constraints*, *Language and Environment*, *Projects*.
-
-## Defaults depend on other options
-
-Many defaults are computed. For example:
-
-- `lib` defaults based on `target`.
-- `moduleResolution` defaults based on `module`.
-- `useDefineForClassFields` defaults to `true` when `target` is ES2022 or higher.
-- `strict` defaults to `false`. A fresh `tsc --init` turns it on, but a hand-written tsconfig without it is not strict.
-
-When behavior surprises you, print the effective configuration instead of guessing:
-
-```bash
-npx tsc --showConfig
+### Example 2: Library Authoring Config (Emitting Dual ESM/DTS)
+```json
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": true,
+    "verbatimModuleSyntax": true,
+    "isolatedDeclarations": true
+  },
+  "include": ["src/**/*"]
+}
 ```
 
-## Which config does the compiler use?
-
-- `tsc` with no file arguments searches for `tsconfig.json` in the current directory, then upward.
-- `tsc -p path/to/tsconfig.json` (or `--project`) uses a specific file or folder.
-- **`tsc somefile.ts` ignores `tsconfig.json` entirely** and uses defaults plus command-line flags. This surprises people who wonder why their strict settings do not apply.
-- Editors use the **nearest** `tsconfig.json` above the file. A file not covered by any `include` gets an "inferred project" with default settings. If a file shows odd errors in the editor only, check that a tsconfig includes it.
-
-Large projects often have several configs: a base, one for the app, one for tests, one for build scripts. See [recipes](./05-tsconfig-recipes.md).
-
-## Useful CLI commands
-
-```bash
-tsc --noEmit                 # type-check only
-tsc --watch                  # re-check on change
-tsc --build                  # build a project and its references
-tsc --showConfig             # effective tsconfig after extends and defaults
-tsc --listFiles              # every file in the program
-tsc --explainFiles           # why each file is included
-tsc --traceResolution        # how each import was resolved
-tsc --extendedDiagnostics    # timing and counts, for performance work
+### Example 3: Edge Case - Multiple `extends` Inheritance (TS 5.0+)
+```json
+{
+  "extends": [
+    "@tsconfig/bases/tsconfig.json",
+    "./tsconfig.strict-rules.json"
+  ],
+  "compilerOptions": {
+    "outDir": "./build"
+  }
+}
 ```
 
-## Common mistakes
+### Example 4: Compiler Failure Case - Conflicting `noEmit` and `declaration`
+```json
+{
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": true
+  }
+}
+// Running tsc --build or tsc:
+// @ts-expect-error TS5053: Option 'declaration' cannot be specified with option 'noEmit'.
+```
 
-- **Running `tsc file.ts` and expecting tsconfig settings to apply.**
-- **Setting `exclude` and accidentally including `node_modules`.** The default is replaced.
-- **Expecting `exclude` to remove a file that is imported.** It is still part of the program.
-- **Expecting a child config's `include` to add to the parent's.** It replaces.
-- **Putting `outDir` inside `include`** so that emitted `.js` and `.d.ts` files get re-read. Keep output out of the input globs.
-- **Copying a huge generated tsconfig** with dozens of commented options you do not understand.
-- **Different tools reading different configs** (editor, test runner, bundler), giving inconsistent errors.
-- **Relying on defaults that change between TypeScript versions.** Set important options explicitly.
+### Example 5: Clean Path Aliasing for Internal Source
+```json
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@core/*": ["src/core/*"],
+      "@shared/*": ["src/shared/*"]
+    }
+  }
+}
+```
 
-## Debugging
+---
 
-- **File missing from the program:** `tsc --listFiles | grep name`, then `--explainFiles` to see why it is or is not included.
-- **Option not taking effect:** `tsc --showConfig` shows the final merged value. Check for an overriding config earlier in the `extends` chain, or a different tsconfig being used.
-- **Editor disagrees with CLI:** check which tsconfig the editor loaded, and that it uses the workspace TypeScript version.
-- **Slow checks:** `--extendedDiagnostics` shows time spent and number of files and types ([type-checking performance](../22-performance/00-type-checking-performance.md)).
+## 6. Edge Cases, Pitfalls & Gotchas
+1. **`exclude` Does Not Block Explicit Imports**: If `fileA.ts` is inside an `exclude` directory, but `src/index.ts` imports `fileA`, TypeScript will compile and type-check `fileA.ts` anyway! `exclude` only controls what initial files are discovered by `include`.
+2. **`paths` Does NOT Rewrite Imports**: TypeScript's `paths` option only tells the type checker how to resolve types. `tsc` does *not* rewrite `"@core/db"` into `"../core/db"` in the emitted JavaScript. If you use `paths`, you must use a bundler (Vite, esbuild) or Node subpath imports (`#internal`) that understand runtime resolution.
+3. **`skipLibCheck` Performance**: Setting `"skipLibCheck": true` skips type checking all `.d.ts` declaration files across `node_modules`. This can cut compiler startup times by 40–70% without sacrificing application code safety.
+4. **`allowImportingTsExtensions`**: Allowed only when `"noEmit": true` is set, since TypeScript will not emit `.js` files when imports explicitly reference `.ts`.
 
-## Quick summary
+---
 
-- `tsconfig.json` defines the file set (`include`, `exclude`, `files`) and the rules (`compilerOptions`).
-- Imported files join the program regardless of `exclude`. Setting `exclude` or `include` replaces the defaults and the parent's values.
-- `extends` merges `compilerOptions` but replaces file lists, and resolves paths relative to the file they were written in.
-- `tsc file.ts` ignores tsconfig. Use `tsc -p` or plain `tsc`.
-- `tsc --showConfig`, `--listFiles`, and `--traceResolution` answer most "why is it doing that" questions.
+## 7. Common Mistakes & Anti-Patterns
 
-**Next:** [Strict mode](./01-strict-mode.md)
+| Anti-Pattern | Consequence | Correction |
+| :--- | :--- | :--- |
+| Using `paths` without a runtime resolver | Emitted JavaScript crashes with `Cannot find module '@app/...'` | Use Node subpath imports (`#app/*`) or a bundler |
+| Omitting `skipLibCheck: true` | Third-party `.d.ts` errors break your build; slow builds | Enable `"skipLibCheck": true` |
+| Setting `"declaration": true` with `"noEmit": true` | **TS5053**: Incompatible compiler options | Use `emitDeclarationOnly: true` instead |
+| Forgetting `forceConsistentCasingInFileNames` | Code passes on macOS/Windows, breaks on Linux CI | Enable `"forceConsistentCasingInFileNames": true` |
+| Wildcard `include: ["*"]` matching build output | Compiles emitted `.js` files recursively | Specify exact source dir: `include: ["src/**/*"]` |
+
+---
+
+## 8. Performance & Type-Checker Complexity
+- Restricting `include` to `["src/**/*"]` and setting `skipLibCheck: true` prevents scanning millions of irrelevant AST nodes in `node_modules`.
+- In large monorepos, splitting builds into composite project references with `.tsbuildinfo` caches cuts incremental compilation times from 15 seconds to under 400 milliseconds.
+
+---
+
+## 9. Compiler Internals
+Inside TypeScript's `src/compiler/commandLineParser.ts`:
+- `parseConfigFileTextToJson` converts the file content into an AST using TypeScript's internal JSON scanner.
+- `convertToBase64` and source map generators attach mappings between generated AST spans and source positions.
+- Incompatible flags (like `noEmit` combined with `declaration`) are checked in `createProgram` by diagnostic verification rules.
+
+---
+
+## 10. Best Practices & Design Guidelines
+- Standardize on official `@tsconfig/bases` presets (e.g. `@tsconfig/node22` or `@tsconfig/vite-react`).
+- Always enable `"skipLibCheck": true` and `"forceConsistentCasingInFileNames": true`.
+- If building with an external bundler (Vite, esbuild, Next.js), set `"noEmit": true` and use `tsc --noEmit` solely as a type-linter.
+- If authoring libraries for npm, enable `"declaration": true` and `"declarationMap": true`.
+- Use Node.js native subpath imports (`#utils`) in `package.json` rather than `paths` in `tsconfig.json`.
+
+---
+
+## 11. Real-World Case Study
+A fast-growing SaaS platform's CI pipeline took 4 minutes just to run `tsc`. Developers frequently had PRs fail due to casing differences (`import from './User'` vs `./user.ts`) that passed on developer MacBooks but failed on Linux runners.
+
+**Refactored tsconfig Optimization:**
+1. Enabled `"skipLibCheck": true` (reduced type checking time from 240s to 35s).
+2. Enabled `"forceConsistentCasingInFileNames": true` (eliminated all cross-platform casing bugs).
+3. Swapped `paths` with native `package.json` subpath imports (`#services/*`).
+4. Enabled `"incremental": true` with `.tsbuildinfo` cache in GitHub Actions.
+CI pipeline time dropped from 4 minutes to 8 seconds on warm runs.
+
+---
+
+## 12. Interview Questions
+
+<details>
+<summary>1. What does `skipLibCheck: true` actually do?</summary>
+
+It instructs the compiler to skip type checking of all declaration files (`.d.ts`). Only the declaration files directly referenced by code are parsed for symbols, saving significant compilation time while assuming third-party libraries are internally type-sound.
+</details>
+
+<details>
+<summary>2. Why does `paths` in `tsconfig.json` not rewrite module paths in emitted JavaScript?</summary>
+
+TypeScript's philosophy is that `tsc` performs type checking and downlevel syntax erasing, not general-purpose module path rewriting or bundling. Rewriting paths would require making assumptions about runtime resolution environments.
+</details>
+
+<details>
+<summary>3. What is the difference between `exclude` and `files`?</summary>
+
+`files` is an explicit whitelist of exact files to include. It overrides `exclude`. `exclude` only filters out files that were discovered via wildcard patterns in `include`.
+</details>
+
+<details>
+<summary>4. What does `verbatimModuleSyntax: true` do?</summary>
+
+Introduced in TS 5.0, it enforces that any import that is not explicitly marked with `import type` is emitted as a real JavaScript import, and any `import type` is completely erased, guaranteeing predictable runtime ESM behavior without heuristics.
+</details>
+
+<details>
+<summary>5. What is `emitDeclarationOnly` used for?</summary>
+
+It tells `tsc` to generate only `.d.ts` declaration files and suppress `.js` emit. This is used in hybrid build setups where an external fast compiler (like esbuild, SWC, or Vite) compiles JavaScript, while `tsc` generates types.
+</details>
+
+<details>
+<summary>6. How does TypeScript 5.0 handle multiple `extends` in `tsconfig.json`?</summary>
+
+TS 5.0 permits `extends` to accept an array of file paths: `"extends": ["base1", "base2"]`. Configurations are merged from left to right, with later entries overriding earlier ones.
+</details>
+
+<details>
+<summary>7. What is the difference between `jsx: "react-jsx"` and `jsx: "react"`?</summary>
+
+`"react"` compiles JSX tags into `React.createElement(...)` calls, requiring `import React from 'react'` in every file. `"react-jsx"` uses the modern React 17+ transform, automatically importing `_jsx` from `react/jsx-runtime`.
+</details>
+
+<details>
+<summary>8. What is `declarationMap` and why should library authors enable it?</summary>
+
+It generates `.d.ts.map` source maps linking `.d.ts` files back to original `.ts` source files. When consumers in an IDE run "Go to Definition" on a library symbol, their editor navigates directly to the original TypeScript source instead of the compiled `.d.ts` file.
+</details>
+
+---
+
+## 13. Exercises & Challenges
+
+### Easy
+1. **Minimal Typecheck Config**: Write a minimal `tsconfig.json` for a modern frontend project using Vite that performs strict typechecking without emitting files.
+   <details>
+   <summary>Solution</summary>
+
+   ```json
+   {
+     "compilerOptions": {
+       "target": "ES2022",
+       "module": "ESNext",
+       "moduleResolution": "bundler",
+       "strict": true,
+       "noEmit": true,
+       "skipLibCheck": true
+     },
+     "include": ["src/**/*"]
+   }
+   ```
+   </details>
+
+2. **Declaration Only Config**: Create a config that emits only `.d.ts` files into `./types`.
+   <details>
+   <summary>Solution</summary>
+
+   ```json
+   {
+     "compilerOptions": {
+       "declaration": true,
+       "emitDeclarationOnly": true,
+       "outDir": "./types",
+       "rootDir": "./src"
+     },
+     "include": ["src/**/*"]
+   }
+   ```
+   </details>
+
+### Medium
+3. **Multi-Target Monorepo Base**: Create a root base `tsconfig.base.json` that enforces strict typing, modern ESM, and consistent file casing, to be extended by individual packages.
+   <details>
+   <summary>Solution</summary>
+
+   ```json
+   {
+     "$schema": "https://json.schemastore.org/tsconfig",
+     "compilerOptions": {
+       "target": "ES2022",
+       "module": "NodeNext",
+       "moduleResolution": "NodeNext",
+       "strict": true,
+       "skipLibCheck": true,
+       "forceConsistentCasingInFileNames": true,
+       "verbatimModuleSyntax": true,
+       "composite": true,
+       "declaration": true,
+       "declarationMap": true
+     }
+   }
+   ```
+   </details>
+
+4. **Path Alias Setup with Subpaths**: Write a `tsconfig.json` that configures path aliases for `@models/*` and `@controllers/*` alongside a corresponding `package.json` imports mapping.
+   <details>
+   <summary>Solution</summary>
+
+   ```json
+   // tsconfig.json
+   {
+     "compilerOptions": {
+       "baseUrl": ".",
+       "paths": {
+         "@models/*": ["src/models/*"],
+         "@controllers/*": ["src/controllers/*"]
+       }
+     }
+   }
+   ```
+   ```json
+   // package.json
+   {
+     "imports": {
+       "#models/*": "./dist/models/*.js",
+       "#controllers/*": "./dist/controllers/*.js"
+     }
+   }
+   ```
+   </details>
+
+### Hard
+5. **Programmatic tsconfig Parser with TypeScript API**: Write a TypeScript script using `ts.readConfigFile` and `ts.parseJsonConfigFileContent` to load, resolve extends, and print the effective compiler options of a project.
+   <details>
+   <summary>Solution</summary>
+
+   ```typescript
+   import * as ts from 'typescript';
+   import * as path from 'path';
+
+   export function getEffectiveCompilerOptions(configPath: string): ts.CompilerOptions {
+     const configFile = ts.readConfigFile(configPath, ts.sys.readFile);
+     if (configFile.error) {
+       throw new Error(`Failed to read config: ${configFile.error.messageText}`);
+     }
+
+     const basePath = path.dirname(configPath);
+     const parsed = ts.parseJsonConfigFileContent(
+       configFile.config,
+       ts.sys,
+       basePath
+     );
+
+     return parsed.options;
+   }
+   ```
+   </details>
+
+6. **Monorepo Solution Config Setup**: Design a complete "solution-style" `tsconfig.json` with project references pointing to `packages/core`, `packages/api`, and `packages/client`, explaining how `tsc --build` processes dependencies.
+   <details>
+   <summary>Solution</summary>
+
+   ```json
+   {
+     "files": [],
+     "references": [
+       { "path": "./packages/core" },
+       { "path": "./packages/api" },
+       { "path": "./packages/client" }
+     ]
+   }
+   ```
+   `tsc --build` uses this root solution config to construct a dependency graph between referenced packages, compiling leaf dependencies (e.g. `core`) first and caching `.tsbuildinfo` artifacts to skip unchanged subprojects.
+   </details>
