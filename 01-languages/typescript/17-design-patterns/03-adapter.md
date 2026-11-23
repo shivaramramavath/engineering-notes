@@ -1,243 +1,517 @@
-# Adapter
+# Adapter and Facade Patterns in TypeScript
 
-An **adapter** converts one interface into another that your code expects. You use it at the seams where you do not control the shape of something: a third-party SDK, a legacy module, an awkward API, a callback-style library. The adapter keeps that foreign shape contained in one place, so the rest of your code talks to an interface you designed.
+> Implementing the Adapter and Facade design patterns in TypeScript: reconciling incompatible third-party interfaces, object vs class adapters, anti-corruption layers (ACL), and structural subtyping.
 
-**Prerequisites:**
-- [Interfaces](../04-objects-and-interfaces/00-interfaces.md)
-- [Classes](../05-classes/00-classes.md) (`implements`)
-- [The DTO pattern](../16-type-safe-apis/02-dto-pattern.md) (mapping at boundaries)
+| Metadata | Details |
+| :--- | :--- |
+| **Category** | Design Patterns |
+| **Difficulty** | Intermediate |
+| **Prerequisites** | [04-objects-and-interfaces/00-interfaces.md](../04-objects-and-interfaces/00-interfaces.md), [05-classes/00-class-basics.md](../05-classes/00-class-basics.md) |
+| **TypeScript Baseline** | TS 4.5+, TS 5.0+ |
+| **Tested tsconfig** | `"strict": true, "target": "ES2022", "module": "NodeNext"` |
 
 ---
 
-## The problem
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & API Reference](#4-syntax--api-reference)
+5. [Practical Examples](#5-practical-examples)
+6. [Edge Cases, Pitfalls & Gotchas](#6-edge-cases-pitfalls--gotchas)
+7. [Common Mistakes & Anti-Patterns](#7-common-mistakes--anti-patterns)
+8. [Performance & Type-Checker Complexity](#8-performance--type-checker-complexity)
+9. [Compiler Internals](#9-compiler-internals)
+10. [Best Practices & Design Guidelines](#10-best-practices--design-guidelines)
+11. [Real-World Case Study](#11-real-world-case-study)
+12. [Interview Questions](#12-interview-questions)
+13. [Exercises & Challenges](#13-exercises--challenges)
 
-Your application needs to take payments. A vendor provides an SDK, and you write code directly against it:
+---
 
-```ts
-// scattered through the codebase
-const charge = await acme.charges.create({
-  amount_cents: order.total * 100,
-  currency_code: "USD",
-  source_token: token,
-  meta: { order: order.id },
-});
-if (charge.state === "SETTLED") { /* ... */ }
+## 1. What & Why
+
+The **Adapter Pattern** is a structural design pattern that allows objects with incompatible interfaces to collaborate. In enterprise TypeScript development, applications frequently integrate external third-party SDKs (Stripe, Twilio, SendGrid), legacy libraries, or browser APIs that do not conform to internal domain interfaces.
+
+Directly coupling business logic to external SDK interfaces causes:
+1. **Vendor Lock-in**: Switching providers (e.g., from AWS S3 to Google Cloud Storage) requires refactoring hundreds of application files.
+2. **Fragile Testing**: External classes with complex internal state are painful to mock in unit tests.
+3. **Leaky Abstractions**: Third-party exceptions and idiosyncratic data structures leak into the core domain layer.
+
+By introducing an Adapter (often serving as an **Anti-Corruption Layer (ACL)** in Domain-Driven Design), we wrap the third-party dependency behind a clean, domain-specific TypeScript interface.
+
+```
++--------------------+        calls         +---------------------+
+|   Domain Service   |  ----------------->  |   Target Interface  |
+|  (Business Logic)  |                      |    (Internal API)   |
++--------------------+                      +---------------------+
+                                                       ^
+                                                       | implements
+                                            +---------------------+       adapts        +--------------------+
+                                            |       Adapter       |  ---------------->  |       Adaptee      |
+                                            |   (Translation)     |                     | (3rd Party SDK/API)|
+                                            +---------------------+                     +--------------------+
 ```
 
-Now vendor names, units, and status strings are all over your code. Switching vendors, upgrading the SDK, or testing without a network each means touching every call site.
+---
 
-## The pattern: your interface, their implementation
+## 2. Core Concepts
 
-Define the interface **your application wants**, in your domain's terms. Then write an adapter that implements it using the vendor SDK.
+### 1. Object Adapter vs Class Adapter
+- **Object Adapter (Composition)**: The adapter holds an instance of the adaptee (`private adaptee: ThirdPartyService`). This is the idiomatic approach in TypeScript and JavaScript.
+- **Class Adapter (Inheritance)**: The adapter inherits from both the domain class and the adaptee class (multiple inheritance). Because TypeScript classes only support single inheritance, class adapters are achieved via interface implementation (`class Adapter extends Adaptee implements TargetInterface`).
 
-```ts
-// What the application needs (your language)
-interface PaymentGateway {
-  charge(request: ChargeRequest): Promise<ChargeResult>;
-}
+### 2. Adapter vs Facade vs Proxy
+- **Adapter**: Converts one specific interface into another expected interface to resolve incompatibility.
+- **Facade**: Simplifies a complex subsystem into an easier, unified high-level interface.
+- **Proxy**: Provides the identical interface to control access, add caching, or perform lazy loading.
 
-interface ChargeRequest {
-  orderId: string;
-  amountCents: number;
-  currency: "USD" | "EUR";
-  paymentToken: string;
-}
+---
 
-type ChargeResult =
-  | { status: "succeeded"; transactionId: string }
-  | { status: "declined"; reason: string };
+## 3. How It Works Internally
+
+The adapter acts as a translation layer at compile-time and runtime:
+1. **Compile-Time**: Implements the target interface `Target`, ensuring all required domain methods exist with expected types.
+2. **Runtime**: Intercepts domain method calls, transforms parameter formats into the format expected by the adaptee, invokes the adaptee, catches adaptee exceptions, and translates responses into domain models.
+
+```
+Domain Call:             adapter.sendEmail({ to: 'a@b.com', body: 'Hi' })
+                              |
+Parameter Translation:   const payload = { personalizations: [{ to: [{ email: 'a@b.com' }] }], content: [...] }
+                              |
+Adaptee Invocation:      await sendgridSdk.send(payload)
+                              |
+Return Translation:      return { success: true }
 ```
 
-```ts
-// The adapter: translates between your interface and the vendor's
-class AcmePayGateway implements PaymentGateway {
-  constructor(private readonly client: AcmePayClient) {}
+---
 
-  async charge(req: ChargeRequest): Promise<ChargeResult> {
-    const result = await this.client.charges.create({
-      amount_cents: req.amountCents,
-      currency_code: req.currency,
-      source_token: req.paymentToken,
-      meta: { order: req.orderId },
+## 4. Syntax & API Reference
+
+### Generic Adapter Contract
+```typescript
+export interface TargetPort<TInput, TOutput> {
+  process(data: TInput): Promise<TOutput>;
+}
+
+export class ServiceAdapter<TAdaptee, TInput, TOutput> implements TargetPort<TInput, TOutput> {
+  constructor(protected readonly adaptee: TAdaptee) {}
+
+  public async process(data: TInput): Promise<TOutput> {
+    throw new Error('Must be implemented by concrete adapter');
+  }
+}
+```
+
+---
+
+## 5. Practical Examples
+
+### Example 1: Basic Object Adapter (Date Library Adapter)
+```typescript
+export interface DateTimeProvider {
+  nowIso(): string;
+  addDays(iso: string, days: number): string;
+}
+
+// Adaptee: Legacy library or specialized library
+class LegacyDateLib {
+  public getTimestamp(): number { return Date.now(); }
+  public shiftDays(timestamp: number, days: number): number {
+    return timestamp + days * 86400000;
+  }
+}
+
+export class LegacyDateAdapter implements DateTimeProvider {
+  constructor(private legacyLib: LegacyDateLib) {}
+
+  public nowIso(): string {
+    return new Date(this.legacyLib.getTimestamp()).toISOString();
+  }
+
+  public addDays(iso: string, days: number): string {
+    const ts = new Date(iso).getTime();
+    const shifted = this.legacyLib.shiftDays(ts, days);
+    return new Date(shifted).toISOString();
+  }
+}
+```
+
+### Example 2: Real-World Cloud Storage Anti-Corruption Layer
+```typescript
+export interface FileStoragePort {
+  save(filename: string, content: Buffer): Promise<string>;
+  delete(filename: string): Promise<void>;
+}
+
+// Adaptee: AWS S3 Client
+class MockS3Client {
+  public async putObject(params: { Bucket: string; Key: string; Body: Buffer }) {
+    return { ETag: '"hash123"' };
+  }
+  public async deleteObject(params: { Bucket: string; Key: string }) {
+    return {};
+  }
+}
+
+export class S3StorageAdapter implements FileStoragePort {
+  constructor(private s3: MockS3Client, private bucketName: string) {}
+
+  public async save(filename: string, content: Buffer): Promise<string> {
+    const res = await this.s3.putObject({
+      Bucket: this.bucketName,
+      Key: filename,
+      Body: content
     });
+    return `s3://${this.bucketName}/${filename}`;
+  }
 
-    switch (result.state) {
-      case "SETTLED":
-        return { status: "succeeded", transactionId: result.id };
-      case "REJECTED":
-        return { status: "declined", reason: result.reject_reason ?? "unknown" };
-      default:
-        throw new Error(`Unexpected AcmePay state: ${result.state}`);
+  public async delete(filename: string): Promise<void> {
+    await this.s3.deleteObject({
+      Bucket: this.bucketName,
+      Key: filename
+    });
+  }
+}
+```
+
+### Example 3: Edge Case - Adapting Async Callback API to Promise Interface
+```typescript
+export interface KeyValueStore {
+  get(key: string): Promise<string | null>;
+  set(key: string, value: string): Promise<void>;
+}
+
+// Old callback-based Node client
+interface CallbackRedis {
+  get(key: string, cb: (err: Error | null, val: string | null) => void): void;
+  set(key: string, val: string, cb: (err: Error | null) => void): void;
+}
+
+export class CallbackRedisAdapter implements KeyValueStore {
+  constructor(private client: CallbackRedis) {}
+
+  public get(key: string): Promise<string | null> {
+    return new Promise((resolve, reject) => {
+      this.client.get(key, (err, val) => (err ? reject(err) : resolve(val)));
+    });
+  }
+
+  public set(key: string, value: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.client.set(key, value, (err) => (err ? reject(err) : resolve()));
+    });
+  }
+}
+```
+
+### Example 4: Failure Case - Missing Method in Incompatible Adaptee
+```typescript
+interface LoggerPort {
+  info(msg: string): void;
+  error(msg: string, err?: Error): void;
+}
+
+class IncompatibleConsole {
+  log(msg: string) { console.log(msg); }
+}
+
+// @ts-expect-error TS2420: Class 'BadAdapter' incorrectly implements interface 'LoggerPort'. Property 'error' is missing.
+export class BadAdapter implements LoggerPort {
+  constructor(private c: IncompatibleConsole) {}
+  info(msg: string) { this.c.log(msg); }
+}
+```
+
+### Example 5: Idiomatic Facade for Multi-Step Payment Processing
+```typescript
+class InventoryService { public reserve(sku: string, qty: number) { return true; } }
+class PaymentGateway { public charge(amount: number) { return 'tx_123'; } }
+class NotificationService { public notifyCustomer(email: string) { return true; } }
+
+export class CheckoutFacade {
+  constructor(
+    private inventory: InventoryService,
+    private payment: PaymentGateway,
+    private notifications: NotificationService
+  ) {}
+
+  public async placeOrder(sku: string, qty: number, amount: number, email: string): Promise<{ orderId: string }> {
+    const reserved = this.inventory.reserve(sku, qty);
+    if (!reserved) throw new Error('Out of stock');
+
+    const txId = this.payment.charge(amount);
+    this.notifications.notifyCustomer(email);
+
+    return { orderId: txId };
+  }
+}
+```
+
+---
+
+## 6. Edge Cases, Pitfalls & Gotchas
+
+1. **Uncaught Adaptee Exceptions**: If the third-party library throws custom error instances (e.g. `AwsS3ServiceError`), failing to catch and wrap them in domain errors breaks the isolation of the domain layer. Always translate third-party errors inside the adapter.
+2. **Behavioral Divergence**: Even if an adapter satisfies the TypeScript interface type-wise, behavioral differences (such as different timeout behaviors, idempotency guarantees, or character encoding) can cause production bugs.
+3. **Over-Adapting Simple Utilities**: Creating adapters for pure, standardized utility libraries (like `lodash` or `date-fns`) adds needless layer complexity. Reserve adapters for I/O services and boundary systems.
+
+---
+
+## 7. Common Mistakes & Anti-Patterns
+
+| Anti-Pattern | Bad Code | Good Code | Compiler / Runtime Impact |
+| :--- | :--- | :--- | :--- |
+| **Leaking Adaptee Types** | `public get(): AWS.S3.Object` | `public get(): DomainFile` | Domain layer becomes coupled to AWS SDK types |
+| **Leaking Adaptee Exceptions** | Letting `StripeCardError` bubble up | Catch and rethrow as `DomainPaymentError` | External exception hierarchy pollutes domain code |
+| **Class Adapter with Multiple Inheritance Hacks** | Mixing prototype properties dynamically | Object composition (`private adaptee`) | Fragile monkey-patching and loss of compiler tracking |
+| **God Facade** | Single facade handling 50 unrelated services | Cohesive, focused domain facades | Tight coupling and high risk of regressions |
+| **Ignoring Asynchronous Errors** | Not handling unhandled promise rejections in callbacks | Proper `new Promise((res, rej) => ...)` | Node process unhandledRejection crash |
+| **Modifying Third-Party Prototypes** | Extending `Date.prototype` or `Array.prototype` | Dedicated wrapper/adapter class | Global pollution and compatibility bugs with third-party libs |
+
+---
+
+## 8. Performance & Type-Checker Complexity
+
+- **Delegation Overhead**: Method delegation through an adapter (`adapter.method -> adaptee.method`) adds a single function stack frame, incurring negligible CPU overhead (<1 nanosecond).
+- **Inlining**: Modern V8 JIT compilers easily inline trivial adapter forwarding calls.
+
+---
+
+## 9. Compiler Internals
+
+When an adapter implements an interface:
+```typescript
+class MyAdapter implements TargetInterface { ... }
+```
+The compiler's type checker verifies that the class constructor's instance type contains every symbol declared in `TargetInterface`, checking parameter contravariance and return type covariance. If any method signature differs, `TS2420` is reported.
+
+---
+
+## 10. Best Practices & Design Guidelines
+
+1. **Favor Object Adapters over Class Adapters**: Use composition (`has-a`) instead of inheritance (`is-a`).
+2. **Define the Target Interface in the Domain Layer**: The interface belongs to the consumer, not the vendor.
+3. **Translate All Errors**: Catch vendor exceptions in the adapter and translate them into domain-specific exceptions.
+4. **Use Facades to Hide Subsystem Complexity**: Combine multiple lower-level adapters into high-level operations.
+
+---
+
+## 11. Real-World Case Study
+
+### Swapping Payment Providers with Zero Domain Changes
+A high-volume subscription platform migrates from Stripe to Adyen. Because the domain interacted solely with an internal `IPaymentProvider` interface, only the adapter implementation was swapped:
+
+```typescript
+export interface CustomerBillingProfile { id: string; email: string; }
+export interface PaymentResult { success: boolean; transactionId: string; }
+
+export interface IPaymentProvider {
+  chargeCustomer(customer: CustomerBillingProfile, amountCents: number): Promise<PaymentResult>;
+}
+
+// Domain Service remains 100% unchanged!
+export class SubscriptionService {
+  constructor(private paymentProvider: IPaymentProvider) {}
+
+  public async renewSubscription(customer: CustomerBillingProfile, amount: number) {
+    const result = await this.paymentProvider.chargeCustomer(customer, amount);
+    if (!result.success) throw new Error('Renewal failed');
+    return result;
+  }
+}
+```
+
+---
+
+## 12. Interview Questions
+
+<details>
+<summary>1. What is the fundamental purpose of the Adapter pattern?</summary>
+
+To allow classes with incompatible interfaces to work together by wrapping one class's interface around an existing class. It translates requests from the client's expected format into the format required by the adaptee.
+</details>
+
+<details>
+<summary>2. What is an Anti-Corruption Layer (ACL) in Domain-Driven Design and how does it relate to the Adapter pattern?</summary>
+
+An Anti-Corruption Layer is an architectural boundary that isolates a domain model from external subsystems or legacy APIs. It is implemented using Adapters, Translators, and Facades to ensure that external data shapes and concepts do not corrupt the purity of the core domain.
+</details>
+
+<details>
+<summary>3. Why is composition preferred over inheritance when implementing adapters in TypeScript?</summary>
+
+TypeScript (and JavaScript) does not support multiple class inheritance. With composition (Object Adapter), the adapter holds a reference to the adaptee, allowing it to adapt any subclass or alternative implementation of the adaptee dynamically at runtime without being rigidly bound to its inheritance hierarchy.
+</details>
+
+<details>
+<summary>4. What is the difference between an Adapter and a Facade?</summary>
+
+An **Adapter** changes an existing interface to match an expected interface, making two incompatible systems work together. A **Facade** defines a new, simplified interface over an entire complex subsystem to make it easier to consume.
+</details>
+
+<details>
+<summary>5. How should third-party exceptions be handled in an Adapter?</summary>
+
+They must be caught within the adapter methods and translated into domain-specific error types. Letting raw vendor exceptions escape defeats the decoupling purpose of the adapter pattern.
+</details>
+
+<details>
+<summary>6. How can you adapt a callback-based legacy API to a modern Promise-based interface?</summary>
+
+By wrapping the callback invocation inside `new Promise((resolve, reject) => { ... })`, forwarding errors to `reject(err)` and successful values to `resolve(data)`.
+</details>
+
+<details>
+<summary>7. What is the role of structural typing in TypeScript adapters?</summary>
+
+Because TypeScript is structurally typed, an adapter does not strictly need to explicitly declare `implements TargetInterface`. As long as its public shape satisfies the target interface, it can be passed anywhere the interface is expected. However, using `implements` is recommended for compile-time safety during development.
+</details>
+
+<details>
+<summary>8. When does introducing an Adapter become an anti-pattern?</summary>
+
+When applied prematurely to stable, standard libraries that are unlikely to change, or when an adapter merely passes calls through without performing any translation or abstraction, adding boilerplate without providing architectural decoupling.
+</details>
+
+---
+
+## 13. Exercises & Challenges
+
+<details>
+<summary>Exercise 1 (Easy): Basic Console Logger Adapter</summary>
+
+**Problem:** Create a `LogAdapter` that adapts the browser `console` object to an `ILogger` interface with `logMessage(msg: string): void`.
+
+**Solution:**
+```typescript
+export interface ILogger { logMessage(msg: string): void; }
+export class ConsoleLogAdapter implements ILogger {
+  constructor(private c: Console = console) {}
+  public logMessage(msg: string): void { this.c.log(msg); }
+}
+```
+</details>
+
+<details>
+<summary>Exercise 2 (Easy): LocalStorage to Async Storage Adapter</summary>
+
+**Problem:** Create an adapter that wraps synchronous `window.localStorage` in an asynchronous `AsyncStorage` interface.
+
+**Solution:**
+```typescript
+export interface AsyncStorage {
+  getItem(key: string): Promise<string | null>;
+  setItem(key: string, val: string): Promise<void>;
+}
+
+export class LocalStorageAdapter implements AsyncStorage {
+  constructor(private storage: Storage = window.localStorage) {}
+  async getItem(key: string) { return this.storage.getItem(key); }
+  async setItem(key: string, val: string) { this.storage.setItem(key, val); }
+}
+```
+</details>
+
+<details>
+<summary>Exercise 3 (Medium): Fetch to Axios-Like Client Adapter</summary>
+
+**Problem:** Adapt the native `fetch` API to an interface `SimpleHttpClient` with `get<T>(url: string): Promise<{ data: T; status: number }>`.
+
+**Solution:**
+```typescript
+export interface SimpleHttpClient {
+  get<T>(url: string): Promise<{ data: T; status: number }>;
+}
+
+export class FetchHttpAdapter implements SimpleHttpClient {
+  async get<T>(url: string): Promise<{ data: T; status: number }> {
+    const res = await fetch(url);
+    const data = await res.json();
+    return { data, status: res.status };
+  }
+}
+```
+</details>
+
+<details>
+<summary>Exercise 4 (Medium): Event Listener Adapter</summary>
+
+**Problem:** Adapt a Node.js `EventEmitter` (`.on(event, handler)`) to a DOM-style `EventTarget` (`.addEventListener(type, listener)`).
+
+**Solution:**
+```typescript
+import { EventEmitter } from 'events';
+
+export class NodeToDomEventAdapter {
+  constructor(private ee: EventEmitter) {}
+
+  public addEventListener(type: string, listener: (...args: any[]) => void): void {
+    this.ee.on(type, listener);
+  }
+
+  public removeEventListener(type: string, listener: (...args: any[]) => void): void {
+    this.ee.off(type, listener);
+  }
+}
+```
+</details>
+
+<details>
+<summary>Exercise 5 (Hard): Universal Cache Adapter with TTL</summary>
+
+**Problem:** Create an adapter that wraps any key-value store lacking TTL support (like a basic Map) and implements an `ExpiringCache` interface with auto-expiration.
+
+**Solution:**
+```typescript
+export interface ExpiringCache<V> {
+  set(key: string, value: V, ttlMs: number): void;
+  get(key: string): V | null;
+}
+
+export class TTLMapAdapter<V> implements ExpiringCache<V> {
+  private map = new Map<string, { value: V; expiresAt: number }>();
+
+  public set(key: string, value: V, ttlMs: number): void {
+    this.map.set(key, { value, expiresAt: Date.now() + ttlMs });
+  }
+
+  public get(key: string): V | null {
+    const entry = this.map.get(key);
+    if (!entry) return null;
+    if (Date.now() > entry.expiresAt) {
+      this.map.delete(key);
+      return null;
+    }
+    return entry.value;
+  }
+}
+```
+</details>
+
+<details>
+<summary>Exercise 6 (Hard): Resilient Fallback Facade</summary>
+
+**Problem:** Implement a facade that coordinates primary and secondary SMS providers, automatically failing over to the secondary provider if the primary throws an exception.
+
+**Solution:**
+```typescript
+export interface SmsSender { send(to: string, msg: string): Promise<boolean>; }
+
+export class FailoverSmsFacade implements SmsSender {
+  constructor(
+    private primary: SmsSender,
+    private secondary: SmsSender
+  ) {}
+
+  public async send(to: string, msg: string): Promise<boolean> {
+    try {
+      return await this.primary.send(to, msg);
+    } catch (err) {
+      console.warn('Primary SMS provider failed, failing over to secondary', err);
+      return await this.secondary.send(to, msg);
     }
   }
 }
 ```
-
-Everything vendor-specific lives in this one class:
-
-- **Names:** `amount_cents` / `source_token` versus `amountCents` / `paymentToken`.
-- **Units and formats:** whatever the vendor expects, converted in one place.
-- **Status vocabulary:** `"SETTLED"` and `"REJECTED"` become your `"succeeded"` and `"declined"`.
-- **Errors:** vendor exceptions can be translated into your own error types here.
-
-The rest of the application depends only on `PaymentGateway`:
-
-```ts
-class CheckoutService {
-  constructor(private readonly payments: PaymentGateway) {}
-
-  async pay(order: Order, token: string) {
-    return this.payments.charge({
-      orderId: order.id,
-      amountCents: order.totalCents,
-      currency: order.currency,
-      paymentToken: token,
-    });
-  }
-}
-```
-
-Switching vendors means writing another class that implements `PaymentGateway`. Nothing else changes. Testing means writing a tiny fake:
-
-```ts
-class FakeGateway implements PaymentGateway {
-  async charge(): Promise<ChargeResult> {
-    return { status: "succeeded", transactionId: "test-1" };
-  }
-}
-```
-
-Combine with [dependency injection](./05-dependency-injection.md) to supply the real adapter in production and the fake in tests.
-
-## Function adapters
-
-Adapters do not have to be classes. Often a function is enough:
-
-```ts
-// Adapt an API record to your domain model
-function fromAcmeCustomer(c: AcmeCustomerRecord): Customer {
-  return {
-    id: c.cust_id,
-    name: `${c.first} ${c.last}`,
-    email: c.email_address.toLowerCase(),
-    createdAt: new Date(c.created_ts * 1000),
-  };
-}
-```
-
-This is the same idea as a DTO mapper ([DTO pattern](../16-type-safe-apis/02-dto-pattern.md)), applied to inbound data from an external system. A group of such functions around one vendor is an **anti-corruption layer**: a boundary that stops another system's model from leaking into yours.
-
-## Adapting callbacks to promises
-
-A common, practical adapter: wrap a callback API in an interface that returns a promise.
-
-```ts
-function readFileP(path: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    legacyReadFile(path, "utf8", (err, data) => {
-      if (err) reject(err);
-      else resolve(data);
-    });
-  });
-}
-```
-
-Node's `util.promisify` does this mechanically for standard callback signatures ([promises](../12-async-and-iteration/01-promises.md)).
-
-## Adapting events to async iteration
-
-An event-based source can be adapted to an `AsyncIterable`, so consumers use `for await`:
-
-```ts
-import { on } from "node:events";
-
-async function* messages(socket: EventEmitter): AsyncGenerator<string> {
-  for await (const [data] of on(socket, "message")) {
-    yield String(data);
-  }
-}
-```
-
-Here the adapter changes the *consumption style*, not the data. See [iterators and generators](../12-async-and-iteration/04-iterators-and-generators.md).
-
-## Adapting types you cannot change
-
-For untyped or loosely typed libraries, the adapter is also where you restore type safety ([third-party types](../09-declaration-files/04-third-party-types.md)):
-
-```ts
-// The library returns `any`; the adapter validates and returns your type
-class WeatherAdapter implements WeatherService {
-  async current(city: string): Promise<Weather> {
-    const raw: unknown = await legacyWeatherLib.fetch(city);
-    const parsed = WeatherSchema.parse(raw);        // runtime validation at the boundary
-    return { tempC: parsed.temp, summary: parsed.desc };
-  }
-}
-```
-
-Contain `any` and assertions in the adapter, and expose only validated, domain-typed values.
-
-## Class adapter vs object adapter
-
-- **Object adapter (composition):** the adapter *holds* the foreign object and delegates (`AcmePayGateway` above). This is the usual choice in TypeScript.
-- **Class adapter (inheritance):** the adapter *extends* the foreign class. It is tighter coupling, exposes the foreign class's members, and breaks if the vendor changes its class. Avoid it unless you truly want to extend.
-
-## Designing the target interface
-
-The adapter is only as good as the interface it targets:
-
-- **Design for your use cases,** not as a mirror of the vendor's API. A "wrapper" that merely renames methods does not isolate you from vendor concepts.
-- **Keep it small.** Include the operations you need today.
-- **Do not leak vendor types.** If `ChargeResult` exposes an `AcmeError` or an `AcmeCharge`, the vendor has escaped.
-- **Define error semantics** in your own terms: which failures are returned as values (declined card) and which are thrown (network down) ([error handling strategies](../11-error-handling/03-error-handling-strategies.md)).
-- **Choose the right level.** Too thin, and you adapt nothing. Too thick, and the adapter contains business logic.
-
-## Adapter vs related patterns
-
-| Pattern | Purpose |
-|---|---|
-| **Adapter** | make an existing, incompatible interface fit the one you want |
-| **Facade** | simplify a complex subsystem behind one easier interface (you design both sides) |
-| **Decorator** | add behavior while keeping the **same** interface |
-| **Proxy** | control access to an object, with the same interface |
-| **[Repository](./04-repository.md)** | adapt a data store to a collection-like domain interface |
-
-A repository is, in effect, an adapter for persistence. Many patterns in this section amount to "put an interface of your own between your code and something you do not control".
-
-## When to use an adapter
-
-Good fits:
-
-- A third-party SDK that you want to be able to replace, upgrade, or fake.
-- A legacy module with an unsuitable interface.
-- External data formats that differ from your domain model.
-- Different providers of the same capability (payments, email, storage, logging) behind one interface.
-
-Skip it for a small, stable, widely used library that you have no plan to replace (a date formatter, a UUID generator), where the wrapper would add nothing but indirection.
-
-## Common mistakes
-
-- Defining the target interface as a copy of the vendor's API, so nothing is actually isolated.
-- Leaking vendor types or error classes through the interface.
-- Putting business rules in the adapter instead of the domain layer.
-- Creating an adapter per method call instead of one cohesive adapter.
-- Using class inheritance to adapt, then breaking on vendor updates.
-- Letting `any` from an untyped library flow past the adapter.
-- Translating only the happy path, so vendor-specific errors escape in production.
-
-## Debugging
-
-- If vendor concepts appear outside the adapter, search for imports of the SDK outside it. There should be one place.
-- When behavior differs between the real adapter and a fake, add a **contract test** that runs the same test suite against both implementations.
-- Log the raw vendor request and response at the adapter boundary (without secrets) to diagnose mapping problems.
-- If conversions are wrong (units, time zones, currency), test the mapping functions with edge cases directly.
-
-## Quick summary
-
-- An adapter makes an incompatible interface fit the one your code expects, isolating a vendor, a legacy module, or an external format.
-- Define the target interface in **your** terms, then implement it with composition around the foreign object. Do not leak vendor types.
-- Adapters can be classes, mapper functions, or small wrappers that turn callbacks or events into promises and async iterables.
-- Use the adapter as the place to validate data and contain `any`.
-- Pair it with dependency injection and fakes to swap and test implementations. Skip it where the wrapper would add nothing.
-
-**Next:** [Repository](./04-repository.md)
+</details>

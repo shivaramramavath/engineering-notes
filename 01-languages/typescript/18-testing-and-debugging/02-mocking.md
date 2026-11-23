@@ -1,234 +1,487 @@
-# Mocking
+# Mocking, Spying, and Test Doubles in TypeScript
 
-Real code talks to databases, networks, clocks, and other modules, and unit tests need to replace those with controlled stand-ins. These stand-ins are called **test doubles**, and "mocking" is the loose term for using them. The skill is knowing which kind of double to use, how to keep them type-safe in TypeScript, and when *not* to mock, because over-mocked tests pass while the real system is broken.
+> Comprehensive guide to test doubles in TypeScript: mocks, stubs, spies, fakes, Vitest `vi.fn()` and `vi.spyOn()`, MSW (Mock Service Worker) for network mocking, and type-safe mock builders.
 
-**Prerequisites:**
-- [Unit testing](./00-unit-testing.md)
-- [Dependency injection](../17-design-patterns/05-dependency-injection.md)
-- [Interfaces](../04-objects-and-interfaces/00-interfaces.md)
+| Metadata | Details |
+| :--- | :--- |
+| **Category** | Testing and Debugging |
+| **Difficulty** | Intermediate |
+| **Prerequisites** | [02-functions/00-function-types.md](../02-functions/00-function-types.md), [18-testing-and-debugging/00-unit-testing.md](./00-unit-testing.md) |
+| **TypeScript Baseline** | TS 4.5+, TS 5.0+ |
+| **Tested tsconfig** | `"strict": true, "target": "ES2022", "module": "NodeNext"` |
 
 ---
 
-## Kinds of test doubles
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & API Reference](#4-syntax--api-reference)
+5. [Practical Examples](#5-practical-examples)
+6. [Edge Cases, Pitfalls & Gotchas](#6-edge-cases-pitfalls--gotchas)
+7. [Common Mistakes & Anti-Patterns](#7-common-mistakes--anti-patterns)
+8. [Performance & Type-Checker Complexity](#8-performance--type-checker-complexity)
+9. [Compiler Internals](#9-compiler-internals)
+10. [Best Practices & Design Guidelines](#10-best-practices--design-guidelines)
+11. [Real-World Case Study](#11-real-world-case-study)
+12. [Interview Questions](#12-interview-questions)
+13. [Exercises & Challenges](#13-exercises--challenges)
 
-| Double | What it is | Typical use |
-|---|---|---|
-| **Dummy** | passed but never used | filling a required parameter |
-| **Stub** | returns canned answers | "the API returns this user" |
-| **Fake** | a working, simplified implementation | in-memory repository, in-memory file store |
-| **Spy** | records how it was called, usually wrapping real behavior | "was this called, with what?" |
-| **Mock** | a stub plus built-in expectations about calls | strict interaction checks |
+---
 
-In practice, most test frameworks call all of these "mocks" (`vi.fn()` in Vitest, `jest.fn()` in Jest). The distinction still matters for design: **fakes and stubs check outcomes** (what the code returned or stored), while **spies and mocks check interactions** (what it called). Outcome-based tests survive refactoring. Interaction-based tests break whenever you change how the code works, even when the behavior is the same.
+## 1. What & Why
 
-## The best mock is a small interface and a hand-written fake
+In unit testing, components often depend on external services: payment gateways, email providers, file systems, and timers. When testing a `NotificationService`, we do not want to send real SMS text messages or incur Twilio API billing charges on every test run.
 
-When code receives its dependencies as small interfaces ([dependency injection](../17-design-patterns/05-dependency-injection.md)), you often need no mocking library:
+We substitute real dependencies with **Test Doubles**:
+- **Dummy**: Passed around but never actually used (e.g., filling required parameter slots).
+- **Stub**: Provides predefined hardcoded answers to calls during the test.
+- **Spy**: Records information about calls made to it (arguments, call count, return values).
+- **Mock**: Pre-programmed with expectations regarding calls it should receive; verifies behavior.
+- **Fake**: Has a working implementation, but takes a shortcut unsuitable for production (e.g., an in-memory database).
 
-```ts
-interface Mailer {
-  send(to: string, subject: string): Promise<void>;
+In TypeScript, untyped mocking (`jest.fn() as any`) destroys type safety. Modern TypeScript testing uses **Type-Safe Mocks** with Vitest (`vi.fn<[string], Promise<User>>()`) and **Network-Level Mocking** with **MSW (Mock Service Worker)**.
+
+```
++-----------------------------------------------------------+
+|                     MSW Network Interception              |
+|                                                           |
+|   App calls: fetch('https://api.stripe.com/v1/charges')   |
+|                              |                            |
+|                              v                            |
+|                    Intercepted at OS / Node               |
+|                    Network boundary by MSW                |
+|                              |                            |
+|                              v                            |
+|   Returns mock JSON without touching the real internet!   |
++-----------------------------------------------------------+
+```
+
+---
+
+## 2. Core Concepts
+
+### 1. Vitest Spies and Mocks (`vi.fn` and `vi.spyOn`)
+`vi.fn()` creates a typed mock function. It infers argument and return types automatically from function signatures:
+```typescript
+import { vi } from 'vitest';
+
+const sendMailMock = vi.fn<(to: string, body: string) => Promise<boolean>>();
+sendMailMock.mockResolvedValue(true);
+```
+
+### 2. Spying on Existing Methods
+`vi.spyOn(object, 'methodName')` wraps an existing object method, tracking invocations while optionally delegating to the original implementation:
+```typescript
+const spy = vi.spyOn(Date, 'now').mockReturnValue(1700000000000);
+```
+
+### 3. Mock Service Worker (MSW)
+MSW intercepts HTTP requests at the network layer (via Service Workers in browsers or `node:http` interception in Node.js), eliminating the need to mock `fetch` or `axios` instances directly:
+```typescript
+import { http, HttpResponse } from 'msw';
+import { setupServer } from 'msw/node';
+
+export const server = setupServer(
+  http.get('https://api.example.com/user', () => {
+    return HttpResponse.json({ id: '1', name: 'Alice' });
+  })
+);
+```
+
+---
+
+## 3. How It Works Internally
+
+1. **`vi.fn()` Internal Architecture**:
+   Maintains a `.mock` property containing `calls: any[][]`, `results: { type: 'return' | 'throw', value: any }[]`, and `instances: any[]`. Every invocation records call arguments and returns the configured value or executes the mock implementation.
+2. **MSW Node Interception**:
+   MSW monkey-patches Node's underlying `http.ClientRequest` and global `fetch`. When a request matches a handler's path and method, MSW bypasses the network socket and synthesizes a `Response` object directly.
+
+---
+
+## 4. Syntax & API Reference
+
+### Type-Safe Deep Partial Mock Helper
+```typescript
+export type DeepPartial<T> = T extends Function
+  ? T
+  : T extends Array<infer U>
+  ? DeepPartial<U>[]
+  : T extends object
+  ? { [K in keyof T]?: DeepPartial<T[K]> }
+  : T;
+
+export function createMock<T extends object>(overrides: DeepPartial<T> = {}): T {
+  return overrides as T;
+}
+```
+
+---
+
+## 5. Practical Examples
+
+### Example 1: Basic Function Mocking and Argument Assertion
+```typescript
+import { vi, describe, it, expect } from 'vitest';
+
+interface Notifier {
+  send(to: string, message: string): boolean;
 }
 
-class FakeMailer implements Mailer {
-  readonly sent: { to: string; subject: string }[] = [];
-  async send(to: string, subject: string) {
-    this.sent.push({ to, subject });
+export function alertAdmins(notifier: Notifier, alertText: string): void {
+  notifier.send('admin@corp.internal', `[ALERT] ${alertText}`);
+}
+
+describe('alertAdmins', () => {
+  it('calls notifier with formatted admin email and alert text', () => {
+    const mockNotifier: Notifier = {
+      send: vi.fn().mockReturnValue(true)
+    };
+
+    alertAdmins(mockNotifier, 'Disk full');
+
+    expect(mockNotifier.send).toHaveBeenCalledTimes(1);
+    expect(mockNotifier.send).toHaveBeenCalledWith('admin@corp.internal', '[ALERT] Disk full');
+  });
+});
+```
+
+### Example 2: Real-World Network Mocking with MSW
+```typescript
+import { http, HttpResponse } from 'msw';
+import { setupServer } from 'msw/node';
+import { beforeAll, afterAll, afterEach, describe, it, expect } from 'vitest';
+
+const server = setupServer(
+  http.get('https://api.github.com/users/octocat', () => {
+    return HttpResponse.json({ login: 'octocat', public_repos: 8 });
+  })
+);
+
+beforeAll(() => server.listen());
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
+
+describe('GitHub Client', () => {
+  it('fetches repo count correctly', async () => {
+    const res = await fetch('https://api.github.com/users/octocat');
+    const data = await res.json();
+    expect(data.public_repos).toBe(8);
+  });
+});
+```
+
+### Example 3: Edge Case - Time and Timer Mocking
+```typescript
+import { vi, it, expect } from 'vitest';
+
+export function runAfterDelay(ms: number, fn: () => void): void {
+  setTimeout(fn, ms);
+}
+
+it('advances fake timers without waiting real time', () => {
+  vi.useFakeTimers();
+  const callback = vi.fn();
+
+  runAfterDelay(10000, callback);
+
+  expect(callback).not.toHaveBeenCalled();
+
+  // Fast-forward 10 seconds instantly!
+  vi.advanceTimersByTime(10000);
+
+  expect(callback).toHaveBeenCalledTimes(1);
+  vi.useRealTimers();
+});
+```
+
+### Example 4: Failure Case - Type Checking on Mock Call Signatures
+```typescript
+interface AuthService {
+  login(user: string, pass: string): Promise<boolean>;
+}
+
+const mockAuth: AuthService = {
+  // @ts-expect-error TS2322: Type 'Mock<() => boolean>' is not assignable to '(user: string, pass: string) => Promise<boolean>'.
+  login: vi.fn<() => boolean>().mockReturnValue(true)
+};
+```
+
+### Example 5: Idiomatic Proxy-Based Auto-Mocking
+```typescript
+export function createAutoMock<T extends object>(): T {
+  const mocks = new Map<string | symbol, ReturnType<typeof vi.fn>>();
+
+  return new Proxy({} as T, {
+    get: (_, prop) => {
+      if (!mocks.has(prop)) {
+        mocks.set(prop, vi.fn());
+      }
+      return mocks.get(prop);
+    }
+  });
+}
+```
+
+---
+
+## 6. Edge Cases, Pitfalls & Gotchas
+
+1. **Pollution Across Tests**: Spies created with `vi.spyOn()` mutate the target object. If not restored, they alter behavior in subsequent tests. Always run `vi.restoreAllMocks()` or `afterEach(() => vi.clearAllMocks())`.
+2. **`mockClear` vs `mockReset` vs `mockRestore`**:
+   - `mockClear()`: Clears recorded calls and instances, keeps mock implementation.
+   - `mockReset()`: Clears calls and resets mock implementation to return `undefined`.
+   - `mockRestore()`: Completely restores original implementation (only works on spies).
+3. **Module Mocking Hoisting**: `vi.mock('./path')` is hoisted to the top of the file before all imports. Variables defined in the test file cannot be used directly inside `vi.mock()` factory closures unless prefixed with `vi.hoisted()`.
+4. **Mocking Native Globals**: Overwriting `globalThis.fetch` directly without restoration can break other tests or test runner internal reporting. Prefer MSW for HTTP.
+
+---
+
+## 7. Common Mistakes & Anti-Patterns
+
+| Anti-Pattern | Bad Code | Good Code | Compiler / Runtime Impact |
+| :--- | :--- | :--- | :--- |
+| **Untyped Mock Assertion** | `(service as any).doStuff = jest.fn()` | `vi.spyOn(service, 'doStuff')` | Disables compiler checking |
+| **Forgetting to Restore Spies** | Spying on `Date.now` without teardown | `afterEach(() => vi.restoreAllMocks())` | Cascading flaky test failures |
+| **Over-Mocking Everything** | Mocking domain models and utility functions | Mock only external boundaries (I/O) | Tests test nothing real; fragile |
+| **Manual `fetch` Mocking** | Monkey-patching `global.fetch = () => ...` | MSW (Mock Service Worker) | Misses headers, status codes, query strings |
+| **Un-awaited Mock Resolutions** | `fn.mockReturnValue(Promise.resolve())` | `fn.mockResolvedValue()` | Shorter syntax, cleaner promises |
+| **Closure Variable in Hoisted Mock** | Using local variable inside `vi.mock()` | Use `vi.hoisted(() => ...)` | `ReferenceError: Cannot access before initialization` |
+
+---
+
+## 8. Performance & Type-Checker Complexity
+
+- **Overhead**: Creating a `vi.fn()` mock takes sub-microsecond time. MSW network interception in Node.js processes requests in under 1ms.
+- **Type Checker**: Mock type signatures `vi.fn<[string], number>()` check parameter contravariance and return covariance accurately without performance drag.
+
+---
+
+## 9. Compiler Internals
+
+When using `vi.spyOn(target, 'method')`:
+TypeScript uses indexed access types `T[K]` and constraints `K extends keyof T`. The return type of `spyOn` is typed as `MockInstance<T[K]>`, extracting parameter types via `Parameters<T[K]>` and return type via `ReturnType<T[K]>`.
+
+---
+
+## 10. Best Practices & Design Guidelines
+
+1. **Mock at Architectural Boundaries Only**: Never mock internal domain entities or calculation helpers; only mock external I/O (Stripe, S3, Email, SMS).
+2. **Prefer MSW for Network APIs**: Keep `fetch` untouched and intercept network packets cleanly.
+3. **Always Clean Up Spies**: Configure `restoreMocks: true` in `vitest.config.ts`.
+4. **Use Fake Timers for Delays**: Avoid `setTimeout` sleeps in tests; advance fake timers instantaneously.
+
+---
+
+## 11. Real-World Case Study
+
+### Resilient Payment Retry Engine with Clock Spying
+Testing an exponential backoff payment retry service:
+
+```typescript
+export class PaymentRetrier {
+  constructor(private gateway: { charge: () => Promise<boolean> }) {}
+
+  public async chargeWithBackoff(maxAttempts: number): Promise<boolean> {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await this.gateway.charge();
+      } catch (err) {
+        if (attempt === maxAttempts) throw err;
+        await new Promise((r) => setTimeout(r, Math.pow(2, attempt) * 1000));
+      }
+    }
+    return false;
   }
 }
 
-it("sends a welcome email", async () => {
-  const mailer = new FakeMailer();
-  await new UserService(new InMemoryUsers(), mailer).register("a@b.com");
+describe('PaymentRetrier', () => {
+  it('retries on failure with exponential delay', async () => {
+    vi.useFakeTimers();
+    const mockCharge = vi.fn()
+      .mockRejectedValueOnce(new Error('Gateway error'))
+      .mockResolvedValueOnce(true);
 
-  expect(mailer.sent).toEqual([{ to: "a@b.com", subject: "Welcome!" }]);
+    const retrier = new PaymentRetrier({ charge: mockCharge });
+    const promise = retrier.chargeWithBackoff(3);
+
+    // Fast forward through backoff delay
+    await vi.runAllTimersAsync();
+
+    const success = await promise;
+    expect(success).toBe(true);
+    expect(mockCharge).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
+  });
 });
 ```
 
-`implements Mailer` means the compiler checks the fake against the real interface, so if `Mailer` changes, the fake stops compiling and you notice. A hand-written fake also reads clearly, can hold state, and is reusable across tests.
+---
 
-## Function mocks and spies
+## 12. Interview Questions
 
-For callbacks and simple cases, use the runner's mock function:
+<details>
+<summary>1. What is the difference between a Mock and a Stub according to Martin Fowler?</summary>
 
-```ts
-import { vi, it, expect } from "vitest";
+A **Stub** provides canned answers to calls made during the test, usually not responding to anything outside what's programmed. A **Mock** is pre-programmed with expectations which form a specification of the calls they are expected to receive; it verifies behavior by asserting that expected methods were called with expected arguments.
+</details>
 
-it("calls the callback with the result", () => {
-  const onDone = vi.fn();
+<details>
+<summary>2. Why is MSW (Mock Service Worker) superior to mocking `global.fetch` or `axios`?</summary>
 
-  process(items, onDone);
+Mocking `fetch` directly mocks the client implementation, making tests fragile if the codebase switches HTTP clients (e.g., from `fetch` to `axios` or `ky`). MSW intercepts at the network layer using standard `Request` and `Response` objects, allowing tests to test the real client configuration without changing test code.
+</details>
 
-  expect(onDone).toHaveBeenCalledTimes(1);
-  expect(onDone).toHaveBeenCalledWith({ count: 3 });
-});
+<details>
+<summary>3. What is the difference between `mockClear()`, `mockReset()`, and `mockRestore()`?</summary>
 
-it("returns canned values", async () => {
-  const fetchUser = vi.fn(async (id: string) => ({ id, name: "Asha" }));   // typed from the implementation
+- `mockClear()`: Clears history of calls and results.
+- `mockReset()`: Clears history and resets the mock implementation to an empty function returning `undefined`.
+- `mockRestore()`: Completely removes the spy and restores the original function on the target object.
+</details>
 
-  expect(await fetchUser("1")).toEqual({ id: "1", name: "Asha" });
-});
-```
+<details>
+<summary>4. Why are `vi.mock()` calls hoisted to the top of the file?</summary>
 
-Giving `vi.fn` an implementation (rather than leaving it untyped) lets TypeScript infer its parameter and return types, so wrong calls and wrong assertions are caught. Generic signatures for `vi.fn`/`jest.fn` differ between versions, so check the documentation for yours.
+Because ES module imports are evaluated before any top-level module code runs. For a mock to intercept an imported module, the mock must be registered before the target module is loaded by the module loader.
+</details>
 
-Common helpers:
+<details>
+<summary>5. How do you test code that uses `Date.now()` or `new Date()` deterministically?</summary>
 
-```ts
-mock.mockReturnValue(1);                  // same value every call
-mock.mockResolvedValue(user);             // async: returns a resolved promise
-mock.mockRejectedValue(new Error("x"));   // async: returns a rejected promise
-mock.mockReturnValueOnce(1);              // only the next call
-mock.mockImplementation((x) => x * 2);
-mock.mock.calls;                          // recorded argument lists
-```
+Use Vitest's `vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))` in conjunction with `vi.useFakeTimers()`.
+</details>
 
-A **spy** wraps an existing method, keeping real behavior unless you override it:
+<details>
+<summary>6. How can you ensure a mock function matches a TypeScript interface?</summary>
 
-```ts
-const spy = vi.spyOn(logger, "warn");
-doThing();
-expect(spy).toHaveBeenCalledWith("deprecated option");
-spy.mockRestore();                        // put the original back
-```
-
-## Mocking modules
-
-Sometimes the dependency is an imported module, not an injected object. Module mocking replaces the import for the whole test file:
-
-```ts
-import { vi, it, expect } from "vitest";
-import { getWeather } from "./weather-client";
-import { describeWeather } from "./describe";
-
-vi.mock("./weather-client");              // auto-mocks every export of that module
-
-it("describes the weather", async () => {
-  vi.mocked(getWeather).mockResolvedValue({ tempC: 21, summary: "sunny" });
-
-  expect(await describeWeather("Paris")).toBe("sunny, 21C");
-});
-```
-
-Points to know:
-
-- **`vi.mock` is hoisted** to the top of the file by the runner, before imports, so it applies to modules imported in that file. Variables you reference inside a mock factory must be created with `vi.hoisted` or be defined inside the factory.
-- **`vi.mocked(fn)`** returns the function typed as a mock, so `.mockResolvedValue(...)` is type-checked against the real function's signature.
-- **ES modules vs CommonJS** differ in how module mocking works. ESM mocking depends on the runner (Vitest handles it; Jest's ESM support needs extra configuration). Check your runner's documentation ([test runners](./03-test-runners.md)).
-- Prefer **injecting** dependencies over module mocking. It is less magic, more type-safe, and works in every runner. Module mocks are best for things you cannot inject, such as a third-party import you do not control.
-
-## Keeping mocks type-safe
-
-Mocks are a common place for `as any`, which silently disables checking. Better options:
-
-```ts
-// 1. Fake only the part you use, via a narrow interface
-interface Clock { now(): Date }
-const clock: Clock = { now: () => new Date("2024-01-01") };
-
-// 2. Implement the real interface fully with a class or object
-const repo: UserRepository = {
-  findById: async () => null,
-  save: async () => {},
+Declare the mock object explicitly conforming to the interface:
+```typescript
+const mockService: IService = {
+  fetchData: vi.fn<(id: string) => Promise<Data>>()
 };
-
-// 3. When you must build a partial object, make the assumption visible and local
-const partialUser = { id: "1", name: "Asha" } as User;     // a deliberate, contained cast
-
-// 4. Check shape without widening, when you can
-const response = { status: 200, body: { id: "1" } } satisfies ApiResponse;
 ```
+</details>
 
-If a dependency is a huge class with dozens of methods, that is a sign to depend on a **smaller interface** instead, and fake that. Helper libraries such as `jest-mock-extended` or `vitest-mock-extended` create fully typed deep mocks from an interface when you do need them.
+<details>
+<summary>7. What is "over-mocking" and why is it dangerous?</summary>
 
-## Mocking time and timers
+Over-mocking occurs when tests mock internal application details rather than external boundaries. Tests pass because mocks satisfy each other, but the real system fails in production because the real integrated components don't match mock assumptions.
+</details>
 
-```ts
-vi.useFakeTimers();
-vi.setSystemTime(new Date("2024-01-01"));
-vi.advanceTimersByTime(5000);              // run timers scheduled within 5s
-await vi.runAllTimersAsync();              // flush timers and awaited promises
-vi.useRealTimers();                        // always restore
-```
+<details>
+<summary>8. How do you handle asynchronous timers with `vi.useFakeTimers()`?</summary>
 
-Faking time avoids slow tests and flakiness. Always restore real timers in `afterEach`, or later tests inherit fake time ([unit testing](./00-unit-testing.md)).
+Use `await vi.runAllTimersAsync()` or `await vi.advanceTimersByTimeAsync(ms)`, which ensures microtasks and promise callbacks triggered by timer expirations resolve properly before assertions run.
+</details>
 
-## Mocking HTTP
+---
 
-Prefer intercepting at the **network level** (for example with `msw`) over mocking `fetch` or an HTTP client directly. The whole client code runs for real, including URL construction, headers, serialization, and parsing, and the mock only supplies the response ([integration testing](./01-integration-testing.md)).
+## 13. Exercises & Challenges
 
-## Verifying interactions
+<details>
+<summary>Exercise 1 (Easy): Basic Function Call Spy</summary>
 
-Use interaction assertions when the call **is** the behavior you care about:
+**Problem:** Spy on a callback `onComplete(status: string)` and assert it is called with `'SUCCESS'`.
 
-- "Sends exactly one email."
-- "Does not call the payment gateway when the cart is empty."
-- "Retries three times, then gives up."
+**Solution:**
+```typescript
+import { vi, it, expect } from 'vitest';
 
-```ts
-expect(gateway.charge).not.toHaveBeenCalled();
-expect(gateway.charge).toHaveBeenCalledWith(expect.objectContaining({ amountCents: 500 }));
-```
-
-Matchers like `expect.objectContaining` and `expect.any(Number)` check only the parts that matter, so tests are not coupled to incidental fields. Avoid asserting exact call counts and call order when they are not part of the requirement.
-
-## Cleaning up mocks
-
-Mocks keep state (call history, implementations) across tests unless reset. Leaked state causes order-dependent failures. Configure the runner to reset automatically, or do it in hooks:
-
-```ts
-afterEach(() => {
-  vi.restoreAllMocks();        // restore spied originals
-  vi.clearAllMocks();          // clear call history (keep implementations)
+it('calls callback', () => {
+  const spy = vi.fn();
+  spy('SUCCESS');
+  expect(spy).toHaveBeenCalledWith('SUCCESS');
 });
 ```
+</details>
 
-Runners also have config options (for example `restoreMocks`, `clearMocks`, `mockReset`) to do this globally. Know which your project uses.
+<details>
+<summary>Exercise 2 (Easy): Mock Return Value Once</summary>
 
-## When not to mock
+**Problem:** Configure a mock function that returns `10` on the first call, `20` on the second call, and `0` thereafter.
 
-- **Pure functions.** Call them. There is nothing to isolate.
-- **Value objects and simple data.** Build real ones.
-- **Code you own that is cheap and deterministic.** Use the real thing, so the test also exercises it.
-- **Things you do not own.** Do not mock a third-party library's internals. Wrap it in an [adapter](../17-design-patterns/03-adapter.md) you own, and fake **that**. A mock of a vendor SDK encodes your *guess* about how it behaves.
-- **The database, when the behavior depends on it.** Use a real one in an integration test.
+**Solution:**
+```typescript
+const mockFn = vi.fn().mockReturnValueOnce(10).mockReturnValueOnce(20).mockReturnValue(0);
+```
+</details>
 
-The more a test mocks, the more it verifies your mocks instead of your code. If a unit test needs five mocks, either the unit does too much, or the test belongs at a higher level.
+<details>
+<summary>Exercise 3 (Medium): Spy on Console.warn</summary>
 
-## Important rules and misconceptions
+**Problem:** Spy on `console.warn` without printing to standard output during test execution, and restore it in cleanup.
 
-- **A passing test with mocks proves the code works against the mock.** Not against reality. Keep some tests that use real collaborators.
-- **A mock is only as correct as your understanding.** If the real service behaves differently, tests stay green while production breaks. Contract tests and integration tests guard against this.
-- **`vi.fn()` with no implementation returns `undefined`.** That may not match the real return type, and TypeScript will not warn you.
-- **Call-count assertions are brittle** when they restate implementation.
-- **Mocks do not enforce types at runtime.** `as any` mocks can drift silently from the real interface.
+**Solution:**
+```typescript
+import { vi, it, expect, afterEach } from 'vitest';
 
-## Common mistakes
+afterEach(() => { vi.restoreAllMocks(); });
 
-- Mocking everything, so the test just restates the implementation.
-- Asserting on implementation details (call order, internal helper calls).
-- Mocking third-party libraries directly instead of wrapping them.
-- Leaking mock state between tests.
-- Forgetting to restore spies, fake timers, or module mocks.
-- Using `as any` for mocks, so the code and the mock diverge unnoticed.
-- Referencing variables inside a hoisted `vi.mock` factory before they exist.
-- Fakes that are more forgiving than the real implementation.
-- Mocking `fetch` instead of using network-level interception.
+it('suppresses and verifies warning', () => {
+  const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  console.warn('Test warning');
+  expect(warnSpy).toHaveBeenCalledWith('Test warning');
+});
+```
+</details>
 
-## Debugging
+<details>
+<summary>Exercise 4 (Medium): MSW 404 Handler Override</summary>
 
-- Print what the mock received: `console.log(mock.mock.calls)` shows every call's arguments.
-- If a mock "was not called", check that the code under test uses the mocked instance or module (a different import path, or the dependency was created before the mock was installed).
-- If a module mock does not apply, check hoisting, the module path (it must match the import specifier), and ESM versus CommonJS configuration.
-- If a test passes alone but fails with others, a mock or timer leaked: add resets or run with isolation.
-- If assertions on arguments fail unexpectedly, look at the diff: `toHaveBeenCalledWith` uses deep equality, so an extra or missing property fails.
+**Problem:** In an individual test, use MSW's `server.use()` to simulate an HTTP 404 Not Found response for an endpoint that normally succeeds.
 
-## Quick summary
+**Solution:**
+```typescript
+import { http, HttpResponse } from 'msw';
 
-- Test doubles: dummies, stubs, fakes, spies, and mocks. Prefer fakes and stubs and assert on **outcomes**. Use spies and mocks only when the interaction is the requirement.
-- Depend on small interfaces and write hand-made fakes that `implements` them, so the compiler keeps them honest.
-- Use `vi.fn`, `vi.spyOn`, and `vi.mock` for callbacks, methods, and unavoidable module dependencies. Prefer injection over module mocking.
-- Keep mocks typed. Avoid `as any`, and wrap third-party code in adapters you own.
-- Fake time, intercept HTTP at the network level, reset mocks between tests, and do not mock what you can use for real.
+it('handles 404 error from server', async () => {
+  server.use(
+    http.get('https://api.example.com/user', () => {
+      return new HttpResponse(null, { status: 404 });
+    })
+  );
 
-**Next:** [Test runners](./03-test-runners.md)
+  const res = await fetch('https://api.example.com/user');
+  expect(res.status).toBe(404);
+});
+```
+</details>
+
+<details>
+<summary>Exercise 5 (Hard): Type-Safe Auto Mock Generator</summary>
+
+**Problem:** Write a function `mockInterface<T extends object>(): { [K in keyof T]: any }` that returns an object where every method is automatically a typed `vi.fn()`.
+
+**Solution:**
+```typescript
+export function mockInterface<T extends object>(): T {
+  return new Proxy({} as T, {
+    get: (target, prop) => {
+      if (!(prop in target)) {
+        (target as any)[prop] = vi.fn();
+      }
+      return (target as any)[prop];
+    }
+  });
+}
+```
+</details>
+
+<details>
+<summary>Exercise 6 (Hard): Deterministic Async Clock Advancer</summary>
+
+**Problem:** Write a helper that advances fake timers in small increments while allowing pending microtasks (Promises) to flush between each increment.
+
+**Solution:**
+```typescript
+export async function stepTimeAsync(totalMs: number, stepMs: number = 100): Promise<void> {
+  let elapsed = 0;
+  while (elapsed < totalMs) {
+    await vi.advanceTimersByTimeAsync(stepMs);
+    elapsed += stepMs;
+  }
+}
+```
+</details>

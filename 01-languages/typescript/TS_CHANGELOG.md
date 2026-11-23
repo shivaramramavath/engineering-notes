@@ -4,6 +4,44 @@
 
 ---
 
+## [Batch 6] - 2026-11-24 - Runtime Validation, APIs, Patterns & Testing (Modules 15, 16, 17, 18)
+### Added / Completed
+- **15-runtime-validation/**:
+  - `00-trust-boundaries.md` (454 lines)
+  - `01-schema-validation.md` (408 lines)
+  - `02-zod.md` (428 lines)
+  - `03-other-validation-libraries.md` (423 lines - Valibot, ArkType, TypeBox)
+  - `04-validation-recipes.md` (460 lines)
+  - `README.md` (57 lines)
+- **16-type-safe-apis/**:
+  - `00-api-contracts.md` (389 lines)
+  - `01-request-response-types.md` (436 lines)
+  - `02-dto-pattern.md` (559 lines)
+  - `03-pagination-types.md` (581 lines)
+  - `04-error-response-types.md` (620 lines - RFC 7807/9457 Problem Details)
+  - `05-typed-fetch-and-api-client.md` (562 lines)
+  - `06-contract-first-apis.md` (541 lines - OpenAPI, tRPC)
+  - `README.md` (22 lines)
+- **17-design-patterns/**:
+  - `00-factory.md` (578 lines)
+  - `01-builder.md` (617 lines)
+  - `02-strategy.md` (494 lines)
+  - `03-adapter.md` (517 lines)
+  - `04-repository.md` (580 lines)
+  - `05-dependency-injection.md` (541 lines)
+  - `06-state-machines.md` (507 lines)
+  - `07-typed-event-emitter.md` (535 lines)
+  - `README.md` (23 lines)
+- **18-testing-and-debugging/**:
+  - `00-unit-testing.md` (490 lines - Vitest, AAA pattern)
+  - `01-integration-testing.md` (485 lines - Supertest, Testcontainers)
+  - `02-mocking.md` (487 lines - Vitest spies, MSW)
+  - `03-test-runners.md` (424 lines - Vitest, Jest, node:test)
+  - `04-type-testing.md` (428 lines - expectTypeOf, @ts-expect-error)
+  - `05-debugging.md` (457 lines - Source maps, VS Code launch, V8 inspector)
+  - `06-reading-type-errors.md` (398 lines - TS2322, TS2345, TS7053)
+  - `README.md` (22 lines)
+
 ## 2026-11-23
 
 ### Batch 2: Setup, Fundamentals & Functions (COMPLETED)

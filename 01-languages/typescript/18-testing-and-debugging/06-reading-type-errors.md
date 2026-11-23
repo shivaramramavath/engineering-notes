@@ -1,252 +1,398 @@
-# Reading Type Errors
+# Reading, Interpreting, and Resolving TypeScript Compiler Errors
 
-TypeScript's error messages have a reputation for being cryptic, but they follow a consistent structure, and the compiler is almost always telling you something accurate. Most of the difficulty is *where to look* in a long message and *what the compiler is comparing*. This note teaches you to read an error (bottom first), recognizes the errors you will see most often with their usual fixes, and gives you techniques for the hard cases: huge generic types, overload failures, and errors far from their cause.
+> Deconstructing TypeScript compiler diagnostics: error code anatomy (TS2322, TS2345, TS2769, TS2589), parsing multi-line wall-of-type diagnostics, and systematic error resolution strategies.
 
-**Prerequisites:**
-- [Assignability and subtyping](../14-type-system-internals/01-assignability-and-subtyping.md)
-- [Type narrowing](../03-unions-and-narrowing/03-type-narrowing.md)
-- [Strict mode](../13-compiler-and-tsconfig/01-strict-mode.md)
+| Metadata | Details |
+| :--- | :--- |
+| **Category** | Testing and Debugging |
+| **Difficulty** | Intermediate to Advanced |
+| **Prerequisites** | [01-basic-types/00-primitive-types.md](../01-basic-types/00-primitive-types.md), [06-generics/00-generic-functions.md](../06-generics/00-generic-functions.md), [14-type-system-internals/01-assignability-and-subtyping.md](../14-type-system-internals/01-assignability-and-subtyping.md) |
+| **TypeScript Baseline** | TS 4.5+, TS 5.0+ |
+| **Tested tsconfig** | `"strict": true, "target": "ES2022", "module": "NodeNext"` |
 
 ---
 
-## Anatomy of an error
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & API Reference](#4-syntax--api-reference)
+5. [Practical Examples](#5-practical-examples)
+6. [Edge Cases, Pitfalls & Gotchas](#6-edge-cases-pitfalls--gotchas)
+7. [Common Mistakes & Anti-Patterns](#7-common-mistakes--anti-patterns)
+8. [Performance & Type-Checker Complexity](#8-performance--type-checker-complexity)
+9. [Compiler Internals](#9-compiler-internals)
+10. [Best Practices & Design Guidelines](#10-best-practices--design-guidelines)
+11. [Real-World Case Study](#11-real-world-case-study)
+12. [Interview Questions](#12-interview-questions)
+13. [Exercises & Challenges](#13-exercises--challenges)
 
-```text
-src/order.ts:12:5 - error TS2322: Type '{ id: number; user: { name: number; }; }' is not assignable to type 'Order'.
-  Types of property 'user' are incompatible.
-    Type '{ name: number; }' is not assignable to type 'User'.
-      Types of property 'name' are incompatible.
-        Type 'number' is not assignable to type 'string'.
+---
+
+## 1. What & Why
+
+One of the greatest points of friction for developers adopting advanced TypeScript is the dreaded **"Wall of Types"** compiler diagnostic: an error message spanning 40 lines of deeply nested, indented generic substitutions where the root cause is buried at line 38.
+
+When confronted with complex compiler errors, developers often resort to destructive escape hatches:
+- Sprinkling `as any` or `as unknown as T` to silence the compiler.
+- Adding `// @ts-ignore` comments.
+- Disabling strict mode flags (`"strictNullChecks": false`).
+
+TypeScript compiler errors are not arbitrary punishments; they are **formal proofs of type safety violations**. By learning the taxonomy of error codes, reading diagnostic messages from the bottom up, and using tools like `ts-error-translator`, developers can resolve type errors systematically in seconds.
+
+```
++-----------------------------------------------------------+
+|               Anatomy of a TypeScript Error               |
+|                                                           |
+|  src/app.ts:42:5 - error TS2322: Type 'string' is not     |
+|  assignable to type 'number'.                             |
+|                                                           |
+|  [File:Line:Col]    [Error Code]     [Diagnostic Message] |
++-----------------------------------------------------------+
 ```
 
-- **Location:** file, line, column. The error underlines the expression the compiler objected to.
-- **Code (`TS2322`):** a stable identifier. Searching for the code plus keywords finds explanations, and the code tells you the *kind* of problem.
-- **Headline:** the broad claim ("A is not assignable to B").
-- **Indented chain:** each level narrows down **where** inside the types the mismatch is.
+---
 
-### Read it from the bottom
+## 2. Core Concepts
 
-The headline describes the whole comparison. The **last line** is usually the actual cause:
+### 1. The Anatomy of Error Codes
+All TypeScript errors begin with `TS` followed by a 4-digit or 5-digit number:
+- **TS1xxx**: Syntactic errors (unclosed brackets, invalid JS syntax).
+- **TS2xxx**: Semantic & Type Checking errors (assignability, missing properties, subtyping violations).
+- **TS5xxx**: Compiler & tsconfig configuration errors.
+- **TS7xxx**: Strictness errors (implicit any, unread variables).
 
-```text
-Type 'number' is not assignable to type 'string'.
+### 2. Common Flagship Error Codes
+| Code | Name | Cause | Example |
+| :--- | :--- | :--- | :--- |
+| **TS2322** | Type Assignability | Assigning type $A$ to variable of type $B$ | `const x: number = "str"` |
+| **TS2345** | Argument Mismatch | Passing wrong argument type to a function | `Math.max("abc")` |
+| **TS2339** | Property Missing | Accessing property not present on type | `user.middleName` |
+| **TS2769** | No Overload Matches | None of the function overloads accepted arguments | `addEventListener('foo', cb)` |
+| **TS7053** | No Index Signature | Indexing object with a dynamic string without index signature | `obj[key]` |
+| **TS2589** | Infinite Recursion | Type instantiation depth exceeded (infinite loop) | `type Loop<T> = Loop<T>` |
+
+---
+
+## 3. How It Works Internally
+
+When the compiler's Type Checker evaluates an assignment:
+```typescript
+const x: TargetType = sourceValue;
 ```
+1. `checkSourceElement` invokes `isTypeAssignableTo(sourceType, targetType)`.
+2. If `false`, the compiler calls `reportRelationError(Diagnostics.Type_0_is_not_assignable_to_type_1, sourceType, targetType)`.
+3. If both types are objects, the checker recursively compares each property to locate the exact property that failed, chaining inner diagnostic sub-messages with indented whitespace:
+   `The types of 'user.profile.age' are incompatible between these types.`
 
-Reading up the chain gives the path: `Order` -> `user` -> `name`. So the real problem is: `order.user.name` is a `number` but must be a `string`. Start at the bottom, then use the lines above to locate it.
+---
 
-The compiler may also truncate very long messages. If you see `...`, use `noErrorTruncation` (below) or hover the type in your editor.
+## 4. Syntax & API Reference
 
-## The errors you will see most
-
-| Code | Typical message | Usual meaning and fix |
-|---|---|---|
-| **TS2322** | `Type 'X' is not assignable to type 'Y'.` | A value of type X is used where Y is required. Fix the value, the declared type, or narrow/convert. |
-| **TS2345** | `Argument of type 'X' is not assignable to parameter of type 'Y'.` | Same, for a function argument. Check the call and the parameter's type. |
-| **TS2339** | `Property 'nmae' does not exist on type 'User'.` | Typo, wrong type, or the property exists only on some union members. Narrow first. |
-| **TS18048** / **TS2532** | `'user' is possibly 'undefined'.` | `strictNullChecks`: handle `undefined` with a check, `?.`, `??`, or an early return. |
-| **TS2741** | `Property 'email' is missing in type '{...}' but required in type 'User'.` | An object literal lacks a required property. Add it, or make it optional if it really is. |
-| **TS2554** | `Expected 2 arguments, but got 1.` | Wrong number of arguments. Check optional parameters and overloads. |
-| **TS2769** | `No overload matches this call.` | None of the function's signatures accept your arguments. See the overload section. |
-| **TS7006** | `Parameter 'x' implicitly has an 'any' type.` | `noImplicitAny`: add a type, or provide a context that types it. |
-| **TS7053** | `Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '...'.` | Indexing an object with a plain `string`. Use `keyof`, a typed key, or an index signature. |
-| **TS2307** | `Cannot find module 'x' or its corresponding type declarations.` | Wrong path, missing package or types, or module resolution mismatch. |
-| **TS2304** | `Cannot find name 'x'.` | Missing import or declaration, or a missing `lib`/types entry. |
-| **TS2564** | `Property 'name' has no initializer and is not definitely assigned in the constructor.` | `strictPropertyInitialization`: initialize it, make it optional, or use `!` if something external sets it. |
-| **TS2366** | `Function lacks ending return statement and return type does not include 'undefined'.` | Some code path returns nothing. Add a return, or handle all cases (a `never` check). |
-| **TS2367** | `This comparison appears to be unintentional because the types 'A' and 'B' have no overlap.` | You compare values that can never be equal. Usually a typo or a wrong literal. |
-| **TS2349** | `This expression is not callable.` | Calling something that is not a function (often a union whose members have incompatible signatures). |
-| **TS2589** | `Type instantiation is excessively deep and possibly infinite.` | A recursive type hit the depth limit. Simplify, or use tail recursion ([recursive types](../10-advanced-types/05-recursive-types.md)). |
-
-Exact wording and some code numbers change between TypeScript versions (for example, "possibly undefined" is reported as TS18048 in newer versions and TS2532 in older ones), so search by the shape of the message as well as the number.
-
-## Worked examples
-
-### 1. The nested mismatch (TS2322)
-
-```ts
-interface User { name: string }
-interface Order { id: number; user: User }
-
-const order: Order = { id: 1, user: { name: 42 } };
+### Top-to-Bottom vs Bottom-to-Top Reading Strategy
+In deeply nested errors:
 ```
+Type 'Source' is not assignable to type 'Target'.
+  Types of property 'a' are incompatible.
+    Types of property 'b' are incompatible.
+      Types of property 'c' are incompatible.
+        Type 'string' is not assignable to type 'number'.  <-- THE REAL ROOT CAUSE!
+```
+**Golden Rule**: Read nested TypeScript diagnostics **from the bottom up**! The innermost indented line contains the exact primitive incompatibility.
 
-Read bottom up: `number` is not assignable to `string`, at `user.name`. Fix: pass a string, or change `User.name` if the type is wrong.
+---
 
-### 2. A property on only some union members (TS2339)
+## 5. Practical Examples
 
-```ts
-type Shape = { kind: "circle"; radius: number } | { kind: "square"; size: number };
+### Example 1: Resolving TS7053 (Element implicitly has an 'any' type because type has no index signature)
+```typescript
+const colors = {
+  red: '#ff0000',
+  green: '#00ff00',
+  blue: '#0000ff'
+};
 
-function area(s: Shape) {
-  return s.radius * s.radius;      // error: Property 'radius' does not exist on type 'Shape'.
-                                   //        Property 'radius' does not exist on type '{ kind: "square"; ... }'.
+function getColorHex(colorName: string): string {
+  // @ts-expect-error TS7053: Element implicitly has an 'any' type because type '{ red: string; green: string; blue: string; }' has no index signature.
+  return colors[colorName];
+}
+
+// RESOLUTION: Constrain the key or check keyof
+function getColorHexSafe(colorName: keyof typeof colors): string {
+  return colors[colorName]; // Perfectly typed!
 }
 ```
 
-The second line names the member that lacks the property. Fix by narrowing first:
-
-```ts
-if (s.kind === "circle") return s.radius ** 2;
-```
-
-### 3. Possibly undefined (TS18048)
-
-```ts
-const el = document.getElementById("app");
-el.textContent = "hi";             // error: 'el' is possibly 'null'.
-```
-
-`getElementById` returns `HTMLElement | null`. Fix with a check, an early return, or a helper that throws if it is missing. Avoid `el!` unless you have already guaranteed it ([soundness and escape hatches](../14-type-system-internals/04-soundness-and-escape-hatches.md)).
-
-### 4. Indexing with a string (TS7053)
-
-```ts
-const scores = { alice: 1, bob: 2 };
-function get(name: string) {
-  return scores[name];             // error: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ alice: number; bob: number; }'.
+### Example 2: Resolving TS2345 with Object Literal Excess Property Checks
+```typescript
+interface CreatePostDTO {
+  title: string;
+  content: string;
 }
+
+function publish(dto: CreatePostDTO) { ... }
+
+// @ts-expect-error TS2353: Object literal may only specify known properties, and 'draft' does not exist in type 'CreatePostDTO'.
+publish({ title: 'Hello', content: 'World', draft: true });
+
+// RESOLUTION: Either remove excess property or update DTO interface
 ```
 
-The compiler cannot know that `name` is `"alice" | "bob"`. Fix by typing the parameter (`name: keyof typeof scores`), by declaring the object as `Record<string, number>`, or by checking that the key is valid first.
+### Example 3: Resolving TS2769 (No overload matches this call)
+```typescript
+// Often occurs when passing a callback with wrong parameter types:
+window.addEventListener('click', (event) => {
+  // event is inferred as MouseEvent!
+  console.log(event.clientX);
+});
 
-### 5. Missing return path (TS2366)
+// @ts-expect-error TS2769: No overload matches this call. Overload 1 of 2, '(type: "click", listener: (ev: MouseEvent) => any)...'
+window.addEventListener('click', (event: KeyboardEvent) => {});
+```
 
-```ts
-function label(status: "ok" | "error" | "pending"): string {
-  switch (status) {
-    case "ok": return "OK";
-    case "error": return "Error";
+### Example 4: Failure Case - TS2589 (Type instantiation is excessively deep and possibly infinite)
+```typescript
+// Recursive conditional type without base case:
+// @ts-expect-error TS2589: Type instantiation is excessively deep and possibly infinite.
+type InfiniteList<T> = [T, InfiniteList<T>];
+
+type Broken = InfiniteList<string>;
+```
+
+### Example 5: Idiomatic Error Narrowing with Type Predicate Guards
+```typescript
+export interface Dog { kind: 'dog'; bark(): void; }
+export interface Cat { kind: 'cat'; meow(): void; }
+
+export function handlePet(pet: Dog | Cat): void {
+  // Accessing bark directly causes TS2339!
+  // Narrowing resolves the error safely:
+  if (pet.kind === 'dog') {
+    pet.bark();
+  } else {
+    pet.meow();
   }
-}                                  // error: Function lacks ending return statement...
+}
 ```
 
-You forgot `"pending"`. Add the case, or end with a `never` check so future union members are caught ([exhaustiveness checking](../03-unions-and-narrowing/06-exhaustiveness-checking.md)).
+---
 
-### 6. Inference gone wrong (TS2345)
+## 6. Edge Cases, Pitfalls & Gotchas
 
-```ts
-const items = [];                   // evolves, but if it escapes it becomes any[]
-function add(list: string[], x: string) {}
-add(items, 5);                      // error: Argument of type 'number' is not assignable to parameter of type 'string'.
+1. **Covariant / Contravariant Function Errors (TS2322)**:
+   When assigning callbacks, errors stating `Type '(x: string) => void' is not assignable to '(x: string | number) => void'` confuse developers. Remember: function parameters are **contravariant**. A function that requires `string` cannot safely handle a caller that might pass `number`.
+2. **Missing `return` Statement (TS7030)**:
+   In functions with complex branching, forgetting a `return` in one branch changes the inferred return type to `T | undefined`, triggering TS2322 at the call site.
+3. **Optional vs Undefined in Exact Types**:
+   Under `"exactOptionalPropertyTypes": true`, assigning `{ key: undefined }` to `{ key?: string }` is rejected with TS2375.
+4. **Union Widening in Array Literals**:
+   `const arr = ['a', 'b']` is inferred as `string[]`. Trying to pass it to a function expecting `('a' | 'b')[]` causes TS2345 unless asserted `as const`.
+
+---
+
+## 7. Common Mistakes & Anti-Patterns
+
+| Anti-Pattern | Bad Code | Good Code | Compiler / Runtime Impact |
+| :--- | :--- | :--- | :--- |
+| **Casting with `as any` to Fix Error** | `const u = res as any` | Fix interface or validate with Zod | Disables compiler; masks production bugs |
+| **Adding `// @ts-ignore`** | Suppress error completely | `// @ts-expect-error TS2322` (or fix it) | Silently hides regressions |
+| **Reading Error from Top Line Only** | Panicking at line 1 of 50-line error | Read innermost bottom line first | Misses the real root cause |
+| **Disabling Strict Flags in tsconfig** | Turning off `"strictNullChecks"` | Handle `null` with optional chaining `?.` | Runtime `TypeError: Cannot read property of null` |
+| **Over-widening Types to Silence Error** | Changing `role: 'admin'` to `string` | Keep union; handle other cases | Degrades type precision across the entire app |
+| **Double Assertion Hack** | `x as unknown as Target` | Restructure types or use mapper function | Hides incompatible object shapes |
+
+---
+
+## 8. Performance & Type-Checker Complexity
+
+- **Diagnostic Generation**: Generating error messages for massive union types (e.g. comparing an object against a 100-member union) is one of the most CPU-expensive tasks in the TypeScript compiler. The compiler attempts to find the "best matching" union member before reporting errors.
+- **Trace Output**: Run `tsc --generateTrace traceDir` to profile which files and types are causing long type-checking delays.
+
+---
+
+## 9. Compiler Internals
+
+Inside TypeScript's `checker.ts`:
+When `checkTypeRelatedTo` fails:
+The compiler records a **Diagnostic Chain**. Each sub-type check pushes a message onto the chain. When printed, TypeScript traverses the linked list of diagnostic messages, prepending indentation spaces (`2 * depth`) for each child error, creating the nested tree shown in terminal logs.
+
+---
+
+## 10. Best Practices & Design Guidelines
+
+1. **Read From the Bottom Up**: Start reading multi-line diagnostics from the deepest indented line.
+2. **Look Up the Error Code**: Google or search the TypeScript handbook for the exact `TSxxxx` code.
+3. **Use `as const` for Literal Retention**: Prevent string widening from triggering TS2345.
+4. **Never Use `as any` as an "Easy Fix"**: If you must escape, use `as unknown as ExpectedType` with an explanatory comment.
+
+---
+
+## 11. Real-World Case Study
+
+### Deciphering a 40-Line React Redux Dispatch Error
+A developer sees a massive TS2769 error when dispatching an action:
 ```
-
-The error points at the second argument. Compare the **argument type** with the **parameter type** in the message, then find where the argument's type came from.
-
-## Overload errors (TS2769)
-
-```text
 No overload matches this call.
-  Overload 1 of 2, '(a: string): string', gave the following error.
-    Argument of type 'number' is not assignable to parameter of type 'string'.
-  Overload 2 of 2, '(a: boolean): boolean', gave the following error.
-    Argument of type 'number' is not assignable to parameter of type 'boolean'.
+  Overload 1 of 2, '(action: AnyAction): AnyAction', gave the following error.
+    Argument of type 'ThunkAction<Promise<void>, RootState, unknown, AnyAction>' is not assignable to parameter of type 'AnyAction'.
+      Property 'type' is missing in type 'ThunkAction<...>' but required in type 'AnyAction'.
 ```
 
-The compiler tried each signature and lists why each failed. Practical reading:
+**Deconstruction Strategy**:
+1. Bottom line: `Property 'type' is missing... required in type 'AnyAction'`.
+2. Middle line: Passing a `ThunkAction` (a function) to something expecting a plain action object `{ type: string }`.
+3. Root Cause: The Redux store's dispatch type was not typed with `AppDispatch = typeof store.dispatch` that includes Thunk middleware support.
+4. Fix: Use `const useAppDispatch = () => useDispatch<AppDispatch>()`.
 
-- Look for the overload **closest to what you meant** and read its specific error.
-- If every overload fails on the same argument, that argument is the problem.
-- Sometimes the issue is a *different* argument than the one underlined. TypeScript reports against one overload's failure, but another argument may be wrong.
-- Many libraries (event handlers, `addEventListener`, ORMs) use overloads heavily. Check the documentation for the intended call form ([function overloads](../02-functions/03-function-overloads.md)).
+---
 
-## Techniques for hard errors
+## 12. Interview Questions
 
-### Isolate with named intermediate values
+<details>
+<summary>1. What does TS2322 mean and what are the standard steps to fix it?</summary>
 
-When an expression is long, break it into steps with annotations to see which step breaks:
+`TS2322: Type 'A' is not assignable to type 'B'`. It indicates an assignability mismatch where the value on the right-hand side is not compatible with the variable or property type on the left-hand side.
+To fix:
+1. Check if properties are missing on `A`.
+2. Check if types of shared properties differ (e.g. `string` vs `number`).
+3. Check if `A` was widened (e.g. add `as const`).
+4. Narrow `A` using a type guard before assignment.
+</details>
 
-```ts
-const query = buildQuery(filters);              // hover: what type is this?
-const rows: UserRow[] = await db.run(query);    // does the mismatch appear here?
-const users: User[] = rows.map(toUser);         // or here?
+<details>
+<summary>2. Why does `obj[key]` frequently produce error TS7053, and how do you resolve it?</summary>
+
+`TS7053` occurs when indexing an object with a generic `string` key (`key: string`) when the object does not have an index signature (`[key: string]: Value`). TypeScript prevents this because the string could be any arbitrary value not present on the object.
+Fix:
+1. Type `key` as `keyof typeof obj`.
+2. Check `if (key in obj)`.
+3. Add an index signature to the object's interface.
+</details>
+
+<details>
+<summary>3. Why do multi-line TypeScript error messages need to be read from the bottom up?</summary>
+
+TypeScript formats structural type errors hierarchically: the top line reports the high-level incompatibility (e.g. `UserDTO is not assignable to UserEntity`), while each subsequent indented line reports the nested property where the discrepancy occurred. The bottom line identifies the exact primitive or union mismatch that triggered the failure.
+</details>
+
+<details>
+<summary>4. What causes error TS2589: "Type instantiation is excessively deep and possibly infinite"?</summary>
+
+It occurs when a recursive conditional or mapped type fails to hit a base terminating condition, causing the compiler to recurse infinitely until it reaches its internal recursion depth limit (~50-100 recursions depending on compiler version).
+</details>
+
+<details>
+<summary>5. What is the difference between TS2322 and TS2345?</summary>
+
+`TS2322` occurs during variable assignment, return statements, or property assignment. `TS2345` specifically occurs when passing an argument to a function parameter that expects an incompatible type.
+</details>
+
+<details>
+<summary>6. Why does passing an object literal to a function fail with excess property errors, while passing a variable containing the same properties succeeds?</summary>
+
+TypeScript applies **Excess Property Checks (EPC)** only to direct object literals to catch typos. When passing an existing variable reference, standard structural subtyping applies, where excess properties are permitted.
+</details>
+
+<details>
+<summary>7. How does `"exactOptionalPropertyTypes": true` change how the compiler treats optional properties?</summary>
+
+Without it, `{ age?: number }` accepts both `undefined` and being omitted (`{ age: undefined }` is valid). With it enabled, `{ age?: number }` strictly means the property may be omitted, but if present, its value must be `number` (not `undefined`).
+</details>
+
+<details>
+<summary>8. How do you inspect the expanded shape of a complex type when the compiler truncates it with `...` in error messages?</summary>
+
+Use a dummy variable with an intentional type mismatch:
+`type Expand<T> = T extends infer O ? { [K in keyof O]: O[K] } : never;`
+Assigning it to `never` forces TypeScript to print the fully expanded, flattened type structure in the compiler error.
+</details>
+
+---
+
+## 13. Exercises & Challenges
+
+<details>
+<summary>Exercise 1 (Easy): Resolve TS2322 Primitive Type Error</summary>
+
+**Problem:** Fix the error in `const age: number = "25";` without using type assertions.
+
+**Solution:**
+```typescript
+const age: number = parseInt("25", 10);
 ```
+</details>
 
-An annotation (`const x: Expected = value`) turns a vague downstream error into a precise one at the point where the types diverge.
+<details>
+<summary>Exercise 2 (Easy): Resolve TS2339 Missing Property</summary>
 
-### Hover and inspect the inferred type
+**Problem:** Fix `const user = { name: 'Alice' }; console.log(user.email);` by typing the user properly.
 
-Hover in the editor to see what the compiler *thinks* a value is. Often the surprise is there: `string` instead of a literal, `any[]` instead of a tuple, `unknown` where you expected a type, or a union you did not intend ([type widening and inference](../14-type-system-internals/03-type-widening-and-inference.md)). In the Playground, add `// ^?` under an expression to print its type.
-
-### Print the full type
-
-Long types are truncated in messages. Two options:
-
-```jsonc
-{ "compilerOptions": { "noErrorTruncation": true } }   // show full types in errors (can be huge)
+**Solution:**
+```typescript
+interface User { name: string; email?: string; }
+const user: User = { name: 'Alice' };
+console.log(user.email);
 ```
+</details>
 
-Or flatten intersections and mapped types so hover shows a clean shape:
+<details>
+<summary>Exercise 3 (Medium): Resolve TS7053 with `keyof`</summary>
 
-```ts
-type Expand<T> = { [K in keyof T]: T[K] } & {};
-type Shown = Expand<ComplexType>;       // hover Shown
+**Problem:** Write a helper function `getProperty<T extends object, K extends keyof T>(obj: T, key: K): T[K]` that resolves TS7053 cleanly.
+
+**Solution:**
+```typescript
+export function getProperty<T extends object, K extends keyof T>(obj: T, key: K): T[K] {
+  return obj[key];
+}
 ```
+</details>
 
-Editor extensions that reformat TypeScript errors into readable, colored forms exist too (search for "pretty TypeScript errors" for your editor).
+<details>
+<summary>Exercise 4 (Medium): Resolve Excess Property Error on Factory Function</summary>
 
-### Reduce to a minimal example
+**Problem:** Fix the error when passing an object literal with extra properties to a function expecting `Point2D`.
 
-Copy the failing types and call into a new file (or the Playground) and delete everything unrelated. If the error disappears when you remove something, that something is the cause. A minimal example is also what you want when asking for help or filing an issue.
+**Solution:**
+```typescript
+interface Point2D { x: number; y: number; }
+function draw(p: Point2D) { return p.x + p.y; }
 
-### Check generics from the outside in
+// Method A: Assign to variable first (bypasses EPC)
+const p3 = { x: 1, y: 2, z: 3 };
+draw(p3);
 
-For generic function errors, ask three questions:
+// Method B: Pass exact literal
+draw({ x: 1, y: 2 });
+```
+</details>
 
-1. **What was `T` inferred as?** Hover the call, or specify it explicitly (`f<string>(x)`) to see if the error changes.
-2. **Does `T` satisfy its constraint?** Constraint failures are reported against the constraint type.
-3. **Which argument is giving `T` its candidates?** Conflicting candidates produce an error on the later argument ([type widening and inference](../14-type-system-internals/03-type-widening-and-inference.md)).
+<details>
+<summary>Exercise 5 (Hard): Flatten / Expand Debug Helper Type</summary>
 
-### Remember the direction of the check
+**Problem:** Create a utility type `Debug<T>` that forces TypeScript to compute and expand all nested mapped and intersection types in tooltip hover diagnostics.
 
-"A is not assignable to B" has a direction. For function parameters it is **reversed** under `strictFunctionTypes` (contravariance), so an error about a callback's parameter type can look backwards until you recall that ([variance](../14-type-system-internals/02-variance.md)).
+**Solution:**
+```typescript
+export type Debug<T> = {
+  [K in keyof T]: T[K] extends object ? Debug<T[K]> : T[K];
+} & {};
+```
+</details>
 
-### Errors far from the cause
+<details>
+<summary>Exercise 6 (Hard): Breaking an Infinite Type Recursion</summary>
 
-A wrong type often flows quietly through several steps and fails somewhere distant. Trace backwards: where did this value come from, and where was its type first decided? Look for an `as` assertion, an `any`, or a function whose return type is inferred and changed. **Adding explicit return types** to functions along the path makes errors appear at the function that is actually wrong.
+**Problem:** Fix an infinite recursive tuple reverser type `Reverse<T>` that causes TS2589 by introducing a recursion depth accumulator guard.
 
-## What to do and not do
+**Solution:**
+```typescript
+export type Reverse<T extends any[], Acc extends any[] = []> =
+  T extends [infer Head, ...infer Tail]
+    ? Reverse<Tail, [Head, ...Acc]>
+    : Acc;
 
-**Do:**
-
-- Fix the cause: correct the value, the type, or the logic.
-- Narrow with checks, guards, `in`, `instanceof`, or discriminants.
-- Use `satisfies` to check a literal against a type while keeping its precise type.
-- Add explicit annotations at function boundaries.
-
-**Avoid as a first resort:**
-
-- `as any` or `as unknown as T` to silence the error. It removes the compiler's help and moves the bug to runtime.
-- `// @ts-ignore`. If a suppression is truly needed, use `// @ts-expect-error` with a reason, so it is flagged when it becomes unnecessary.
-- Non-null `!` where you have not actually guaranteed the value.
-
-An error that you "just want to go away" is usually pointing at a real mismatch. Spend a minute understanding it before reaching for a cast.
-
-## Common mistakes
-
-- Reading only the first line of a multi-line error.
-- Fixing the underlined expression when the mistake is elsewhere (a wrong declared type, an earlier inference).
-- Silencing errors with `any`, then hitting the same problem at runtime.
-- Ignoring the **error code**, which makes searching and recognizing patterns harder.
-- Fighting inference instead of annotating at a boundary.
-- Misreading "not assignable" direction in callback and generic errors.
-- Debugging a wall of generic type output instead of isolating a smaller case.
-- Treating TypeScript errors as noise rather than information about real mismatches.
-
-## Debugging
-
-- Hover every name in the failing expression and compare what you see with what you expect.
-- Copy the error code and the key phrase into a search to find explanations and known causes.
-- Reproduce in the Playground at the same TypeScript version, since messages and behavior vary by version.
-- Run `tsc --noEmit --pretty` in the terminal for clearer formatted output, and `--noErrorTruncation` for full types.
-- If the editor and `tsc` disagree, check the TypeScript version and which `tsconfig` each uses ([compiler options](../13-compiler-and-tsconfig/00-compiler-options.md)).
-- If an error appeared after an upgrade, compare the release notes. New checks and stricter inference are common causes.
-
-## Quick summary
-
-- An error has a location, a code, a headline, and an indented chain. **Read the last line first**: it is usually the root mismatch, and the lines above give the path to it.
-- Learn the common codes: TS2322/2345 (not assignable), TS2339 (property missing), TS18048 (possibly undefined), TS2769 (overloads), TS7006/7053 (implicit any), TS2307 (cannot find module), TS2564 (uninitialized property).
-- Isolate by naming intermediate values and annotating, and inspect inferred types with hover or `// ^?`.
-- For long types, use `noErrorTruncation` or an `Expand` helper. For overloads, find the closest signature and read its error.
-- Trace errors back to where the type was decided: assertions, `any`, and inferred returns. Fix the cause rather than silencing with casts.
-
-**Next:** [19 React and Frontend](../19-react-and-frontend/README.md)
+// Verification:
+type Result = Reverse<[1, 2, 3]>; // Inferred as [3, 2, 1]
+```
+</details>

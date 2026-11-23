@@ -1,275 +1,535 @@
-# Typed Event Emitter
+# Typed Event Emitter and Observer Pattern in TypeScript
 
-An **event emitter** lets one part of a program announce that something happened, and lets other parts react without the announcer knowing who is listening (the observer or publish/subscribe pattern). Plain JavaScript emitters are stringly typed: event names are strings and payloads are `any`, so typos and wrong payloads slip through. TypeScript lets you describe each event and its payload once, and have `on`, `off`, and `emit` checked against it.
+> Strongly-typed event emitters and the Observer pattern in TypeScript: strict event-to-payload mappings, memory leak prevention, Node.js EventEmitter typing, and RxJS-style reactive streams.
 
-**Prerequisites:**
-- [Generic types](../06-generics/01-generic-types.md) and [generic constraints](../06-generics/02-generic-constraints-and-defaults.md)
-- [keyof and typeof](../06-generics/03-keyof-and-typeof.md)
-- [Mapped types](../10-advanced-types/03-mapped-types.md) and [variadic tuple types](../10-advanced-types/06-variadic-tuple-types.md)
+| Metadata | Details |
+| :--- | :--- |
+| **Category** | Design Patterns |
+| **Difficulty** | Intermediate to Advanced |
+| **Prerequisites** | [02-functions/00-function-types.md](../02-functions/00-function-types.md), [06-generics/00-generic-functions.md](../06-generics/00-generic-functions.md), [07-utility-types/00-partial-required-readonly.md](../07-utility-types/00-partial-required-readonly.md) |
+| **TypeScript Baseline** | TS 4.5+, TS 5.0+ |
+| **Tested tsconfig** | `"strict": true, "target": "ES2022", "module": "NodeNext"` |
 
 ---
 
-## The problem
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & API Reference](#4-syntax--api-reference)
+5. [Practical Examples](#5-practical-examples)
+6. [Edge Cases, Pitfalls & Gotchas](#6-edge-cases-pitfalls--gotchas)
+7. [Common Mistakes & Anti-Patterns](#7-common-mistakes--anti-patterns)
+8. [Performance & Type-Checker Complexity](#8-performance--type-checker-complexity)
+9. [Compiler Internals](#9-compiler-internals)
+10. [Best Practices & Design Guidelines](#10-best-practices--design-guidelines)
+11. [Real-World Case Study](#11-real-world-case-study)
+12. [Interview Questions](#12-interview-questions)
+13. [Exercises & Challenges](#13-exercises--challenges)
 
-```ts
-import { EventEmitter } from "node:events";
+---
 
-const bus = new EventEmitter();
+## 1. What & Why
 
-bus.on("userLoggedIn", (user) => {          // `user` is any
-  console.log(user.nmae);                   // typo, no error
-});
+The **Observer Pattern** (and its asynchronous, decoupled variant, the **Publish/Subscribe** pattern) is a behavioral design pattern where an object (the Subject/Emitter) maintains a list of dependents (Observers/Listeners) and notifies them automatically of state changes or events.
 
-bus.emit("userLogedIn", { name: "Asha" });  // typo in the event name, no error, nothing happens
+In native JavaScript and Node.js `events.EventEmitter`, event names are untyped strings and listener arguments are untyped variadic arguments (`(...args: any[]) => void`). This causes severe developer friction:
+1. **Typo Bugs**: Emitting `'userCreated'` while listening for `'user_created'` silently fails with zero compiler warnings.
+2. **Payload Discrepancies**: The emitter sends `{ id: string, name: string }`, but the listener expects `(id: number)`. The discrepancy causes runtime crashes.
+3. **Memory Leaks**: Forgetting to unsubscribe listeners causes the emitter to retain references indefinitely, preventing garbage collection.
+
+TypeScript enables **Strictly Typed Event Emitters** where an event map interface explicitly defines all valid event names and their exact tuple or payload types.
+
+```
++-----------------------------------------------------------+
+|                     Typed EventEmitter                    |
+|                                                           |
+|  Event Map:                                               |
+|  'user:login':  [userId: string, timestamp: number]       |
+|  'user:logout': [userId: string]                          |
+|  'error':       [err: Error]                              |
++-----------------------------------------------------------+
+          |                                      ^
+   emit('user:login', 'u_1', 123)       on('user:login', (id, ts) => ...)
+   (Checked at compile time!)           (Inferred at compile time!)
 ```
 
-Two bugs, and the compiler sees neither: a misspelled event name silently never fires, and the listener's payload is untyped.
+---
 
-## Describe the events once
+## 2. Core Concepts
 
-Define a map from event name to the **tuple of arguments** the listeners receive:
-
-```ts
-type AppEvents = {
-  login: [user: User];
-  logout: [];
-  error: [error: Error, context?: string];
-  progress: [done: number, total: number];
-};
+### 1. The Event Map Interface
+The single source of truth describing every event and its listener signature:
+```typescript
+export interface AppEventMap {
+  'connected': [];
+  'data': [chunk: Buffer, encoding: string];
+  'error': [error: Error];
+  'close': [code: number, reason: string];
+}
 ```
 
-Tuples (with optional labels) describe positional arguments, matching how `emit(event, ...args)` works. An event with no payload has an empty tuple.
-
-## Node's built-in EventEmitter
-
-Recent versions of `@types/node` allow EventEmitter to be generic over such a map:
-
-```ts
-import { EventEmitter } from "node:events";
-
-const bus = new EventEmitter<AppEvents>();
-
-bus.on("login", (user) => console.log(user.name));      // user: User
-bus.emit("progress", 3, 10);                            // checked: (number, number)
-bus.emit("progress", "3");                              // error
-bus.on("loggedIn", () => {});                           // error: not a known event
+### 2. Generic Typed Emitter Interface
+Using mapped types and keyof lookups to constrain `.on()` and `.emit()`:
+```typescript
+export interface TypedEmitter<TEvents extends Record<string, any[]>> {
+  on<K extends keyof TEvents>(event: K, listener: (...args: TEvents[K]) => void): this;
+  off<K extends keyof TEvents>(event: K, listener: (...args: TEvents[K]) => void): this;
+  emit<K extends keyof TEvents>(event: K, ...args: TEvents[K]): boolean;
+}
 ```
 
-Support depends on your `@types/node` version, so check yours. If your version does not provide generics, or you want an emitter that also runs in browsers, write a small one.
+---
 
-## A minimal typed emitter
+## 3. How It Works Internally
 
-```ts
-type Listener<Args extends unknown[]> = (...args: Args) => void;
+The TypeScript compiler uses mapped indexing:
+When calling `emitter.emit('data', buffer, 'utf-8')`:
+1. `K` is inferred as `'data'`.
+2. `...args` is checked against `TEvents['data']`, which resolves to `[chunk: Buffer, encoding: string]`.
+3. If an argument is missing or mistyped, `TS2554: Expected 2 arguments, but got 1` is emitted immediately.
 
-class TypedEmitter<Events extends { [K in keyof Events]: unknown[] }> {
-  private listeners: { [K in keyof Events]?: Set<Listener<Events[K]>> } = {};
+```
+         emit(event, ...args)
+                   |
+     Resolve K in keyof TEvents
+                   |
+   Extract tuple type TEvents[K]
+                   |
+   CheckSpreadArgs(args, TEvents[K])
+```
 
-  on<K extends keyof Events>(event: K, listener: Listener<Events[K]>): () => void {
-    const set = (this.listeners[event] ??= new Set());
-    set.add(listener);
-    return () => this.off(event, listener);              // returns an unsubscribe function
+---
+
+## 4. Syntax & API Reference
+
+### Complete Standalone Typed EventEmitter Implementation
+```typescript
+export class StrictEventEmitter<TEvents extends Record<string, any[]>> {
+  private listeners = new Map<keyof TEvents, Set<(...args: any[]) => void>>();
+
+  public on<K extends keyof TEvents>(event: K, listener: (...args: TEvents[K]) => void): () => void {
+    if (!this.listeners.has(event)) {
+      this.listeners.set(event, new Set());
+    }
+    this.listeners.get(event)!.add(listener);
+
+    // Returns an unsubscription teardown function
+    return () => this.off(event, listener);
   }
 
-  once<K extends keyof Events>(event: K, listener: Listener<Events[K]>): () => void {
-    const unsubscribe = this.on(event, (...args) => {
-      unsubscribe();
+  public off<K extends keyof TEvents>(event: K, listener: (...args: TEvents[K]) => void): void {
+    const set = this.listeners.get(event);
+    if (set) {
+      set.delete(listener);
+      if (set.size === 0) this.listeners.delete(event);
+    }
+  }
+
+  public emit<K extends keyof TEvents>(event: K, ...args: TEvents[K]): boolean {
+    const set = this.listeners.get(event);
+    if (!set || set.size === 0) return false;
+    for (const listener of Array.from(set)) {
       listener(...args);
-    });
-    return unsubscribe;
-  }
-
-  off<K extends keyof Events>(event: K, listener: Listener<Events[K]>): void {
-    this.listeners[event]?.delete(listener);
-  }
-
-  emit<K extends keyof Events>(event: K, ...args: Events[K]): void {
-    this.listeners[event]?.forEach((listener) => listener(...args));
+    }
+    return true;
   }
 }
 ```
 
-Using it:
+---
 
-```ts
-const bus = new TypedEmitter<AppEvents>();
+## 5. Practical Examples
 
-const stop = bus.on("progress", (done, total) => {
-  console.log(`${done}/${total}`);          // done: number, total: number
+### Example 1: Basic Custom Domain Event Emitter
+```typescript
+export interface UserEvents {
+  signup: [userId: string, email: string];
+  login: [userId: string, ipAddress: string];
+  delete: [userId: string];
+}
+
+const userEmitter = new StrictEventEmitter<UserEvents>();
+
+// Type-safe subscription:
+const unsubscribe = userEmitter.on('signup', (id, email) => {
+  console.log(`User ${id} registered with ${email}`);
 });
 
-bus.emit("progress", 1, 4);                 // ok
-bus.emit("progress", 1);                    // error: expected 2 arguments
-bus.emit("logout");                         // ok: no payload
-bus.emit("login", { name: "Asha" });        // checked against User
-
-stop();                                     // unsubscribe
+// Type-safe emission:
+userEmitter.emit('signup', 'u_101', 'alex@example.com');
 ```
 
-The generic parameter `K extends keyof Events` ties the event name to its argument tuple: `on("progress", ...)` gives the listener `(done: number, total: number)`, and `emit("progress", ...)` requires exactly those arguments. This uses the same indexed-access and rest-parameter techniques from [variadic tuple types](../10-advanced-types/06-variadic-tuple-types.md).
+### Example 2: Real-World Node.js `EventEmitter` Type Augmentation
+```typescript
+import { EventEmitter } from 'events';
 
-### Why the odd constraint
-
-`Events extends { [K in keyof Events]: unknown[] }` says "every property of `Events` is an array/tuple". A simpler `Record<string, unknown[]>` constraint would reject **interfaces**, because interfaces do not get an implicit index signature. The self-referential mapped constraint accepts both `type` aliases and `interface`s.
-
-## Payload-object style
-
-Some codebases prefer one payload value per event instead of positional arguments:
-
-```ts
-type Events = {
-  login: { user: User };
-  logout: undefined;
-  progress: { done: number; total: number };
+export type TypedNodeEmitter<T extends Record<string, any[]>> = {
+  on<K extends keyof T>(event: K, listener: (...args: T[K]) => void): TypedNodeEmitter<T>;
+  once<K extends keyof T>(event: K, listener: (...args: T[K]) => void): TypedNodeEmitter<T>;
+  emit<K extends keyof T>(event: K, ...args: T[K]): boolean;
+  removeListener<K extends keyof T>(event: K, listener: (...args: T[K]) => void): TypedNodeEmitter<T>;
 };
 
-class PayloadEmitter<E> {
-  private handlers: { [K in keyof E]?: Set<(payload: E[K]) => void> } = {};
-
-  on<K extends keyof E>(event: K, handler: (payload: E[K]) => void): () => void {
-    const set = (this.handlers[event] ??= new Set());
-    set.add(handler);
-    return () => set.delete(handler);
-  }
-
-  emit<K extends keyof E>(event: K, ...payload: E[K] extends undefined ? [] : [payload: E[K]]): void {
-    this.handlers[event]?.forEach((h) => h((payload as unknown[])[0] as E[K]));
-  }
+export function createTypedNodeEmitter<T extends Record<string, any[]>>(): TypedNodeEmitter<T> {
+  return new EventEmitter() as unknown as TypedNodeEmitter<T>;
 }
 ```
 
-Named payload objects are easier to extend without breaking listeners (you can add a field), while tuples match Node's convention. Pick one style and stay consistent.
+### Example 3: Edge Case - Asynchronous Event Emitter with Error Boundary
+```typescript
+export class AsyncEventEmitter<TEvents extends Record<string, any[]>> {
+  private handlers = new Map<keyof TEvents, ((...args: any[]) => Promise<void>)[]>();
 
-## Derived helpers with mapped and template literal types
+  public on<K extends keyof TEvents>(event: K, fn: (...args: TEvents[K]) => Promise<void>): void {
+    if (!this.handlers.has(event)) this.handlers.set(event, []);
+    this.handlers.get(event)!.push(fn);
+  }
 
-Typed events combine well with the type-level features from earlier sections:
+  public async emitParallel<K extends keyof TEvents>(event: K, ...args: TEvents[K]): Promise<void> {
+    const list = this.handlers.get(event) ?? [];
+    await Promise.all(list.map((fn) => fn(...args)));
+  }
 
-```ts
-// "on" + capitalized event name, for a convenience API
-type Handlers<E extends { [K in keyof E]: unknown[] }> = {
-  [K in keyof E & string as `on${Capitalize<K>}`]?: (...args: E[K]) => void;
-};
-
-const handlers: Handlers<AppEvents> = {
-  onLogin: (user) => console.log(user.name),
-  onProgress: (done, total) => console.log(done / total),
-};
-```
-
-See [template literal types](../10-advanced-types/04-template-literal-types.md).
-
-## Browser events
-
-The DOM has its own typing. `addEventListener` has overloads keyed by event name, which is why `e` is a `MouseEvent` for `"click"`:
-
-```ts
-window.addEventListener("click", (e) => console.log(e.clientX));   // e: MouseEvent
-```
-
-For custom events on DOM targets, `CustomEvent<T>` carries a typed `detail`:
-
-```ts
-const event = new CustomEvent<{ id: string }>("item-added", { detail: { id: "42" } });
-element.dispatchEvent(event);
-
-element.addEventListener("item-added", (e) => {
-  // e is `Event` unless you augment HTMLElementEventMap, so cast or augment
-  const { id } = (e as CustomEvent<{ id: string }>).detail;
-});
-```
-
-To get fully typed custom events, augment `HTMLElementEventMap` (or `WindowEventMap`) with your event name ([global and module augmentation](../09-declaration-files/02-global-and-module-augmentation.md)). In React, prefer props and callbacks over a global emitter ([event types](../19-react-and-frontend/01-event-types.md)).
-
-## Consuming events as async iteration
-
-Node can adapt events to an async iterator, which turns a stream of events into a loop ([iterators and generators](../12-async-and-iteration/04-iterators-and-generators.md)):
-
-```ts
-import { on, once } from "node:events";
-
-// wait for a single event as a promise
-const [result] = await once(emitter, "ready");
-
-// consume events as they arrive
-for await (const [data] of on(emitter, "message")) {
-  handle(data);
-}
-```
-
-Pass an `AbortSignal` to stop waiting ([concurrency patterns](../12-async-and-iteration/05-concurrency-patterns.md)). These helpers are typed for the general case, so with a custom emitter you may need to annotate the result.
-
-## Behavior to design for
-
-### Errors in listeners
-
-A listener that throws propagates out of `emit` and may skip later listeners. In Node, emitting the special event `"error"` with no listener **throws**. Decide the policy:
-
-```ts
-emit<K extends keyof Events>(event: K, ...args: Events[K]): void {
-  for (const listener of this.listeners[event] ?? []) {
-    try {
-      listener(...args);
-    } catch (e) {
-      console.error(`Listener for "${String(event)}" failed`, e);   // isolate one bad listener
+  public async emitSeries<K extends keyof TEvents>(event: K, ...args: TEvents[K]): Promise<void> {
+    const list = this.handlers.get(event) ?? [];
+    for (const fn of list) {
+      await fn(...args);
     }
   }
 }
 ```
 
-Isolating listeners keeps one failure from silencing the others. Async listeners are harder: a rejected promise from an `async` listener is **not** caught by this `try/catch`, because `emit` does not await it. Handle errors inside async listeners, or provide an `emitAsync` that awaits them ([error handling strategies](../11-error-handling/03-error-handling-strategies.md)).
+### Example 4: Failure Case - Catching Event Typo and Argument Mismatch
+```typescript
+interface SocketEvents {
+  message: [content: string, timestamp: number];
+}
 
-### Memory leaks
+const socket = new StrictEventEmitter<SocketEvents>();
 
-Every `on` without a matching `off` keeps the listener (and anything it closes over) alive. Always unsubscribe when the subscriber is done: components unmounting, requests finishing, objects being disposed. Returning an unsubscribe function from `on` makes cleanup easy to do correctly. Node warns when many listeners are attached to one event, which usually indicates a leak.
+// @ts-expect-error TS2345: Argument of type '"msg"' is not assignable to parameter of type '"message"'.
+socket.emit('msg', 'hello', Date.now());
 
-### Ordering and re-entrancy
+// @ts-expect-error TS2554: Expected 3 arguments, but got 2. Missing 'timestamp'.
+socket.emit('message', 'hello');
+```
 
-Listeners run in registration order, synchronously, inside `emit`. A listener that emits another event runs nested. A listener that adds or removes listeners during emission can change who runs. Copy the set before iterating (`[...set]`) if that matters.
+### Example 5: Idiomatic Observer with Subscription Tokens
+```typescript
+export interface IObserver<T> {
+  next(value: T): void;
+  error?(err: Error): void;
+  complete?(): void;
+}
 
-### Event emitter vs alternatives
+export interface ISubscription {
+  unsubscribe(): void;
+}
 
-| Use an emitter when | Prefer something else when |
-|---|---|
-| Many independent subscribers react to something | One caller wants one result (`await` a function or promise) |
-| The emitter should not know its listeners | The relationship is a direct dependency (inject it, [DI](./05-dependency-injection.md)) |
-| Events are fire-and-forget notifications | You need guaranteed ordering, delivery, or retries (use a queue) |
-| It is a UI or lifecycle signal | Complex state changes (a [state machine](./06-state-machines.md) or store is clearer) |
+export class ObservableSubject<T> {
+  private observers = new Set<IObserver<T>>();
 
-Emitters make control flow implicit: following "what happens when X occurs" means searching for listeners. Use them for genuine decoupling, not as a replacement for function calls.
+  public subscribe(observer: IObserver<T>): ISubscription {
+    this.observers.add(observer);
+    return {
+      unsubscribe: () => {
+        this.observers.delete(observer);
+      }
+    };
+  }
 
-## Important rules and misconceptions
+  public next(value: T): void {
+    for (const obs of this.observers) {
+      obs.next(value);
+    }
+  }
+}
+```
 
-- **Events are synchronous by default.** `emit` calls listeners before returning. Nothing is asynchronous unless the listener is.
-- **Types do not check at runtime.** Another module can still call `emit` through an `any` cast.
-- **An interface map needs the mapped-type constraint** (not `Record<string, unknown[]>`), or `interface` event maps are rejected.
-- **`off` needs the same function reference.** An inline arrow in `on` cannot be removed later unless you keep it, which is why returning an unsubscribe closure is handy.
-- **A typed emitter documents the contract,** and the event map becomes the one place to learn which events exist.
+---
 
-## Common mistakes
+## 6. Edge Cases, Pitfalls & Gotchas
 
-- Using string event names with an untyped emitter.
-- Forgetting to unsubscribe, leaking listeners and their closures.
-- Passing a new inline function to `off` and expecting removal.
-- Letting a throwing listener break `emit` for everyone else.
-- `async` listeners with unhandled rejections.
-- Emitting inside listeners and creating hard-to-follow cycles.
-- Using a global emitter as a replacement for explicit dependencies, hiding data flow.
-- Declaring the event map as `Record<string, unknown[]>` and losing per-event payload types.
+1. **Listener Memory Leaks**: In long-lived emitters (like web servers or web sockets), failing to remove event listeners when a connection closes causes uncollected memory leaks. Always return an `unsubscribe` callback.
+2. **Re-entrant Emissions**: Emitting an event from inside a listener for that same event causes an infinite recursion stack overflow.
+3. **Synchronous Exception Halts**: In standard Node `EventEmitter`, an unhandled error inside a listener halts execution and prevents subsequent listeners from executing. Consider wrapping listeners in try/catch or using `Promise.allSettled`.
+4. **Mutating Listeners Array during Emit**: If a listener calls `.off()` to unsubscribe itself during execution of `.emit()`, iterating over the raw array can skip subsequent listeners. Always copy the listeners set (`Array.from(set)`) before iteration.
 
-## Debugging
+---
 
-- Log `emit` calls (event name, arguments) and listener counts during development to see who is subscribed.
-- If an event "does nothing", check that the name matches exactly (the typed version makes this a compile error) and that the listener was registered **before** the emit.
-- If listener counts grow over time, search for `on` calls without matching cleanup.
-- If a listener runs twice, check whether it was registered twice (hot reload, repeated setup code).
-- For "emit throws unexpectedly", check for the `"error"` event convention in Node, and for listeners that throw.
+## 7. Common Mistakes & Anti-Patterns
 
-## Quick summary
+| Anti-Pattern | Bad Code | Good Code | Compiler / Runtime Impact |
+| :--- | :--- | :--- | :--- |
+| **Loose String Events** | `emitter.on('msg', (data: any) => ...)` | Strongly-typed event map | Typos slip into production silently |
+| **Missing Unsubscribe** | Calling `.on()` in React useEffect without cleanup | Return `unsubscribe()` in cleanup | Major memory leak and retained DOM closures |
+| **Silent Exception Swallow** | Empty `catch {}` in async listeners | Global `'error'` event or structured log | Critical failures go unnoticed |
+| **Mutating Array in Loop** | `for (let fn of this.listeners) fn();` | `for (let fn of [...this.listeners]) fn();` | Unsubscribing during emit skips listeners |
+| **Passing Mutable Objects** | `emit('event', mutableState)` | `emit('event', Object.freeze({...state}))` | Observers mutate state behind each other's backs |
+| **Unbounded Listeners** | Adding 1,000 listeners without warnings | Max listener limit warning | Hidden memory leak |
 
-- Describe events in one map of event name to argument tuple (or payload type), and type `on`, `off`, and `emit` generically with `K extends keyof Events`.
-- Node's `EventEmitter` can be generic in recent `@types/node` versions. A small custom `TypedEmitter` is easy to write and works anywhere.
-- Constrain with `{ [K in keyof Events]: unknown[] }` so interfaces work too. Return an unsubscribe function from `on`.
-- Design for listener errors, async listeners, cleanup, and re-entrancy. Prefer direct calls or injection when there is one clear collaborator.
-- Use `events.once` and `events.on` to turn events into promises and async iterators.
+---
 
-**Next:** [18 Testing and Debugging](../18-testing-and-debugging/README.md)
+## 8. Performance & Type-Checker Complexity
+
+- **Set vs Array for Listeners**: Using `Set<Function>` for listener storage provides $O(1)$ removal via `set.delete(listener)`, whereas `Array.splice` takes $O(N)$ time.
+- **Type Checking**: Tuple types in event maps (`[string, number]`) check in sub-millisecond time and infer cleanly.
+
+---
+
+## 9. Compiler Internals
+
+When evaluating variadic tuple types:
+```typescript
+emit<K extends keyof TEvents>(event: K, ...args: TEvents[K]): boolean;
+```
+The compiler unpacks the tuple `TEvents[K]` into named positional parameters in the generated signature shown in IDE tooltips, ensuring accurate autocomplete for each argument name.
+
+---
+
+## 10. Best Practices & Design Guidelines
+
+1. **Always Return an Unsubscribe Closure**: Design `.on()` to return `() => void` so consumers can tear down cleanly with one line.
+2. **Snapshot Listener Collections**: Clone listeners before iteration to prevent bugs when listeners unsubscribe during emit.
+3. **Freeze Event Payloads**: Emit immutable payloads using `Object.freeze()` to prevent observers from altering data.
+4. **Differentiate Sync vs Async**: Never mix synchronous and asynchronous listener expectations; pick either immediate dispatch or promise-settled dispatch.
+
+---
+
+## 11. Real-World Case Study
+
+### WebSocket Real-Time Chat Room Gateway
+A WebSocket server coordinates real-time user joins, chats, and typing notifications:
+
+```typescript
+export interface ChatRoomEvents {
+  'user:joined': [userId: string, timestamp: number];
+  'user:left': [userId: string];
+  'message:new': [messageId: string, authorId: string, text: string];
+  'user:typing': [userId: string, isTyping: boolean];
+}
+
+export class ChatRoom {
+  private events = new StrictEventEmitter<ChatRoomEvents>();
+
+  public on<K extends keyof ChatRoomEvents>(
+    event: K,
+    listener: (...args: ChatRoomEvents[K]) => void
+  ): () => void {
+    return this.events.on(event, listener);
+  }
+
+  public broadcastMessage(messageId: string, authorId: string, text: string): void {
+    this.events.emit('message:new', messageId, authorId, text);
+  }
+
+  public userJoin(userId: string): void {
+    this.events.emit('user:joined', userId, Date.now());
+  }
+}
+```
+
+---
+
+## 12. Interview Questions
+
+<details>
+<summary>1. How do you implement a strongly-typed EventEmitter in TypeScript without external libraries?</summary>
+
+By defining an event map interface where keys are event names and values are tuple parameter lists:
+```typescript
+interface EventMap { 'data': [Buffer]; 'error': [Error]; }
+```
+Then parameterize the emitter class:
+```typescript
+class Emitter<T extends Record<string, any[]>> {
+  on<K extends keyof T>(event: K, listener: (...args: T[K]) => void): void;
+  emit<K extends keyof T>(event: K, ...args: T[K]): boolean;
+}
+```
+</details>
+
+<details>
+<summary>2. Why does modifying the listener array during `emit` cause bugs, and how do you prevent it?</summary>
+
+If a listener removes itself using `.off()` while the loop is running, the array length shrinks and subsequent elements shift down by one index, causing the loop to skip the next listener. This is solved by creating a snapshot before iterating: `for (const fn of Array.from(this.listeners))`.
+</details>
+
+<details>
+<summary>3. What is the difference between the Observer pattern and the Publish/Subscribe (PubSub) pattern?</summary>
+
+In the **Observer pattern**, the Subject holds direct references to its observers and notifies them directly. In the **PubSub pattern**, publishers and subscribers never know about each other; they communicate exclusively through an intermediate message broker or event bus.
+</details>
+
+<details>
+<summary>4. Why should `.on()` return an unsubscribe function instead of forcing callers to invoke `.off()`?</summary>
+
+Returning an `unsubscribe` function encapsulates both the event name and the function reference, which is especially useful when listeners are anonymous arrow functions or when cleaning up inside React `useEffect` hooks.
+</details>
+
+<details>
+<summary>5. How can you implement `once(event, listener)`?</summary>
+
+By wrapping the original listener in a wrapper function that first unsubscribes itself and then calls the original listener:
+```typescript
+public once<K extends keyof T>(event: K, listener: (...args: T[K]) => void) {
+  const unsubscribe = this.on(event, (...args) => {
+    unsubscribe();
+    listener(...args);
+  });
+}
+```
+</details>
+
+<details>
+<summary>6. What causes memory leaks in Node.js EventEmitters?</summary>
+
+Adding listeners without removing them. When a listener closure captures local variables (e.g., HTTP request/response objects or DOM elements), the emitter keeps the entire closure in memory, preventing garbage collection.
+</details>
+
+<details>
+<summary>7. How do you handle errors thrown inside event listeners in asynchronous emitters?</summary>
+
+Use `Promise.allSettled(listeners.map(fn => fn(...args)))` to ensure that even if one listener throws or rejects, all other listeners execute, and all collected errors can be aggregated into an `AggregateError`.
+</details>
+
+<details>
+<summary>8. How do you make event payloads immutable?</summary>
+
+Wrap emitted payloads in `Readonly<T>` at the type level and `Object.freeze()` at runtime to prevent listeners from modifying shared state.
+</details>
+
+---
+
+## 13. Exercises & Challenges
+
+<details>
+<summary>Exercise 1 (Easy): Basic `once()` Implementation</summary>
+
+**Problem:** Add a `.once(event, listener)` method to `StrictEventEmitter`.
+
+**Solution:**
+```typescript
+public once<K extends keyof TEvents>(event: K, listener: (...args: TEvents[K]) => void): void {
+  const teardown = this.on(event, (...args) => {
+    teardown();
+    listener(...args);
+  });
+}
+```
+</details>
+
+<details>
+<summary>Exercise 2 (Easy): Event Count Tracker</summary>
+
+**Problem:** Add a method `listenerCount(event: string): number` returning the number of active listeners for an event.
+
+**Solution:**
+```typescript
+public listenerCount<K extends keyof TEvents>(event: K): number {
+  return this.listeners.get(event)?.size ?? 0;
+}
+```
+</details>
+
+<details>
+<summary>Exercise 3 (Medium): Max Listeners Warning</summary>
+
+**Problem:** Implement a `setMaxListeners(n: number)` method that logs a console warning if active listeners exceed the threshold.
+
+**Solution:**
+```typescript
+export class CheckedEmitter<T extends Record<string, any[]>> extends StrictEventEmitter<T> {
+  private maxListeners = 10;
+  public override on<K extends keyof T>(event: K, listener: (...args: T[K]) => void): () => void {
+    const unsub = super.on(event, listener);
+    if (this.listenerCount(event) > this.maxListeners) {
+      console.warn(`MaxListenersExceededWarning: Possible memory leak detected on event "${String(event)}"`);
+    }
+    return unsub;
+  }
+}
+```
+</details>
+
+<details>
+<summary>Exercise 4 (Medium): Wildcard Event Emitter</summary>
+
+**Problem:** Implement a special `'*'` event listener that triggers on any emitted event, passing the event name as the first argument.
+
+**Solution:**
+```typescript
+export class WildcardEmitter<T extends Record<string, any[]>> extends StrictEventEmitter<T> {
+  private wildcardListeners = new Set<(event: keyof T, ...args: any[]) => void>();
+
+  public onAny(listener: (event: keyof T, ...args: any[]) => void): () => void {
+    this.wildcardListeners.add(listener);
+    return () => this.wildcardListeners.delete(listener);
+  }
+
+  public override emit<K extends keyof T>(event: K, ...args: T[K]): boolean {
+    const result = super.emit(event, ...args);
+    for (const wl of Array.from(this.wildcardListeners)) {
+      wl(event, ...args);
+    }
+    return result;
+  }
+}
+```
+</details>
+
+<details>
+<summary>Exercise 5 (Hard): Asynchronous Parallel Event Bus with Timeouts</summary>
+
+**Problem:** Build an async emitter where `emitAsync(event, ...args, timeoutMs)` runs all listeners concurrently, rejecting if any listener exceeds the timeout.
+
+**Solution:**
+```typescript
+export class TimeoutAsyncEmitter<T extends Record<string, any[]>> {
+  private listeners = new Map<keyof T, ((...args: any[]) => Promise<void>)[]>();
+
+  public on<K extends keyof T>(event: K, fn: (...args: T[K]) => Promise<void>): void {
+    if (!this.listeners.has(event)) this.listeners.set(event, []);
+    this.listeners.get(event)!.push(fn);
+  }
+
+  public async emitWithTimeout<K extends keyof T>(event: K, timeoutMs: number, ...args: T[K]): Promise<void> {
+    const list = this.listeners.get(event) ?? [];
+    const timeoutPromise = new Promise<never>((_, rej) =>
+      setTimeout(() => rej(new Error(`Event ${String(event)} timed out after ${timeoutMs}ms`)), timeoutMs)
+    );
+    await Promise.race([Promise.all(list.map((fn) => fn(...args))), timeoutPromise]);
+  }
+}
+```
+</details>
+
+<details>
+<summary>Exercise 6 (Hard): Type-Safe RxJS-Like Pipeable Observable</summary>
+
+**Problem:** Implement a minimal observable class with a `.pipe(operator)` method that can transform emitted values.
+
+**Solution:**
+```typescript
+export type Operator<A, B> = (source: MiniObservable<A>) => MiniObservable<B>;
+
+export class MiniObservable<T> {
+  constructor(private subscribeFn: (observer: (val: T) => void) => () => void) {}
+
+  public subscribe(observer: (val: T) => void): () => void {
+    return this.subscribeFn(observer);
+  }
+
+  public pipe<R>(op: Operator<T, R>): MiniObservable<R> {
+    return op(this);
+  }
+}
+
+export function map<T, R>(fn: (val: T) => R): Operator<T, R> {
+  return (source) => new MiniObservable((observer) =>
+    source.subscribe((val) => observer(fn(val)))
+  );
+}
+```
+</details>

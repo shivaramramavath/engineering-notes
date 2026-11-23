@@ -1,211 +1,428 @@
-# Type Testing
+# Type Testing and Static Type Assertions in TypeScript
 
-Most tests check what code **does** at runtime. If you write library types, utility types, or heavily generic APIs, the thing you need to check is what the **compiler concludes**: does `Paths<Config>` produce the right union, does this call fail to compile as it should, did a refactor quietly turn a precise type into `any`? Type-level code has no runtime to test, and it regresses silently, so it needs tests of its own. This note covers how to assert on types, how to assert that something is a *compile error*, and the tools that run these checks.
+> Comprehensive guide to testing types in TypeScript: Vitest `expectTypeOf` and `assertType`, `tsd`, `expect-type`, testing conditional and generic types, and negative compilation assertions with `@ts-expect-error`.
 
-**Prerequisites:**
-- [Type-level programming](../10-advanced-types/08-type-level-programming.md) (the `Equal` / `Expect` helpers)
-- [Conditional types](../10-advanced-types/00-conditional-types.md)
-- [Compiler options](../13-compiler-and-tsconfig/00-compiler-options.md)
+| Metadata | Details |
+| :--- | :--- |
+| **Category** | Testing and Debugging |
+| **Difficulty** | Advanced |
+| **Prerequisites** | [06-generics/00-generic-functions.md](../06-generics/00-generic-functions.md), [10-advanced-types/00-conditional-types.md](../10-advanced-types/00-conditional-types.md), [18-testing-and-debugging/00-unit-testing.md](./00-unit-testing.md) |
+| **TypeScript Baseline** | TS 4.5+, TS 5.0+ |
+| **Tested tsconfig** | `"strict": true, "target": "ES2022", "module": "NodeNext"` |
 
 ---
 
-## Why type tests
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & API Reference](#4-syntax--api-reference)
+5. [Practical Examples](#5-practical-examples)
+6. [Edge Cases, Pitfalls & Gotchas](#6-edge-cases-pitfalls--gotchas)
+7. [Common Mistakes & Anti-Patterns](#7-common-mistakes--anti-patterns)
+8. [Performance & Type-Checker Complexity](#8-performance--type-checker-complexity)
+9. [Compiler Internals](#9-compiler-internals)
+10. [Best Practices & Design Guidelines](#10-best-practices--design-guidelines)
+11. [Real-World Case Study](#11-real-world-case-study)
+12. [Interview Questions](#12-interview-questions)
+13. [Exercises & Challenges](#13-exercises--challenges)
 
-- **Utility types and generics** have edge cases (unions, `never`, `any`, optional properties) that are easy to break while editing.
-- **Public API types** of a library are part of its contract: a change that makes a type wider or narrower can break consumers without any runtime change.
-- **Precision can erode:** a type that silently degrades to `any` or `unknown` still compiles everywhere, and nothing complains.
-- **"Should not compile" is behavior too:** invalid calls must be *rejected*, and only a test can check that they are.
+---
 
-## How type tests work
+## 1. What & Why
 
-A type test is TypeScript code whose only job is to **fail to compile** when a type is wrong. The test runner is the compiler: if `tsc` reports no errors, the tests pass.
+When building complex TypeScript libraries, custom utility types, ORMs, or validation frameworks, normal runtime unit tests are insufficient. A runtime test only executes emitted JavaScript code; it cannot verify whether a returned value has the exact expected compile-time TypeScript type.
 
-### Assert equality
+For example, consider a generic utility function:
+```typescript
+function deepFreeze<T>(obj: T): DeepReadonly<T> { ... }
+```
+A runtime unit test can assert that `Object.isFrozen(res)` is true. However, it cannot verify whether modifying a nested property `res.user.profile.age = 30` is correctly rejected with a compile-time error by TypeScript!
 
-```ts
-type Equal<X, Y> =
-  (<T>() => T extends X ? 1 : 2) extends (<T>() => T extends Y ? 1 : 2) ? true : false;
+**Type Testing** allows developers to treat types as testable entities:
+1. **Positive Type Assertions**: Proving that type $A$ exactly equals type $B$ (not just assignable, but identical in structure, modifiers, and optionality).
+2. **Negative Type Assertions**: Proving that invalid arguments produce compile errors using `@ts-expect-error`.
+3. **Preventing Type Regressions**: Ensuring library type changes do not unintentionally widen types to `any`, `unknown`, or `never`.
 
-type Expect<T extends true> = T;
-
-type Cases = [
-  Expect<Equal<Reverse<[1, 2, 3]>, [3, 2, 1]>>,
-  Expect<Equal<CamelCase<"user_first_name">, "userFirstName">>,
-  Expect<Equal<ReturnType<typeof createUser>, User>>,
-];
+```
++-----------------------------------------------------------+
+|                        Type Testing                       |
+|                                                           |
+|   Runtime Unit Testing:   expect(result).toBe(42);        |
+|                                                           |
+|   Static Type Testing:    expectTypeOf(result)            |
+|                             .toEqualTypeOf<number>();     |
+|                                                           |
+|   Compiler Negative Test: // @ts-expect-error TS2322      |
+|                           result = "invalid";             |
++-----------------------------------------------------------+
 ```
 
-If any `Equal` is false, `Expect<false>` is an error ("Type 'false' does not satisfy the constraint 'true'") at that line. The tuple just groups cases.
+---
 
-Why not plain `extends`? Because `A extends B` tests **assignability**, which is looser than equality: `string extends string | number` is true, and anything extends `any`. The `Equal` helper compares types as the compiler's own identity check does, so it distinguishes `any` from other types and catches accidental widening.
+## 2. Core Concepts
 
-### Assert that something is an error
+### 1. `expectTypeOf` (Vitest & `expect-type`)
+Checks type relationships at compile time without executing any runtime code:
+```typescript
+import { expectTypeOf } from 'vitest';
 
-Use `// @ts-expect-error` to say "the next line must produce a compile error":
-
-```ts
-// @ts-expect-error: a draft order cannot be paid
-pay(draftOrder, "p1");
-
-// @ts-expect-error: 'role' is not allowed in the create DTO
-const dto: CreateUserDto = { email: "a@b.com", password: "x", role: "admin" };
+expectTypeOf(123).toBeNumber();
+expectTypeOf({ id: '1' }).toMatchTypeOf<{ id: string }>();
+expectTypeOf<string>().not.toBeAny();
 ```
 
-If the line **stops** erroring (for example the type became too permissive), `@ts-expect-error` itself becomes an error ("Unused '@ts-expect-error' directive"). That is exactly what you want from a negative test. Put a reason after the directive, and keep the expression on the very next line.
+### 2. `toEqualTypeOf` vs `toMatchTypeOf`
+- **`toMatchTypeOf` (Subtyping / Assignability)**: Asserts that $A$ is assignable to $B$ ($A \subseteq B$). `{ id: string, name: string }` matches `{ id: string }`.
+- **`toEqualTypeOf` (Strict Identity)**: Asserts that $A$ and $B$ are completely identical in shape, property modifiers (`readonly`), and optionality (`?`).
 
-Do **not** use `@ts-ignore` for this: it stays silent whether or not an error occurs, so it proves nothing.
+### 3. Negative Compilation Testing (`@ts-expect-error`)
+Asserts that the subsequent line must fail compilation. If the line compiles without error, TypeScript flags the `@ts-expect-error` directive with `TS2578: Unused '@ts-expect-error' directive`.
 
-### Assert values with expected types
+---
 
-```ts
-const result = parse("42");
-const check: number = result;          // compile error if result is not assignable to number
+## 3. How It Works Internally
+
+How does `expectTypeOf` check if two types $A$ and $B$ are strictly identical without being fooled by `any`?
+
+In TypeScript, `any` is assignable to anything, and anything is assignable to `any`. The only mathematical definition of type identity that distinguishes `any` from other types relies on conditional type distribution over functions:
+```typescript
+export type IsIdentical<T, U> =
+  (<G>() => G extends T ? 1 : 2) extends
+  (<G>() => G extends U ? 1 : 2) ? true : false;
+```
+Because the compiler cannot distribute `any` over the higher-order function generic parameter `G`, this conditional type evaluates to `false` if one type is `any` and the other is `unknown` or `never`.
+
+---
+
+## 4. Syntax & API Reference
+
+### Vitest `expectTypeOf` Matchers
+```typescript
+expectTypeOf<Actual>().toEqualTypeOf<Expected>();     // Strict identity
+expectTypeOf<Actual>().toMatchTypeOf<Expected>();      // Subtyping
+expectTypeOf<Actual>().toBeString();
+expectTypeOf<Actual>().toBeNumber();
+expectTypeOf<Actual>().toBeBoolean();
+expectTypeOf<Actual>().toBeArray();
+expectTypeOf<Actual>().toBeFunction();
+expectTypeOf<Actual>().toBeAny();
+expectTypeOf<Actual>().toBeUnknown();
+expectTypeOf<Actual>().toBeNever();
+expectTypeOf<Actual>().toBeNull();
+expectTypeOf<Actual>().toBeUndefined();
+expectTypeOf<Actual>().parameter(0).toEqualTypeOf<string>();
+expectTypeOf<Actual>().returns.toEqualTypeOf<Promise<void>>();
 ```
 
-This checks assignability only. For exact checks, use `Equal`.
+---
 
-## Using a library: `expectTypeOf` (Vitest)
+## 5. Practical Examples
 
-Vitest provides `expectTypeOf`, a fluent API for type assertions, plus a typecheck mode that runs the compiler over designated files:
+### Example 1: Basic Positive Type Assertions on Return Types
+```typescript
+import { describe, it, expectTypeOf } from 'vitest';
 
-```ts
-// paths.test-d.ts
-import { expectTypeOf, test } from "vitest";
+export function pluckId<T extends { id: string }>(item: T): T['id'] {
+  return item.id;
+}
 
-test("Paths of a config object", () => {
-  expectTypeOf<Paths<Config>>().toEqualTypeOf<"server" | "server.host" | "debug">();
+describe('pluckId typing', () => {
+  it('infers exact string return type', () => {
+    const res = pluckId({ id: 'user_123', name: 'Alice' });
+    expectTypeOf(res).toEqualTypeOf<string>();
+    expectTypeOf(res).not.toBeAny();
+  });
 });
-
-test("createUser parameters and return type", () => {
-  expectTypeOf(createUser).parameter(0).toBeString();
-  expectTypeOf(createUser).returns.toEqualTypeOf<User>();
-});
-
-test("rejects unknown keys", () => {
-  // @ts-expect-error
-  expectTypeOf<CreateUserDto>().toHaveProperty("role");
-});
 ```
 
-```ts
-// vitest.config.ts
-export default defineConfig({
-  test: {
-    typecheck: { enabled: true },       // run `*.test-d.ts` through the type checker
-  },
+### Example 2: Real-World Testing of Complex Conditional Utility Types
+```typescript
+export type Flatten<T> = T extends Array<infer U> ? Flatten<U> : T;
+
+describe('Flatten utility type', () => {
+  it('recursively flattens nested arrays', () => {
+    expectTypeOf<Flatten<number[][][]>>().toEqualTypeOf<number>();
+    expectTypeOf<Flatten<string[]>>().toEqualTypeOf<string>();
+    expectTypeOf<Flatten<boolean>>().toEqualTypeOf<boolean>();
+  });
 });
 ```
 
-`expectTypeOf` assertions are checked by the **compiler**, not at runtime. Calling them at runtime does nothing, which is why they need the typecheck mode (or an equivalent `tsc` run) to mean anything. Details such as file naming and options depend on your Vitest version, so check its documentation.
+### Example 3: Edge Case - Function Signature Testing (Parameters and Return)
+```typescript
+type ApiHandler = (req: Request, retryCount?: number) => Promise<Response>;
 
-## Using a library: `tsd`
-
-`tsd` is a tool for testing the type definitions of a library. You write `.test-d.ts` files using `expectType`, `expectError`, and similar helpers, and `tsd` runs the compiler over them:
-
-```ts
-import { expectType, expectError } from "tsd";
-import { createUser } from ".";
-
-expectType<User>(createUser("Asha"));
-expectError(createUser(42));
+describe('ApiHandler signature', () => {
+  it('verifies parameter and return types', () => {
+    expectTypeOf<ApiHandler>().parameters.toEqualTypeOf<[Request, number?]>();
+    expectTypeOf<ApiHandler>().returns.toEqualTypeOf<Promise<Response>>();
+  });
+});
 ```
 
-It is popular for published libraries because the tests live beside the package's `.d.ts` output and verify what consumers actually see. Other tools exist for specific ecosystems, for example the checks used for DefinitelyTyped packages.
+### Example 4: Failure Case - Negative Compilation Assertion with Compiler Codes
+```typescript
+interface StrictConfig {
+  readonly apiKey: string;
+  readonly timeoutMs: number;
+}
 
-## Running type tests
+const config: StrictConfig = {
+  apiKey: 'secret_123',
+  timeoutMs: 5000
+};
 
-- **With the main compile:** put type tests in files included by `tsconfig`, and let `tsc --noEmit` fail on errors. This is the cheapest option, and it runs in your existing `typecheck` script ([test runners](./03-test-runners.md)).
-- **With a dedicated tool:** `vitest --typecheck` or `tsd`, which also gives per-test reporting.
-- **In CI:** make the type-test run required, so a type regression blocks the merge ([CI and deployment](../21-production-tooling/05-ci-and-deployment.md)).
-
-Keep type tests in separate files (for example `*.test-d.ts` or a `type-tests/` folder) so they are not bundled or executed at runtime, and so the compile cost of heavy type tests is contained.
-
-## What to test
-
-| Target | Example assertion |
-|---|---|
-| **Return types** of utilities and functions | `Equal<ReturnType<typeof f>, X>` |
-| **Generic inference** | `f("a")` infers `"a"`, not `string`, where intended |
-| **Edge inputs** | `never`, `any`, `unknown`, unions, empty tuples, optional keys, readonly |
-| **Negative cases** | invalid arguments, missing required fields, wrong event names |
-| **Public API surface** | exported types keep the shape consumers rely on |
-| **No accidental `any`** | `Expect<Equal<IsAny<ReturnType<typeof f>>, false>>` |
-
-A helper for the last row:
-
-```ts
-type IsAny<T> = 0 extends 1 & T ? true : false;
+// @ts-expect-error TS2540: Cannot assign to 'apiKey' because it is a read-only property.
+config.apiKey = 'mutated';
 ```
 
-For a type-level function, test the **cases that distinguish it from near-misses**: union inputs (does it distribute?), `never` (does it return `never`?), a readonly array (does it accept it?), a property that is optional ([distributive conditional types](../10-advanced-types/01-distributive-conditional-types.md)).
+### Example 5: Idiomatic Zero-Runtime Pure Type Assertion Function
+```typescript
+export function assertType<T>(_value: T): void {}
 
-## Pitfalls of `Equal`
+type IsEqual<A, B> = (<G>() => G extends A ? 1 : 2) extends (<G>() => G extends B ? 1 : 2) ? true : false;
 
-The strict `Equal` helper treats structurally identical but differently *written* types as different in some cases:
+export function assertTypeEqual<A, B>(_proof: IsEqual<A, B> extends true ? true : never): void {}
 
-```ts
-type A = { a: 1 } & { b: 2 };
-type B = { a: 1; b: 2 };
-
-type R = Equal<A, B>;   // false: an intersection is not the same type as the flattened object
+// Usage:
+assertTypeEqual<Flatten<string[]>, string>(true);
 ```
 
-If you mean "same shape", flatten first with an `Expand` helper:
+---
 
-```ts
-type Expand<T> = { [K in keyof T]: T[K] } & {};
+## 6. Edge Cases, Pitfalls & Gotchas
 
-type R2 = Equal<Expand<A>, B>;   // true
+1. **`toMatchTypeOf` Subtyping Trap**:
+   `expectTypeOf<{ id: string, extra: number }>().toMatchTypeOf<{ id: string }>()` passes because the first object is a structural subtype of the second. If you intended to assert that `{ extra: number }` does NOT exist, you must use `toEqualTypeOf()`.
+2. **The `any` Contamination Trap**:
+   If a complex generic resolves to `any`, a naive `expectTypeOf<T>().toMatchTypeOf<string>()` passes because `any` is assignable to `string`! Always assert `expectTypeOf<T>().not.toBeAny()`.
+3. **`@ts-ignore` vs `@ts-expect-error`**:
+   Never use `@ts-ignore` in type tests! `@ts-ignore` suppresses any error, and continues suppressing even if future refactoring fixes the error. `@ts-expect-error` fails the build if no error occurs, ensuring the negative test remains active.
+4. **Branded Types and Nominal Identity**:
+   Branded types `type UserId = string & { __brand: 'UserId' }` will fail `toEqualTypeOf<string>()`, exactly as intended.
+
+---
+
+## 7. Common Mistakes & Anti-Patterns
+
+| Anti-Pattern | Bad Code | Good Code | Compiler / Runtime Impact |
+| :--- | :--- | :--- | :--- |
+| **Using `@ts-ignore` in Tests** | `// @ts-ignore` | `// @ts-expect-error TS2322` | Hides errors silently when code is fixed |
+| **Assignability Instead of Equality** | `toMatchTypeOf` for exact shape | `toEqualTypeOf` | Fails to detect unwanted extra properties |
+| **Ignoring `any` Leakage** | Assuming passing type test means safe | Assert `.not.toBeAny()` explicitly | Type checks pass because type is actually `any` |
+| **Runtime Assertion on Types** | `expect(typeof x).toBe('string')` | `expectTypeOf(x).toBeString()` | Runtime tests only check primitives, not complex types |
+| **Testing with `as` Assertions** | `fn(arg as any)` | Pass real typed fixtures | Tests invalid types and masks compiler errors |
+| **Missing Negative Tests** | Only testing what works | Test invalid inputs with `@ts-expect-error` | Allows unsafe API inputs to compile undetected |
+
+---
+
+## 8. Performance & Type-Checker Complexity
+
+- **Execution Overhead**: `expectTypeOf` assertions emit **zero bytes of JavaScript**. They are evaluated entirely by the TypeScript compiler type-checker during type checking and are removed from runtime test bundles.
+- **Compiler Time**: Type tests with hundreds of deep generic instantiations can increase `tsc` check times. Keep type tests in separate `*.test-d.ts` files if they become large.
+
+---
+
+## 9. Compiler Internals
+
+When TypeScript processes `@ts-expect-error`:
+The compiler checks if a diagnostic is produced on the following line. If a diagnostic exists, it is suppressed. If NO diagnostic is produced, the compiler reports `TS2578: Unused '@ts-expect-error' directive`.
+
+---
+
+## 10. Best Practices & Design Guidelines
+
+1. **Use `expectTypeOf` in Vitest**: Take advantage of built-in type testing without extra dependencies.
+2. **Always Use `@ts-expect-error` with Error Codes**: Document the expected compiler code (`// @ts-expect-error TS2345`).
+3. **Assert `.not.toBeAny()` on Generics**: Ensure type inference didn't silently degrade to `any`.
+4. **Colocate Type Tests with Unit Tests**: Keep type tests in `*.test.ts` or dedicated `*.test-d.ts` files.
+
+---
+
+## 11. Real-World Case Study
+
+### Type-Safe Event Bus Library Verification
+Testing that an event bus library correctly narrows payloads and disallows unregistered event names:
+
+```typescript
+export interface AppEvents {
+  'user:created': { id: string; email: string };
+  'order:placed': { orderId: string; amountCents: number };
+}
+
+export declare function emitEvent<K extends keyof AppEvents>(
+  event: K,
+  payload: AppEvents[K]
+): void;
+
+describe('emitEvent type safety', () => {
+  it('accepts valid event and exact payload', () => {
+    expectTypeOf(emitEvent).toBeFunction();
+    expectTypeOf(emitEvent<'user:created'>).parameter(1).toEqualTypeOf<{ id: string; email: string }>();
+  });
+
+  it('rejects invalid payloads and unknown event names', () => {
+    // @ts-expect-error TS2345: Argument of type '"unknown:event"' is not assignable to parameter of type 'keyof AppEvents'.
+    emitEvent('unknown:event', {});
+
+    // @ts-expect-error TS2345: Property 'email' is missing in type '{ id: string; }'.
+    emitEvent('user:created', { id: 'u_1' });
+  });
+});
 ```
 
-Other points to remember:
+---
 
-- `Equal` distinguishes `any` from other types. This is usually desirable, but it can surprise you when a type unexpectedly contains `any`.
-- A failing `Expect<Equal<A, B>>` only says "false". Hover `A` and `B` (or add a temporary `type Show = A;`) to see what the compiler computed.
-- `readonly` modifiers and optionality count. `{ a?: 1 }` and `{ a: 1 | undefined }` are different types.
+## 12. Interview Questions
 
-## Testing declaration output and exports
+<details>
+<summary>1. What is the difference between `expectTypeOf` and standard `expect()` in Vitest?</summary>
 
-For a library, you can also test the **generated** `.d.ts` files: build the package, then type-check a file that imports from the built output as a consumer would. This catches problems such as missing exports, wrong `types` paths, and accidentally exposed internal types ([declaration files](../09-declaration-files/00-declaration-files.md)). Tools such as `@arethetypeswrong/cli` check module resolution across module modes ([third-party types](../09-declaration-files/04-third-party-types.md)).
+`expect()` performs runtime assertions during test execution, evaluating real JavaScript values. `expectTypeOf` performs compile-time assertions evaluated by the TypeScript type checker, verifying types without executing runtime code.
+</details>
 
-## Practice
+<details>
+<summary>2. Why should developers use `@ts-expect-error` instead of `@ts-ignore` for negative type tests?</summary>
 
-Type challenge collections (small type-level puzzles, each with its own test cases) are a good way to practice writing and testing types together: [type challenges](../26-projects/exercises/00-type-challenges.md).
+`@ts-ignore` suppresses compiler diagnostics unconditionally. If a future refactoring or TypeScript update fixes the bug or changes the API such that no error occurs, `@ts-ignore` remains silent. `@ts-expect-error` requires an error; if no error occurs, the compiler throws `TS2578: Unused '@ts-expect-error' directive`, failing CI and alerting developers that the test expectation is obsolete.
+</details>
 
-## Important rules and misconceptions
+<details>
+<summary>3. How does TypeScript test if two types are strictly equal rather than merely assignable?</summary>
 
-- **Type tests run at compile time.** A "passing" test means the file compiled. There is no output at runtime.
-- **`expectTypeOf` does nothing unless a type checker runs it.** Without typecheck mode or `tsc`, the file is never checked.
-- **`@ts-expect-error` is the way to assert an error. `@ts-ignore` is not.**
-- **`extends` is not equality.** Use an `Equal` helper or `toEqualTypeOf` for exact checks.
-- **Type tests can slow the compiler** if they instantiate very heavy types. Keep them targeted.
-- **A passing type test does not prove the runtime behaves.** Types and values need their own tests.
+By testing whether function generic distribution behaves identically for both types:
+```typescript
+type IsIdentical<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
+```
+This distinguishes `any` from `unknown`, `never`, and primitive types.
+</details>
 
-## Common mistakes
+<details>
+<summary>4. What is the difference between `toEqualTypeOf` and `toMatchTypeOf`?</summary>
 
-- Using plain `extends` in assertions and missing widening.
-- Using `@ts-ignore` instead of `@ts-expect-error` in negative tests.
-- Placing `@ts-expect-error` above the wrong line (it applies only to the next line).
-- Writing type tests that no tool ever compiles.
-- Testing only the happy path, not `never`, unions, `any`, and invalid input.
-- Comparing intersection types to flattened ones with strict `Equal`.
-- Forgetting to include type test files in `tsconfig`, so `tsc` skips them.
-- Asserting on types that depend on `strict`, then running the tests under a different config.
+`toMatchTypeOf` tests assignability ($A \subseteq B$). It allows excess properties on $A$. `toEqualTypeOf` tests strict identity: $A$ and $B$ must have the exact same properties, types, optionality flags, and `readonly` qualifiers.
+</details>
 
-## Debugging
+<details>
+<summary>5. What are `*.test-d.ts` files and how does `tsd` use them?</summary>
 
-- When an assertion fails, display both types: `type Actual = Computed<Input>;` and hover it, then compare with the expected type.
-- Use the TypeScript Playground's `// ^?` annotation to inspect a type quickly.
-- Check which `tsconfig` compiles the test file (strictness flags change results).
-- If a negative test unexpectedly passes (the expected error is gone), your type became more permissive. That is the regression the test exists to catch.
-- If compile time balloons, find the type test that instantiates the heavy type and reduce its input ([type-checking performance](../22-performance/00-type-checking-performance.md)).
+`*.test-d.ts` files are declaration files used exclusively for type testing. Tools like `tsd` parse these files with the TypeScript compiler, verifying that `expectType<T>()` and `expectError()` assertions hold without emitting JavaScript.
+</details>
 
-## Quick summary
+<details>
+<summary>6. Why does `any` pass assignability checks to any other type, and how does that affect type tests?</summary>
 
-- Type tests make the **compiler** the test runner: they pass when the file compiles and fail when a type is wrong.
-- Assert exact types with an `Equal`/`Expect` pair or `expectTypeOf(...).toEqualTypeOf`. Assert errors with `// @ts-expect-error`, never `@ts-ignore`.
-- Run them via `tsc --noEmit`, Vitest typecheck mode, or `tsd`, and require them in CI.
-- Test the edges: `never`, `any`, unions, optional and readonly members, invalid inputs, and accidental widening to `any`.
-- Flatten intersections with `Expand` before strict equality, and keep type tests in separate files.
+In TypeScript, `any` is both a top type and a bottom type. It is assignable to everything and everything is assignable to it. If a generic returns `any`, tests like `expectTypeOf(x).toMatchTypeOf<string>()` pass erroneously. Explicit checks like `.not.toBeAny()` must be used.
+</details>
 
-**Next:** [Debugging](./05-debugging.md)
+<details>
+<summary>7. How do you test whether a property is optional (`?`) versus nullable (`| undefined`)?</summary>
+
+Using strict type equality (`toEqualTypeOf`): `{ a?: number }` is NOT strictly identical to `{ a: number | undefined }` because the latter requires the key `'a'` to exist on the object literal, whereas the former allows the key to be omitted entirely.
+</details>
+
+<details>
+<summary>8. How do you verify that a function parameter is inferred contravariantly?</summary>
+
+By extracting the parameter type using `Parameters<Fn>[Index]` and asserting strict equality against the expected type.
+</details>
+
+---
+
+## 13. Exercises & Challenges
+
+<details>
+<summary>Exercise 1 (Easy): Basic `toBeString` Type Assertion</summary>
+
+**Problem:** Write a type assertion verifying that `toUpperCase()` returns a string.
+
+**Solution:**
+```typescript
+import { expectTypeOf } from 'vitest';
+
+const str = 'hello'.toUpperCase();
+expectTypeOf(str).toBeString();
+```
+</details>
+
+<details>
+<summary>Exercise 2 (Easy): Negative Compile Test on Constant Reassignment</summary>
+
+**Problem:** Write an `@ts-expect-error` negative test verifying that `const x = 5` cannot be reassigned.
+
+**Solution:**
+```typescript
+const x = 5;
+// @ts-expect-error TS2588: Cannot assign to 'x' because it is a constant.
+x = 10;
+```
+</details>
+
+<details>
+<summary>Exercise 3 (Medium): Testing DeepReadonly Utility Type</summary>
+
+**Problem:** Test a recursive `DeepReadonly<T>` utility type, asserting that nested properties cannot be mutated.
+
+**Solution:**
+```typescript
+type DeepReadonly<T> = { readonly [K in keyof T]: DeepReadonly<T[K]> };
+
+type User = { profile: { name: string } };
+type FrozenUser = DeepReadonly<User>;
+
+declare const u: FrozenUser;
+// @ts-expect-error TS2540: Cannot assign to 'name' because it is a read-only property.
+u.profile.name = 'Bob';
+```
+</details>
+
+<details>
+<summary>Exercise 4 (Medium): Function Parameter Type Extraction Test</summary>
+
+**Problem:** Use `expectTypeOf` to assert that the second argument of `setTimeout` is of type `number | undefined`.
+
+**Solution:**
+```typescript
+import { expectTypeOf } from 'vitest';
+
+expectTypeOf<typeof setTimeout>().parameter(1).toMatchTypeOf<number | undefined>();
+```
+</details>
+
+<details>
+<summary>Exercise 5 (Hard): Pure Type Equality Conditional Type</summary>
+
+**Problem:** Implement a pure type `AssertStrictEqual<A, B>` that yields `true` only if $A$ and $B$ are strictly identical (rejecting `any` vs `number`), and `false` otherwise.
+
+**Solution:**
+```typescript
+export type AssertStrictEqual<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends
+  (<T>() => T extends B ? 1 : 2) ? true : false;
+
+// Verifications:
+type Test1 = AssertStrictEqual<string, string>; // true
+type Test2 = AssertStrictEqual<any, number>;    // false
+type Test3 = AssertStrictEqual<never, never>;   // true
+```
+</details>
+
+<details>
+<summary>Exercise 6 (Hard): Testing Generic Higher-Order Function Return Inferences</summary>
+
+**Problem:** Write a type test verifying that a `curry` function returns the exact expected chained function types for a 3-argument function.
+
+**Solution:**
+```typescript
+import { expectTypeOf } from 'vitest';
+
+declare function curry<A, B, C, R>(fn: (a: A, b: B, c: C) => R): (a: A) => (b: B) => (c: C) => R;
+
+const sum = (a: number, b: string, c: boolean) => [a, b, c];
+const curried = curry(sum);
+
+expectTypeOf(curried)
+  .toEqualTypeOf<(a: number) => (b: string) => (c: boolean) => (string | number | boolean)[]>();
+```
+</details>

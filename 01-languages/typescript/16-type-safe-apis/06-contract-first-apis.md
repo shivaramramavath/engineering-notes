@@ -1,262 +1,541 @@
-# Contract-First APIs
+# Contract-First APIs, OpenAPI, and tRPC in TypeScript
 
-In a **contract-first** workflow, you write the API's specification before (or independently of) the code, and everything else is derived from or checked against it: server types, client types, validators, documentation, mocks, and tests. The usual format is an **OpenAPI** document (with JSON Schema inside). The alternative, **code-first**, generates the spec from your implementation. This note covers the workflow, the TypeScript tooling around it, what generated types do and do not guarantee, and how to keep the spec and the running service in agreement.
+> Contract-first vs code-first API design in TypeScript: OpenAPI 3.1 specification, openapi-typescript, tRPC end-to-end type sharing, GraphQL codegen, and contract drift prevention.
 
-**Prerequisites:**
-- [API contracts](./00-api-contracts.md)
-- [Typed fetch and API client](./05-typed-fetch-and-api-client.md)
-- [Other validation libraries](../15-runtime-validation/03-other-validation-libraries.md) (JSON Schema and TypeBox)
+| Metadata | Details |
+| :--- | :--- |
+| **Category** | Type-Safe APIs |
+| **Difficulty** | Advanced |
+| **Prerequisites** | [16-type-safe-apis/00-api-contracts.md](./00-api-contracts.md), [16-type-safe-apis/05-typed-fetch-and-api-client.md](./05-typed-fetch-and-api-client.md) |
+| **TypeScript Baseline** | TS 4.5+, TS 5.0+ |
+| **Tested tsconfig** | `"strict": true, "target": "ES2022", "module": "NodeNext"` |
 
 ---
 
-## Contract-first vs code-first
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & API Reference](#4-syntax--api-reference)
+5. [Practical Examples](#5-practical-examples)
+6. [Edge Cases, Pitfalls & Gotchas](#6-edge-cases-pitfalls--gotchas)
+7. [Common Mistakes & Anti-Patterns](#7-common-mistakes--anti-patterns)
+8. [Performance & Type-Checker Complexity](#8-performance--type-checker-complexity)
+9. [Compiler Internals](#9-compiler-internals)
+10. [Best Practices & Design Guidelines](#10-best-practices--design-guidelines)
+11. [Real-World Case Study](#11-real-world-case-study)
+12. [Interview Questions](#12-interview-questions)
+13. [Exercises & Challenges](#13-exercises--challenges)
 
-| | Contract-first | Code-first |
-|---|---|---|
-| Source of truth | the spec file (OpenAPI / JSON Schema) | the server code (types, schemas, decorators) |
-| Spec comes from | written by hand (or designed in a tool) | **generated** from code |
-| Good for | public APIs, multiple client languages, separate frontend and backend teams, design review before implementation | full-stack TypeScript teams that own both sides, fast iteration |
-| Risk | spec and implementation drift unless checked | the spec describes what the code does, not what it **should** do; breaking changes can slip in as refactors |
-| TypeScript fit | generate types and clients from the spec | derive the spec from schemas (Zod/TypeBox) or framework decorators |
+---
 
-Neither is always better. Contract-first emphasizes **design and agreement before code**. Code-first emphasizes **one implementation, one truth**. Many teams combine them: a schema library that produces both TypeScript types and JSON Schema, with the generated OpenAPI checked into the repo and diffed in CI.
+## 1. What & Why
 
-## What an OpenAPI document looks like
+In multi-team software engineering, the single greatest source of production outages is **API Drift**: the backend changes a response field or alters validation rules, but client applications continue sending outdated request bodies or expecting deprecated properties.
 
-A trimmed example (YAML):
+Two distinct architectural philosophies exist to maintain alignment:
+1. **Contract-First (Specification-First)**: The API is defined first in an industry-standard machine-readable specification language (OpenAPI 3.1, Protocol Buffers, or GraphQL Schema). TypeScript interfaces and validation schemas are automatically generated from this specification for both backend servers and frontend clients.
+2. **Code-First with Direct Type Sharing (e.g. tRPC)**: When both frontend and backend are written in TypeScript in a monorepo, tRPC exposes server router types directly to client React/Vue applications without code generation or runtime schema bloat.
 
-```yaml
-openapi: 3.1.0
-info:
-  title: Users API
-  version: 1.0.0
-paths:
-  /users/{id}:
-    get:
-      operationId: getUser
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema: { type: string }
-      responses:
-        "200":
-          description: The user
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/User" }
-        "404":
-          description: Not found
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ErrorResponse" }
-components:
-  schemas:
-    User:
-      type: object
-      required: [id, name, email]
-      properties:
-        id: { type: string }
-        name: { type: string }
-        email: { type: string, format: email }
-    ErrorResponse:
-      type: object
-      required: [error]
-      properties:
-        error:
-          type: object
-          required: [code, message]
-          properties:
-            code: { type: string }
-            message: { type: string }
+By adopting contract-first or tRPC workflows, teams eliminate manual synchronization, prevent API drift, and catch breaking schema modifications during continuous integration (CI).
+
+```
+Contract-First:
+  OpenAPI 3.1 YAML  -->  openapi-typescript  -->  Shared TypeScript Types
+         |                                                 |
+         v                                                 v
+  Backend Mock / Stubs                             Frontend Fetch Client
+
+Code-First (tRPC):
+  AppRouter (Backend)  =========================>  createTRPCReact<AppRouter>()
+  (Compile-time type export)                       (Zero code generation)
 ```
 
-It describes paths, methods, parameters, request bodies, and a schema per response status. It is the contract from [API contracts](./00-api-contracts.md) written in a machine-readable form. OpenAPI 3.1 aligns its schemas with JSON Schema, while 3.0 uses a slightly different dialect, so check which version your tools support.
+---
 
-## The workflow
+## 2. Core Concepts
 
-```text
-  1. design the spec  ->  2. lint it  ->  3. generate  ->  4. implement  ->  5. verify  ->  6. guard changes
-     (review it)          (style,        types, clients,   against the        server vs      breaking-change
-                           consistency)   mocks, docs       generated types    spec in tests  diff in CI
-```
-
-1. **Design the spec** and review it like code, with the frontend, backend, and any consumers. Agreement happens here, before implementation.
-2. **Lint it** with a spec linter (for example Spectral) to enforce naming, error shapes, and pagination conventions.
-3. **Generate** TypeScript types, a client, and mock servers from it.
-4. **Implement** the server against the generated types.
-5. **Verify** the running service matches the spec (see below).
-6. **Guard changes** by diffing spec versions in CI to catch breaking changes.
-
-## Generating TypeScript from a spec
-
-The `openapi-typescript` package turns a spec into TypeScript types:
-
-```bash
-npx openapi-typescript ./openapi.yaml -o ./src/api/schema.d.ts
-```
-
-It produces interfaces such as `paths` and `components` that mirror the document. You can use them directly:
-
-```ts
-import type { components, paths } from "./api/schema";
-
-type User = components["schemas"]["User"];
-
-type GetUserResponse =
-  paths["/users/{id}"]["get"]["responses"]["200"]["content"]["application/json"];
-```
-
-Indexing by path and status is verbose, so most projects use a typed client built on those types. For example, `openapi-fetch`:
-
-```ts
-import createClient from "openapi-fetch";
-import type { paths } from "./api/schema";
-
-const client = createClient<paths>({ baseUrl: "https://api.example.com" });
-
-const { data, error } = await client.GET("/users/{id}", {
-  params: { path: { id: "1" } },
-});
-
-if (error) {
-  // typed from the spec's error responses
-} else {
-  data;   // User
+### 1. OpenAPI 3.1 Specification and Codegen
+OpenAPI 3.1 aligns directly with JSON Schema 2020-12. Using `openapi-typescript`, an OpenAPI YAML file compiles into static TypeScript type declarations:
+```typescript
+// Generated from openapi.yaml
+export interface paths {
+  '/users/{id}': {
+    get: {
+      parameters: {
+        path: { id: string };
+      };
+      responses: {
+        200: {
+          content: {
+            'application/json': {
+              id: string;
+              name: string;
+              email: string;
+            };
+          };
+        };
+        404: {
+          content: {
+            'application/problem+json': {
+              title: string;
+              status: 404;
+            };
+          };
+        };
+      };
+    };
+  };
 }
 ```
 
-Paths, parameters, bodies, and response types all come from the spec, so a spec change that is not reflected in your calls becomes a compile error after regeneration. (Tool names, options, and APIs evolve, so follow the current documentation of whichever generator you pick. Other generators produce full clients or server stubs, including ones for other languages.)
+### 2. tRPC End-to-End Type Safety
+In a monorepo, tRPC allows developers to write backend procedures with runtime validation (Zod, ArkType) and directly import the `type AppRouter` into frontend packages:
+```typescript
+// Backend (server/routers/app.ts)
+import { initTRPC } from '@trpc/server';
+import { z } from 'zod';
 
-Practices for generated code:
+const t = initTRPC.create();
 
-- **Never edit generated files.** Change the spec and regenerate.
-- **Regenerate in CI and fail on a diff**, so committed output always matches the spec.
-- **Pin the generator version,** since output format changes between releases.
-- Keep the spec in the repo (or a shared package) where both sides can reach it.
+export const appRouter = t.router({
+  getUser: t.procedure
+    .input(z.object({ id: z.string() }))
+    .query(({ input }) => {
+      return { id: input.id, name: 'Alice' };
+    })
+});
 
-## What generated types do not do
+export type AppRouter = typeof appRouter;
+```
 
-This is the important caveat. Generated types are still **types**:
+```typescript
+// Frontend (client/index.ts)
+import { createTRPCProxyClient, httpBatchLink } from '@trpc/client';
+import type { AppRouter } from '../server/routers/app';
 
-- They are **erased**. Nothing checks the server's actual response against them at runtime ([type erasure and runtime](../14-type-system-internals/00-type-erasure-and-runtime.md)).
-- They assume the server follows the spec. If the implementation drifts, the client types are wrong in the same silent way hand-written ones are.
-- JSON-to-TypeScript mapping is imperfect. A `format: date-time` string is just `string`. `nullable` versus optional handling, `oneOf`/`anyOf` unions, and discriminators can produce types that are looser or tighter than you expect.
+const trpc = createTRPCProxyClient<AppRouter>({
+  links: [httpBatchLink({ url: 'http://localhost:3000/trpc' })]
+});
 
-So add runtime checks where it matters:
+// Fully autocompleted and type-checked!
+const user = await trpc.getUser.query({ id: '123' });
+```
 
-- **Validate responses at the client boundary** with validators built from the same spec (for example Ajv compiled from the JSON Schema, or a schema library that can import JSON Schema), at least in development, tests, and for critical endpoints ([trust boundaries](../15-runtime-validation/00-trust-boundaries.md)).
-- **Validate requests on the server** against the spec. Frameworks such as Fastify validate with JSON Schema natively, and middleware exists for others.
+---
 
-## Keeping the spec and the server in agreement
+## 3. How It Works Internally
 
-Drift is the central risk of contract-first, so automate checks:
+### OpenAPI Type Indexing
+A type-safe fetch client (like `openapi-fetch`) accepts the generated `paths` interface as a generic parameter. When calling `client.GET('/users/{id}', options)`, TypeScript indexes:
+`paths['/users/{id}']['get']['responses'][200]['content']['application/json']`
+to determine the return type.
 
-| Technique | What it catches |
-|---|---|
-| **Request/response validation middleware** driven by the spec | the server accepting or producing data the spec does not allow |
-| **Contract tests** that call the running service and validate each response against the spec | implementation drift, undocumented status codes or fields |
-| **Property-based / fuzz API testing** from the spec (tools such as Schemathesis) | crashes and spec violations on unusual inputs |
-| **Consumer-driven contract testing** (for example Pact) | a provider change that breaks a specific consumer's expectations |
-| **Spec diffing in CI** (breaking-change detectors for OpenAPI) | removed fields, tightened types, changed required-ness |
-| **Mock servers** generated from the spec | frontend development against the contract before the backend exists |
+### tRPC Compiler Erasure
+`import type { AppRouter }` emits **zero bytes of JavaScript** to the frontend bundle. The frontend bundle never imports backend dependencies (like database drivers or Node.js built-ins). Only the TypeScript AST type node is transferred across the monorepo boundary.
 
-A minimal, high-value start: one test per endpoint that calls it and validates the response body and status against the spec's schema.
+---
 
-```ts
-import Ajv from "ajv";
+## 4. Syntax & API Reference
 
-const ajv = new Ajv({ strict: false });                 // configure formats and options for your spec
-const validateUser = ajv.compile(userJsonSchema);       // the User schema extracted from the spec
+### OpenAPI Fetch Client Configuration
+```typescript
+import createClient from 'openapi-fetch';
+import type { paths } from './generated-api-types';
 
-it("GET /users/:id matches the contract", async () => {
-  const res = await fetch(`${baseUrl}/users/1`);
-  expect(res.status).toBe(200);
-  const body = await res.json();
-  expect(validateUser(body)).toBe(true);
+export const apiClient = createClient<paths>({ baseUrl: 'https://api.example.com/v1' });
+
+// Fully type-checked request
+const { data, error } = await apiClient.GET('/users/{id}', {
+  params: {
+    path: { id: 'usr_42' }
+  }
 });
 ```
 
-(Handling `$ref` resolution and formats takes some setup. Use a spec-aware helper where one exists.)
+### GraphQL Codegen Types
+GraphQL Code Generator compiles `.graphql` queries into typed DocumentNodes:
+```typescript
+import { TypedDocumentNode } from '@graphql-typed-document-node/core';
 
-## Code-first in TypeScript: deriving the spec
+export interface GetUserQuery {
+  user: { id: string; name: string };
+}
 
-If you prefer code-first, you can still get a spec **out** of your code, so clients and docs stay in sync:
+export interface GetUserVariables {
+  userId: string;
+}
 
-- **Schema libraries:** Zod 4 can produce JSON Schema directly, and companion packages exist for generating OpenAPI documents from Zod schemas. **TypeBox** schemas already *are* JSON Schema.
-- **Framework support:** NestJS can generate OpenAPI from decorators with its Swagger module ([NestJS](../20-nodejs-backend/08-nestjs.md)), and Fastify can derive documentation from route schemas.
-- **Check the output into the repo** and diff it in CI, so an accidental breaking change shows up in review, even though no one wrote the spec by hand.
+export declare const GetUserDocument: TypedDocumentNode<GetUserQuery, GetUserVariables>;
+```
 
-This gives code-first teams one of contract-first's main benefits: a reviewable, language-neutral contract artifact.
+---
 
-## JSON Schema and TypeScript
+## 5. Practical Examples
 
-OpenAPI schemas are JSON Schema, so JSON Schema tooling applies:
+### Example 1: Basic tRPC Router with Mutation
+```typescript
+import { initTRPC, TRPCError } from '@trpc/server';
+import { z } from 'zod';
 
-- **TypeBox** builds JSON Schema in TypeScript and infers static types from it.
-- **`json-schema-to-ts`** infers types from a JSON Schema object declared `as const`, with no code generation.
-- **Ajv** compiles JSON Schema to fast validators.
+const t = initTRPC.create();
 
-These keep the schema and the type derived from one definition, in the same spirit as [schema validation](../15-runtime-validation/01-schema-validation.md).
+export const postRouter = t.router({
+  createPost: t.procedure
+    .input(
+      z.object({
+        title: z.string().min(5),
+        content: z.string()
+      })
+    )
+    .mutation(async ({ input }) => {
+      return {
+        id: crypto.randomUUID(),
+        title: input.title,
+        content: input.content,
+        createdAt: new Date().toISOString()
+      };
+    })
+});
 
-## Other contract styles
+export type PostRouter = typeof postRouter;
+```
 
-- **GraphQL** has its schema as a contract, with code generators for types and clients.
-- **RPC frameworks** such as tRPC make the server's procedure definitions the contract, shared directly via TypeScript, which works best when both sides are TypeScript in one repo.
-- **Protocol Buffers / gRPC** use an IDL with generated code for many languages.
+### Example 2: Real-World OpenAPI Spec to Client Pipeline
+```typescript
+// Types generated by openapi-typescript
+export interface paths {
+  '/analytics/events': {
+    post: {
+      requestBody: {
+        content: {
+          'application/json': {
+            eventName: string;
+            timestamp: number;
+            properties: Record<string, string | number>;
+          };
+        };
+      };
+      responses: {
+        202: {
+          content: {
+            'application/json': { accepted: boolean };
+          };
+        };
+      };
+    };
+  };
+}
 
-Choose by the same criteria as before: who consumes the API, in which languages, and how independently the sides evolve ([API contracts](./00-api-contracts.md)).
+export async function sendAnalytics(
+  client: ReturnType<typeof createClient<paths>>,
+  eventName: string,
+  properties: Record<string, string | number>
+) {
+  return await client.POST('/analytics/events', {
+    body: {
+      eventName,
+      timestamp: Date.now(),
+      properties
+    }
+  });
+}
+```
 
-## When to choose contract-first
+### Example 3: Edge Case - Handling Union Status Responses in OpenAPI
+```typescript
+type ResponseContent<TPaths, TPath extends keyof TPaths, TMethod extends keyof TPaths[TPath]> =
+  TPaths[TPath][TMethod] extends { responses: infer R } ? R : never;
 
-Good fits:
+type StatusUnion<TResponses> = {
+  [K in keyof TResponses]: {
+    status: K;
+    body: TResponses[K] extends { content: { 'application/json': infer B } } ? B : never;
+  };
+}[keyof TResponses];
+```
 
-- **Public or partner APIs** where the spec is a product.
-- **Multiple client languages** (web, mobile, other services) that need generated SDKs.
-- **Separate teams** who need to agree before building.
-- **Regulated or long-lived APIs** where breaking changes need strict control.
+### Example 4: Failure Case - Type Drift Prevention in CI
+```typescript
+// If the backend router changes 'title' to 'heading', tRPC client catches it instantly!
+type RouterMock = {
+  getPost: {
+    input: { id: string };
+    output: { id: string; heading: string }; // Changed from 'title'
+  };
+};
 
-Less compelling:
+function renderPost(post: RouterMock['getPost']['output']) {
+  // @ts-expect-error TS2339: Property 'title' does not exist on type '{ id: string; heading: string; }'.
+  console.log(post.title);
+}
+```
 
-- A small full-stack TypeScript app where one team owns both sides. A shared schema package or an RPC tool is lighter.
-- Rapidly changing internal prototypes, where a hand-maintained spec becomes busywork.
+### Example 5: Idiomatic Fastify OpenAPI Validation Integration
+```typescript
+import Fastify from 'fastify';
 
-## Important rules and misconceptions
+const fastify = Fastify();
 
-- **A spec is a promise, not an enforcement.** It matters only if something checks the implementation against it.
-- **Generated types are not runtime validation.** They share the weakness of every TypeScript type.
-- **Contract-first does not mean slower.** The cost is moving design work earlier. The benefit is parallel work using mocks and generated code.
-- **A spec in a wiki is not a contract.** It needs to live with the code, be linted, and be checked in CI.
-- **Different OpenAPI versions differ.** Tools may not support every version or feature.
-- **Generated optional/nullable types depend on the spec's `required` and `nullable` details,** so write those carefully.
+const createUserSchema = {
+  body: {
+    type: 'object',
+    required: ['name', 'email'],
+    properties: {
+      name: { type: 'string' },
+      email: { type: 'string', format: 'email' }
+    }
+  }
+} as const;
 
-## Common mistakes
+fastify.post('/api/users', { schema: createUserSchema }, async (req, reply) => {
+  // fastify automatically infers body type from the JSON schema definition when using TypeProvider!
+  reply.code(201).send({ message: 'User created' });
+});
+```
 
-- Treating generated types as proof that responses match.
-- Editing generated files by hand.
-- Not regenerating in CI, so committed output goes stale.
-- Letting the spec drift from the implementation with no verification.
-- Documenting only success responses.
-- Leaving `required` out of schemas, so everything becomes optional in the generated types.
-- Using spec-wide `additionalProperties` defaults without thinking about the effect on generated types.
-- Making breaking changes without a diff check.
-- Mixing hand-written types and generated types for the same payloads.
+---
 
-## Debugging
+## 6. Edge Cases, Pitfalls & Gotchas
 
-- If a generated type looks wrong, read the spec's schema first: `required`, `nullable`, `oneOf`, and `additionalProperties` account for most surprises.
-- If the client and server disagree at runtime, **capture the response and validate it against the spec's schema** to see which side is wrong.
-- If CI reports a spec diff failure, look at the specific change reported (removed property, narrowed type, new required field).
-- If a generator update changes output, compare generated files and pin or upgrade deliberately.
-- Use a spec visualizer or linter to find structural problems such as unresolved `$ref`s.
+1. **Accidental Runtime Import of Backend in Frontend**:
+   Importing `import { appRouter }` instead of `import type { AppRouter }` in a frontend package pulls server-side code (database secrets, Node APIs) into the client bundle, causing bundler compilation errors (`Module not found: Can't resolve 'fs'`). Always enforce `import type`.
+2. **Schema Drift in Contract-First**:
+   If developers edit the TypeScript code directly instead of the OpenAPI YAML file, the specification falls out of sync. Use CI linters (such as Spectral) to assert that server implementations conform to the OpenAPI spec.
+3. **GraphQL Nullability Gotchas**:
+   In GraphQL, fields are nullable by default unless marked with `!`. Generated TypeScript types will contain `string | null | undefined`, forcing extensive null checking on the frontend.
+4. **Circular References in Schemas**:
+   Recursive schemas (e.g. `Category` having `subcategories: Category[]`) can cause infinite loops during codegen unless properly resolved via `$ref` pointers.
 
-## Quick summary
+---
 
-- Contract-first writes the spec first and derives types, clients, mocks, docs, and tests from it. Code-first derives the spec from code.
-- OpenAPI plus JSON Schema is the common format. Tools such as `openapi-typescript` and `openapi-fetch` turn it into typed calls.
-- Generated types are compile-time only. Add runtime validation and contract tests to catch drift.
-- Automate agreement: lint the spec, regenerate in CI, diff for breaking changes, and test the running service against the spec.
-- Code-first teams can still produce a spec from schemas or decorators and review it in CI.
-- Choose contract-first when the API serves several teams, languages, or outside consumers.
+## 7. Common Mistakes & Anti-Patterns
 
-**Next:** [17 Design Patterns](../17-design-patterns/README.md)
+| Anti-Pattern | Bad Code | Good Code | Compiler / Runtime Impact |
+| :--- | :--- | :--- | :--- |
+| **Value Import of Server Router** | `import { AppRouter } from '../server'` | `import type { AppRouter } from '../server'` | Leaks server code and crashes frontend bundlers |
+| **Manual Frontend Types** | Hand-writing interfaces mirroring API | Generate types from OpenAPI or tRPC | Inevitable API drift and unannounced breaking changes |
+| **Ignoring CI Spec Validation** | Merging PRs without checking OpenAPI lint | Spectral / Optic breaking change check in CI | Breaking API changes shipped silently to production |
+| **Loose OpenAPI Schemas** | Omitting `additionalProperties: false` | Enforce strict schemas | Client sends invalid unexpected fields without validation |
+| **Duplicating Route Strings** | Hardcoding `/users/update/:id` in 5 places | Centralized type-safe route registry | Route refactoring leaves broken references |
+| **Over-relying on Code-First for Public APIs** | Using tRPC for third-party public consumers | OpenAPI 3.1 specification for public APIs | External partners cannot consume proprietary TS routers |
+
+---
+
+## 8. Performance & Type-Checker Complexity
+
+- **Type Generation Speed**: `openapi-typescript` generates pure types without runtime JS wrappers. A 5,000-line OpenAPI specification compiles into TypeScript definitions in ~120ms.
+- **TSServer Memory**: Monorepos with massive tRPC routers (1,000+ endpoints) can increase TSServer heap memory usage. Break large monolithic routers into sub-routers (`userRouter`, `billingRouter`, `adminRouter`) to keep compiler checks fast.
+
+---
+
+## 9. Compiler Internals
+
+When importing types across packages in a monorepo:
+```typescript
+import type { AppRouter } from '@backend/router';
+```
+The TypeScript compiler's Binder marks the symbol as `SymbolFlags.Type`. During the Emit phase (`tsc`), the emitter completely drops the import statement from the generated `.js` output file, leaving zero traces in runtime code.
+
+---
+
+## 10. Best Practices & Design Guidelines
+
+1. **Use tRPC for Internal Monorepos**: When both frontend and backend are TypeScript within the same repository, tRPC provides the best developer experience.
+2. **Use OpenAPI for Multi-Language or Public APIs**: If mobile apps (Swift, Kotlin) or third-party developers consume the API, OpenAPI 3.1 is the universal standard.
+3. **Enforce `import type` in ESLint**: Configure `@typescript-eslint/consistent-type-imports` to `error` to prevent accidental bundling of server code.
+4. **Automate Codegen via Git Hooks / CI**: Run OpenAPI codegen on commit or in CI to ensure generated types are always up to date.
+
+---
+
+## 11. Real-World Case Study
+
+### Multi-Platform Monorepo Architecture
+A high-growth startup maintains a web app (Next.js), mobile app (React Native), and microservices backend (Fastify) in a Turborepo monorepo:
+
+```
+apps/
+  web/          (Consumes @repo/api-client via tRPC)
+  mobile/       (Consumes @repo/api-client via openapi-fetch)
+packages/
+  api-spec/     (Single source of truth: openapi.yaml + codegen)
+  server/       (Fastify implementing OpenAPI routes + tRPC router)
+```
+
+By linking `@repo/api-spec` to both web and mobile, every pull request that modifies a database schema or endpoint automatically triggers type checks across all apps. If a field is renamed or removed, `turbo run build` fails immediately in CI before deployment.
+
+---
+
+## 12. Interview Questions
+
+<details>
+<summary>1. What is the fundamental difference between contract-first and code-first API design?</summary>
+
+In contract-first design, the API specification (OpenAPI, Protobuf, GraphQL schema) is authored before writing any implementation code; backend handlers and client SDKs are generated from the spec. In code-first design, the implementation code (such as a tRPC router or NestJS controller) is written first, and types or specifications are inferred directly from the code.
+</details>
+
+<details>
+<summary>2. How does tRPC achieve end-to-end type safety without generating code?</summary>
+
+tRPC leverages TypeScript's ability to export and import pure type definitions (`import type { AppRouter }`). The client library uses JavaScript proxies (`Proxy`) at runtime to dynamically intercept property accesses (e.g., `client.user.getById.query(...)`) while TypeScript matches those accesses against the type definition of the server router.
+</details>
+
+<details>
+<summary>3. Why must we use `import type` when consuming server router types in client code?</summary>
+
+Because TypeScript types are erased during compilation. If a value import is used (`import { AppRouter }`), the bundler (Webpack, Vite, esbuild) attempts to import the actual JavaScript file, which pulls in server-only dependencies (like `node:fs`, `pg`, `bcrypt`) that fail to resolve in browser environments.
+</details>
+
+<details>
+<summary>4. What are the benefits of OpenAPI 3.1 over OpenAPI 3.0?</summary>
+
+OpenAPI 3.1 achieves 100% dialect compatibility with the latest JSON Schema standard (JSON Schema 2020-12). This allows arbitrary schema composition (`anyOf`, `oneOf`, `prefixItems`), native `null` typing (`type: ["string", "null"]`), and seamless integration with modern schema libraries like Zod and TypeBox.
+</details>
+
+<details>
+<summary>5. When should a team choose OpenAPI over tRPC?</summary>
+
+Choose OpenAPI when:
+1. The API is consumed by clients written in non-TypeScript languages (Python, Go, Swift, Java).
+2. The API is public and used by external third-party developers.
+3. Backend and frontend teams operate in separate repositories and deploy on independent cadences.
+</details>
+
+<details>
+<summary>6. How do you prevent breaking API changes in CI with OpenAPI?</summary>
+
+Use schema diffing tools like `optic diff` or `oasdiff` in continuous integration pipelines. These tools compare the new OpenAPI spec against the production branch, detecting deleted endpoints, renamed fields, or newly added required parameters, and fail the CI build if breaking changes occur without proper API versioning.
+</details>
+
+<details>
+<summary>7. What is `TypedDocumentNode` in GraphQL TypeScript workflows?</summary>
+
+`TypedDocumentNode` is an enhancement of GraphQL's `DocumentNode` that carries phantom type parameters for query variables and result data: `TypedDocumentNode<ResultType, VariablesType>`. GraphQL clients (Apollo, Urql) accept this node to automatically infer types without manual type assertions.
+</details>
+
+<details>
+<summary>8. How do you handle file uploads in tRPC?</summary>
+
+tRPC supports standard `FormData` payloads via the native Fetch adapter, or developers can create a signed S3/GCS URL procedure in tRPC and have the client upload the file directly to object storage via HTTP PUT.
+</details>
+
+---
+
+## 13. Exercises & Challenges
+
+<details>
+<summary>Exercise 1 (Easy): Create a Generic Schema Route Extractor</summary>
+
+**Problem:** Given a `paths` interface from OpenAPI, write a utility type `GetRouteResponse<TPaths, TPath extends keyof TPaths>` that extracts the 200 response JSON content.
+
+**Solution:**
+```typescript
+export type GetRouteResponse<TPaths, TPath extends keyof TPaths> =
+  TPaths[TPath] extends { get: { responses: { 200: { content: { 'application/json': infer R } } } } }
+    ? R
+    : never;
+```
+</details>
+
+<details>
+<summary>Exercise 2 (Easy): Type-Safe HTTP Method Filter</summary>
+
+**Problem:** Write a utility type `FilterByMethod<TPaths, TMethod extends 'get' | 'post'>` that returns all path strings that support the given HTTP method.
+
+**Solution:**
+```typescript
+export type FilterByMethod<TPaths, TMethod extends 'get' | 'post'> = {
+  [K in keyof TPaths]: TMethod extends keyof TPaths[K] ? K : never;
+}[keyof TPaths];
+```
+</details>
+
+<details>
+<summary>Exercise 3 (Medium): Strongly-Typed Procedure Registry</summary>
+
+**Problem:** Create a type-safe procedure registry where procedures are defined with input and output schemas, and an executor function verifies inputs before invocation.
+
+**Solution:**
+```typescript
+import { z } from 'zod';
+
+export interface Procedure<TInput, TOutput> {
+  schema: z.ZodType<TInput>;
+  handler: (input: TInput) => Promise<TOutput>;
+}
+
+export function defineProcedure<TInput, TOutput>(
+  schema: z.ZodType<TInput>,
+  handler: (input: TInput) => Promise<TOutput>
+): Procedure<TInput, TOutput> {
+  return { schema, handler };
+}
+```
+</details>
+
+<details>
+<summary>Exercise 4 (Medium): Build a Simple Proxy-Based Router Client</summary>
+
+**Problem:** Implement a proxy helper that allows calling nested router procedures `client.users.get({ id: '1' })` by mapping property names to `/users.get` HTTP endpoints.
+
+**Solution:**
+```typescript
+export function createProxyRpcClient(baseUrl: string) {
+  return new Proxy({}, {
+    get: (_, moduleName: string) => {
+      return new Proxy({}, {
+        get: (_, methodName: string) => {
+          return async (input: unknown) => {
+            const res = await fetch(`${baseUrl}/${moduleName}.${methodName}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(input)
+            });
+            return res.json();
+          };
+        }
+      });
+    }
+  });
+}
+```
+</details>
+
+<details>
+<summary>Exercise 5 (Hard): Breaking Change Detector Type</summary>
+
+**Problem:** Write a type `AssertBackwardCompatible<OldSpec, NewSpec>` that yields a compilation error if `NewSpec` makes an existing optional field required or changes an existing field type.
+
+**Solution:**
+```typescript
+export type AssertBackwardCompatible<OldSpec, NewSpec> =
+  NewSpec extends OldSpec
+    ? true
+    : {
+        __ERROR__: 'Breaking change detected: New specification is not assignable to Old specification';
+      };
+```
+</details>
+
+<details>
+<summary>Exercise 6 (Hard): Type-Safe Event-Driven Contract Emitter</summary>
+
+**Problem:** Design a contract-first event emitter interface where event topics, payload types, and version headers are strictly typed and immutable.
+
+**Solution:**
+```typescript
+export interface EventContract {
+  'user.created': { version: 1; payload: { userId: string; email: string } };
+  'order.completed': { version: 2; payload: { orderId: string; totalAmountCents: number } };
+}
+
+export class ContractEventEmitter {
+  public emit<K extends keyof EventContract>(
+    topic: K,
+    event: EventContract[K]
+  ): void {
+    console.log(`Publishing to [${topic}] v${event.version}:`, event.payload);
+  }
+}
+```
+</details>

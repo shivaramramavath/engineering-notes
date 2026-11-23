@@ -1,261 +1,620 @@
-# Error Response Types
+# Error Response Types and RFC 7807 / RFC 9457 Problem Details in TypeScript
 
-Success responses are easy to type. Error responses are where APIs become inconsistent: one endpoint returns `{ message }`, another `{ error: "..." }`, a third an HTML page from a proxy. A well-designed error contract gives every failure the same shape, a **stable machine-readable code**, and enough detail for clients to react. This note covers designing that shape, typing it on both sides, and keeping it safe.
+> Modeling type-safe HTTP error representations, RFC 7807/9457 Problem Details, domain error discrimination, status code mapping, and client error unwrapping in TypeScript.
 
-**Prerequisites:**
-- [Request and response types](./01-request-response-types.md)
-- [Custom errors](../11-error-handling/01-custom-errors.md)
-- [Discriminated unions](../03-unions-and-narrowing/04-discriminated-unions.md)
+| Metadata | Details |
+| :--- | :--- |
+| **Category** | Type-Safe APIs |
+| **Difficulty** | Intermediate |
+| **Prerequisites** | [11-error-handling/02-result-pattern.md](../11-error-handling/02-result-pattern.md), [16-type-safe-apis/00-api-contracts.md](./00-api-contracts.md) |
+| **TypeScript Baseline** | TS 4.5+, TS 5.0+ |
+| **Tested tsconfig** | `"strict": true, "target": "ES2022", "module": "NodeNext"` |
 
 ---
 
-## What clients need from an error
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & API Reference](#4-syntax--api-reference)
+5. [Practical Examples](#5-practical-examples)
+6. [Edge Cases, Pitfalls & Gotchas](#6-edge-cases-pitfalls--gotchas)
+7. [Common Mistakes & Anti-Patterns](#7-common-mistakes--anti-patterns)
+8. [Performance & Type-Checker Complexity](#8-performance--type-checker-complexity)
+9. [Compiler Internals](#9-compiler-internals)
+10. [Best Practices & Design Guidelines](#10-best-practices--design-guidelines)
+11. [Real-World Case Study](#11-real-world-case-study)
+12. [Interview Questions](#12-interview-questions)
+13. [Exercises & Challenges](#13-exercises--challenges)
 
-A client wants to answer four questions:
+---
 
-| Question | Provided by |
-|---|---|
-| **What kind** of failure is it? | a stable `code` (`"NOT_FOUND"`, `"VALIDATION"`) |
-| **Which HTTP status** applies? | the status line (`404`, `400`, ...) |
-| **What can I show the user?** | a human-readable `message` |
-| **Which input was wrong, and how?** | structured `details` (field paths, limits) |
+## 1. What & Why
 
-Plus, for support: a **request id** to find the matching server log.
+Network APIs inevitably encounter failures: network timeouts, invalid inputs, unauthenticated requests, unauthorized permissions, and internal database crashes. In many un-typed or weakly-typed codebases, error handling consists of returning ad-hoc payloads like `{ error: "Not found" }` or `{ message: "Bad request", code: 400 }`, or simply letting servers crash with uncaught stack traces.
 
-Clients should branch on `code` (and status), never on message text. Messages change, may be translated, and are not part of the contract.
+Ad-hoc error shapes create severe issues:
+1. **Client Guesswork**: Clients cannot know whether to parse `res.error`, `res.message`, `res.errors`, or `res.detail`.
+2. **Untyped Exception Catching**: In standard `try/catch` with `fetch`, all network responses returning 4xx or 5xx do NOT throw errors; instead, `res.ok` is `false`, and parsing the body without knowing its shape yields `any` or crashes the client.
+3. **Loss of Machine-Readable Diagnostics**: Without standardized error structures, automated clients cannot distinguish between transient errors (rate limit, retry later) and permanent business validation errors.
 
-## A consistent error body
+To solve this, the IETF standardized **RFC 7807** (updated by **RFC 9457**: *Problem Details for HTTP APIs*). By modeling Problem Details with TypeScript discriminated unions, we provide exhaustive, machine-readable, and compile-time verifiable error handling.
 
-```ts
-interface ErrorBody {
-  error: {
-    code: ErrorCode;
-    message: string;
-    requestId?: string;
-  };
+```
++-------------------------------------------------------------------------+
+|                  RFC 9457 Problem Details Envelope                      |
+|                                                                         |
+|  type: "https://api.example.com/errors/insufficient-funds"              |
+|  title: "Insufficient Funds"                                            |
+|  status: 403                                                            |
+|  detail: "Your account balance of $12.50 is below transaction $50.00."   |
+|  instance: "/transfers/tx_9981"                                         |
+|  [extensions]: { currentBalance: 1250, requiredAmount: 5000 }           |
++-------------------------------------------------------------------------+
+```
+
+---
+
+## 2. Core Concepts
+
+### 1. RFC 7807 / 9457 Standard Properties
+- `type` (URI reference): A URI that identifies the problem type. Defaults to `"about:blank"` if unspecified.
+- `title` (string): A short, human-readable summary of the problem type. It should not change between occurrences of the same error.
+- `status` (number): The HTTP status code generated by the origin server.
+- `detail` (string): A human-readable explanation specific to this occurrence.
+- `instance` (URI reference): A URI reference that identifies the specific occurrence of the problem (e.g. `/orders/123/payments/456`).
+- **Extensions**: Custom key-value pairs providing structured context (e.g., validation field errors, retry durations).
+
+### 2. TypeScript Problem Detail Model
+```typescript
+export interface ProblemDetails<TExtensions extends Record<string, unknown> = Record<string, unknown>> {
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail?: string;
+  readonly instance?: string;
+  readonly extensions?: TExtensions;
+}
+```
+
+### 3. Discriminated Domain Error Types
+We discriminate errors using a literal string `code` or `type` URI to allow exhaustive type narrowing via `switch (error.code)`:
+```typescript
+export interface ValidationErrorDetail {
+  readonly field: string;
+  readonly message: string;
+  readonly rejectedValue?: unknown;
 }
 
-type ErrorCode =
-  | "VALIDATION"
-  | "UNAUTHORIZED"
-  | "FORBIDDEN"
-  | "NOT_FOUND"
-  | "CONFLICT"
-  | "RATE_LIMITED"
-  | "INTERNAL";
-```
-
-The code union can be the same one your server-side error classes use ([custom errors](../11-error-handling/01-custom-errors.md)), shared from one package. Wrapping the error in an `error` key leaves room for other top-level fields without ambiguity.
-
-### Error codes mapped to status
-
-```ts
-const statusFor: Record<ErrorCode, number> = {
-  VALIDATION: 400,
-  UNAUTHORIZED: 401,
-  FORBIDDEN: 403,
-  NOT_FOUND: 404,
-  CONFLICT: 409,
-  RATE_LIMITED: 429,
-  INTERNAL: 500,
-};
-```
-
-`Record<ErrorCode, number>` forces you to handle every code: adding a code without a status is a compile error ([Pick, Omit, Record](../07-utility-types/01-pick-omit-record.md)). Some APIs use `422` for validation errors that are syntactically valid but semantically wrong. Pick one convention and document it.
-
-## A discriminated union of errors
-
-Different errors carry different details. Model that as a union keyed by `code`:
-
-```ts
-type ApiError =
-  | { code: "VALIDATION"; message: string; issues: { path: string; message: string }[] }
-  | { code: "NOT_FOUND"; message: string; resource: string }
-  | { code: "CONFLICT"; message: string; conflictingField?: string }
-  | { code: "RATE_LIMITED"; message: string; retryAfterSeconds: number }
-  | { code: "UNAUTHORIZED" | "FORBIDDEN"; message: string }
-  | { code: "INTERNAL"; message: string; requestId: string };
-
-interface ErrorResponse { error: ApiError }
-```
-
-On the client, narrowing gives you exactly the details that exist for each code:
-
-```ts
-function describe(e: ApiError): string {
-  switch (e.code) {
-    case "VALIDATION":
-      return e.issues.map((i) => `${i.path}: ${i.message}`).join("\n");
-    case "NOT_FOUND":
-      return `${e.resource} was not found`;
-    case "RATE_LIMITED":
-      return `Try again in ${e.retryAfterSeconds}s`;
-    case "CONFLICT":
-    case "UNAUTHORIZED":
-    case "FORBIDDEN":
-    case "INTERNAL":
-      return e.message;
-    default: {
-      const _exhaustive: never = e;
-      return _exhaustive;
+export type ApiProblem =
+  | {
+      readonly code: 'VALIDATION_ERROR';
+      readonly status: 400;
+      readonly title: 'Invalid Request Body';
+      readonly invalidParams: readonly ValidationErrorDetail[];
     }
-  }
-}
-```
-
-The `never` check fails to compile if a new code is added and not handled ([exhaustiveness checking](../03-unions-and-narrowing/06-exhaustiveness-checking.md)).
-
-**Be tolerant of unknown codes on the client.** The server may add a new code before the client is updated. Types claim the union is closed, but the wire does not, so add a runtime fallback (`default` branch showing `message`) in production code.
-
-## Validation errors
-
-Validation failures are the error clients handle most, since they drive form feedback. Give every issue a **path** and a **message**:
-
-```ts
-interface ValidationIssue {
-  path: string;          // "address.postcode", "items.2.quantity"
-  message: string;       // human-readable
-  code?: string;         // optional machine code: "too_small", "invalid_format"
-}
-```
-
-Return **all** issues, not just the first, so the client can show them at once. Convert from your validation library's format into this stable shape on the server ([validation recipes](../15-runtime-validation/04-validation-recipes.md)). Do not expose library internals or the schema.
-
-## Problem Details (RFC 9457)
-
-There is an HTTP standard for error bodies: **Problem Details**, with media type `application/problem+json` (RFC 9457, which updates RFC 7807). The standard fields are:
-
-| Field | Meaning |
-|---|---|
-| `type` | a URI identifying the kind of problem |
-| `title` | short, human-readable summary of the type |
-| `status` | the HTTP status code |
-| `detail` | explanation specific to this occurrence |
-| `instance` | a URI identifying this occurrence |
-
-You may add extension members, such as `code` or `errors`:
-
-```ts
-interface ProblemDetails {
-  type: string;
-  title: string;
-  status: number;
-  detail?: string;
-  instance?: string;
-  // extensions
-  code?: ErrorCode;
-  errors?: ValidationIssue[];
-}
-```
-
-Using it gives you a recognized format that tools understand. Using your own envelope is also fine, as long as it is **consistent** and documented. The key is one shape for every error in the API.
-
-## Sending errors from the server
-
-Centralize the translation from errors to responses in one place ([error handling strategies](../11-error-handling/03-error-handling-strategies.md)):
-
-```ts
-app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
-  const requestId = String(req.headers["x-request-id"] ?? crypto.randomUUID());
-
-  if (err instanceof AppError) {
-    return res
-      .status(statusFor[err.code])
-      .json({ error: { code: err.code, message: err.message, requestId } });
-  }
-
-  logger.error({ err, requestId }, "Unhandled error");          // full detail stays in logs
-  res.status(500).json({
-    error: { code: "INTERNAL", message: "Internal server error", requestId },
-  });
-});
-```
-
-Security rules for error responses (see [security](../23-security/README.md)):
-
-- **Never** include stack traces, SQL, file paths, or library error messages for unexpected errors.
-- **Do not reveal whether a username exists** with different messages for "unknown user" and "wrong password".
-- Messages for `401`/`403` should not leak which resource or permission check failed in detail.
-- Keep the full error and its `cause` chain in **logs**, correlated by the request id.
-
-## Receiving errors in the client
-
-Do not assume a failed response has a JSON body in your format. Gateways, proxies, load balancers, and CDNs return their own `502`/`503`/`504` pages, and network failures never produce a response at all.
-
-```ts
-type ApiResult<T> =
-  | { ok: true; status: number; data: T }
-  | { ok: false; status: number; error: ApiError };
-
-async function readError(res: Response): Promise<ApiError> {
-  const contentType = res.headers.get("content-type") ?? "";
-  if (contentType.includes("json")) {
-    try {
-      const body = ErrorResponseSchema.parse(await res.json());    // validate the error body too
-      return body.error;
-    } catch {
-      /* fall through to the generic error */
+  | {
+      readonly code: 'RESOURCE_NOT_FOUND';
+      readonly status: 404;
+      readonly title: 'Resource Not Found';
+      readonly resourceType: string;
+      readonly resourceId: string;
     }
+  | {
+      readonly code: 'RATE_LIMIT_EXCEEDED';
+      readonly status: 429;
+      readonly title: 'Too Many Requests';
+      readonly retryAfterSeconds: number;
+    }
+  | {
+      readonly code: 'INTERNAL_SERVER_ERROR';
+      readonly status: 500;
+      readonly title: 'Internal Server Error';
+      readonly traceId: string;
+    };
+```
+
+---
+
+## 3. How It Works Internally
+
+When typed clients consume an API endpoint, the return type is modeled as a tagged union representing either a success or a failure:
+
+```
+        fetch('/api/users/123')
+                  |
+             res.ok?
+            /       \
+      (true)         (false)
+        v               v
+  parse JSON      parse JSON
+  as SuccessDTO   as ApiProblem
+        \               /
+   Result<SuccessDTO, ApiProblem>
+```
+
+Using TypeScript's discriminated union, narrowing `res.ok` or checking `res.type === 'success'` activates flow-sensitive type refinement, unlocking the exact properties of the payload.
+
+---
+
+## 4. Syntax & API Reference
+
+### Universal API Response Wrapper
+```typescript
+export type ApiResponse<TData, TError = ApiProblem> =
+  | {
+      readonly success: true;
+      readonly status: number;
+      readonly data: TData;
+    }
+  | {
+      readonly success: false;
+      readonly status: number;
+      readonly error: TError;
+    };
+```
+
+### Custom Exception Bridge
+Bridging server-side exceptions to RFC 9457 responses:
+```typescript
+export abstract class HttpProblemException extends Error {
+  public abstract readonly status: number;
+  public abstract readonly title: string;
+  public abstract readonly typeUri: string;
+
+  constructor(
+    public readonly detail: string,
+    public readonly extensions?: Record<string, unknown>
+  ) {
+    super(detail);
+    Object.setPrototypeOf(this, new.target.prototype);
   }
+
+  public toProblemDetails(instance?: string): ProblemDetails {
+    return {
+      type: this.typeUri,
+      title: this.title,
+      status: this.status,
+      detail: this.detail,
+      instance,
+      extensions: this.extensions
+    };
+  }
+}
+```
+
+---
+
+## 5. Practical Examples
+
+### Example 1: Basic Concrete Problem Exception Implementation
+```typescript
+export class ResourceNotFoundException extends HttpProblemException {
+  public readonly status = 404;
+  public readonly title = 'Resource Not Found';
+  public readonly typeUri = 'https://api.example.com/errors/not-found';
+
+  constructor(resource: string, id: string) {
+    super(`The requested ${resource} with identifier '${id}' was not found.`, {
+      resource,
+      id
+    });
+  }
+}
+```
+
+### Example 2: Real-World Validation Problem with Zod Error Mapping
+```typescript
+import { ZodError } from 'zod';
+
+export interface ValidationProblemDetails extends ProblemDetails {
+  readonly invalidParams: readonly { field: string; message: string }[];
+}
+
+export function fromZodError(error: ZodError, instance?: string): ValidationProblemDetails {
+  const invalidParams = error.issues.map((issue) => ({
+    field: issue.path.join('.'),
+    message: issue.message
+  }));
+
   return {
-    code: "INTERNAL",
-    message: `Request failed with status ${res.status}`,
-    requestId: res.headers.get("x-request-id") ?? "unknown",
+    type: 'https://api.example.com/errors/validation-error',
+    title: 'Request Validation Failed',
+    status: 400,
+    detail: 'One or more fields failed validation checks.',
+    instance,
+    invalidParams
   };
 }
 ```
 
-Principles:
+### Example 3: Edge Case - Rate Limiter with Typed HTTP Headers
+```typescript
+export interface RateLimitProblemDetails extends ProblemDetails {
+  readonly retryAfterSeconds: number;
+  readonly limit: number;
+  readonly remaining: number;
+}
 
-- **Validate error bodies** the same way as success bodies. They are untrusted input too ([trust boundaries](../15-runtime-validation/00-trust-boundaries.md)).
-- **Always produce an `ApiError`**, even if the body is HTML or empty. Callers then handle a single type.
-- **Distinguish transport errors** (no response: offline, DNS, timeout, abort) from HTTP errors. A `fetch` call rejects for the first and resolves for the second.
-- Return a `Result`-style value rather than throwing, if callers are expected to handle specific failures ([the Result pattern](../11-error-handling/02-result-pattern.md)).
+export function createRateLimitProblem(
+  retryAfterSeconds: number,
+  limit: number
+): RateLimitProblemDetails {
+  return {
+    type: 'https://api.example.com/errors/rate-limit-exceeded',
+    title: 'Too Many Requests',
+    status: 429,
+    detail: `Quota exceeded. Please retry after ${retryAfterSeconds} seconds.`,
+    retryAfterSeconds,
+    limit,
+    remaining: 0
+  };
+}
+```
 
-See [typed fetch and API client](./05-typed-fetch-and-api-client.md) for these pieces in a complete client.
+### Example 4: Failure Case - Exhaustive Narrowing Check
+```typescript
+function handleApiError(problem: ApiProblem): string {
+  switch (problem.code) {
+    case 'VALIDATION_ERROR':
+      return `Invalid fields: ${problem.invalidParams.map((p) => p.field).join(', ')}`;
+    case 'RESOURCE_NOT_FOUND':
+      return `Not found: ${problem.resourceType} (${problem.resourceId})`;
+    case 'RATE_LIMIT_EXCEEDED':
+      return `Slow down: retry in ${problem.retryAfterSeconds}s`;
+    // Omitting INTERNAL_SERVER_ERROR triggers compile error when asserting exhaustiveness
+    default: {
+      // @ts-expect-error TS2345: Argument of type '{ readonly code: "INTERNAL_SERVER_ERROR"; ... }' is not assignable to parameter of type 'never'.
+      const _unreachable: never = problem;
+      throw new Error(`Unhandled error: ${JSON.stringify(_unreachable)}`);
+    }
+  }
+}
+```
 
-## Useful extras
+### Example 5: Idiomatic Client-Side Safe Fetch Handler
+```typescript
+export async function safeFetchJson<T>(
+  url: string,
+  init?: RequestInit
+): Promise<ApiResponse<T, ApiProblem>> {
+  try {
+    const res = await fetch(url, init);
+    const body = await res.json();
 
-- **`Retry-After` header** with `429` and `503`. Expose it as `retryAfterSeconds` in the body, and parse it in the client (it may be seconds or an HTTP date).
-- **Idempotency conflicts:** a `409` or specific code when a repeated idempotency key arrives with a different payload.
-- **Localization:** localize on the client from `code`, using `message` as a fallback.
-- **Warnings** (non-fatal issues) are better placed in the success response than in an error.
+    if (!res.ok) {
+      return {
+        success: false,
+        status: res.status,
+        error: body as ApiProblem
+      };
+    }
 
-## Important rules and misconceptions
+    return {
+      success: true,
+      status: res.status,
+      data: body as T
+    };
+  } catch (err) {
+    return {
+      success: false,
+      status: 0,
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        status: 500,
+        title: 'Network / Deserialization Failure',
+        traceId: 'client-offline'
+      }
+    };
+  }
+}
+```
 
-- **`message` is for humans, `code` is for programs.** Never parse messages.
-- **A type does not guarantee the server sends it.** Proxies and bugs produce other bodies. Parse defensively.
-- **`fetch` does not reject on `404` or `500`.** Check `res.ok` or the status yourself.
-- **One shape everywhere.** A mix of error formats forces every client to special-case.
-- **Status codes and error codes are different layers.** The status classifies for HTTP infrastructure, the code classifies for your clients.
+---
 
-## Common mistakes
+## 6. Edge Cases, Pitfalls & Gotchas
 
-- Returning `200` with `{ success: false }`.
-- Different error shapes across endpoints.
-- Returning raw exception messages or stack traces to clients.
-- Branching on message text.
-- Assuming error bodies are always JSON in your format.
-- Treating network failures and HTTP errors as the same thing.
-- Returning only the first validation issue.
-- Adding a new error code without a `default` branch in the client.
-- Using `404` for everything that is not a success.
+1. **`res.ok === false` Does Not Throw**:
+   In the Fetch API, HTTP 404 and 500 statuses do not trigger a rejection. Developers frequently write `const data = await res.json()` without checking `res.ok`, resulting in an unexpected error body stored in a variable typed as success data.
+2. **Leaking Internal Stack Traces in Production**:
+   Returning raw `err.stack` or raw SQL error strings (`PostgresError: relation "users" does not exist`) exposes system architecture to attackers. Error mappers must scrub internal errors into generic 500 problems containing only an opaque `traceId` / `correlationId`.
+3. **Content-Type Header Nuance**:
+   RFC 7807/9457 specifies the media type `application/problem+json`. If clients expect `application/json`, some strict proxies or parsers may fail unless configured to accept both.
+4. **HTML Error Pages from Reverse Proxies**:
+   When Nginx, Cloudflare, or AWS ALB encounters a gateway timeout (504) or bad gateway (502), it returns raw HTML (`<html><body>502 Bad Gateway</body></html>`). Calling `res.json()` throws a `SyntaxError: Unexpected token '<'`. Safe fetch clients must inspect `res.headers.get('content-type')` before parsing JSON.
 
-## Debugging
+---
 
-- Log the **request id** on both sides and make it visible in the client's error UI, so a user report maps to a server log line.
-- When a client shows a generic error, inspect the **raw response** (status, headers, body) to see whether a proxy produced it.
-- If a form does not show field errors, check that the issue `path` format matches what the client expects (dots versus brackets, array indices).
-- Replay a failing request with `curl -i` to see headers and body exactly.
-- Add contract tests that assert the **shape** of error responses for every endpoint ([contract-first APIs](./06-contract-first-apis.md)).
+## 7. Common Mistakes & Anti-Patterns
 
-## Quick summary
+| Anti-Pattern | Bad Code | Good Code | Compiler / Runtime Impact |
+| :--- | :--- | :--- | :--- |
+| **String-Only Error Responses** | `res.status(400).send("Bad request")` | Structured RFC 9457 Problem Details | Client cannot parse programmatically |
+| **Assuming 200 on Success Only** | Checking only `res.status === 200` | Checking `res.ok` (200-299) | Fails on `201 Created` or `204 No Content` |
+| **Direct JSON Parse Without Content-Type Check** | `await res.json()` on 502 Bad Gateway | Check `res.headers.get('content-type')` | Uncaught `SyntaxError: Unexpected token '<'` |
+| **Leaking Database Stack Traces** | `detail: error.stack` | `traceId: crypto.randomUUID()` logged securely | Massive security information disclosure |
+| **Ad-Hoc Error Key Names** | Mixing `err.msg`, `err.errorMessage`, `err.message` | Standardized `title` & `detail` | Frontends write endless `err.msg ?? err.message` workarounds |
+| **Untyped Generic Catch Block** | `catch (e: any) { alert(e.message); }` | Exhaustive narrowing on typed error unions | Runtime `TypeError: Cannot read properties of undefined` |
 
-- Use one consistent error shape with a stable `code`, a human `message`, optional structured details, and a request id.
-- Model errors as a discriminated union keyed by `code`, and map codes to HTTP statuses with a `Record` so none is forgotten.
-- Return all validation issues with paths. Convert from library formats into your own stable shape.
-- Consider Problem Details (RFC 9457) as a standard format, or keep your own consistent envelope.
-- Centralize server-side error translation, never leak internals, and log details by request id.
-- On the client, validate error bodies, handle non-JSON failures, separate transport errors from HTTP errors, and tolerate unknown codes.
+---
 
-**Next:** [Typed fetch and API client](./05-typed-fetch-and-api-client.md)
+## 8. Performance & Type-Checker Complexity
+
+- **Union Expansion Overhead**: A discriminated union with 50+ individual HTTP error types can slow down TypeScript's type checker if types are checked repeatedly in deep conditional trees. Group errors by status code categories (4xx Client Problems, 5xx Server Problems) to keep compilation sub-second.
+- **Payload Overhead**: RFC 9457 error objects average 150-300 bytes. This is negligible over gzip/brotli compression and delivers massive reliability gains.
+
+---
+
+## 9. Compiler Internals
+
+TypeScript's control flow analysis relies on **discriminant properties**. For an interface union:
+```typescript
+type ErrorUnion =
+  | { code: 'A'; valA: number }
+  | { code: 'B'; valB: string };
+```
+The compiler's `checkSwitchStatement` builds a flow graph. Upon encountering `case 'A':`, the compiler filters all union constituents whose `code` literal type is not assignable to `'A'`, leaving only `{ code: 'A'; valA: number }`. When testing exhaustiveness in `default:`, the type of the variable is narrowed to `never`.
+
+---
+
+## 10. Best Practices & Design Guidelines
+
+1. **Adopt RFC 9457 (`application/problem+json`)**: Establish consistent error schemas across all microservices.
+2. **Always Include a Correlation Trace ID**: Ensure 5xx errors include a UUID linking the client incident to backend centralized logs (Datadog, OpenTelemetry).
+3. **Use Discriminated Unions for Client Narrowing**: Structure errors with a string literal discriminant (`code` or `type`).
+4. **Sanitize Sensitive Fields**: Never return database column names, internal passwords, or API keys in error details.
+
+---
+
+## 11. Real-World Case Study
+
+### E-Commerce Checkout Error Handling Pipeline
+An online store requires strict error handling when submitting an order:
+
+```typescript
+export type CheckoutProblem =
+  | {
+      readonly code: 'INSUFFICIENT_INVENTORY';
+      readonly status: 409;
+      readonly title: 'Out of Stock';
+      readonly unavailableSkus: readonly string[];
+    }
+  | {
+      readonly code: 'PAYMENT_DECLINED';
+      readonly status: 402;
+      readonly title: 'Payment Failed';
+      readonly declineReason: 'EXPIRED_CARD' | 'INSUFFICIENT_FUNDS' | 'FRAUD_SUSPECTED';
+    }
+  | {
+      readonly code: 'INVALID_SHIPPING_ADDRESS';
+      readonly status: 422;
+      readonly title: 'Unserviceable Address';
+      readonly suggestedZip?: string;
+    };
+
+export function handleCheckoutFailure(problem: CheckoutProblem): void {
+  switch (problem.code) {
+    case 'INSUFFICIENT_INVENTORY':
+      highlightOutOfStockItems(problem.unavailableSkus);
+      break;
+    case 'PAYMENT_DECLINED':
+      promptAlternatePaymentMethod(problem.declineReason);
+      break;
+    case 'INVALID_SHIPPING_ADDRESS':
+      showAddressCorrectionModal(problem.suggestedZip);
+      break;
+  }
+}
+
+function highlightOutOfStockItems(skus: readonly string[]) { /* UI implementation */ }
+function promptAlternatePaymentMethod(reason: string) { /* UI implementation */ }
+function showAddressCorrectionModal(zip?: string) { /* UI implementation */ }
+```
+
+---
+
+## 12. Interview Questions
+
+<details>
+<summary>1. What is RFC 7807 / RFC 9457 and why is it preferred over custom error shapes?</summary>
+
+RFC 7807 (and its successor RFC 9457) specifies Problem Details for HTTP APIs, defining a standardized machine-readable envelope for HTTP errors (`type`, `title`, `status`, `detail`, `instance`). It eliminates inconsistent ad-hoc JSON error structures across endpoints, enabling client SDKs to handle validation, authentication, and rate-limiting errors uniformly.
+</details>
+
+<details>
+<summary>2. Why doesn't standard `window.fetch()` throw an exception when an HTTP 500 error is returned?</summary>
+
+`fetch()` only rejects its returned Promise when a fundamental network failure occurs (DNS lookup failure, offline device, CORS rejection). HTTP 4xx and 5xx responses represent valid HTTP transactions from the server, so `fetch` resolves successfully with `response.ok === false`.
+</details>
+
+<details>
+<summary>3. How do you implement compile-time exhaustiveness checking for API errors in TypeScript?</summary>
+
+By narrowing a discriminated union in a `switch` statement and asserting that the `default` case is assignable to `never`:
+```typescript
+default: {
+  const _exhaustive: never = error;
+  throw new Error(`Unhandled error code: ${JSON.stringify(_exhaustive)}`);
+}
+```
+If a new error code is added to the union, TypeScript emits `TS2345` at compile time.
+</details>
+
+<details>
+<summary>4. What is the difference between `title` and `detail` in Problem Details?</summary>
+
+`title` is a short, human-readable summary of the problem type that remains constant across occurrences (e.g. `"Resource Not Found"`). `detail` provides specific human-readable explanations tailored to the current occurrence (e.g. `"User with ID 42 was not found in tenant ABC"`).
+</details>
+
+<details>
+<summary>5. How should 500 Internal Server Errors be typed to prevent data leakage?</summary>
+
+They should contain only opaque properties: an HTTP status (`500`), a fixed title (`"Internal Server Error"`), and a unique correlation `traceId`. Internal exception messages, stack traces, and database connection strings must never be serialized in the response body.
+</details>
+
+<details>
+<summary>6. How do you safely parse an HTTP response that might return either JSON or HTML?</summary>
+
+Check the `Content-Type` header:
+```typescript
+const contentType = res.headers.get('content-type') ?? '';
+if (contentType.includes('application/json') || contentType.includes('application/problem+json')) {
+  return await res.json();
+}
+const text = await res.text();
+return { type: 'about:blank', title: 'Non-JSON Error Response', status: res.status, detail: text };
+```
+</details>
+
+<details>
+<summary>7. What is the benefit of making error response interfaces `readonly`?</summary>
+
+It prevents client-side middlewares, interceptors, or UI components from mutating error payloads before other handlers inspect them, ensuring deterministic error logging and telemetry.
+</details>
+
+<details>
+<summary>8. How do you bridge backend NestJS or Express error middleware to TypeScript RFC 9457 types?</summary>
+
+By writing a global Exception Filter (NestJS) or error middleware (Express) that intercepts all thrown `Error` instances, checks if they inherit from `HttpProblemException`, and serializes them to JSON with header `Content-Type: application/problem+json`.
+</details>
+
+---
+
+## 13. Exercises & Challenges
+
+<details>
+<summary>Exercise 1 (Easy): Create a Problem Details Factory</summary>
+
+**Problem:** Write a function `makeProblem(status: number, title: string, detail?: string): ProblemDetails` that returns an immutable problem object.
+
+**Solution:**
+```typescript
+export function makeProblem(status: number, title: string, detail?: string): ProblemDetails {
+  return Object.freeze({
+    type: 'about:blank',
+    title,
+    status,
+    detail
+  });
+}
+```
+</details>
+
+<details>
+<summary>Exercise 2 (Easy): Type-Safe HTTP Status Validator</summary>
+
+**Problem:** Create a type guard `isClientError(status: number): status is 400 | 401 | 403 | 404 | 429` for common 4xx status codes.
+
+**Solution:**
+```typescript
+export function isClientError(status: number): status is 400 | 401 | 403 | 404 | 429 {
+  return [400, 401, 403, 404, 429].includes(status);
+}
+```
+</details>
+
+<details>
+<summary>Exercise 3 (Medium): Strongly-Typed Validation Error Extractor</summary>
+
+**Problem:** Given an unknown error object, write a function that extracts field validation errors if the payload matches the RFC 9457 validation format, or returns `null` otherwise.
+
+**Solution:**
+```typescript
+export function extractValidationErrors(err: unknown): readonly ValidationErrorDetail[] | null {
+  if (typeof err !== 'object' || err === null) return null;
+  const candidate = err as Record<string, unknown>;
+  if (candidate.code === 'VALIDATION_ERROR' && Array.isArray(candidate.invalidParams)) {
+    return candidate.invalidParams as readonly ValidationErrorDetail[];
+  }
+  return null;
+}
+```
+</details>
+
+<details>
+<summary>Exercise 4 (Medium): Custom Domain Error Hierarchy</summary>
+
+**Problem:** Implement an abstract `DomainError` class that automatically populates an ISO timestamp and correlation ID, and implement a concrete `UnauthorizedProblem` subclass.
+
+**Solution:**
+```typescript
+export abstract class DomainError extends Error {
+  public readonly timestamp = new Date().toISOString();
+  public readonly correlationId = crypto.randomUUID();
+
+  constructor(message: string) {
+    super(message);
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+
+  public abstract toProblem(): ProblemDetails;
+}
+
+export class UnauthorizedProblem extends DomainError {
+  public toProblem(): ProblemDetails {
+    return {
+      type: 'https://api.example.com/errors/unauthorized',
+      title: 'Authentication Required',
+      status: 401,
+      detail: this.message,
+      extensions: { correlationId: this.correlationId }
+    };
+  }
+}
+```
+</details>
+
+<details>
+<summary>Exercise 5 (Hard): Type-Safe Fetch Client with Error Discrimination</summary>
+
+**Problem:** Implement a generic wrapper `requestOrProblem<TSuccess, TProblems extends ApiProblem>(url: string, init?: RequestInit): Promise<{ ok: true; data: TSuccess } | { ok: false; problem: TProblems }>` that parses JSON safely.
+
+**Solution:**
+```typescript
+export async function requestOrProblem<TSuccess, TProblems extends ApiProblem>(
+  url: string,
+  init?: RequestInit
+): Promise<{ ok: true; data: TSuccess } | { ok: false; problem: TProblems }> {
+  try {
+    const res = await fetch(url, init);
+    const json = await res.json();
+    if (res.ok) {
+      return { ok: true, data: json as TSuccess };
+    }
+    return { ok: false, problem: json as TProblems };
+  } catch (e) {
+    return {
+      ok: false,
+      problem: {
+        code: 'INTERNAL_SERVER_ERROR',
+        status: 500,
+        title: 'Network / Client Failure',
+        traceId: 'client-exception'
+      } as unknown as TProblems
+    };
+  }
+}
+```
+</details>
+
+<details>
+<summary>Exercise 6 (Hard): Compile-Time Error Code Registry Mapping</summary>
+
+**Problem:** Build an error code registry type `ErrorCodeToProblemMap` such that given an error code string literal, TypeScript resolves the exact corresponding Problem Details interface.
+
+**Solution:**
+```typescript
+export interface ErrorMap {
+  VALIDATION: ProblemDetails<{ fields: string[] }>;
+  NOT_FOUND: ProblemDetails<{ entityId: string }>;
+  RATE_LIMIT: ProblemDetails<{ retryMs: number }>;
+}
+
+export function createTypedProblem<K extends keyof ErrorMap>(
+  key: K,
+  details: ErrorMap[K]
+): ErrorMap[K] {
+  return details;
+}
+```
+</details>

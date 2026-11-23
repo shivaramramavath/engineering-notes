@@ -1,218 +1,436 @@
-# Request and Response Types
+# Request and Response Types in TypeScript
 
-Typing an HTTP API means describing each piece of a request (path parameters, query string, headers, body) and each possible response (a body per status code). The details that cause bugs are mostly about the **wire format**: everything in a URL is a string, JSON has no `Date` or `undefined`, and a handler can legitimately return several different shapes. This note covers how to type these precisely, and how to avoid the common lies.
+> Structuring robust HTTP contracts: typing query strings, route parameters, headers, discriminated response envelopes, and REST verb mappings in TypeScript.
 
-**Prerequisites:**
-- [API contracts](./00-api-contracts.md)
-- [Discriminated unions](../03-unions-and-narrowing/04-discriminated-unions.md)
-- [Generic types](../06-generics/01-generic-types.md)
+| Metadata | Details |
+| :--- | :--- |
+| **Category** | Type-Safe APIs |
+| **Difficulty** | Intermediate |
+| **Prerequisites** | [16-type-safe-apis/00-api-contracts.md](./00-api-contracts.md), [01-fundamentals/03-objects.md](../01-fundamentals/03-objects.md) |
+| **TypeScript Baseline** | TS 4.5+, TS 5.0+ |
+| **Tested tsconfig** | `"strict": true, "target": "ES2022", "module": "NodeNext"` |
 
 ---
 
-## The parts of a request
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & API Reference](#4-syntax--api-reference)
+5. [Practical Examples](#5-practical-examples)
+6. [Edge Cases, Pitfalls & Gotchas](#6-edge-cases-pitfalls--gotchas)
+7. [Common Mistakes & Anti-Patterns](#7-common-mistakes--anti-patterns)
+8. [Performance & Type-Checker Complexity](#8-performance--type-checker-complexity)
+9. [Compiler Internals](#9-compiler-internals)
+10. [Best Practices & Design Guidelines](#10-best-practices--design-guidelines)
+11. [Real-World Case Study](#11-real-world-case-study)
+12. [Interview Questions](#12-interview-questions)
+13. [Exercises & Challenges](#13-exercises--challenges)
 
-| Part | What arrives | Typing notes |
-|---|---|---|
-| **Path params** (`/users/:id`) | always `string` | convert and validate (`"42"` is not `42`) |
-| **Query string** (`?page=2&tag=a&tag=b`) | `string`, or `string[]` for repeated keys, or absent | coerce numbers and booleans, expect arrays |
-| **Headers** | `string`, `string[]`, or absent | names are case-insensitive |
-| **Body** | JSON, form data, bytes | `unknown` until validated |
+---
 
-Model them as separate types, so each can be validated and documented on its own:
+## 1. What & Why
+An HTTP transaction consists of four primary data channels:
+1. **Route/Path Parameters** (e.g. `/users/:userId`)
+2. **Query String Parameters** (e.g. `?page=1&sort=desc`)
+3. **Headers** (e.g. `Authorization`, `X-Api-Key`)
+4. **Request & Response Body** (JSON payloads)
 
-```ts
-type GetPostsRequest = {
-  params: { userId: string };
-  query: { page?: number; tag?: string[] };   // the *validated* shape, not the raw one
-};
+In loosely typed codebases, developers often only type the request and response body, leaving URL parameters, headers, and query strings as `any` or un-annotated. This causes subtle routing errors, casing mismatches, and unhandled pagination edge cases. Strongly typing the full request envelope guarantees that callers supply all required parameters and correctly handle both success and error responses.
 
-type CreatePostRequest = {
-  params: { userId: string };
-  body: { title: string; body: string };
-};
+---
+
+## 2. Core Concepts
+- **Route Parameters**: Segments of the URL path (`/tenants/:tenantId/orders/:orderId`). In TypeScript, template literal types can extract route parameters automatically:
+  ```typescript
+  type ExtractParams<Path extends string> = ...
+  ```
+- **Query Parameters**: Key-value pairs in the query string. Values in raw Node.js/Express are parsed as `string | string[] | undefined`.
+- **Discriminated Response Envelopes**: Wrapping responses in a standard structure `{ success: true, data: T } | { success: false, error: ApiError }` to force callers to check status before reading payload data.
+- **HTTP Status Code Mapping**: Mapping specific HTTP status codes (200, 201, 400, 401, 404, 500) to distinct response payload types.
+
+---
+
+## 3. How It Works Internally
+
+```
+                      Client Request Envelope
+  +-------------------------------------------------------------+
+  | Path: "/users/:id"      -> Params: { id: string }           |
+  | Query: "?detailed=true" -> Query:  { detailed?: boolean }   |
+  | Body:  { name: "Bob" }  -> Body:   CreateUserDto            |
+  +------------------------------+------------------------------+
+                                 |
+                                 v
+                     Backend Controller Execution
+                                 |
+                                 v
+                     Server Response Envelope
+  +-------------------------------------------------------------+
+  | Success: { ok: true,  status: 200, data: UserRecord }       |
+  | Failure: { ok: false, status: 404, error: "User Not Found" }|
+  +-------------------------------------------------------------+
 ```
 
-Note the distinction: what **arrives** (strings) versus what your handler **receives after validation** (numbers, arrays, defaults). Describe the second in your handler types, and let a schema do the conversion ([validation recipes](../15-runtime-validation/04-validation-recipes.md)).
+---
 
-## Responses: one body per status
+## 4. Syntax & API Reference
 
-A single `Promise<User>` return type hides the fact that the same endpoint can return a user, a validation error, or a not-found error. Model that as a union keyed by status:
+```typescript
+// 1. Discriminated Response Envelope
+export type ApiResponse<TData, TError = ApiErrorDto> =
+  | { readonly success: true; readonly data: TData; readonly meta?: ResponseMeta }
+  | { readonly success: false; readonly error: TError };
 
-```ts
-type GetUserResponse =
-  | { status: 200; body: UserDto }
-  | { status: 404; body: ErrorBody }
-  | { status: 401; body: ErrorBody };
+export interface ApiErrorDto {
+  code: string;
+  message: string;
+  details?: Record<string, string[]>;
+}
+
+export interface ResponseMeta {
+  page?: number;
+  total?: number;
+  timestamp: string;
+}
+
+// 2. Comprehensive Endpoint Contract
+export interface Endpoint<TParams, TQuery, TBody, TResponse> {
+  params: TParams;
+  query: TQuery;
+  body: TBody;
+  response: ApiResponse<TResponse>;
+}
 ```
 
-A client can then branch on `status` and TypeScript narrows `body` ([discriminated unions](../03-unions-and-narrowing/04-discriminated-unions.md)):
+---
 
-```ts
-function handle(res: GetUserResponse) {
-  switch (res.status) {
-    case 200: return res.body.name;       // UserDto
-    case 404: return "not found";
-    case 401: return "sign in";
+## 5. Practical Examples
+
+### Example 1: Template Literal Route Parameter Extraction
+```typescript
+type ExtractRouteParams<Path extends string> =
+  Path extends `${string}:${infer Param}/${infer Rest}`
+    ? { [K in Param | keyof ExtractRouteParams<`/${Rest}`>]: string }
+    : Path extends `${string}:${infer Param}`
+      ? { [K in Param]: string }
+      : Record<string, never>;
+
+type OrderRoute = ExtractRouteParams<'/tenants/:tenantId/orders/:orderId'>;
+// Inferred as: { tenantId: string; orderId: string }
+```
+
+### Example 2: Strongly-Typed Express Route Definition
+```typescript
+import { Request, Response } from 'express';
+
+interface GetOrderParams {
+  orderId: string;
+}
+
+interface GetOrderQuery {
+  includeItems?: string;
+}
+
+interface OrderDto {
+  id: string;
+  totalCents: number;
+}
+
+export function getOrderHandler(
+  req: Request<GetOrderParams, ApiResponse<OrderDto>, never, GetOrderQuery>,
+  res: Response<ApiResponse<OrderDto>>
+) {
+  const { orderId } = req.params;
+  const isDetailed = req.query.includeItems === 'true';
+
+  if (orderId === 'not_found') {
+    return res.status(404).json({
+      success: false,
+      error: { code: 'NOT_FOUND', message: `Order ${orderId} not found` },
+    });
+  }
+
+  return res.status(200).json({
+    success: true,
+    data: { id: orderId, totalCents: 4500 },
+    meta: { timestamp: new Date().toISOString() },
+  });
+}
+```
+
+### Example 3: Edge Case - Multi-Status HTTP Response Unions
+```typescript
+type UserResponse =
+  | { status: 200; body: { id: string; name: string } }
+  | { status: 201; body: { id: string; name: string; created: true } }
+  | { status: 400; body: { error: 'VALIDATION_FAILED'; fields: string[] } }
+  | { status: 404; body: { error: 'USER_NOT_FOUND' } };
+
+function handleResponse(res: UserResponse) {
+  if (res.status === 200 || res.status === 201) {
+    console.log(`User: ${res.body.name}`);
+  } else {
+    console.error(`Failed with code ${res.status}: ${res.body.error}`);
   }
 }
 ```
 
-Document **every** status the endpoint can return, not only the success case. Error body shapes are covered in [error response types](./04-error-response-types.md).
+### Example 4: Compiler Failure Case - Unchecked Response Access
+```typescript
+declare const response: ApiResponse<{ id: string; balance: number }>;
 
-### Envelopes
+// @ts-expect-error TS2339: Property 'data' does not exist on type 'ApiResponse<...>'.
+console.log(response.data.balance);
 
-You can return the data directly (`{ id, name }`) or wrap it (`{ data: { id, name } }`). Envelopes make room for metadata (pagination, warnings) without breaking the shape, at the cost of an extra layer:
-
-```ts
-interface Envelope<T> { data: T }
-type UserResponse = Envelope<UserDto>;
-```
-
-Pick one convention for the whole API and use a generic helper for it.
-
-## Wire format vs domain types
-
-JSON is what travels over the network, and JSON cannot represent every TypeScript value:
-
-| In your code | After `JSON.stringify` / `JSON.parse` |
-|---|---|
-| `Date` | `string` (ISO 8601) |
-| `undefined` property | **dropped** |
-| `undefined` in an array | `null` |
-| `bigint` | **throws** on `stringify` |
-| `Map`, `Set` | `{}` (empty object) |
-| `NaN`, `Infinity` | `null` |
-| class instance | plain object (methods lost) |
-| function | dropped |
-
-So a type that is correct inside your server is **wrong** as a description of the response:
-
-```ts
-interface User { id: string; name: string; createdAt: Date }
-
-// a client that declares `createdAt: Date` is lying: it receives a string
-```
-
-Keep **two types**, and convert between them explicitly:
-
-```ts
-interface User { id: string; name: string; createdAt: Date }          // domain
-interface UserDto { id: string; name: string; createdAt: string }     // wire (ISO string)
-
-function toUserDto(u: User): UserDto {
-  return { id: u.id, name: u.name, createdAt: u.createdAt.toISOString() };
+// Safe Narrowing:
+if (response.success) {
+  console.log(response.data.balance); // Safe!
+} else {
+  console.error(response.error.message); // Safe!
 }
 ```
 
-This is the heart of the [DTO pattern](./02-dto-pattern.md). On the client, parse the string back into a `Date` (or keep it as a string) in a validation step, not by assuming the type.
-
-A helper type can describe the serialization mechanically for simple cases:
-
-```ts
-type Serialized<T> =
-  T extends Date ? string :
-  T extends (infer U)[] ? Serialized<U>[] :
-  T extends object ? { [K in keyof T]: Serialized<T[K]> } :
-  T;
-
-type Wire = Serialized<{ id: string; createdAt: Date; tags: string[] }>;
-// { id: string; createdAt: string; tags: string[] }
+### Example 5: Idiomatic Headers Contract
+```typescript
+export interface SecureRequestHeaders {
+  readonly 'authorization': `Bearer ${string}`;
+  readonly 'x-request-id': string;
+  readonly 'x-client-version'?: string;
+}
 ```
 
-It is a convenience for plain data, not a complete model: it ignores `undefined` removal, functions, `Map`/`Set`, and custom `toJSON` methods. For important endpoints, write the wire type out explicitly.
+---
 
-### Practical wire-format conventions
+## 6. Edge Cases, Pitfalls & Gotchas
+1. **Query Params Array Traps**: In Express and Fastify, sending `?tag=a&tag=b` produces `{ tag: ['a', 'b'] }`, whereas `?tag=a` produces `{ tag: 'a' }`. If you expect multiple items, always normalize with `Array.isArray(x) ? x : [x]`.
+2. **Headers are Case-Insensitive**: HTTP headers are case-insensitive according to RFC 7230, but JavaScript object key lookups are case-sensitive! Node.js normalizes all incoming headers to lowercase (`req.headers['content-type']`). Always type headers in lowercase.
+3. **Empty Body on GET/HEAD**: Attempting to send a JSON body on `GET` or `HEAD` requests violates HTTP specs and causes some proxies to reject requests. Type `body: never` on GET routes.
+4. **Status Codes Not Visible in JSON**: The HTTP status code in the HTTP packet header (e.g. 404) is distinct from fields in the JSON body (`{ success: false }`). Ensure client fetch wrappers inspect `res.status` or `res.ok`.
 
-- **Dates:** ISO 8601 strings in UTC. Consider a branded alias to mark them (`type IsoDate = string & { readonly __brand: "IsoDate" }`, see [branded types](../10-advanced-types/07-branded-types.md)).
-- **IDs:** strings. Large numeric ids lose precision as JSON numbers in JavaScript (above 2^53), and strings also keep the door open for UUIDs.
-- **Money:** integer minor units (`amountCents: number`) or a decimal string. Avoid floating point.
-- **Enums:** string literal unions (`"draft" | "published"`), not TypeScript `enum`, which is a runtime object that does not exist on the other side ([enums and const objects](../01-fundamentals/05-enums-and-const-objects.md)).
-- **Absence:** decide between a missing key (`optional`) and `null` (explicit "no value"), document it, and stay consistent. JSON has `null` but not `undefined`.
+---
 
-## Typing handlers (Express)
+## 7. Common Mistakes & Anti-Patterns
 
-Express's types take generics for the request and response parts:
+| Anti-Pattern | Consequence | Correction |
+| :--- | :--- | :--- |
+| Typing headers with uppercase letters (`Authorization`) | Fails to match Node's lowercase headers | Type in lowercase: `'authorization'` |
+| Assuming query parameters are parsed as numbers | `req.query.limit` is string `"10"`, not number | Use `z.coerce.number()` or explicit parse |
+| Returning flat objects without error flags | Client cannot easily differentiate success from error | Use discriminated `ApiResponse<T>` envelope |
+| Typing GET route body as `any` | Accidental inclusion of request body | Annotate body as `never` |
+| Reading `res.data` before checking `res.success` | **TS2339**: Property 'data' does not exist | Check `if (res.success)` first |
 
-```ts
-import type { RequestHandler } from "express";
+---
 
-type Params = { id: string };
-type ResBody = UserDto | ErrorBody;
-type ReqBody = never;               // GET has no body
-type Query = { expand?: string };
+## 8. Performance & Type-Checker Complexity
+- Template literal route parameter extractors evaluate recursively in $\mathcal{O}(S)$ where $S$ is the number of path segments (typically $\le 6$).
+- Discriminated response envelopes evaluate in $\mathcal{O}(1)$ in control-flow narrowing.
 
-const getUser: RequestHandler<Params, ResBody, ReqBody, Query> = async (req, res) => {
-  const user = await users.find(req.params.id);
-  if (!user) {
-    return res.status(404).json({ error: { code: "NOT_FOUND", message: "User not found" } });
-  }
-  res.json(toUserDto(user));        // checked against ResBody
-};
+---
+
+## 9. Compiler Internals
+In TypeScript's template literal parser:
+- The recursive pattern `${string}:${infer Param}/${infer Rest}` parses path segments left-to-right.
+- Once matched, the compiler binds the inferred string literal to the property name in a mapped type.
+
+---
+
+## 10. Best Practices & Design Guidelines
+- Standardize on a single discriminated response envelope (`{ success: true, data } | { success: false, error }`) across all microservices.
+- Always declare HTTP header contracts using lowercase keys.
+- Use template literal types to extract path parameters from route strings.
+- Normalize query string parameters using schema coercions.
+- Include an `x-request-id` header in all request/response contracts for distributed tracing.
+
+---
+
+## 11. Real-World Case Study
+A financial reporting platform had an endpoint `/reports/:reportId?format=pdf`. A developer assumed `format` was an optional string defaulting to `'pdf'`. The frontend called `/reports/123?format=csv&format=xlsx` (a multi-select filter). On the server, `req.query.format` was parsed as an array `['csv', 'xlsx']`. Calling `req.query.format.toLowerCase()` threw a runtime `TypeError: format.toLowerCase is not a function`, taking down report generation for 4 hours.
+
+**Remediation:**
+The team introduced strong query parameter schemas:
+```typescript
+const ReportQuerySchema = z.object({
+  format: z.union([z.string(), z.array(z.string())]).transform(val =>
+    Array.isArray(val) ? val[0] : val
+  ).default('pdf'),
+});
 ```
+Query parameters were deterministically normalized, and similar crashes were permanently prevented.
 
-The generics order is: path params, response body, request body, query. They help check what you **send**, and give you typed access to what you read. But they are **assertions about input**: Express does not validate anything. `req.body` typed as `CreateUserBody` is only true if you validated it ([trust boundaries](../15-runtime-validation/00-trust-boundaries.md)). Validate first, then use the parsed value, or you are back to a claim the compiler cannot check.
+---
 
-## Request methods and semantics
+## 12. Interview Questions
 
-- **`GET` and `DELETE`** usually have no body. Put filters and pagination in the query string.
-- **`POST`** creates or triggers actions. Respond `201` with the created resource or its location.
-- **`PUT`** replaces a whole resource, so the body type is the full resource.
-- **`PATCH`** updates part of one. The body is a partial shape, and you must decide how to express "clear this field" (usually `null`) versus "leave it alone" (absent):
+<details>
+<summary>1. How do you extract route parameters from a URL string like `/users/:id` at compile time in TypeScript?</summary>
 
-```ts
-type UpdateUserBody = { name?: string; bio?: string | null };
-// absent -> unchanged, null -> clear, string -> set
+Using template literal types with conditional inference:
+```typescript
+type ExtractParams<Path extends string> =
+  Path extends `${string}:${infer Param}/${infer Rest}`
+    ? { [K in Param | keyof ExtractParams<`/${Rest}`>]: string }
+    : Path extends `${string}:${infer Param}`
+      ? { [K in Param]: string }
+      : Record<string, never>;
 ```
+</details>
 
-- **Idempotency:** `PUT`, `DELETE`, and `GET` should be safe to retry. For `POST`, an idempotency key header lets clients retry safely ([error handling strategies](../11-error-handling/03-error-handling-strategies.md)).
+<details>
+<summary>2. Why are incoming HTTP headers always represented in lowercase in Node.js?</summary>
 
-## Using `satisfies` for response literals
+The HTTP specification specifies that header field names are case-insensitive. To make lookups predictable and prevent case-mismatch bugs, Node.js automatically converts all incoming request header keys to lowercase.
+</details>
 
-When a handler or a mock builds a response literal, `satisfies` checks it against the contract without widening the inferred type:
+<details>
+<summary>3. What is a discriminated response envelope?</summary>
 
-```ts
-const ok = {
-  status: 200,
-  body: { id: "1", name: "Asha", createdAt: "2024-01-01T00:00:00Z" },
-} satisfies GetUserResponse;
+A response type structured as a discriminated union (e.g. `{ success: true, data: T } | { success: false, error: E }`). Callers cannot access `.data` without first checking `if (response.success)`.
+</details>
+
+<details>
+<summary>4. What type should be assigned to the body parameter of an HTTP GET endpoint?</summary>
+
+`never` or `undefined`, because HTTP GET requests do not specify a request body according to RFC guidelines.
+</details>
+
+<details>
+<summary>5. What can happen if an API returns multiple query parameters with the same name (`?id=1&id=2`)?</summary>
+
+Most server parsers (Express, Fastify) parse them as an array of strings (`['1', '2']`) rather than a single string. If the code expects a string, calling string methods on the array will crash with a runtime `TypeError`.
+</details>
+
+<details>
+<summary>6. How do you type an endpoint that returns different HTTP status codes with different payloads?</summary>
+
+Using a discriminated union keyed on `status`:
+```typescript
+type Response =
+  | { status: 200; body: SuccessData }
+  | { status: 404; body: NotFoundError };
 ```
+</details>
 
-A missing or misspelled field is a compile error, and `ok.status` is still the literal `200`.
+<details>
+<summary>7. How should pagination metadata be structured in an API response?</summary>
 
-## Important rules and misconceptions
+In a separate `meta` property within the response envelope:
+```typescript
+{
+  success: true,
+  data: items,
+  meta: { page: 1, limit: 20, total: 100 }
+}
+```
+</details>
 
-- **The compiler cannot check what crosses the network.** A response type is a statement of what you expect.
-- **Express generics are not validation.** They describe, they do not enforce.
-- **A server type and a client type for the same payload are different types** when serialization is involved (`Date` versus string).
-- **`req.query` values are never numbers or booleans.** They are strings (or arrays of strings).
-- **Optional is not nullable.** Absent keys and `null` values are different on the wire.
-- **`status` is part of the response type.** A function returning `Promise<User>` hides the error cases.
+<details>
+<summary>8. How do you enforce that a token header has the `Bearer <token>` format at compile time?</summary>
 
-## Common mistakes
+Using a template literal type:
+```typescript
+interface AuthHeader {
+  authorization: `Bearer ${string}`;
+}
+```
+</details>
 
-- Typing a response field as `Date` when it arrives as a string.
-- Using TypeScript `enum` in shared contract types.
-- Typing `req.query.page` as `number`.
-- Describing only the `200` response.
-- Using `any` for `req.body` and `res.json` arguments.
-- Using one interface for the create request, the update request, and the response.
-- Using floating-point numbers for money.
-- Treating missing and `null` as interchangeable without documenting it.
+---
 
-## Debugging
+## 13. Exercises & Challenges
 
-- Print the **raw** payload (`await res.text()`) and compare it with the type. Mismatches in dates, nulls, and numbers-as-strings show up immediately.
-- If a type says `Date` but the value has no `getTime`, you are holding a string.
-- If a query value is `"undefined"` or `"NaN"`, a client serialized `undefined` into the URL.
-- Add a validation step that reports the path of the first mismatching field ([Zod](../15-runtime-validation/02-zod.md)).
-- Check response headers (`Content-Type`) when parsing fails: error pages are often HTML.
+### Easy
+1. **Bearer Header Type**: Define a type `BearerToken` that strictly matches strings starting with `"Bearer "`.
+   <details>
+   <summary>Solution</summary>
 
-## Quick summary
+   ```typescript
+   export type BearerToken = `Bearer ${string}`;
+   ```
+   </details>
 
-- Type each request part separately. Path and query values arrive as strings, so validate and convert before handlers use them.
-- Model responses as a union of `{ status, body }` shapes and document every status, not only the success case.
-- JSON changes types: `Date` becomes a string and `undefined` disappears. Keep separate wire and domain types, and convert explicitly.
-- Use string IDs, ISO date strings, integer money, and string literal unions for enums.
-- Express handler generics describe, they do not validate. Validate input before trusting its type.
+2. **Success Envelope**: Create a generic helper function `makeSuccess<T>(data: T): { success: true; data: T }`.
+   <details>
+   <summary>Solution</summary>
 
-**Next:** [The DTO pattern](./02-dto-pattern.md)
+   ```typescript
+   export function makeSuccess<T>(data: T): { success: true; data: T } {
+     return { success: true, data };
+   }
+   ```
+   </details>
+
+### Medium
+3. **Template Literal Param Extractor**: Implement `ExtractId<Path extends string>` that extracts the parameter name from a path containing a single `:id` token.
+   <details>
+   <summary>Solution</summary>
+
+   ```typescript
+   export type ExtractId<Path extends string> =
+     Path extends `${string}:${infer Id}/${string}` ? Id :
+     Path extends `${string}:${infer Id}` ? Id :
+     never;
+
+   type Test = ExtractId<'/items/:itemId'>; // 'itemId'
+   ```
+   </details>
+
+4. **Normalized Query Helper**: Write a function that accepts `string | string[] | undefined` and always returns a clean `string[]`.
+   <details>
+   <summary>Solution</summary>
+
+   ```typescript
+   export function normalizeQueryList(val: string | string[] | undefined): string[] {
+     if (!val) return [];
+     return Array.isArray(val) ? val : [val];
+   }
+   ```
+   </details>
+
+### Hard
+5. **Full REST API Endpoint Router Type**: Author a generic router type `Router<Routes>` that maps path strings to handler functions, where each handler automatically receives strongly-typed `params` extracted from the path string.
+   <details>
+   <summary>Solution</summary>
+
+   ```typescript
+   type ExtractRouteParams<Path extends string> =
+     Path extends `${string}:${infer Param}/${infer Rest}`
+       ? { [K in Param | keyof ExtractRouteParams<`/${Rest}`>]: string }
+       : Path extends `${string}:${infer Param}`
+         ? { [K in Param]: string }
+         : Record<string, never>;
+
+   export interface TypedRouter {
+     get<Path extends string, Res>(
+       path: Path,
+       handler: (params: ExtractRouteParams<Path>) => Promise<Res>
+     ): void;
+   }
+
+   // Usage:
+   declare const router: TypedRouter;
+   router.get('/users/:userId/posts/:postId', async (params) => {
+     // params is inferred as: { userId: string; postId: string }
+     return { user: params.userId, post: params.postId };
+   });
+   ```
+   </details>
+
+6. **Type-Safe Fetcher with Status Discrimination**: Write a wrapper `fetchWithStatus<TSuccess, TError>(url: string)` that returns `{ status: 200, body: TSuccess } | { status: number, body: TError }`, correctly narrowing the body based on HTTP status.
+   <details>
+   <summary>Solution</summary>
+
+   ```typescript
+   export async function fetchWithStatus<TSuccess, TError>(url: string): Promise<
+     | { readonly ok: true; readonly status: 200; readonly body: TSuccess }
+     | { readonly ok: false; readonly status: number; readonly body: TError }
+   > {
+     const res = await fetch(url);
+     const json = await res.json();
+     if (res.ok) {
+       return { ok: true, status: 200, body: json as TSuccess };
+     }
+     return { ok: false, status: res.status, body: json as TError };
+   }
+   ```
+   </details>

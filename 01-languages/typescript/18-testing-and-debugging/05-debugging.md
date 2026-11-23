@@ -1,219 +1,457 @@
-# Debugging
+# Debugging TypeScript: Source Maps, VS Code Launch, Node Inspector, and Chrome DevTools
 
-Debugging TypeScript is debugging JavaScript, with one extra layer: the code that runs is **not** the code you wrote. Types are erased and syntax may be rewritten, so a debugger needs **source maps** to show you your `.ts` lines, variable names, and stack traces. This note covers getting source maps working, stepping through code in VS Code and the browser, attaching to tests, practical logging, and a method for hunting bugs that is not just guessing.
+> Modern debugging workflows for TypeScript: source maps (`sourceRoot`, `inlineSources`), launch configurations, Node.js `--inspect` and `--inspect-brk`, Chrome DevTools, and heap profiling.
 
-**Prerequisites:**
-- [Type erasure and runtime](../14-type-system-internals/00-type-erasure-and-runtime.md)
-- [Compiler options](../13-compiler-and-tsconfig/00-compiler-options.md)
-- [Catching and narrowing errors](../11-error-handling/00-catching-and-narrowing-errors.md)
+| Metadata | Details |
+| :--- | :--- |
+| **Category** | Testing and Debugging |
+| **Difficulty** | Intermediate |
+| **Prerequisites** | [13-compiler-and-tsconfig/00-compiler-options.md](../13-compiler-and-tsconfig/00-compiler-options.md), [13-compiler-and-tsconfig/02-target-module-and-lib.md](../13-compiler-and-tsconfig/02-target-module-and-lib.md) |
+| **TypeScript Baseline** | TS 4.5+, TS 5.0+ |
+| **Tested tsconfig** | `"strict": true, "target": "ES2022", "module": "NodeNext"` |
 
 ---
 
-## Source maps: connecting running code to your source
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & API Reference](#4-syntax--api-reference)
+5. [Practical Examples](#5-practical-examples)
+6. [Edge Cases, Pitfalls & Gotchas](#6-edge-cases-pitfalls--gotchas)
+7. [Common Mistakes & Anti-Patterns](#7-common-mistakes--anti-patterns)
+8. [Performance & Type-Checker Complexity](#8-performance--type-checker-complexity)
+9. [Compiler Internals](#9-compiler-internals)
+10. [Best Practices & Design Guidelines](#10-best-practices--design-guidelines)
+11. [Real-World Case Study](#11-real-world-case-study)
+12. [Interview Questions](#12-interview-questions)
+13. [Exercises & Challenges](#13-exercises--challenges)
 
-A **source map** (`.js.map`) records which line and column of the emitted JavaScript came from which line of your TypeScript. Debuggers and stack-trace printers use it to translate back.
+---
 
-```jsonc
-// tsconfig.json
+## 1. What & Why
+
+Because browsers and the Node.js runtime execute JavaScript rather than raw TypeScript, debugging TypeScript requires mapping runtime JavaScript execution back to the original TypeScript source lines. Without proper source maps and debugger configurations, developers are forced into frustrating "blind debugging" practices:
+- Setting breakpoints in compiled, minified, or bundled `.js` files with mangled variable names.
+- Littering code with ad-hoc `console.log()` statements that pollute git commits.
+- Misinterpreting asynchronous call stacks when exceptions throw.
+
+Modern TypeScript debugging bridges runtime execution to TypeScript sources using **Source Maps (V3)**, **VS Code Debugger Launch Configurations (`.vscode/launch.json`)**, and the **Node.js Chrome DevTools Protocol Inspector**.
+
+```
++-------------------+      Emits .js + .map      +-------------------+
+|  source/app.ts    |  ----------------------->  |    dist/app.js    |
+| (Breakpoint at L5)|                            | (Executes on V8)  |
++-------------------+                            +-------------------+
+          ^                                                |
+          |           Source Map Mapping (VLQ)             |
+          +------------------------------------------------+
+                                V8 Inspector
+```
+
+---
+
+## 2. Core Concepts
+
+### 1. Source Maps V3 Specification
+A source map (`.js.map`) is a JSON file conforming to the Source Map V3 specification:
+```json
 {
-  "compilerOptions": {
-    "sourceMap": true,          // emit .js.map files
-    "inlineSources": true       // embed the TS source in the map (handy when deploying or bundling)
-  }
+  "version": 3,
+  "file": "app.js",
+  "sourceRoot": "",
+  "sources": ["app.ts"],
+  "names": ["myVar", "calculate"],
+  "mappings": "AAAA,IAAMA,QAAQ,SAAd..."
 }
 ```
+- `mappings`: Variable-Length Quantity (VLQ) base64-encoded strings mapping emitted bytecode lines/columns to original TypeScript source lines/columns.
 
-Without source maps, breakpoints in `.ts` files never hit, and stack traces point at generated JavaScript. With them, you debug your real code.
-
-### Readable stack traces in Node
-
-Node does not apply source maps to error stack traces unless you ask:
-
-```bash
-node --enable-source-maps dist/index.js
-```
-
-Now an uncaught error shows `src/service.ts:42:11` instead of `dist/service.js:61:15`. Bundlers and runtimes that run TypeScript directly (such as `tsx`) usually handle this for you. If you use a bundler, make sure it emits maps (`sourcemap: true` or the equivalent) and keep them available where errors are collected.
-
-## Debugging in VS Code
-
-### Quickest: the JavaScript Debug Terminal
-
-Open the command palette, run **"Debug: JavaScript Debug Terminal"**, and start your program in that terminal as usual:
-
-```bash
-npx tsx src/index.ts
-npm run dev
-npx vitest run
-```
-
-Any Node process started there is attached to the debugger automatically. Set breakpoints in `.ts` files, and they work when source maps are available (tools like `tsx` and Vitest provide them). This avoids hand-written launch configuration for most cases.
-
-### A launch configuration for built output
-
-If you compile with `tsc` and run `dist/`:
-
-```jsonc
-// .vscode/launch.json
+### 2. VS Code Launch Configuration (`.vscode/launch.json`)
+Allows one-click debugging with step-through execution, call stack inspection, and variable watch expressions:
+```json
 {
   "version": "0.2.0",
   "configurations": [
     {
       "type": "node",
       "request": "launch",
-      "name": "Run built app",
-      "program": "${workspaceFolder}/dist/index.js",
-      "preLaunchTask": "tsc: build - tsconfig.json",
-      "sourceMaps": true,
-      "outFiles": ["${workspaceFolder}/dist/**/*.js"]
+      "name": "Debug Current TS File",
+      "runtimeExecutable": "tsx",
+      "args": ["${file}"],
+      "sourceMaps": true
     }
   ]
 }
 ```
 
-`outFiles` tells the debugger where compiled files live, so it can map them back. If breakpoints show as unbound (grey), the usual causes are: no source maps emitted, wrong `outFiles` pattern, or a stale build.
+### 3. Node.js Inspector CLI
+Node supports remote debugging out of the box:
+- `node --inspect index.js`: Starts the V8 debugging WebSocket server on port 9229.
+- `node --inspect-brk index.js`: Starts the inspector and immediately pauses at the very first line of code.
 
-### What you can do once stopped
+---
 
-- **Breakpoints:** click the gutter. **Conditional breakpoints** (`user.id === "42"`) stop only when a condition is true. **Logpoints** print a message without editing code or stopping.
-- **Step:** over, into, out. Step *into* a function to follow it, *out* to return to the caller.
-- **Inspect:** hover variables, use the Variables panel, and evaluate expressions in the Debug Console. You are looking at **runtime values**, so you see the real shape of data, which is often what the types missed.
-- **Call stack:** see how execution got here, including `async` frames in modern Node.
-- **Exception breakpoints:** pause when an error is thrown (all, or only uncaught), right at the origin.
+## 3. How It Works Internally
 
-## Debugging with Node's inspector directly
+When Node.js encounters an unhandled exception or hits a `debugger;` statement:
+1. V8 generates a runtime stack trace pointing to `dist/app.js:42:15`.
+2. Node looks for the source map comment at the end of the file:
+   `//# sourceMappingURL=app.js.map`
+3. Node parses the VLQ mappings in `app.js.map` to decode the original file `src/app.ts` and line `15:8`.
+4. Node translates the stack trace and highlights the breakpoint directly in the TypeScript IDE.
 
-```bash
-node --inspect-brk dist/index.js         # pause on the first line, wait for a debugger
-node --inspect dist/index.js             # run, allow a debugger to attach
+---
+
+## 4. Syntax & API Reference
+
+### Key tsconfig.json Debugging Options
+```json
+{
+  "compilerOptions": {
+    "sourceMap": true,             // Generates external .js.map files
+    "inlineSourceMap": false,       // Inlines base64 source map in .js
+    "inlineSources": true,          // Embeds original .ts source inside the map
+    "declarationMap": true          // Maps .d.ts files to .ts for Go-to-Definition
+  }
+}
 ```
 
-Then attach from VS Code ("Attach" configuration) or open `chrome://inspect` in Chrome and click **inspect** on the target. Chrome DevTools gives you the same stepping, breakpoints, console, and also memory and CPU profiling ([runtime performance](../22-performance/02-runtime-performance.md)).
+---
 
-## Debugging tests
+## 5. Practical Examples
 
-Debug a failing test at the line, instead of adding logs:
-
-- **VS Code:** run the test command in the JavaScript Debug Terminal, or use the test extension's "Debug" action.
-- **From the command line:** start the runner under the inspector. The flags vary by runner and version: for Vitest, run it with `--inspect-brk` (typically with a single worker or `--no-file-parallelism`), and attach. For Jest, run Node directly on the Jest binary with `--inspect-brk` and `--runInBand`.
-
-Running tests in a **single process** (no parallel workers) is usually required for the debugger to attach to the code you care about ([test runners](./03-test-runners.md)).
-
-## Debugging in the browser
-
-Modern dev servers (Vite, Next.js, webpack dev mode) serve source maps, so DevTools shows your `.ts` and `.tsx` files in the Sources panel. Set breakpoints there. Other useful features:
-
-- **The `debugger;` statement** pauses execution when DevTools is open. Remove it before committing (a lint rule can catch it).
-- **Network panel:** inspect actual requests and responses, the best way to settle "what did the server really send?" ([request and response types](../16-type-safe-apis/01-request-response-types.md)).
-- **Console and `$0`:** inspect the selected element, evaluate expressions in the page's context.
-- **React DevTools:** inspect component props, state, and re-renders ([React and frontend](../19-react-and-frontend/README.md)).
-
-Production builds usually ship minified code, so keep source maps available to your error-reporting tooling (uploaded privately, or served only to authorized users) rather than exposing them publicly by accident.
-
-## Logging that helps
-
-When a debugger is impractical (production, intermittent bugs, distributed systems), logs are what you have.
-
-```ts
-console.log("user", user);                        // quick look
-console.dir(deepObject, { depth: null });         // print nested objects fully
-console.table(rows);                              // arrays of objects as a table
-console.trace("who called this?");                // print the current stack
-console.time("query"); await run(); console.timeEnd("query");   // measure
+### Example 1: Basic Node.js TSX Direct Debugging in VS Code
+```json
+{
+  "name": "Launch Server via TSX",
+  "type": "node",
+  "request": "launch",
+  "program": "${workspaceFolder}/src/server.ts",
+  "runtimeExecutable": "node",
+  "runtimeArgs": ["--import", "tsx"],
+  "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
+  "console": "integratedTerminal"
+}
 ```
 
-Habits that make logs useful:
-
-- **Log structured data** (objects with fields), not interpolated strings, so logs can be searched and filtered ([logging and observability](../21-production-tooling/06-logging-and-observability.md)).
-- **Include identifiers:** request id, user id, operation, so you can follow one flow.
-- **Log at boundaries:** inputs received, outputs sent, external calls and results.
-- **Log the error object** (with its `cause` chain), not just `error.message` ([custom errors](../11-error-handling/01-custom-errors.md)).
-- **Never log secrets or personal data** (tokens, passwords, full card numbers).
-- **Remove or lower** temporary debug logs before committing.
-
-A common trap: logging an object **and then mutating it** shows the mutated state in some consoles. Log a copy (`structuredClone(obj)` or `JSON.stringify`) when timing matters.
-
-## A method for finding bugs
-
-Random changes are slow. A systematic approach:
-
-1. **Reproduce it reliably.** Get a failing case you can run on demand: a test, a script, a saved request. If you cannot reproduce it, you cannot know you fixed it.
-2. **Shrink it.** Remove inputs, code, and configuration until the smallest example that still fails remains. The bug is often obvious by then.
-3. **Form a hypothesis** about the cause, and decide what observation would confirm or refute it.
-4. **Observe, do not assume.** Use a breakpoint or log to look at the *actual* value at the suspected point, because the bug is usually where reality differs from your belief.
-5. **Bisect.** Halve the search space: comment out half the pipeline, check a value in the middle, or run `git bisect` to find the commit that introduced the failure.
-6. **Fix the cause, not the symptom,** then **write a test** that fails without the fix.
-7. **Look for siblings:** the same mistake elsewhere.
-
-```bash
-git bisect start
-git bisect bad                 # the current commit is broken
-git bisect good v1.4.0         # this older one worked
-# git checks out a middle commit: run your repro, then mark it good or bad
-git bisect good                # or: git bisect bad
-git bisect reset               # when done
+### Example 2: Real-World Remote Docker Container Debugging
+Debugging a TypeScript application running inside a Docker container:
+```json
+{
+  "name": "Attach to Docker Node",
+  "type": "node",
+  "request": "attach",
+  "port": 9229,
+  "address": "localhost",
+  "localRoot": "${workspaceFolder}/src",
+  "remoteRoot": "/usr/src/app/src",
+  "sourceMaps": true
+}
 ```
 
-### When types and runtime disagree
+### Example 3: Edge Case - Inspecting Memory Leaks with Heap Snapshots
+```typescript
+import v8 from 'node:v8';
+import fs from 'node:fs';
 
-If the type says `User` but the value at runtime is missing a field, the bug is upstream where the claim entered: an `as` assertion, an `any`, or unvalidated external data ([trust boundaries](../15-runtime-validation/00-trust-boundaries.md), [soundness and escape hatches](../14-type-system-internals/04-soundness-and-escape-hatches.md)). Search for those, then validate at the boundary.
+export function dumpHeapSnapshot(filename: string): void {
+  const snapshotStream = v8.getHeapSnapshot();
+  const fileStream = fs.createWriteStream(filename);
+  snapshotStream.pipe(fileStream);
+  console.log(`Heap snapshot written to ${filename}`);
+}
+```
 
-### Debugging type errors and configuration
+### Example 4: Failure Case - Missing Source Maps Causing Unmapped Stacks
+```typescript
+// Without "sourceMap": true in tsconfig.json:
+// Error: Invalid operation
+//     at calculate (E:\app\dist\bundle.js:1420:12)  <-- Useless minified location!
+//
+// With "sourceMap": true:
+// Error: Invalid operation
+//     at calculate (E:\app\src\math\calculate.ts:24:5) <-- Exact TypeScript line!
+```
 
-Compile-time problems have their own tools:
+### Example 5: Idiomatic Conditional Debug Logger with Namespace
+```typescript
+import { debuglog } from 'node:util';
 
-- Reading and untangling error messages: [reading type errors](./06-reading-type-errors.md).
-- `tsc --showConfig`, `--listFiles`, `--explainFiles`, and `--traceResolution` for "why is this file or module or setting behaving this way" ([compiler options](../13-compiler-and-tsconfig/00-compiler-options.md)).
-- The TypeScript Playground to isolate and share a minimal example.
+const debug = debuglog('app:billing');
 
-### Async bugs
+export function chargeCustomer(userId: string, amount: number): void {
+  debug('Initiating charge for %s: $%d', userId, amount);
+  // Executes only when NODE_DEBUG=app:billing is set in environment!
+}
+```
 
-- **Missing `await`:** the value is a `Promise`, or the step ran out of order. The linter rule `no-floating-promises` finds most of them.
-- **Unhandled rejections:** listen with `process.on("unhandledRejection", ...)` while developing to find the source.
-- **Race conditions:** add timestamps and request ids to logs and look at the ordering, then use cancellation or "latest wins" guards ([concurrency patterns](../12-async-and-iteration/05-concurrency-patterns.md)).
-- Async stack traces in modern Node include `await` frames, so name your functions rather than relying on anonymous arrows.
+---
 
-### Performance and memory
+## 6. Edge Cases, Pitfalls & Gotchas
 
-For slowness or growth over time, measure before guessing: CPU profiles (`node --cpu-prof`, DevTools Performance), heap snapshots (DevTools Memory), and event loop delay measurements show where time and memory go ([runtime performance](../22-performance/02-runtime-performance.md), [event loop](../12-async-and-iteration/00-event-loop.md)).
+1. **`sourceRoot` Path Mismatch in Docker**:
+   When debugging in Docker, if `localRoot` and `remoteRoot` in `launch.json` do not map 1:1, VS Code will display gray, unverified breakpoints ("Breakpoint set but not yet bound").
+2. **Bundler Minification Discrepancies**:
+   Aggressive esbuild or Terser minification with variable mangling can make it impossible for debuggers to evaluate variable names in the Watch pane. Set `minify: false` in development debug builds.
+3. **Async Stack Traces**:
+   Node.js 14+ supports async stack traces natively. However, unhandled promise rejections inside detached callbacks can still produce truncated stacks unless `--trace-warnings` or `--unhandled-rejections=strict` is supplied.
+4. **`declarationMap` Importance in Monorepos**:
+   Without `"declarationMap": true`, using "Go to Definition" in VS Code jumps to compiled `.d.ts` declaration files instead of the original source `.ts` file.
 
-## Important rules and misconceptions
+---
 
-- **Source maps are not optional for debugging TypeScript.** No maps, no useful breakpoints or stack traces.
-- **A breakpoint shows runtime truth.** Types are what you hoped. The debugger shows what is.
-- **`console.log` debugging is fine.** It is a legitimate tool, best when combined with structured output and a reliable repro.
-- **Stack traces are not source-mapped by default in Node.** Enable `--enable-source-maps` (or use a runner that does).
-- **A bug you cannot reproduce is not fixed,** even if it stops appearing.
-- **Shipping source maps publicly exposes your source.** Decide deliberately who can access them.
+## 7. Common Mistakes & Anti-Patterns
 
-## Common mistakes
+| Anti-Pattern | Bad Code | Good Code | Compiler / Runtime Impact |
+| :--- | :--- | :--- | :--- |
+| **`console.log` Debugging** | 50 `console.log('here 1')` in code | VS Code breakpoints or `node:util.debuglog` | Commits clutter; slows down production performance |
+| **Missing Declaration Maps** | `"declarationMap": false` in monorepo | `"declarationMap": true` | "Go to Definition" jumps to unreadable `.d.ts` |
+| **Hardcoding Breakpoint `debugger;`** | Leaving `debugger;` in production code | IDE conditional breakpoints | Halts entire production process in browser DevTools |
+| **Exposing Port 9229 to Public Internet** | `node --inspect=0.0.0.0` in production | Localhost binding or SSH tunnel | Remote Code Execution (RCE) vulnerability |
+| **Missing `skipFiles`** | Stepping into Node runtime internals | `"skipFiles": ["<node_internals>/**"]` | Step-into enters thousands of lines of V8 code |
+| **Mismatched Docker Paths** | Missing `remoteRoot` mapping | Explicit `localRoot` / `remoteRoot` | Breakpoints remain unverified and never hit |
 
-- Debugging generated JavaScript because source maps are off.
-- Wrong `outFiles` or a stale build, leaving breakpoints unbound.
-- Debugging tests with parallel workers, so the debugger attaches to the wrong process.
-- Changing code at random instead of forming and testing a hypothesis.
-- Leaving `debugger;` or noisy `console.log` calls in committed code.
-- Logging secrets or full personal data.
-- Trusting the type of a value instead of inspecting it.
-- Fixing the symptom (a null check) without finding why the value was null.
-- Not writing a regression test for a fixed bug.
+---
 
-## Debugging checklist when a breakpoint does not hit
+## 8. Performance & Type-Checker Complexity
 
-- Is `sourceMap: true` set, and are `.map` files being emitted next to the output?
-- Is the code you are running the freshly built output (not a stale `dist`)?
-- Does `outFiles` / the debugger's source map path match where files actually are?
-- Is the process attached (started under the debug terminal, or with `--inspect`)?
-- For tests: single worker, correct config, and the file is actually executed?
-- For bundled code: does the bundler emit source maps, and do they include the sources?
+- **Source Map Build Overhead**: Generating external source maps (`"sourceMap": true`) increases build times by ~15-20%. In production, generate separate `.map` files and upload them to Sentry/Datadog without deploying `.map` files to public CDN servers.
+- **Node.js Inspector Overhead**: Running with `--inspect` disables certain V8 inline optimizations, reducing execution speed by ~5-10% while attached.
 
-## Quick summary
+---
 
-- Debugging TypeScript needs **source maps**. Enable `sourceMap`, use `--enable-source-maps` for Node stack traces, and ensure your bundler emits maps.
-- Use the **JavaScript Debug Terminal** or a launch config in VS Code, `--inspect` with DevTools, and the browser Sources panel for front-end code.
-- Debug tests in a single process under the inspector.
-- Log structured data with identifiers, never secrets, and prefer breakpoints and logpoints when you can reproduce the bug.
-- Work systematically: reproduce, shrink, hypothesize, observe, bisect, fix the cause, add a regression test.
-- When types and reality disagree, look for the assertion, `any`, or unvalidated input upstream.
+## 9. Compiler Internals
 
-**Next:** [Reading type errors](./06-reading-type-errors.md)
+When the TypeScript compiler emits source maps:
+The emitter tracks AST node positions (`node.pos` and `node.end`). For each emitted JavaScript token, it writes a tuple into the VLQ mapping buffer representing:
+1. Generated column offset.
+2. Source file index.
+3. Original line offset.
+4. Original column offset.
+5. Name index (optional).
+
+---
+
+## 10. Best Practices & Design Guidelines
+
+1. **Enable `"declarationMap": true`**: Essential for monorepos so developers navigate to source `.ts` files rather than `.d.ts` files.
+2. **Use Conditional Breakpoints**: In VS Code, right-click breakpoints to pause only when conditions hold (e.g. `userId === 'u_42'`).
+3. **Keep `debugger;` Out of Production**: Enforce via ESLint rule `no-debugger: error`.
+4. **Never Bind Inspector to `0.0.0.0`**: Protect Node debugging ports from remote execution exploits.
+
+---
+
+## 11. Real-World Case Study
+
+### Diagnosing Event Loop Latency Spikes in High-Throughput Service
+A WebSocket service experienced intermittent 500ms latency spikes under load. Using Node.js CPU Profiling:
+
+```typescript
+import inspector from 'node:inspector';
+import fs from 'node:fs';
+
+const session = new inspector.Session();
+session.connect();
+
+export function profileFunction(fn: () => void): void {
+  session.post('Profiler.enable', () => {
+    session.post('Profiler.start', () => {
+      fn();
+      session.post('Profiler.stop', (err, { profile }) => {
+        if (!err) {
+          fs.writeFileSync('latency-profile.cpuprofile', JSON.stringify(profile));
+          console.log('Profile saved. Load into Chrome DevTools to analyze flame graph.');
+        }
+      });
+    });
+  });
+}
+```
+Opening `latency-profile.cpuprofile` in Chrome DevTools revealed an unindexed regular expression (`RegExp`) performing catastrophic backtracking in an auth token validator!
+
+---
+
+## 12. Interview Questions
+
+<details>
+<summary>1. How do Source Maps work under the hood in TypeScript?</summary>
+
+Source maps use the Source Map V3 specification. They contain a JSON structure with base64 VLQ (Variable-Length Quantity) encoded mappings. When V8 executes JavaScript, runtime line and column coordinates are looked up in the mapping table, translating them back to the original TypeScript file, line, and column.
+</details>
+
+<details>
+<summary>2. What is the difference between `sourceMap`, `inlineSourceMap`, and `declarationMap` in `tsconfig.json`?</summary>
+
+- `sourceMap`: Emits separate `.js.map` files alongside emitted `.js` files.
+- `inlineSourceMap`: Inlines the source map as a base64 Data URI directly at the bottom of the `.js` file.
+- `declarationMap`: Emits `.d.ts.map` files, allowing IDEs to navigate from a type definition back to the original `.ts` source file during "Go to Definition".
+</details>
+
+<details>
+<summary>3. Why is leaving `debugger;` statements in production dangerous?</summary>
+
+If a client opens Chrome DevTools or a Node.js process is started with `--inspect`, encountering a `debugger;` statement immediately halts JavaScript thread execution, freezing the page or blocking the entire Node event loop.
+</details>
+
+<details>
+<summary>4. What does the "Breakpoint set but not yet bound" error in VS Code mean?</summary>
+
+It means VS Code was unable to match the breakpoint's file path to the loaded scripts. Common causes include: missing source maps, incorrect `localRoot`/`remoteRoot` path mappings in Docker, or the target code file has not yet been loaded by the Node runtime.
+</details>
+
+<details>
+<summary>5. How do you debug a TypeScript test running in Vitest using VS Code?</summary>
+
+Add a launch configuration with `runtimeExecutable: "node"`, `runtimeArgs: ["./node_modules/vitest/vitest.mjs", "run", "${file}"]`.
+</details>
+
+<details>
+<summary>6. Why is binding the Node.js inspector to `0.0.0.0` a critical security vulnerability?</summary>
+
+The V8 debugging protocol allows arbitrary code evaluation and command execution over a WebSocket connection without built-in authentication. Binding to `0.0.0.0` exposes this port to the local network or internet, allowing remote attackers to achieve Remote Code Execution (RCE).
+</details>
+
+<details>
+<summary>7. What are Logpoints in VS Code debugging?</summary>
+
+Logpoints allow developers to log messages to the debug console without modifying the source code or pausing thread execution. They can interpolate expressions like `{user.id}`.
+</details>
+
+<details>
+<summary>8. How do you take a memory heap snapshot of a running Node.js TypeScript process?</summary>
+
+By calling `node:v8.getHeapSnapshot()` from code, or connecting Chrome DevTools to the inspector port (`chrome://inspect`) and clicking "Take Snapshot" in the Memory tab.
+</details>
+
+---
+
+## 13. Exercises & Challenges
+
+<details>
+<summary>Exercise 1 (Easy): Basic `launch.json` Setup</summary>
+
+**Problem:** Create a minimal `.vscode/launch.json` configuration that launches `src/index.ts` using `tsx`.
+
+**Solution:**
+```json
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Launch TS",
+      "runtimeExecutable": "tsx",
+      "args": ["${workspaceFolder}/src/index.ts"],
+      "sourceMaps": true
+    }
+  ]
+}
+```
+</details>
+
+<details>
+<summary>Exercise 2 (Easy): Conditional Breakpoint Expression</summary>
+
+**Problem:** In a loop of 10,000 items, write the breakpoint condition expression to pause only when `index === 9999`.
+
+**Solution:**
+Right click the breakpoint red dot in VS Code, select "Edit Breakpoint" -> "Expression", and enter:
+`index === 9999`
+</details>
+
+<details>
+<summary>Exercise 3 (Medium): Source Map Inliner Script</summary>
+
+**Problem:** Write a Node.js utility script that reads a `.js` file and its `.js.map` file and writes an inlined source map `.js` file.
+
+**Solution:**
+```typescript
+import fs from 'node:fs';
+
+export function inlineMap(jsPath: string, mapPath: string): void {
+  const jsCode = fs.readFileSync(jsPath, 'utf-8');
+  const mapCode = fs.readFileSync(mapPath, 'utf-8');
+  const base64 = Buffer.from(mapCode).toString('base64');
+  const inlined = `${jsCode}\n//# sourceMappingURL=data:application/json;base64,${base64}`;
+  fs.writeFileSync(jsPath, inlined);
+}
+```
+</details>
+
+<details>
+<summary>Exercise 4 (Medium): Custom Async Stack Tracer</summary>
+
+**Problem:** Write an error wrapper that captures `Error.captureStackTrace` and formats a clean filtered stack trace omitting `node_modules`.
+
+**Solution:**
+```typescript
+export function getCleanStack(err: Error): string {
+  if (!err.stack) return '';
+  return err.stack
+    .split('\n')
+    .filter((line) => !line.includes('node_modules'))
+    .join('\n');
+}
+```
+</details>
+
+<details>
+<summary>Exercise 5 (Hard): Profiler Flame Graph Generator</summary>
+
+**Problem:** Use the `node:inspector` API to record a 5-second CPU profile and save it to disk.
+
+**Solution:**
+```typescript
+import inspector from 'node:inspector';
+import fs from 'node:fs';
+
+export function recordCpuProfile(durationMs: number, outPath: string): Promise<void> {
+  return new Promise((resolve) => {
+    const session = new inspector.Session();
+    session.connect();
+    session.post('Profiler.enable', () => {
+      session.post('Profiler.start', () => {
+        setTimeout(() => {
+          session.post('Profiler.stop', (_, { profile }) => {
+            fs.writeFileSync(outPath, JSON.stringify(profile));
+            session.disconnect();
+            resolve();
+          });
+        }, durationMs);
+      });
+    });
+  });
+}
+```
+</details>
+
+<details>
+<summary>Exercise 6 (Hard): Heap Leak Diagnostic Watchdog</summary>
+
+**Problem:** Create a background monitoring class that checks Node's heap memory usage every 10 seconds and automatically dumps a heap snapshot if heap usage exceeds 500 MB.
+
+**Solution:**
+```typescript
+import v8 from 'node:v8';
+import fs from 'node:fs';
+
+export class MemoryWatchdog {
+  private timer?: NodeJS.Timeout;
+
+  public start(maxBytes = 500 * 1024 * 1024) {
+    this.timer = setInterval(() => {
+      const stats = process.memoryUsage();
+      if (stats.heapUsed > maxBytes) {
+        console.warn(`Heap threshold exceeded: ${(stats.heapUsed / 1e6).toFixed(1)}MB! Dumping snapshot...`);
+        const stream = v8.getHeapSnapshot();
+        stream.pipe(fs.createWriteStream(`heap-leak-${Date.now()}.heapsnapshot`));
+      }
+    }, 10000);
+  }
+
+  public stop() { clearInterval(this.timer); }
+}
+```
+</details>

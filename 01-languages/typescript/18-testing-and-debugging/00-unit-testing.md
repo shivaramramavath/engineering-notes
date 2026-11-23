@@ -1,288 +1,490 @@
-# Unit Testing
+# Unit Testing in TypeScript with Vitest and Jest
 
-A **unit test** checks one small piece of code in isolation: a function, a class, a module. It runs fast, needs no network or database, and tells you exactly which behavior broke. TypeScript catches a lot of mistakes at compile time, but it cannot tell you whether `discount(100, "gold")` returns the *right number*. Tests do that. This note covers writing clear, reliable unit tests in TypeScript, using Vitest in the examples. Jest's API is nearly identical, so the same code works with small changes.
+> Authoring robust, isolated, and type-safe unit tests in TypeScript using Vitest, Jest, ts-jest, assertions, and pure function testing.
 
-**Prerequisites:**
-- [Functions](../02-functions/README.md)
-- [async/await](../12-async-and-iteration/02-async-await.md)
-- [Custom errors](../11-error-handling/01-custom-errors.md)
+| Metadata | Details |
+| :--- | :--- |
+| **Category** | Testing and Debugging |
+| **Difficulty** | Intermediate |
+| **Prerequisites** | [02-functions/00-function-types.md](../02-functions/00-function-types.md), [11-error-handling/00-catching-and-narrowing-errors.md](../11-error-handling/00-catching-and-narrowing-errors.md) |
+| **TypeScript Baseline** | TS 4.5+, TS 5.0+ |
+| **Tested tsconfig** | `"strict": true, "target": "ES2022", "module": "NodeNext"` |
 
 ---
 
-## A first test
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & API Reference](#4-syntax--api-reference)
+5. [Practical Examples](#5-practical-examples)
+6. [Edge Cases, Pitfalls & Gotchas](#6-edge-cases-pitfalls--gotchas)
+7. [Common Mistakes & Anti-Patterns](#7-common-mistakes--anti-patterns)
+8. [Performance & Type-Checker Complexity](#8-performance--type-checker-complexity)
+9. [Compiler Internals](#9-compiler-internals)
+10. [Best Practices & Design Guidelines](#10-best-practices--design-guidelines)
+11. [Real-World Case Study](#11-real-world-case-study)
+12. [Interview Questions](#12-interview-questions)
+13. [Exercises & Challenges](#13-exercises--challenges)
 
-```ts
-// src/slugify.ts
-export function slugify(text: string): string {
-  return text
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+---
+
+## 1. What & Why
+
+**Unit Testing** is the discipline of testing the smallest testable parts of an application—individual functions, methods, and classes—in strict isolation from external infrastructure (networks, databases, file systems).
+
+In TypeScript, unit tests provide a dual guarantee:
+1. **Compile-Time Contract Verification**: The TypeScript compiler verifies that test fixtures, arguments, and expected return types conform to domain interfaces.
+2. **Runtime Behavioral Verification**: The test runner executes the code against varied operational inputs, asserting that edge cases, business invariants, and branch conditions behave as expected.
+
+In modern TypeScript ecosystems, **Vitest** has largely superseded Jest due to its native Vite pipeline, out-of-the-box ESM and TypeScript support via esbuild, multi-threaded worker pools, and instant HMR test execution.
+
+```
++-------------------------------------------------------------+
+|                         Vitest Runner                       |
+|                                                             |
+|   my-service.ts  <--(Transforms via esbuild)                |
+|   my-service.test.ts                                        |
+|         |                                                   |
+|         v                                                   |
+|   Executes in isolated Worker Pool (threads)                |
+|   Reports: Pass / Fail, Execution Times, Coverage           |
++-------------------------------------------------------------+
+```
+
+---
+
+## 2. Core Concepts
+
+### 1. Test Structure (AAA Pattern)
+Every unit test should follow the **Arrange-Act-Assert** pattern:
+- **Arrange**: Set up test inputs, mock dependencies, and fixtures.
+- **Act**: Invoke the unit under test.
+- **Assert**: Verify that the output matches expected values and no unexpected side-effects occurred.
+
+### 2. Matchers and Type Inference
+Vitest and Jest matchers (`toBe`, `toEqual`, `toThrowError`) infer target types to prevent nonsensical comparisons (e.g. asserting that a string equals a number):
+```typescript
+import { describe, it, expect } from 'vitest';
+
+describe('Calculator', () => {
+  it('adds two numbers correctly', () => {
+    const sum = 2 + 3;
+    expect(sum).toBe(5);
+  });
+});
+```
+
+### 3. Asynchronous Testing
+Testing Promise-based code using `async/await` and `.rejects`:
+```typescript
+it('rejects with error on negative input', async () => {
+  await expect(calculateSquareRoot(-1)).rejects.toThrow('Negative input not allowed');
+});
+```
+
+---
+
+## 3. How It Works Internally
+
+When running `vitest run`:
+1. **Discovery**: Glob scanners find files matching `**/*.{test,spec}.ts`.
+2. **Transpilation**: Vitest transforms TypeScript files via esbuild or Vite plugins on-the-fly, stripping types without emitting separate `.js` files to disk.
+3. **Execution**: Tests run in parallel worker threads (using Node.js `worker_threads` or `tinypool`).
+4. **Assertion Evaluation**: `expect()` assertions evaluate expressions. If an assertion fails, an `AssertionError` is thrown with an informative diff.
+
+---
+
+## 4. Syntax & API Reference
+
+### Vitest Core API
+```typescript
+import { describe, it, test, expect, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
+
+describe('suite', () => {
+  beforeEach(() => { /* setup */ });
+  afterEach(() => { /* teardown */ });
+
+  it('test description', () => {
+    expect(actual).toEqual(expected);
+  });
+});
+```
+
+---
+
+## 5. Practical Examples
+
+### Example 1: Basic Pure Function Unit Testing
+```typescript
+export function formatCurrency(cents: number, currency: 'USD' | 'EUR' = 'USD'): string {
+  if (!Number.isInteger(cents) || cents < 0) {
+    throw new TypeError('Cents must be a non-negative integer');
+  }
+  const symbol = currency === 'USD' ? '$' : '€';
+  return `${symbol}${(cents / 100).toFixed(2)}`;
+}
+
+// Test Suite:
+import { describe, it, expect } from 'vitest';
+
+describe('formatCurrency', () => {
+  it('formats standard dollar amounts', () => {
+    expect(formatCurrency(1250, 'USD')).toBe('$12.50');
+  });
+
+  it('handles zero cents', () => {
+    expect(formatCurrency(0, 'USD')).toBe('$0.00');
+  });
+
+  it('throws on negative input', () => {
+    expect(() => formatCurrency(-100)).toThrow(TypeError);
+  });
+});
+```
+
+### Example 2: Real-World In-Memory Business Domain Service Test
+```typescript
+interface CartItem { id: string; priceCents: number; qty: number; }
+
+export class ShoppingCart {
+  private items: CartItem[] = [];
+
+  public addItem(item: CartItem): void {
+    if (item.qty <= 0) throw new Error('Quantity must be greater than zero');
+    this.items.push(item);
+  }
+
+  public calculateSubtotal(): number {
+    return this.items.reduce((acc, item) => acc + item.priceCents * item.qty, 0);
+  }
+}
+
+describe('ShoppingCart', () => {
+  it('calculates total for multiple items', () => {
+    const cart = new ShoppingCart();
+    cart.addItem({ id: '1', priceCents: 500, qty: 2 });
+    cart.addItem({ id: '2', priceCents: 1000, qty: 1 });
+
+    expect(cart.calculateSubtotal()).toBe(2000);
+  });
+});
+```
+
+### Example 3: Edge Case - Parameterized / Table-Driven Tests
+```typescript
+import { test, expect } from 'vitest';
+
+export function isLeapYear(year: number): boolean {
+  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+}
+
+test.each([
+  [2000, true],
+  [2024, true],
+  [1900, false],
+  [2023, false],
+  [2400, true]
+])('isLeapYear(%i) should return %s', (year, expected) => {
+  expect(isLeapYear(year)).toBe(expected);
+});
+```
+
+### Example 4: Failure Case - Type Mismatch in Assertions
+```typescript
+interface UserProfile { id: string; role: 'admin' | 'user'; }
+
+const user: UserProfile = { id: 'u_1', role: 'admin' };
+
+// @ts-expect-error TS2367: This condition will always return 'false' since the types '"admin" | "user"' and '"superuser"' have no overlap.
+if (user.role === 'superuser') {
+  // Compiler detects impossible branch!
 }
 ```
 
-```ts
-// src/slugify.test.ts
-import { describe, it, expect } from "vitest";
-import { slugify } from "./slugify";
+### Example 5: Idiomatic Snapshot Testing for Complex Data Shapes
+```typescript
+import { it, expect } from 'vitest';
 
-describe("slugify", () => {
-  it("lowercases and replaces spaces with hyphens", () => {
-    expect(slugify("Hello World")).toBe("hello-world");
-  });
-
-  it("collapses repeated separators", () => {
-    expect(slugify("a  --  b")).toBe("a-b");
-  });
-
-  it("trims leading and trailing separators", () => {
-    expect(slugify("  !!Hello!!  ")).toBe("hello");
-  });
-
-  it("returns an empty string for input with no valid characters", () => {
-    expect(slugify("***")).toBe("");
-  });
-});
-```
-
-Run it:
-
-```bash
-npx vitest run          # once
-npx vitest              # watch mode
-```
-
-Pieces: `describe` groups tests, `it` (or `test`) defines one, `expect(...)` makes an assertion with a **matcher** (`toBe`, `toEqual`, `toThrow`, ...). Test files commonly sit next to the code (`slugify.test.ts`) or in a `test/` folder. Runner choice and configuration are in [test runners](./03-test-runners.md).
-
-## Structure: arrange, act, assert
-
-A readable test has three parts, in order:
-
-```ts
-it("applies the gold discount", () => {
-  // arrange: set up inputs
-  const cart = new Cart([{ sku: "A", priceCents: 1000, qty: 2 }]);
-
-  // act: do the thing under test
-  const total = cart.total({ tier: "gold" });
-
-  // assert: check the outcome
-  expect(total).toBe(1800);
-});
-```
-
-Keep each test focused on **one behavior**, and name it for that behavior ("applies the gold discount"), not for the method ("test total"). A failing test name should tell you what broke without opening the file.
-
-## Matchers worth knowing
-
-| Matcher | Use |
-|---|---|
-| `toBe(x)` | primitives and reference identity (`Object.is`) |
-| `toEqual(x)` | deep equality of objects and arrays (ignores `undefined` properties) |
-| `toStrictEqual(x)` | deep equality that also checks `undefined` properties and class types |
-| `toBeNull()`, `toBeUndefined()`, `toBeDefined()` | absence checks |
-| `toBeTruthy()` / `toBeFalsy()` | prefer a more precise matcher when you can |
-| `toContain(x)` / `toHaveLength(n)` | arrays and strings |
-| `toMatchObject(partial)` | an object contains at least these properties |
-| `toBeCloseTo(n, digits)` | floating point comparisons |
-| `toThrow(...)` | a function throws |
-| `resolves` / `rejects` | promises |
-
-Precise assertions give better failure messages. Prefer `expect(user.role).toBe("admin")` over `expect(user.role === "admin").toBe(true)`, which fails with "expected false to be true".
-
-## Table-driven tests
-
-When the same logic is checked with many inputs, use a table instead of copy-pasted tests:
-
-```ts
-it.each([
-  ["Hello World", "hello-world"],
-  ["  trim me  ", "trim-me"],
-  ["Ünïcode", "n-code"],
-  ["", ""],
-])("slugify(%j) -> %j", (input, expected) => {
-  expect(slugify(input)).toBe(expected);
-});
-```
-
-Each row becomes a separate test with its own name and failure. Add a row to cover a new case, such as a bug you just fixed.
-
-## Testing errors
-
-```ts
-function parseAge(input: string): number {
-  const n = Number(input);
-  if (!Number.isInteger(n) || n < 0) throw new RangeError(`Invalid age: ${input}`);
-  return n;
+export function generateReport(title: string, metrics: Record<string, number>) {
+  return {
+    meta: { title, generatedAt: '2026-01-01T00:00:00.000Z' },
+    summary: metrics
+  };
 }
 
-it("throws for a negative age", () => {
-  expect(() => parseAge("-1")).toThrow(RangeError);
-  expect(() => parseAge("-1")).toThrow("Invalid age");
+it('matches snapshot structure', () => {
+  const result = generateReport('Monthly Billing', { totalOrders: 42, revenueCents: 500000 });
+  expect(result).toMatchInlineSnapshot(`
+    {
+      "meta": {
+        "generatedAt": "2026-01-01T00:00:00.000Z",
+        "title": "Monthly Billing",
+      },
+      "summary": {
+        "revenueCents": 500000,
+        "totalOrders": 42,
+      },
+    }
+  `);
 });
 ```
 
-Wrap the call in a function, or the error is thrown before `expect` can catch it. For custom errors, assert on the class and on stable fields such as `code`, not on full message text ([custom errors](../11-error-handling/01-custom-errors.md)). For code that returns a `Result` instead of throwing, assert on the returned value ([the Result pattern](../11-error-handling/02-result-pattern.md)):
+---
 
-```ts
-expect(parse("abc")).toEqual({ ok: false, error: "not-a-number" });
-```
+## 6. Edge Cases, Pitfalls & Gotchas
 
-## Testing async code
+1. **Floating Point Precision**: In JavaScript, `0.1 + 0.2 === 0.30000000000000004`. Using `expect(0.1 + 0.2).toBe(0.3)` will fail! Always use `toBeCloseTo()` for floating point arithmetic: `expect(0.1 + 0.2).toBeCloseTo(0.3, 5)`.
+2. **Missing `await` on Async Assertions**: Forgetting `await` on `expect(promise).rejects.toThrow()` causes the test to pass prematurely without verifying the rejection.
+3. **Shared State Between Tests**: Mutating a shared module-level variable across tests makes test outcomes dependent on execution order. Always reset state in `beforeEach()`.
+4. **`toBe` vs `toEqual`**: `toBe` checks referential identity (`Object.is`), whereas `toEqual` performs deep structural equality. Comparing two distinct object literals `{ a: 1 }` with `toBe` always fails.
 
-Return the promise or `await` it, and use `resolves` / `rejects` for readable assertions:
+---
 
-```ts
-it("loads a user", async () => {
-  const user = await service.getUser("1");
-  expect(user.name).toBe("Asha");
-});
+## 7. Common Mistakes & Anti-Patterns
 
-it("rejects for an unknown id", async () => {
-  await expect(service.getUser("missing")).rejects.toThrow("not found");
-});
-```
+| Anti-Pattern | Bad Code | Good Code | Compiler / Runtime Impact |
+| :--- | :--- | :--- | :--- |
+| **Float Equality with `toBe`** | `expect(price * 0.1).toBe(1.05)` | `expect(price * 0.1).toBeCloseTo(1.05)` | Fails due to IEEE 754 precision |
+| **Forgotten `await` on Rejects** | `expect(fn()).rejects.toThrow()` | `await expect(fn()).rejects.toThrow()` | Unhandled promise rejection / false pass |
+| **Testing Implementation Details** | Checking private class properties | Testing public interface outputs | Fragile tests that break on refactoring |
+| **Global State Contamination** | Module-level cache not cleared | Reset cache in `beforeEach()` | Flaky tests when run concurrently |
+| **Multiple Unrelated Asserts** | 30 assertions in one 200-line test | Focused single-responsibility tests | Failure obscures which invariant broke |
+| **Type Assertion Bypass in Tests** | `const fake = {} as CompleteUser` | Use complete fixtures or factories | Bypasses compiler protection in tests |
 
-**Always `await`** the `expect(...).rejects` line. A forgotten `await` makes the test finish before the assertion runs, so it can pass even when the code is wrong. This is the most common source of false-positive tests. The lint rule `@typescript-eslint/no-floating-promises` catches it ([async/await](../12-async-and-iteration/02-async-await.md)).
+---
 
-## Making tests deterministic
+## 8. Performance & Type-Checker Complexity
 
-Tests must give the same result every time. Common sources of flakiness, and fixes:
+- **Type Stripping vs Type Checking**: Fast test runners (Vitest, tsx, esbuild) strip types without type-checking tests during execution. To ensure tests themselves contain no type errors, run `tsc --noEmit` or `vitest typecheck` in your CI pipeline.
+- **Worker Concurrency**: Vitest isolates test files across worker threads. Ensure tests do not bind to the same hardcoded localhost port or touch the same file path.
 
-| Source | Fix |
-|---|---|
-| Current time (`new Date()`, `Date.now()`) | inject a clock, or use fake timers and a fixed system time |
-| Randomness, generated ids | inject the generator, or seed it |
-| Timers and delays | fake timers |
-| Shared mutable state between tests | create fresh objects per test, reset in `beforeEach` |
-| Test order dependence | make each test independent |
-| Network, filesystem, database | use fakes in unit tests ([mocking](./02-mocking.md)) |
+---
 
-```ts
-import { vi, beforeEach, afterEach } from "vitest";
+## 9. Compiler Internals
 
-beforeEach(() => {
-  vi.useFakeTimers();
-  vi.setSystemTime(new Date("2024-01-01T00:00:00Z"));
-});
+When using Vitest's `expect<T>(val: T)`:
+The compiler types `expect` using generic parameter inference. If you pass `expect(user.role)`, the matcher methods (`toBe`, `toEqual`) constrain their arguments to `user.role`'s inferred type union, flagging invalid values at compile time.
 
-afterEach(() => {
-  vi.useRealTimers();
-});
+---
 
-it("expires a token after one hour", () => {
-  const token = issueToken();
-  vi.advanceTimersByTime(60 * 60 * 1000);
-  expect(isExpired(token)).toBe(true);
-});
-```
+## 10. Best Practices & Design Guidelines
 
-(Jest uses `jest.useFakeTimers()` and similar.) Even better than faking global time is **injecting** it, so the code under test takes a `now: () => Date` parameter ([dependency injection](../17-design-patterns/05-dependency-injection.md)).
+1. **Follow the AAA Pattern**: Keep Arrange, Act, and Assert clearly demarcated.
+2. **Test Invariants, Not Private Methods**: Test units through their public APIs.
+3. **Run Typechecks in CI**: Add `tsc --noEmit` alongside `vitest run`.
+4. **Use `toBeCloseTo` for Decimals**: Prevent IEEE-754 precision bugs.
 
-## Testing classes with dependencies
+---
 
-Pass fakes through the constructor:
+## 11. Real-World Case Study
 
-```ts
-class InMemoryUsers implements UserRepository {
-  private users = new Map<string, User>();
-  async findById(id: string) { return this.users.get(id) ?? null; }
-  async save(user: User) { this.users.set(user.id, user); }
+### Validating Invariant Business Rules in a Banking Ledger
+Testing that balance debit operations cannot exceed available funds and produce correct audit entries:
+
+```typescript
+export interface Account { id: string; balanceCents: bigint; }
+
+export function debitAccount(acc: Account, amountCents: bigint): Account {
+  if (amountCents <= 0n) throw new RangeError('Debit amount must be positive');
+  if (acc.balanceCents < amountCents) throw new Error('Insufficient funds');
+  return { ...acc, balanceCents: acc.balanceCents - amountCents };
 }
 
-it("registers a new user", async () => {
-  const users = new InMemoryUsers();
-  const service = new UserService(users, { send: async () => {} });
+describe('debitAccount', () => {
+  it('deducts funds correctly when balance is sufficient', () => {
+    const acc: Account = { id: 'acc_1', balanceCents: 10000n };
+    const updated = debitAccount(acc, 3000n);
+    expect(updated.balanceCents).toBe(7000n);
+  });
 
-  await service.register("a@b.com");
-
-  expect(await users.findById("a@b.com")).not.toBeNull();
+  it('throws Insufficient funds when balance is exceeded', () => {
+    const acc: Account = { id: 'acc_1', balanceCents: 500n };
+    expect(() => debitAccount(acc, 600n)).toThrow('Insufficient funds');
+  });
 });
 ```
 
-Dependencies expressed as small interfaces make fakes trivial ([repository](../17-design-patterns/04-repository.md), [mocking](./02-mocking.md)).
+---
 
-## What to test
+## 12. Interview Questions
 
-Test **behavior** (inputs and observable outputs), not implementation details:
+<details>
+<summary>1. Why has Vitest largely replaced Jest in modern TypeScript development?</summary>
 
-```ts
-// brittle: tied to how it works
-expect(service["cache"].size).toBe(1);
+Vitest shares its configuration with Vite, leverages esbuild for instant sub-millisecond TypeScript transpilation, natively supports modern ESM without experimental flags, runs tests concurrently in worker pools, and provides built-in type testing (`expectTypeOf`).
+</details>
 
-// robust: tied to what it does
-expect(await service.getUser("1")).toEqual(user);
-expect(fetchSpy).toHaveBeenCalledTimes(1);     // only if "calls once" is the requirement
+<details>
+<summary>2. What is the difference between `toBe()` and `toEqual()` in test assertions?</summary>
+
+`toBe()` checks strict referential equality using `Object.is` (suitable for primitives and exact object references). `toEqual()` performs a deep recursive structural comparison of all properties on objects and arrays.
+</details>
+
+<details>
+<summary>3. Why do fast TypeScript test runners (Vitest/esbuild) skip type checking by default, and how should CI handle this?</summary>
+
+Skipping full type checking allows tests to run 10x-50x faster during development by merely stripping type syntax. CI pipelines must run a separate `tsc --noEmit` step to catch type errors before or alongside test runs.
+</details>
+
+<details>
+<summary>4. How do you properly test that an async function rejects with an error?</summary>
+
+```typescript
+await expect(asyncFunction()).rejects.toThrow('Expected message');
 ```
+The `await` is required because `.rejects` returns a Promise that must settle before the test completes.
+</details>
 
-Good targets:
+<details>
+<summary>5. What is the AAA (Arrange-Act-Assert) pattern and why is it important?</summary>
 
-- **Pure logic:** parsing, formatting, calculations, validation, state transitions ([state machines](../17-design-patterns/06-state-machines.md)).
-- **Edge cases:** empty input, zero, negative numbers, very large values, `null`/`undefined` where your types allow them, boundaries (limits, off-by-one).
-- **Error paths:** the failures your code is designed to produce.
-- **Bugs:** write a failing test that reproduces the bug, then fix it. It stays as a regression test.
+AAA is a testing convention that structures tests into three distinct phases: arranging test data, acting upon the system under test, and asserting expectations. It improves readability, standardizes test structure, and simplifies debugging.
+</details>
 
-Lower value: trivial getters, framework glue, code that is only a pass-through. TypeScript already checks the types, so do not write tests that merely re-check them. Type-level code has its own approach: [type testing](./04-type-testing.md).
+<details>
+<summary>6. How do you test floating-point numbers in Jest/Vitest?</summary>
 
-## Test data builders
+Use `expect(val).toBeCloseTo(expected, numDigits)` to avoid test failures caused by binary IEEE 754 precision artifacts like `0.1 + 0.2 === 0.30000000000000004`.
+</details>
 
-Avoid repeating large object literals. A small builder creates valid defaults and lets each test state only what matters ([builder](../17-design-patterns/01-builder.md)):
+<details>
+<summary>7. What are table-driven / parameterized tests and when should they be used?</summary>
 
-```ts
-function buildUser(overrides: Partial<User> = {}): User {
-  return { id: "u1", name: "Test", email: "t@example.com", role: "member", ...overrides };
+Table-driven tests use `test.each(table)` to run the identical assertion logic across an array of varied inputs and expected outputs. They are ideal for validating mathematical functions, parsers, and validation rules.
+</details>
+
+<details>
+<summary>8. Why should you avoid using `as any` when creating test fixtures?</summary>
+
+Casting test fixtures with `as any` disables TypeScript's type checker, allowing tests to pass invalid object shapes that real code would reject, creating a false sense of test security.
+</details>
+
+---
+
+## 13. Exercises & Challenges
+
+<details>
+<summary>Exercise 1 (Easy): String Reversal Unit Test</summary>
+
+**Problem:** Write a pure function `reverseWords(str: string): string` and a Vitest test suite asserting that words are reversed while preserving whitespace.
+
+**Solution:**
+```typescript
+export function reverseWords(str: string): string {
+  return str.split(' ').reverse().join(' ');
 }
 
-const admin = buildUser({ role: "admin" });
+import { it, expect } from 'vitest';
+it('reverses words', () => {
+  expect(reverseWords('hello world')).toBe('world hello');
+});
 ```
+</details>
 
-## Organizing tests
+<details>
+<summary>Exercise 2 (Easy): Async Error Assertion</summary>
 
-- **Co-locate** unit tests with source files (`thing.ts` and `thing.test.ts`), or mirror the structure in `test/`.
-- **One `describe` per unit,** nested `describe` per method or scenario if it helps.
-- **Use `beforeEach`** for per-test setup, and keep setup visible in the test when it matters to the outcome. Hidden setup in distant hooks makes tests hard to read.
-- **Keep tests independent and runnable alone** (`it.only` or `-t "name"`).
-- **Snapshots** (`toMatchSnapshot`) are useful for large, stable output, but they make it easy to accept changes without reading them. Prefer explicit assertions for logic.
+**Problem:** Write a test verifying that `fetchUser('-1')` rejects with `'Invalid user ID'`.
 
-## Coverage
+**Solution:**
+```typescript
+import { it, expect } from 'vitest';
 
-Coverage tools report which lines and branches ran during tests:
+async function fetchUser(id: string) {
+  if (Number(id) < 0) throw new Error('Invalid user ID');
+  return { id };
+}
 
-```bash
-npx vitest run --coverage
+it('rejects on negative id', async () => {
+  await expect(fetchUser('-1')).rejects.toThrow('Invalid user ID');
+});
 ```
+</details>
 
-Use coverage to **find untested code**, not as a goal. 100% coverage does not mean correct (assertions may be weak), and chasing it encourages low-value tests. Look at uncovered branches in important code and ask whether a test is warranted.
+<details>
+<summary>Exercise 3 (Medium): Table-Driven Email Validator Test</summary>
 
-## Common mistakes
+**Problem:** Use `test.each` to test an `isValidEmail(email: string): boolean` function against 5 valid and 5 invalid email formats.
 
-- Forgetting to `await` async assertions, producing false passes.
-- Testing implementation details (private fields, call order) instead of behavior.
-- Tests that depend on each other or on execution order.
-- Shared mutable fixtures that leak state between tests.
-- Real time, randomness, or network in unit tests.
-- Vague names (`it("works")`) and several unrelated assertions per test.
-- Asserting on whole error messages that change with wording.
-- Over-mocking so tests pass while the real integration is broken ([mocking](./02-mocking.md)).
-- Snapshots updated blindly.
-- Using `as any` to build test inputs, hiding that the code no longer accepts them.
+**Solution:**
+```typescript
+import { test, expect } from 'vitest';
 
-## Debugging
+function isValidEmail(e: string) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e); }
 
-- Run one test: `npx vitest run -t "applies the gold discount"`, or `it.only(...)` temporarily.
-- Read the **diff** in the failure output. For objects, it shows exactly which property differs.
-- Add `console.log` or use the debugger inside the test ([debugging](./05-debugging.md)).
-- If a test passes alone and fails in the suite, look for shared state or order dependence.
-- If a test passes when it should fail, check for a missing `await`, an assertion in an uncalled callback, or a matcher that is too loose (`toBeTruthy`).
-- Temporarily break the code under test to confirm the test actually fails. A test you have never seen fail is unproven.
+test.each([
+  ['alice@example.com', true],
+  ['test.user+tag@domain.co.uk', true],
+  ['invalid-email', false],
+  ['@missing-user.com', false],
+  ['no-tld@domain', false]
+])('isValidEmail(%s) -> %s', (email, expected) => {
+  expect(isValidEmail(email)).toBe(expected);
+});
+```
+</details>
 
-## Quick summary
+<details>
+<summary>Exercise 4 (Medium): Custom Matcher Implementation</summary>
 
-- A unit test checks one behavior of a small unit, quickly and deterministically. Name tests for behavior and structure them arrange, act, assert.
-- Use precise matchers, table-driven tests for many inputs, and `resolves`/`rejects` with `await` for promises.
-- Control time, randomness, and external effects by injecting them or faking them.
-- Test behavior and edge cases, not implementation details or what the type checker already guarantees.
-- Use builders for test data, keep tests independent, and treat coverage as a map, not a score.
+**Problem:** Extend Vitest with a custom matcher `toBeWithinRange(actual: number, floor: number, ceiling: number)`.
 
-**Next:** [Integration testing](./01-integration-testing.md)
+**Solution:**
+```typescript
+import { expect } from 'vitest';
+
+expect.extend({
+  toBeWithinRange(received: number, floor: number, ceiling: number) {
+    const pass = received >= floor && received <= ceiling;
+    return {
+      pass,
+      message: () => `expected ${received} to be within range [${floor}, ${ceiling}]`
+    };
+  }
+});
+```
+</details>
+
+<details>
+<summary>Exercise 5 (Hard): High-Precision Decimal Assertion Helper</summary>
+
+**Problem:** Implement an assertion helper `assertBigIntEqual(actual: bigint, expected: bigint)` that formats clear BigInt diffs on failure.
+
+**Solution:**
+```typescript
+export function assertBigIntEqual(actual: bigint, expected: bigint) {
+  if (actual !== expected) {
+    throw new Error(`BigInt assertion failed:\n  Expected: ${expected}n\n  Received: ${actual}n`);
+  }
+}
+```
+</details>
+
+<details>
+<summary>Exercise 6 (Hard): Concurrent Invariant Fuzz Tester</summary>
+
+**Problem:** Write a test that fires 1,000 randomized state updates concurrently on a `BankVault` class, asserting that the total ledger balance remains invariant.
+
+**Solution:**
+```typescript
+import { it, expect } from 'vitest';
+
+class BankVault {
+  public balance = 10000;
+  deposit(n: number) { this.balance += n; }
+  withdraw(n: number) { this.balance -= n; }
+}
+
+it('preserves ledger balance invariant under concurrent ops', async () => {
+  const vault = new BankVault();
+  const ops = Array.from({ length: 500 }, () => [
+    () => vault.deposit(50),
+    () => vault.withdraw(50)
+  ]).flat();
+
+  await Promise.all(ops.map((fn) => Promise.resolve().then(fn)));
+  expect(vault.balance).toBe(10000);
+});
+```
+</details>

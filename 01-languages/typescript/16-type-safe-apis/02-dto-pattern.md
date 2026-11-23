@@ -1,236 +1,559 @@
-# The DTO Pattern
+# Data Transfer Object (DTO) Pattern in TypeScript
 
-A **DTO** (data transfer object) is a type that describes data as it **crosses a boundary**: what a client sends in, or what the server sends out. It is deliberately separate from your database entity and your domain model. The point is control: DTOs decide exactly which fields travel, in what form, and keep your internal model free to change without breaking clients.
+> Architectural pattern for decoupling persistence and domain models from transport representations using TypeScript interfaces, utility types, mapped types, and branded validation.
 
-**Prerequisites:**
-- [Request and response types](./01-request-response-types.md)
-- [Pick, Omit, Record](../07-utility-types/01-pick-omit-record.md) and [Partial, Required, Readonly](../07-utility-types/00-partial-required-readonly.md)
-- [Schema validation](../15-runtime-validation/01-schema-validation.md)
+| Metadata | Details |
+| :--- | :--- |
+| **Category** | Type-Safe APIs |
+| **Difficulty** | Intermediate |
+| **Prerequisites** | [04-objects-and-interfaces/00-interfaces.md](../04-objects-and-interfaces/00-interfaces.md), [07-utility-types/00-partial-required-readonly.md](../07-utility-types/00-partial-required-readonly.md), [15-runtime-validation/01-schema-validation.md](../15-runtime-validation/01-schema-validation.md) |
+| **TypeScript Baseline** | TS 4.5+, TS 5.0+ |
+| **Tested tsconfig** | `"strict": true, "target": "ES2022", "module": "NodeNext"` |
 
 ---
 
-## The problem with using one type for everything
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & API Reference](#4-syntax--api-reference)
+5. [Practical Examples](#5-practical-examples)
+6. [Edge Cases, Pitfalls & Gotchas](#6-edge-cases-pitfalls--gotchas)
+7. [Common Mistakes & Anti-Patterns](#7-common-mistakes--anti-patterns)
+8. [Performance & Type-Checker Complexity](#8-performance--type-checker-complexity)
+9. [Compiler Internals](#9-compiler-internals)
+10. [Best Practices & Design Guidelines](#10-best-practices--design-guidelines)
+11. [Real-World Case Study](#11-real-world-case-study)
+12. [Interview Questions](#12-interview-questions)
+13. [Exercises & Challenges](#13-exercises--challenges)
 
-```ts
-interface User {
+---
+
+## 1. What & Why
+
+A **Data Transfer Object (DTO)** is an object designed solely to carry data between processes, network boundaries, or application layers. In a fullstack TypeScript architecture, domain entities (often backed by database ORMs such as Prisma, Drizzle, or TypeORM) contain sensitive fields, database-generated timestamps, circular references, and internal business state that should never leak over the public network boundary.
+
+Directly exposing database models to clients creates tight coupling, security vulnerabilities (such as mass assignment vulnerabilities where attackers inject `isAdmin: true` or overwrite `id`), and breaks API backward compatibility whenever the database schema changes.
+
+TypeScript allows us to model DTOs with compile-time mathematical precision:
+- **Projection**: Using `Pick`, `Omit`, and mapped types to slice domain entities into input and output shapes.
+- **Transformation**: Converting database primitive types (e.g., SQL `timestamptz` or `Date`) into serializable wire representations (ISO 8601 strings).
+- **Encapsulation**: Preventing unintended mutation and accidental exposure of domain logic.
+
+```
++------------------+          DTO Transformation          +------------------+
+|  Domain Entity   |  --------------------------------->  |   Response DTO   |
+| (Database Model) |  Omit<Entity, 'hashedPassword'>     |   (Wire Format)  |
+| - id: bigint     |                                      | - id: string     |
+| - passwordHash   |                                      | - email: string  |
+| - internalFlags  |                                      | - createdAt: str |
++------------------+                                      +------------------+
+```
+
+---
+
+## 2. Core Concepts
+
+### DTO vs Domain Model vs View Model
+- **Domain Model**: Rich object or interface modeling business entities, containing database-specific types (`Date`, `Decimal`, `bigint`), internal identifiers, and relation methods.
+- **Request DTO**: The minimal validated payload expected from an external client (e.g., `CreateUserDTO`, `UpdateUserDTO`). Fields like IDs and timestamps are omitted.
+- **Response DTO**: The serialized shape delivered to the client, guaranteeing that internal secrets (password hashes, soft-delete flags, internal tenant IDs) are removed and non-JSON-native types are serialized.
+- **View Model**: Client-side UI representation often enriched with display state (`isSelected`, `isPending`).
+
+### Type Transformation Utilities
+TypeScript provides native utility types to derive DTOs cleanly:
+```typescript
+interface UserEntity {
   id: string;
   email: string;
   passwordHash: string;
-  role: "admin" | "member";
+  twoFactorSecret: string | null;
+  role: 'admin' | 'member';
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Request DTO: client cannot set id, dates, or passwordHash
+export type CreateUserRequestDTO = Pick<UserEntity, 'email' | 'role'> & {
+  passwordPlainText: string;
+};
+
+// Response DTO: excludes security secrets, formats Date to string
+export type UserResponseDTO = Omit<UserEntity, 'passwordHash' | 'twoFactorSecret' | 'createdAt' | 'updatedAt'> & {
+  createdAt: string; // ISO 8601 string
+  updatedAt: string;
+};
+```
+
+---
+
+## 3. How It Works Internally
+
+The TypeScript compiler treats types structurally. When mapping a domain entity to a DTO, structural subtyping rules govern assignability.
+
+```
+       Source: UserEntity
+     +--------------------+
+     | id: string         |
+     | email: string      |
+     | passwordHash: str  |
+     +--------------------+
+               |
+               | Type Checker: CheckAssignability
+               | If target is UserResponseDTO:
+               |   Does target have passwordHash? No.
+               |   Excess Property Checks apply only on object literals!
+               v
+     +--------------------+
+     | id: string         |
+     | email: string      |
+     +--------------------+
+       Target: UserResponseDTO
+```
+
+Crucially, **type erasure** means TypeScript cannot strip unwanted properties at runtime:
+```typescript
+function toUserDTO(user: UserEntity): UserResponseDTO {
+  // @ts-expect-error - TS recognizes type compatibility if excess check is bypassed, but runtime object STILL HAS passwordHash!
+  return user as unknown as UserResponseDTO; // SECURITY HOLE: passwordHash is still present on JSON.stringify!
+}
+```
+A legitimate DTO transformation requires an explicit runtime mapping function or runtime schema parsing (e.g. Zod, ArkType) to physically reconstruct a clean object.
+
+---
+
+## 4. Syntax & API Reference
+
+### Mapped Type Converters for JSON Serialization
+Database entities frequently utilize `Date`, `bigint`, or custom classes. When sending over HTTP JSON, these must be transformed to primitives.
+```typescript
+export type SerializeToJson<T> = T extends Date
+  ? string
+  : T extends bigint
+  ? string
+  : T extends (...args: any[]) => any
+  ? never
+  : T extends object
+  ? { [K in keyof T]: SerializeToJson<T[K]> }
+  : T;
+```
+
+### Immutable DTOs
+DTOs are data transport bags; once instantiated, they must be immutable to prevent cross-service race conditions:
+```typescript
+export type ImmutableDTO<T> = Readonly<{
+  [K in keyof T]: T[K] extends object ? ImmutableDTO<T[K]> : T[K];
+}>;
+```
+
+---
+
+## 5. Practical Examples
+
+### Example 1: Basic Request and Response DTO Definition
+```typescript
+interface ProductEntity {
+  id: string;
+  name: string;
+  sku: string;
+  costPriceCents: number;
+  retailPriceCents: number;
+  supplierId: string;
+  isDeleted: boolean;
   createdAt: Date;
 }
 
-app.get("/users/:id", async (req, res) => {
-  const user = await db.users.find(req.params.id);
-  res.json(user);                 // sends passwordHash to the client
-});
+export type CreateProductDTO = {
+  name: string;
+  sku: string;
+  retailPriceCents: number;
+};
 
-app.post("/users", async (req, res) => {
-  const user = await db.users.create(req.body);   // a client can send { role: "admin" }
-  res.json(user);
-});
-```
+export type PublicProductDTO = Pick<ProductEntity, 'id' | 'name' | 'sku' | 'retailPriceCents'>;
 
-Using the entity directly in the API causes several different problems at once:
-
-- **Leaks internals:** `passwordHash`, internal flags, soft-delete markers.
-- **Mass assignment:** clients can set fields they should not (`role`, `id`, `createdAt`).
-- **Tight coupling:** renaming a database column becomes a breaking API change.
-- **Wrong wire types:** `Date` becomes a string in JSON ([request and response types](./01-request-response-types.md)).
-- **One shape for different purposes:** creating, updating, and reading need different required fields.
-
-## The pattern
-
-Define separate types per purpose, and convert between them at the edge:
-
-```text
-   request body               domain / entity               response body
-  +-------------+   parse    +----------------+   map      +--------------+
-  | CreateUserDto| ---------> |     User      | ---------> |   UserDto    |
-  +-------------+  validate  +----------------+            +--------------+
-   what clients                what your code               what clients
-   may send                    and database use             may see
-```
-
-```ts
-// Domain / entity (internal)
-interface User {
-  id: string;
-  email: string;
-  passwordHash: string;
-  role: "admin" | "member";
-  createdAt: Date;
-}
-
-// Input DTO: only what a client may provide
-interface CreateUserDto {
-  email: string;
-  password: string;               // plain password in, hash stored internally
-}
-
-// Output DTO: only what a client may see, in wire format
-interface UserDto {
-  id: string;
-  email: string;
-  role: "admin" | "member";
-  createdAt: string;              // ISO string
-}
-```
-
-## Mapper functions
-
-Write explicit conversion functions at the boundary, with the DTO as the declared return type:
-
-```ts
-function toUserDto(user: User): UserDto {
+export function mapToPublicProductDTO(entity: ProductEntity): PublicProductDTO {
   return {
-    id: user.id,
-    email: user.email,
-    role: user.role,
-    createdAt: user.createdAt.toISOString(),
+    id: entity.id,
+    name: entity.name,
+    sku: entity.sku,
+    retailPriceCents: entity.retailPriceCents
   };
 }
-
-app.get("/users/:id", async (req, res) => {
-  const user = await users.find(req.params.id);
-  if (!user) return res.status(404).json(notFound("User"));
-  res.json(toUserDto(user));      // passwordHash cannot appear: the mapper does not copy it
-});
 ```
 
-Why explicit mappers beat spreading (`{ ...user }`) or deleting fields:
+### Example 2: Real-World Nested DTO with Schema Validation
+```typescript
+import { z } from 'zod';
 
-- A **new internal field** (`mfaSecret`) is not exposed by accident, because the mapper is an **allow-list**.
-- If the DTO gains a required field, the mapper fails to compile until you provide it.
-- Conversions (dates, money, renamed fields) live in one place and can be tested.
+export const AddressSchema = z.object({
+  street: z.string().min(1),
+  city: z.string().min(1),
+  postalCode: z.string().regex(/^[0-9]{5}(-[0-9]{4})?$/)
+});
 
-For input, validate **and** convert in one step with a schema ([Zod](../15-runtime-validation/02-zod.md)):
-
-```ts
-import { z } from "zod";
-
-const CreateUserSchema = z.object({
+export const CreateCustomerDTOSchema = z.object({
+  fullName: z.string().min(2),
   email: z.string().email(),
-  password: z.string().min(8).max(200),
+  billingAddress: AddressSchema,
+  shippingAddress: AddressSchema.optional()
 });
 
-type CreateUserDto = z.output<typeof CreateUserSchema>;
-
-app.post("/users", async (req, res) => {
-  const parsed = CreateUserSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json(validationError(parsed.error));
-
-  const user = await users.create({
-    email: parsed.data.email,
-    passwordHash: await hash(parsed.data.password),
-    role: "member",                         // set by the server, never by the client
-  });
-  res.status(201).json(toUserDto(user));
-});
+export type CreateCustomerDTO = z.infer<typeof CreateCustomerDTOSchema>;
+export type AddressDTO = z.infer<typeof AddressSchema>;
 ```
 
-Unknown keys (like `role`) are stripped by the schema, and anything that must be controlled by the server is set by the server.
+### Example 3: Edge Case - Recursive Nested DTOs (Comment Thread)
+```typescript
+interface CommentNodeEntity {
+  id: string;
+  authorId: string;
+  content: string;
+  internalFlags: number;
+  replies: CommentNodeEntity[];
+}
 
-## Deriving DTOs from the entity
+export interface CommentResponseDTO {
+  id: string;
+  content: string;
+  replies: CommentResponseDTO[];
+}
 
-You can derive DTO types with utility types, which keeps them in sync with the model:
-
-```ts
-type PublicUser = Pick<User, "id" | "email" | "role">;        // allow-list
-type CreateUserInternal = Omit<User, "id" | "createdAt">;     // deny-list
-type UpdateUserDto = Partial<Pick<User, "email">>;
-```
-
-Trade-offs:
-
-- **Derivation reduces duplication** and keeps names aligned.
-- **It also couples the API to the model:** adding a field to `User` can change `Omit`-derived types, and a rename flows into the API.
-- Prefer `Pick` (allow-list) over `Omit` (deny-list) for **outputs** and **security-sensitive inputs**, so new fields are not exposed by default ([Pick, Omit, Record](../07-utility-types/01-pick-omit-record.md)).
-- Wire types differ from domain types in more than field names (`Date` versus `string`), so a plain `Pick` often is not enough. Use `Pick` plus an explicit conversion, or write the DTO out.
-
-Writing DTOs by hand is more verbose but makes the API surface visible and stable in code review. For public APIs, that is usually worth it.
-
-## One DTO per purpose
-
-| DTO | Purpose | Typical differences from the entity |
-|---|---|---|
-| `CreateXDto` | create input | no `id`, no timestamps, no server-controlled fields; may carry a plain password |
-| `UpdateXDto` | change input | all fields optional (`PATCH`), still excludes server-controlled fields |
-| `XDto` / `XResponseDto` | read output | no secrets, wire-format types, maybe flattened or renamed fields |
-| `XListItemDto` | list output | a smaller summary shape |
-| `XDetailDto` | detail output | includes related data |
-
-An update DTO needs one extra check. A `PATCH` whose body is `{}` is valid for an all-optional type but usually means nothing. Reject it if that is a mistake in your API:
-
-```ts
-const UpdateUserSchema = z
-  .object({ email: z.string().email().optional() })
-  .refine((v) => Object.keys(v).length > 0, { message: "No fields to update" });
-```
-
-## Class-based DTOs
-
-Some frameworks, most notably NestJS, use **classes** with decorators for DTOs:
-
-```ts
-export class CreateUserDto {
-  @IsEmail() email!: string;
-  @MinLength(8) password!: string;
+export function transformCommentTree(node: CommentNodeEntity): CommentResponseDTO {
+  return {
+    id: node.id,
+    content: node.content,
+    replies: node.replies.map(transformCommentTree)
+  };
 }
 ```
 
-The class serves as the type and holds validation metadata. This ties into framework features such as automatic validation pipes ([NestJS](../20-nodejs-backend/08-nestjs.md)). The ideas are the same: separate input and output types, an allow-list of fields, and mapping at the boundary. If you use schemas instead, you get the type from `z.output`, with no class needed.
+### Example 4: Failure Case - Direct Return Bypassing Runtime Stripping
+```typescript
+interface AccountEntity {
+  id: string;
+  username: string;
+  secretToken: string;
+}
 
-## Mapping at scale
+interface AccountDTO {
+  id: string;
+  username: string;
+}
 
-- **Nested data:** map relationships with their own mappers (`toOrderDto` calls `toUserSummaryDto`).
-- **Lists:** `users.map(toUserDto)` keeps the mapping one function, reused.
-- **Many shapes:** a small set of mappers per entity is manageable. If it grows unwieldy, consider whether endpoints are returning too many variations.
-- **Database selects:** fetch only the columns you need (`select`) so sensitive data never even enters memory, as a second layer of defense.
-- **Libraries** can generate mappers, but explicit functions are easy to read and type-check.
+function unsafeTransform(acc: AccountEntity): AccountDTO {
+  // @ts-expect-error TS2352: Conversion of type 'AccountEntity' to type 'AccountDTO' may be a mistake if structural compatibility differs, but here structural typing allows it!
+  // However, returning acc directly leaks `secretToken` to JSON.stringify!
+  return acc; // Compiles because AccountEntity has id & username, but secretToken leaks!
+}
+```
 
-## When you can skip it
+### Example 5: Idiomatic Mapper Class with Static Factories
+```typescript
+export class UserMapper {
+  public static toDTO(entity: { id: string; email: string; passwordHash: string; createdAt: Date }): {
+    id: string;
+    email: string;
+    createdAtIso: string;
+  } {
+    return Object.freeze({
+      id: entity.id,
+      email: entity.email,
+      createdAtIso: entity.createdAt.toISOString()
+    });
+  }
 
-DTOs add code. They are less useful for:
+  public static toDTOList<T extends { id: string; email: string; passwordHash: string; createdAt: Date }>(
+    entities: readonly T[]
+  ) {
+    return entities.map(UserMapper.toDTO);
+  }
+}
+```
 
-- Prototypes and internal tools where leaking fields is not a risk.
-- Entities that are already pure data with no secrets and no wire-format differences, and the API is internal.
+---
 
-Even then, for **input** you should still validate and allow-list fields. The output mapping is the part you might skip. For anything public or security-relevant, keep both.
+## 6. Edge Cases, Pitfalls & Gotchas
 
-## Important rules and misconceptions
+1. **The Structural Leak (Object Literal vs Variable Assignability)**:
+   In TypeScript, assigning a variable containing excess fields to a type with fewer fields is completely valid because TypeScript uses structural subtyping:
+   ```typescript
+   const entity = { id: '1', name: 'Alice', secretKey: 'SECRET_123' };
+   const dto: { id: string; name: string } = entity; // Permitted!
+   console.log(JSON.stringify(dto)); // '{"id":"1","name":"Alice","secretKey":"SECRET_123"}' Leaks secretKey!
+   ```
+2. **Date Serialization Pitfall**:
+   In JSON, `Date` objects serialize via `.toISOString()`, yielding strings. If your client expects `Date`, it receives `string`, breaking date arithmetic (`dto.createdAt.getTime()` fails at runtime). Always type DTO dates explicitly as `string` (or use branded date strings).
+3. **BigInt Serialization**:
+   `JSON.stringify` throws a `TypeError: Do not know how to serialize a BigInt` when attempting to stringify native `bigint`. DTOs must convert `bigint` to `string` or `number` before serialization.
+4. **Undefined vs Null in Patches**:
+   In `Partial<UpdateDTO>`, `undefined` means "do not update", while `null` means "clear this field". Confusing the two causes subtle data corruption in database updates.
 
-- **A DTO is not a database model.** It describes a contract, not storage.
-- **Mapping is not validation.** Mapping shapes data you already trust. Validation proves untrusted input is well-formed. Input needs both: validate, then convert.
-- **`Omit<User, "passwordHash">` is a type, not a runtime operation.** It does not remove the field from an object. Only an actual mapper (or a database `select`) does.
-- **Types do not strip properties.** Returning a `User` where a `UserDto` is expected compiles (extra properties are allowed for non-literal values) and sends everything at runtime.
-- **Do not reuse request DTOs as response DTOs.** They have different required fields and different audiences.
+---
 
-## Common mistakes
+## 7. Common Mistakes & Anti-Patterns
 
-- Returning ORM entities straight from controllers.
-- Using `Omit<User, "passwordHash">` as a type and then returning the full object.
-- Letting the client set server-controlled fields (`id`, `role`, `createdAt`).
-- Using `Partial<User>` as the update DTO and exposing every field.
-- Using one `User` interface for every purpose.
-- Repeating field-by-field mapping inline in several handlers.
-- Spreading `req.body` into a database call.
-- Forgetting to convert `Date` and similar types to wire format.
+| Anti-Pattern | Bad Code | Good Code | Compiler / Runtime Impact |
+| :--- | :--- | :--- | :--- |
+| **Direct Entity Exposure** | `return db.user.findFirst()` directly in API route | `return UserMapper.toDTO(user)` | Exposes password hashes and database internals over HTTP |
+| **Cast-Based Stripping** | `return entity as unknown as UserDTO` | `const { secret, ...safe } = entity; return safe;` | Type check succeeds, but runtime payload contains all forbidden fields |
+| **Date Object in Wire Type** | `interface DTO { date: Date; }` | `interface DTO { date: string; }` | Runtime type mismatch on client (`date.getFullYear` throws `TypeError`) |
+| **Unconstrained Partial Update** | `function update(dto: Partial<Entity>)` | `function update(dto: UpdateUserRequestDTO)` | Allows clients to attempt updating primary keys (`id`) |
+| **Shared Mutable DTO** | `function handle(dto: UserDTO) { dto.id = '2'; }` | `function handle(dto: Readonly<UserDTO>)` | Mutation side-effects across event listeners or middleware |
+| **Over-Fetching Over the Wire** | Reusing one massive 50-field DTO for every list endpoint | Dedicated lightweight `UserSummaryDTO` | Bloated network payload and severe mobile bandwidth degradation |
 
-## Debugging
+---
 
-- **Check the actual JSON** a handler returns, not just its type: log or snapshot it.
-- **Snapshot-test mappers** with a full entity including sensitive fields, and assert those fields are absent from the output.
-- If a field appears in a response unexpectedly, search for `res.json(` calls that pass an entity or a spread object.
-- Use a lint rule or code review checklist: handlers return a `*Dto`, never an entity type.
-- If a mapper compiles but a field is `undefined` at runtime, the entity and its declared type disagree (see [trust boundaries](../15-runtime-validation/00-trust-boundaries.md)).
+## 8. Performance & Type-Checker Complexity
 
-## Quick summary
+- **Instantiation Depth**: Deeply nested DTO types with recursive `SerializeToJson<T>` types can exceed TypeScript's max instantiation depth if circular references exist in the domain model.
+- **Object Allocation in Mappers**: In high-throughput microservices (10,000 req/sec), creating intermediate DTO objects in loops can trigger V8 Garbage Collection pressure. For hot paths, explicitly constructed flat object literals with predefined hidden classes (monomorphic shapes) perform ~4x faster than dynamic destructuring (`const { secret, ...rest } = entity`).
 
-- A DTO describes data crossing a boundary. Keep it separate from the entity and domain model.
-- Use **input DTOs** (validated, allow-listed, no server-controlled fields) and **output DTOs** (no secrets, wire-format types).
-- Convert with explicit mapper functions. They act as allow-lists and fail to compile when a DTO changes.
-- Derive with `Pick`, `Partial`, and friends when it helps, preferring allow-lists. Types never remove fields at runtime, only mappers and selects do.
-- One DTO per purpose: create, update, detail, list.
+---
 
-**Next:** [Pagination types](./03-pagination-types.md)
+## 9. Compiler Internals
+
+During compilation, when checking DTO assignment:
+1. **Excess Property Checks (EPC)**: The compiler's `checkDestructuringOrAssignment` activates EPC *only* when the right-hand side is an explicit object literal:
+   ```typescript
+   const bad: UserDTO = { id: '1', email: 'a@b.com', extra: 123 }; // TS2353: Object literal may only specify known properties
+   ```
+2. If the entity is a typed variable reference:
+   ```typescript
+   const entity: UserEntity = ...;
+   const good: UserDTO = entity; // No EPC triggered. TS checks `isTypeAssignableTo(UserEntity, UserDTO)` -> TRUE.
+   ```
+   Because `UserEntity` contains all required properties of `UserDTO`, assignability succeeds. The compiler's type checker ignores runtime property filtering.
+
+---
+
+## 10. Best Practices & Design Guidelines
+
+1. **Always Use Explicit Mapper Functions**: Never rely on type assertions (`as DTO`). Construct the DTO object explicitly field-by-field or use Zod `.strip()` parser.
+2. **Segregate Read and Write Models**: Maintain separate `CreateXRequestDTO`, `UpdateXRequestDTO`, and `XResponseDTO`.
+3. **Use Readonly by Default**: Wrap DTO types in `Readonly<T>` or define properties with `readonly`.
+4. **Colocate DTOs in Shared Monorepo Packages**: Place DTO interfaces in `@repo/api-contracts` or `@repo/types` so frontend and backend consume the exact same types.
+
+---
+
+## 11. Real-World Case Study
+
+### FinTech Payment Transaction DTO Layer
+In a banking platform, a `TransactionEntity` holds ledger accounting codes, compliance fraud scores, and merchant reconciliation details.
+
+```typescript
+// Shared Contract Package
+export interface TransactionEntity {
+  id: string;
+  accountId: string;
+  amountCents: bigint;
+  currency: 'USD' | 'EUR' | 'GBP';
+  merchantInternalId: string;
+  fraudRiskScore: number;
+  clearingStatus: 'PENDING' | 'CLEARED' | 'FLAGGED';
+  executedAt: Date;
+}
+
+// Client-facing public DTO
+export type PublicTransactionResponseDTO = Readonly<{
+  transactionId: string;
+  amountFormatted: string;
+  currency: 'USD' | 'EUR' | 'GBP';
+  status: 'PENDING' | 'COMPLETED';
+  timestamp: string;
+}>;
+
+export function mapTransactionToPublicDTO(tx: TransactionEntity): PublicTransactionResponseDTO {
+  const isCompleted = tx.clearingStatus === 'CLEARED';
+  const dollars = (Number(tx.amountCents) / 100).toFixed(2);
+  
+  return Object.freeze({
+    transactionId: tx.id,
+    amountFormatted: `$${dollars}`,
+    currency: tx.currency,
+    status: isCompleted ? 'COMPLETED' : 'PENDING',
+    timestamp: tx.executedAt.toISOString()
+  });
+}
+```
+
+---
+
+## 12. Interview Questions
+
+<details>
+<summary>1. Why doesn't TypeScript prevent secret fields from leaking if I assign an Entity to a DTO variable?</summary>
+
+TypeScript utilizes a structural type system based on duck typing. As long as the source object contains all properties required by the target type with compatible types, it is assignable. Excess Property Checks (EPC) only trigger on direct object literals, not when passing existing object references. Furthermore, TypeScript types are completely erased at runtime; no code is emitted to delete keys from the underlying JavaScript object.
+</details>
+
+<details>
+<summary>2. How do you handle Date fields when transferring DTOs over JSON HTTP APIs?</summary>
+
+JSON does not have a native Date type. `JSON.stringify(new Date())` produces an ISO 8601 string. The DTO contract must explicitly type the property as `string` (or a branded ISO string `type IsoDateString = string & { readonly __brand: unique symbol }`). If client components need `Date` methods, a client deserializer must parse the string back into a `Date`.
+</details>
+
+<details>
+<summary>3. What is the difference between `Pick<T, K>` and `Omit<T, K>` when creating DTOs, and which is safer for security?</summary>
+
+`Pick<T, K>` creates a whitelist of allowed keys, whereas `Omit<T, K>` creates a blacklist. For security-critical DTOs, `Pick` is vastly superior. If a developer subsequently adds a sensitive column (`isSuperAdmin`) to `UserEntity`, `Pick` will omit it by default, whereas `Omit` will accidentally leak the new field.
+</details>
+
+<details>
+<summary>4. How can we ensure a DTO is deeply immutable at compile time?</summary>
+
+By applying a recursive `DeepReadonly<T>` mapped type:
+```typescript
+type DeepReadonly<T> = T extends Function | boolean | number | string | symbol | null | undefined
+  ? T
+  : T extends Array<infer U>
+  ? ReadonlyArray<DeepReadonly<U>>
+  : { readonly [K in keyof T]: DeepReadonly<T[K]> };
+```
+</details>
+
+<details>
+<summary>5. How do you distinguish between "omitted" and "set to null" in an UpdateDTO?</summary>
+
+In TypeScript, `field?: string` represents `string | undefined` (omitted from the request). If the API contract supports explicit nullification, type the field as `field?: string | null`. In the database handler: `if (dto.field === undefined)` do nothing; `if (dto.field === null)` set column to SQL `NULL`; `if (typeof dto.field === 'string')` update with the new value.
+</details>
+
+<details>
+<summary>6. What is the performance implication of `const { secret, ...dto } = entity`?</summary>
+
+Object rest destructuring creates a shallow clone of the object and invokes `Object.assign` or V8 runtime helper `_objectWithoutProperties`. For large objects in tight loops, this triggers de-optimizations and GC churn compared to returning a new literal `{ id: entity.id, name: entity.name }`.
+</details>
+
+<details>
+<summary>7. How do you enforce compile-time validation that a DTO contains no functions or un-serializable symbols?</summary>
+
+By passing the DTO through a conditional mapped type that asserts every property value extends JSON primitives (`string | number | boolean | null | Array<Json> | Record<string, Json>`), failing with `never` if functions or symbols are encountered.
+</details>
+
+<details>
+<summary>8. Can you use Class-Validator and Class-Transformer with TypeScript DTOs? What are the tradeoffs?</summary>
+
+Yes, using decorators (`@IsString()`, `@Expose()`). However, this requires enabling `"experimentalDecorators": true` and `"emitDecoratorMetadata": true`, increases bundle size, and does not work in pure ESM/bundler environments that strip types without emitting metadata. Modern TypeScript favors Zod or TypeBox schemas.
+</details>
+
+---
+
+## 13. Exercises & Challenges
+
+<details>
+<summary>Exercise 1 (Easy): Create a Whitelist DTO Picker</summary>
+
+**Problem:** Implement a generic function `pickDTO<T, K extends keyof T>(obj: T, keys: K[]): Pick<T, K>` that physically creates a new object containing only the allowed keys.
+
+**Solution:**
+```typescript
+function pickDTO<T extends object, K extends keyof T>(obj: T, keys: readonly K[]): Pick<T, K> {
+  const result = {} as Pick<T, K>;
+  for (const key of keys) {
+    if (key in obj) {
+      result[key] = obj[key];
+    }
+  }
+  return result;
+}
+```
+</details>
+
+<details>
+<summary>Exercise 2 (Easy): ISO Date String Transformer Type</summary>
+
+**Problem:** Write a mapped type `ConvertDatesToString<T>` that converts any property of type `Date` to `string`, keeping other types unchanged.
+
+**Solution:**
+```typescript
+type ConvertDatesToString<T> = {
+  [K in keyof T]: T[K] extends Date ? string : T[K];
+};
+```
+</details>
+
+<details>
+<summary>Exercise 3 (Medium): Strict DTO Validator Without External Libs</summary>
+
+**Problem:** Write a generic type `Exact<T, Shape>` that ensures an object literal passed to a function has no extra properties at the type-level, returning a compiler error if extra properties exist.
+
+**Solution:**
+```typescript
+type Exact<T, Expected> = T extends Expected
+  ? Exclude<keyof T, keyof Expected> extends never
+    ? T
+    : never
+  : never;
+
+function createDTO<T, Expected>(data: Exact<T, Expected>): Expected {
+  return data as Expected;
+}
+```
+</details>
+
+<details>
+<summary>Exercise 4 (Medium): Deep JSON Serializer Type</summary>
+
+**Problem:** Write a recursive type `Jsonify<T>` that transforms `Date` to `string`, `bigint` to `string`, `Map<K, V>` to `Record<string, V>`, and removes function signatures.
+
+**Solution:**
+```typescript
+type Jsonify<T> = T extends Date
+  ? string
+  : T extends bigint
+  ? string
+  : T extends (...args: any[]) => any
+  ? never
+  : T extends Map<string, infer V>
+  ? Record<string, Jsonify<V>>
+  : T extends Array<infer U>
+  ? Array<Jsonify<U>>
+  : T extends object
+  ? { [K in keyof T as T[K] extends (...args: any[]) => any ? never : K]: Jsonify<T[K]> }
+  : T;
+```
+</details>
+
+<details>
+<summary>Exercise 5 (Hard): Branded Safe DTO Builder</summary>
+
+**Problem:** Create a type-safe DTO builder that tracks added keys at the type level, disallows building until all mandatory fields are supplied, and freezes the resulting object.
+
+**Solution:**
+```typescript
+class DTOBuilder<TTarget, TCurrent = {}> {
+  private data: Record<string, unknown> = {};
+
+  public set<K extends keyof TTarget>(
+    key: K,
+    value: TTarget[K]
+  ): DTOBuilder<TTarget, TCurrent & Record<K, TTarget[K]>> {
+    this.data[key as string] = value;
+    return this as any;
+  }
+
+  public build(this: DTOBuilder<TTarget, TTarget>): Readonly<TTarget> {
+    return Object.freeze({ ...(this.data as TTarget) });
+  }
+}
+```
+</details>
+
+<details>
+<summary>Exercise 6 (Hard): Compile-Time Secret Leak Detector</summary>
+
+**Problem:** Create a utility type `DisallowKeys<T, BannedKeys extends string>` that resolves to `never` if any property of `T` matches `BannedKeys`, producing an actionable compiler diagnostic.
+
+**Solution:**
+```typescript
+type DisallowKeys<T, BannedKeys extends string> = keyof T & BannedKeys extends never
+  ? T
+  : {
+      __ERROR__: 'Object contains forbidden sensitive keys';
+      forbiddenKeys: keyof T & BannedKeys;
+    };
+
+type UserEntity = { id: string; passwordHash: string; email: string };
+type BadDTO = DisallowKeys<UserEntity, 'passwordHash' | 'twoFactorSecret'>;
+// BadDTO resolves to { __ERROR__: ...; forbiddenKeys: 'passwordHash' }
+```
+</details>

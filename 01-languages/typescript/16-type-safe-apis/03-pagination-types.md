@@ -1,271 +1,581 @@
-# Pagination Types
+# Pagination Types and Cursor-Based Contracts in TypeScript
 
-Any endpoint that returns a list eventually needs pagination. The request and response shapes look similar across endpoints, which makes them a good fit for **generic types** that you define once and reuse. The more important decision is which kind of pagination to use, because offset and cursor pagination behave very differently under load and under change.
+> Modeling robust offset, page-based, and cursor-based pagination contracts, Relay connection specs, opaque tokens, and generic paginated responses in TypeScript.
 
-**Prerequisites:**
-- [Request and response types](./01-request-response-types.md)
-- [Generic types](../06-generics/01-generic-types.md)
-- [Iterators and generators](../12-async-and-iteration/04-iterators-and-generators.md) (for the "iterate every page" helper)
+| Metadata | Details |
+| :--- | :--- |
+| **Category** | Type-Safe APIs |
+| **Difficulty** | Intermediate |
+| **Prerequisites** | [06-generics/00-generic-functions.md](../06-generics/00-generic-functions.md), [16-type-safe-apis/01-request-response-types.md](./01-request-response-types.md) |
+| **TypeScript Baseline** | TS 4.5+, TS 5.0+ |
+| **Tested tsconfig** | `"strict": true, "target": "ES2022", "module": "NodeNext"` |
 
 ---
 
-## Two styles
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & API Reference](#4-syntax--api-reference)
+5. [Practical Examples](#5-practical-examples)
+6. [Edge Cases, Pitfalls & Gotchas](#6-edge-cases-pitfalls--gotchas)
+7. [Common Mistakes & Anti-Patterns](#7-common-mistakes--anti-patterns)
+8. [Performance & Type-Checker Complexity](#8-performance--type-checker-complexity)
+9. [Compiler Internals](#9-compiler-internals)
+10. [Best Practices & Design Guidelines](#10-best-practices--design-guidelines)
+11. [Real-World Case Study](#11-real-world-case-study)
+12. [Interview Questions](#12-interview-questions)
+13. [Exercises & Challenges](#13-exercises--challenges)
 
-| | Offset (page-based) | Cursor (keyset) |
-|---|---|---|
-| Request | `page` and `pageSize` (or `offset` and `limit`) | `limit` and an opaque `cursor` |
-| "Where am I?" | a number | a token pointing at the last item seen |
-| Jump to page N | **yes** | no |
-| Consistent while data changes | **no**: inserts and deletes shift pages, causing duplicates or skipped items | **yes**: continues from a specific item |
-| Cost for deep pages | grows with the offset (the database skips rows) | stays flat (uses an index) |
-| Total count | easy to include, but can be expensive | usually omitted |
-| Good for | admin tables, small datasets, "page 3 of 12" UIs | feeds, infinite scroll, large or fast-changing data, APIs consumed by programs |
+---
 
-Rule of thumb: use **offset** when users need page numbers and the data is small and fairly static, and **cursor** for everything that scales or changes.
+## 1. What & Why
 
-## Offset pagination types
+Pagination is an essential contract in distributed systems to prevent database memory exhaustion, control network packet sizing, and ensure snappy UI rendering. When dealing with millions of records, returning unbounded arrays leads to out-of-memory (OOM) crashes and sluggish mobile experiences.
 
-```ts
-interface OffsetPageQuery {
-  page: number;        // 1-based
-  pageSize: number;
-}
+Historically, APIs used simple offset/limit pagination (`?offset=100&limit=20`). However, in high-velocity datasets, offset pagination suffers from:
+1. **$O(N)$ Database Degradation**: The database must scan and discard $N$ rows before returning the requested slice.
+2. **Page Drift / Duplication**: Inserting or deleting records while a user scrolls causes items to appear twice or disappear entirely.
 
-interface OffsetPage<T> {
-  items: T[];
-  page: number;
-  pageSize: number;
-  total: number;       // total matching items
-  totalPages: number;
-}
+Modern production systems employ **Cursor-Based Pagination** and the **Relay Connection Specification**. By typing pagination parameters with TypeScript generics, branded opaque cursor tokens, and discriminated union result types, we can prevent runtime pagination bugs at compile time.
+
+```
+Offset-Based:
+[Row 0] ... [Row 99 (Skipped in DB)] -> [Row 100 .. 120] (Slow, prone to drift)
+
+Cursor-Based:
+WHERE (created_at, id) < ('2026-11-20', 'uuid-99') LIMIT 20 (Indexed index seek, instant)
 ```
 
-A generic `OffsetPage<T>` works for every list endpoint:
+---
 
-```ts
-type ListUsersResponse = OffsetPage<UserDto>;
-type ListPostsResponse = OffsetPage<PostDto>;
-```
+## 2. Core Concepts
 
-Server side:
+### 1. Offset Pagination Contract
+A traditional model tracking `page` (or `offset`), `pageSize` (or `limit`), `totalCount`, and `totalPages`.
+```typescript
+export interface OffsetPaginationParams {
+  page?: number;
+  limit?: number;
+}
 
-```ts
-async function listUsers({ page, pageSize }: OffsetPageQuery): Promise<OffsetPage<UserDto>> {
-  const offset = (page - 1) * pageSize;
-  const [rows, total] = await Promise.all([
-    db.users.findMany({ skip: offset, take: pageSize, orderBy: { id: "asc" } }),
-    db.users.count(),
-  ]);
-  return {
-    items: rows.map(toUserDto),
-    page,
-    pageSize,
-    total,
-    totalPages: Math.ceil(total / pageSize),
+export interface OffsetPaginatedResult<T> {
+  items: readonly T[];
+  pagination: {
+    currentPage: number;
+    pageSize: number;
+    totalItems: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
   };
 }
 ```
 
-Problems to know about:
+### 2. Cursor Pagination Contract
+In cursor pagination, the client sends an opaque pointer (`cursor`) pointing to the last seen item, alongside a `limit` and traversal `direction`.
+```typescript
+export type Cursor = string & { readonly __brand: unique symbol };
 
-- With an offset, the database often still **reads and discards** the skipped rows, so `page=10000` is slow.
-- If a row is inserted or deleted between two requests, items **shift** across pages: one appears twice, another is skipped.
-- `total` needs a separate `COUNT` query, which can be slow on large tables with filters. Consider omitting it, or returning an approximate count.
-
-## Cursor pagination types
-
-```ts
-interface CursorPageQuery {
+export interface CursorPaginationParams {
+  cursor?: Cursor;
   limit: number;
-  cursor?: string;     // absent for the first page
+  direction?: 'forward' | 'backward';
 }
 
-interface CursorPage<T> {
-  items: T[];
-  nextCursor: string | null;   // null means there are no more items
+export interface CursorPaginatedResult<T> {
+  data: readonly T[];
+  meta: {
+    nextCursor: Cursor | null;
+    prevCursor: Cursor | null;
+    hasMore: boolean;
+  };
 }
 ```
 
-A client loops until `nextCursor` is `null`. The cursor is **opaque**: clients must treat it as a string to pass back, not parse it. That leaves you free to change what it encodes.
-
-### How the server implements it (keyset)
-
-Instead of "skip N rows", ask for rows **after** the last one seen, using the sort key:
-
-```sql
--- sorted newest first; (created_at, id) is a unique, stable sort key
-SELECT * FROM posts
-WHERE (created_at, id) < ($1, $2)       -- values decoded from the cursor
-ORDER BY created_at DESC, id DESC
-LIMIT $3;                                -- limit + 1, to detect whether there is a next page
-```
-
-Fetch `limit + 1` rows. If you get `limit + 1`, there is another page: drop the extra row and build `nextCursor` from the last row you return.
-
-Requirements:
-
-- The sort must be **total**: add a unique tiebreaker such as `id` to the order, or rows with equal sort values will be skipped or repeated.
-- The sort columns should be **indexed**.
-- The cursor encodes the sort key of the last item. It is often base64-encoded JSON.
-
-### Typed cursor encoding
-
-Because the cursor comes back from the client, it is **untrusted input**. Decode and validate it:
-
-```ts
-import { z } from "zod";
-
-const CursorSchema = z.object({
-  createdAt: z.string().datetime(),
-  id: z.string(),
-});
-
-type Cursor = z.output<typeof CursorSchema>;
-
-function encodeCursor(cursor: Cursor): string {
-  return Buffer.from(JSON.stringify(cursor)).toString("base64url");
+### 3. Relay Connection Specification (GraphQL & REST)
+Standardized by GraphQL Relay, structuring results into `edges`, `node`, and `pageInfo`:
+```typescript
+export interface Edge<T> {
+  cursor: Cursor;
+  node: T;
 }
 
-function decodeCursor(raw: string): Cursor | null {
-  try {
-    const json = JSON.parse(Buffer.from(raw, "base64url").toString("utf8"));
-    const parsed = CursorSchema.safeParse(json);
-    return parsed.success ? parsed.data : null;
-  } catch {
-    return null;                       // malformed cursor -> treat as invalid input (400)
+export interface PageInfo {
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+  startCursor: Cursor | null;
+  endCursor: Cursor | null;
+}
+
+export interface Connection<T> {
+  edges: readonly Edge<T>[];
+  pageInfo: PageInfo;
+  totalCount?: number;
+}
+```
+
+---
+
+## 3. How It Works Internally
+
+The cursor must be completely opaque to the client. Internally, a cursor is an encoded representation of the sort key(s) (e.g., base64-encoded `created_at` timestamp + unique `id`).
+
+```
+Database Row: { id: "user_123", createdAt: 1774390000 }
+                       |
+               Buffer.from(JSON.stringify([row.createdAt, row.id])).toString('base64url')
+                       |
+Cursor String: "WzE3NzQzOTAwMDAsInVzZXJfMTIzIl0"
+                       |
+Branded Type: string & { readonly __brand: unique symbol }
+```
+
+By branding the cursor type in TypeScript, we disallow consumers from crafting invalid string pointers or passing raw database primary keys directly as cursors.
+
+---
+
+## 4. Syntax & API Reference
+
+### Discriminated Union of Pagination Requests
+An endpoint may allow either offset OR cursor pagination, but never a mixed, conflicting payload:
+```typescript
+export type PaginationQuery =
+  | {
+      mode: 'offset';
+      page: number;
+      pageSize: number;
+    }
+  | {
+      mode: 'cursor';
+      cursor?: Cursor;
+      limit: number;
+    };
+```
+
+### Universal Infinite Page Iterator
+Typing an asynchronous iterable that repeatedly fetches cursor pages until exhausted:
+```typescript
+export type PageFetcher<T> = (cursor?: Cursor) => Promise<CursorPaginatedResult<T>>;
+
+export async function* iteratePages<T>(fetcher: PageFetcher<T>): AsyncGenerator<T, void, unknown> {
+  let nextCursor: Cursor | null | undefined = undefined;
+  let hasMore = true;
+
+  while (hasMore) {
+    const page: CursorPaginatedResult<T> = await fetcher(nextCursor ?? undefined);
+    for (const item of page.data) {
+      yield item;
+    }
+    nextCursor = page.meta.nextCursor;
+    hasMore = page.meta.hasMore && nextCursor !== null;
   }
 }
 ```
 
-(`Buffer` is Node's. In browsers use `btoa`/`atob` with care for non-ASCII.) A bad cursor should produce a `400` validation error, not a server error ([error response types](./04-error-response-types.md)). If the data must be tamper-proof, sign the cursor, or keep sensitive details out of it.
+---
 
-## A generic page type for both
+## 5. Practical Examples
 
-You can unify them with one generic response, or keep two. A discriminated union is useful when an API supports both styles:
-
-```ts
-type Page<T> =
-  | ({ kind: "offset" } & OffsetPage<T>)
-  | ({ kind: "cursor" } & CursorPage<T>);
-```
-
-Most APIs pick one style per endpoint, so separate `OffsetPage<T>` and `CursorPage<T>` types are simpler.
-
-### A reusable schema factory
-
-When using schemas, build the page schema from the item schema:
-
-```ts
-import { z } from "zod";
-
-const cursorPageSchema = <S extends z.ZodType>(item: S) =>
-  z.object({
-    items: z.array(item),
-    nextCursor: z.string().nullable(),
-  });
-
-const UsersPage = cursorPageSchema(UserDtoSchema);
-type UsersPage = z.output<typeof UsersPage>;      // { items: UserDto[]; nextCursor: string | null }
-```
-
-This is a generic function over schemas, the runtime counterpart to the generic type.
-
-## Request parameters
-
-Treat query parameters as untrusted strings, then validate and bound them:
-
-```ts
-const PageQuerySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(100).default(20),
-  cursor: z.string().optional(),
-});
-```
-
-- **Always set a maximum** for `limit` or `pageSize`, or a client can ask for a million rows.
-- **Set a sensible default** so omitted values behave predictably.
-- **Whitelist sort fields** with a union type (`sort: "createdAt" | "name"`) rather than passing a raw column name into a query ([input validation](../23-security/01-input-validation.md)).
-
-Typed sorting and filtering:
-
-```ts
-type UserSort = "createdAt" | "name";
-
-interface ListUsersQuery extends CursorPageQuery {
-  sort?: UserSort;
-  order?: "asc" | "desc";
-  role?: "admin" | "member";
+### Example 1: Basic Generic Offset Response Factory
+```typescript
+export function createOffsetResponse<T>(
+  items: readonly T[],
+  total: number,
+  page: number,
+  limit: number
+): OffsetPaginatedResult<T> {
+  const totalPages = Math.ceil(total / limit) || 1;
+  return {
+    items,
+    pagination: {
+      currentPage: page,
+      pageSize: limit,
+      totalItems: total,
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPrevPage: page > 1
+    }
+  };
 }
 ```
 
-Keep the **same sort** for the whole traversal: the cursor is only valid for the sort it was created under. Tying the sort into the cursor, or rejecting a mismatch, avoids confusing results.
+### Example 2: Real-World Safe Base64 Cursor Encoder / Decoder
+```typescript
+export type Cursor = string & { readonly __brand: unique symbol };
 
-## Consuming pages in the client
+export interface CursorPayload {
+  sortValue: string | number;
+  id: string;
+}
 
-An async generator turns "call until `nextCursor` is null" into a plain loop:
+export function encodeCursor(payload: CursorPayload): Cursor {
+  const serialized = JSON.stringify(payload);
+  const base64 = Buffer.from(serialized, 'utf-8').toString('base64url');
+  return base64 as Cursor;
+}
 
-```ts
-async function* iterateAll<T>(
-  fetchPage: (cursor: string | undefined) => Promise<CursorPage<T>>,
-): AsyncGenerator<T> {
-  let cursor: string | undefined;
+export function decodeCursor(cursor: Cursor): CursorPayload | null {
+  try {
+    const json = Buffer.from(cursor, 'base64url').toString('utf-8');
+    const parsed = JSON.parse(json);
+    if (typeof parsed === 'object' && parsed !== null && 'id' in parsed && 'sortValue' in parsed) {
+      return parsed as CursorPayload;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+```
+
+### Example 3: Edge Case - Bi-Directional Relay Connection Builder
+```typescript
+export function buildRelayConnection<T extends { id: string; createdAt: Date }>(
+  items: readonly T[],
+  limit: number,
+  hasExtraItem: boolean,
+  isBackward: boolean
+): Connection<T> {
+  const edges: Edge<T>[] = items.map((item) => ({
+    cursor: encodeCursor({ sortValue: item.createdAt.toISOString(), id: item.id }),
+    node: item
+  }));
+
+  return {
+    edges,
+    pageInfo: {
+      hasNextPage: !isBackward && hasExtraItem,
+      hasPreviousPage: isBackward && hasExtraItem,
+      startCursor: edges.length > 0 ? edges[0].cursor : null,
+      endCursor: edges.length > 0 ? edges[edges.length - 1].cursor : null
+    }
+  };
+}
+```
+
+### Example 4: Failure Case - Mixing Unbranded Strings into Cursor Contract
+```typescript
+declare function fetchCursorPage(cursor: Cursor): Promise<void>;
+
+const rawUserQuery = "page_2";
+
+// @ts-expect-error TS2345: Argument of type 'string' is not assignable to parameter of type 'Cursor'. Type 'string' is not assignable to type '{ readonly __brand: unique symbol; }'.
+fetchCursorPage(rawUserQuery);
+```
+
+### Example 5: Idiomatic TanStack Query Infinite Query Typing
+```typescript
+interface InfiniteArticlesQuery {
+  pageParam?: Cursor;
+}
+
+export const fetchArticles = async ({ pageParam }: InfiniteArticlesQuery): Promise<CursorPaginatedResult<{ id: string; title: string }>> => {
+  const url = new URL('/api/articles', 'https://example.com');
+  if (pageParam) url.searchParams.set('cursor', pageParam);
+  url.searchParams.set('limit', '20');
+
+  const res = await fetch(url.toString());
+  if (!res.ok) throw new Error('Network error');
+  return res.json();
+};
+```
+
+---
+
+## 6. Edge Cases, Pitfalls & Gotchas
+
+1. **Total Count Computation Cost**:
+   Computing `COUNT(*)` in SQL on tables with 50M+ rows requires an expensive sequential table scan. Never force `totalCount` as a required field in cursor-based pagination contracts. Make it optional.
+2. **Deterministic Tie-Breaking**:
+   Sorting only by `created_at` causes pagination instability when multiple rows share the identical millisecond timestamp. The cursor sort contract must always include a secondary deterministic unique column (e.g., `ORDER BY created_at DESC, id DESC`).
+3. **Negative Offsets and Overflow**:
+   Clients can send `page=-1` or `limit=99999999`. Always clamp bounds via validation schemas (e.g., `z.number().int().min(1).max(100)`).
+4. **Empty Page Cursors**:
+   When zero records match, `startCursor` and `endCursor` must be explicitly typed as `null` rather than omitted or empty string `""`.
+
+---
+
+## 7. Common Mistakes & Anti-Patterns
+
+| Anti-Pattern | Bad Code | Good Code | Compiler / Runtime Impact |
+| :--- | :--- | :--- | :--- |
+| **Exposing DB Primary Key as Cursor** | `cursor: string` containing raw integer ID `1054` | Opaque base64 branded cursor | Information disclosure; clients manipulate IDs directly |
+| **Unbounded Query Limit** | `limit: number` without schema bound | `limit: z.number().int().max(100)` | Denial of Service (DoS) via `?limit=1000000` |
+| **Mutable Paginated Array** | `items: T[]` | `readonly items: readonly T[]` | Consumers mutating local array corrupts pagination cache |
+| **Non-Deterministic Sort** | `ORDER BY updated_at` | `ORDER BY updated_at DESC, id DESC` | Missing items or duplicate items on next cursor fetch |
+| **Hardcoded Next Page Calculation** | `page + 1` without checking `hasNextPage` | Check `hasNextPage` or `nextCursor !== null` | Endless looping on the final page |
+| **Leaking SQL Where Clauses** | `cursor: "id > 500 AND status = 'ACTIVE'"` | Secure server-side cursor parser | Direct SQL injection vulnerability |
+
+---
+
+## 8. Performance & Type-Checker Complexity
+
+- **Generics Instantiation**: `Connection<T>` generates nested structural types `Edge<T>[]` and `PageInfo`. When chaining utility types on `Connection<T>`, keep the generic depth shallow to avoid memory spikes in TSServer.
+- **Async Iterator Memory Footprint**: The `AsyncGenerator` pattern yields individual items lazily. This keeps garbage collection overhead flat, consuming constant $O(1)$ memory on the client even when streaming 100,000 items.
+
+---
+
+## 9. Compiler Internals
+
+When using branded types for cursors:
+```typescript
+declare const __brandSymbol: unique symbol;
+type Cursor = string & { readonly [__brandSymbol]: 'Cursor' };
+```
+The TypeScript checker evaluates intersection types `A & B`. When a regular string is passed, the compiler evaluates `isTypeAssignableTo(string, Cursor)`. Since `string` does not contain the `[__brandSymbol]` property, the compiler halts and emits `TS2345: Argument of type 'string' is not assignable to parameter of type 'Cursor'`.
+
+---
+
+## 10. Best Practices & Design Guidelines
+
+1. **Default to Cursor Pagination for Feeds & Large Lists**: Use offset pagination only for administrative tables with fixed page jump UI.
+2. **Brand Your Cursors**: Enforce opaque cursor semantics using TypeScript nominal branding.
+3. **Always Include Direction & Limit**: Standardize query shape as `{ limit: number, cursor?: Cursor, direction?: 'forward' | 'backward' }`.
+4. **Use Readonly Arrays**: Ensure `readonly items: readonly T[]` to protect immutability.
+
+---
+
+## 11. Real-World Case Study
+
+### High-Volume GitHub-Style Notification Feed
+A notification service with 200 writes/sec implements a cursor-paginated feed that remains stable during real-time event streaming:
+
+```typescript
+export interface NotificationItem {
+  id: string;
+  recipientId: string;
+  title: string;
+  read: boolean;
+  createdAt: Date;
+}
+
+export type NotificationFeedResponse = Connection<Omit<NotificationItem, 'recipientId'>>;
+
+export async function fetchNotificationFeed(
+  recipientId: string,
+  first: number = 20,
+  after?: Cursor
+): Promise<NotificationFeedResponse> {
+  const cursorData = after ? decodeCursor(after) : null;
+  // Database executes indexed seek:
+  // SELECT * FROM notifications WHERE recipient_id = $1 AND (created_at, id) < ($2, $3) ORDER BY created_at DESC, id DESC LIMIT 21;
+  const rawRows: NotificationItem[] = []; // retrieved from DB
+  const hasExtra = rawRows.length > first;
+  const sliced = hasExtra ? rawRows.slice(0, first) : rawRows;
+
+  return buildRelayConnection(sliced, first, hasExtra, false);
+}
+```
+
+---
+
+## 12. Interview Questions
+
+<details>
+<summary>1. Why is cursor-based pagination superior to offset-based pagination in relational databases?</summary>
+
+Offset pagination requires the database engine to scan all previous $N$ rows and discard them, resulting in $O(N)$ execution time and heavy I/O overhead. Cursor-based pagination leverages indexed multi-column inequalities (`WHERE (created_at, id) < (cursor_date, cursor_id)`), turning the query into an $O(\log N)$ B-tree index seek. Furthermore, cursor pagination prevents duplicate or skipped items when rows are inserted or deleted during user traversal.
+</details>
+
+<details>
+<summary>2. How do you implement a branded type for an opaque cursor in TypeScript?</summary>
+
+```typescript
+declare const CursorBrand: unique symbol;
+export type Cursor = string & { readonly [CursorBrand]: 'Cursor' };
+
+export function makeCursor(raw: string): Cursor {
+  return raw as Cursor;
+}
+```
+This prevents plain strings from being accidentally supplied without going through the designated decoder/encoder.
+</details>
+
+<details>
+<summary>3. What is the Relay Connection specification?</summary>
+
+Relay Connection is a specification for cursor pagination that structures results into `edges` (each containing `node` and `cursor`) and a top-level `pageInfo` object (containing `hasNextPage`, `hasPreviousPage`, `startCursor`, and `endCursor`). It standardizes infinite scroll traversal across APIs.
+</details>
+
+<details>
+<summary>4. What happens if you sort by a non-unique column in cursor pagination?</summary>
+
+Pagination becomes non-deterministic. If multiple rows share the identical timestamp or status, the database engine does not guarantee the order among those identical rows. Consequently, a cursor pointing to that timestamp might skip rows or repeat rows across pages. You must always append a unique column (such as the primary key `id`) to the sort order.
+</details>
+
+<details>
+<summary>5. How can you type an API that supports BOTH offset and cursor pagination without allowing invalid combinations?</summary>
+
+Use a discriminated union:
+```typescript
+type PaginationRequest =
+  | { type: 'offset'; page: number; limit: number }
+  | { type: 'cursor'; cursor?: Cursor; limit: number };
+```
+This makes it a compile-time error to supply both `page` and `cursor`.
+</details>
+
+<details>
+<summary>6. How do you handle total count efficiently in cursor pagination?</summary>
+
+Avoid returning `totalCount` on every page request, as `COUNT(*)` requires an expensive full-table or index scan. If total counts are required by the UI, compute them asynchronously in a separate endpoint, or cache the approximate count using database catalog statistics (e.g. `pg_class.reltuples`).
+</details>
+
+<details>
+<summary>7. How do you type an infinite scrolling React hook with TypeScript and cursor pagination?</summary>
+
+Use generics on the page data:
+```typescript
+interface UseInfiniteResult<T> {
+  items: T[];
+  fetchNextPage: () => Promise<void>;
+  hasNextPage: boolean;
+  isFetchingNextPage: boolean;
+}
+```
+</details>
+
+<details>
+<summary>8. Why should `items` in a paginated response type be `readonly T[]` rather than `T[]`?</summary>
+
+Because paginated responses represent server state snapshots. Marking arrays as `readonly` prevents consuming code from accidentally modifying the array in place (`array.push()` or `array.sort()`), which would corrupt the state stored in caching layers like React Query or Apollo Client.
+</details>
+
+---
+
+## 13. Exercises & Challenges
+
+<details>
+<summary>Exercise 1 (Easy): Create a Generic Paginated Response Interface</summary>
+
+**Problem:** Define a generic interface `PaginatedList<T>` that holds an array of items, a total count, and a boolean indicating if more items exist.
+
+**Solution:**
+```typescript
+export interface PaginatedList<T> {
+  readonly items: readonly T[];
+  readonly total: number;
+  readonly hasMore: boolean;
+}
+```
+</details>
+
+<details>
+<summary>Exercise 2 (Easy): Extract Item Type from Paginated Contract</summary>
+
+**Problem:** Write a conditional type `ExtractPaginatedItem<T>` that extracts `TItem` from `PaginatedList<TItem>`.
+
+**Solution:**
+```typescript
+type ExtractPaginatedItem<T> = T extends PaginatedList<infer TItem> ? TItem : never;
+```
+</details>
+
+<details>
+<summary>Exercise 3 (Medium): Strongly-Typed Multi-Column Cursor</summary>
+
+**Problem:** Create a type-safe cursor encoder/decoder that handles composite sort keys: a date timestamp and a UUID.
+
+**Solution:**
+```typescript
+export type CompositeCursor = string & { readonly __brand: 'CompositeCursor' };
+
+export interface CompositeCursorData {
+  timestampMs: number;
+  id: string;
+}
+
+export function packCursor(data: CompositeCursorData): CompositeCursor {
+  return Buffer.from(`${data.timestampMs}:${data.id}`).toString('base64url') as CompositeCursor;
+}
+
+export function unpackCursor(cursor: CompositeCursor): CompositeCursorData | null {
+  const raw = Buffer.from(cursor, 'base64url').toString('utf-8');
+  const [timeStr, id] = raw.split(':');
+  const timestampMs = Number(timeStr);
+  if (isNaN(timestampMs) || !id) return null;
+  return { timestampMs, id };
+}
+```
+</details>
+
+<details>
+<summary>Exercise 4 (Medium): Build an Async Page Collector</summary>
+
+**Problem:** Write a helper function `collectAllPages<T>(fetcher: (cursor?: Cursor) => Promise<CursorPaginatedResult<T>>): Promise<T[]>` that aggregates all pages into a single flat array.
+
+**Solution:**
+```typescript
+export async function collectAllPages<T>(
+  fetcher: (cursor?: Cursor) => Promise<CursorPaginatedResult<T>>
+): Promise<T[]> {
+  const all: T[] = [];
+  let currentCursor: Cursor | null | undefined = undefined;
+
   do {
-    const page = await fetchPage(cursor);
-    yield* page.items;
-    cursor = page.nextCursor ?? undefined;
-  } while (cursor !== undefined);
-}
+    const page: CursorPaginatedResult<T> = await fetcher(currentCursor ?? undefined);
+    all.push(...page.data);
+    currentCursor = page.meta.nextCursor;
+  } while (currentCursor);
 
-for await (const user of iterateAll((c) => api.listUsers({ limit: 100, cursor: c }))) {
-  console.log(user.email);
+  return all;
 }
 ```
+</details>
 
-Pages are fetched lazily as the loop runs, and breaking out of the loop stops further requests ([iterators and generators](../12-async-and-iteration/04-iterators-and-generators.md)).
+<details>
+<summary>Exercise 5 (Hard): Relay Connection Normalizer</summary>
 
-For UIs, data-fetching libraries provide infinite-query helpers that manage the list of pages and the "load more" state ([server state with TanStack Query](../19-react-and-frontend/07-server-state-tanstack-query.md)).
+**Problem:** Implement a function `normalizeConnection<T>(conn: Connection<T>): { entities: Record<string, T>; cursorOrder: Cursor[] }` requiring that every node contains a unique `id: string`.
 
-## Other conventions
+**Solution:**
+```typescript
+export function normalizeConnection<T extends { id: string }>(
+  connection: Connection<T>
+): { entities: Record<string, T>; cursorOrder: Cursor[] } {
+  const entities: Record<string, T> = {};
+  const cursorOrder: Cursor[] = [];
 
-- **`hasMore`** can be included next to `nextCursor` for convenience, but `nextCursor === null` already carries the information.
-- **`Link` headers** (`rel="next"`) are an HTTP-native way to expose the next page URL. They are less convenient to type than a body field.
-- **Previous cursors** (`prevCursor`) support bidirectional navigation and need keyset queries in both directions.
-- **Totals in cursor APIs** are sometimes offered as a separate endpoint or an optional, approximate field.
-- Document the page size limits and ordering guarantees as part of the [contract](./00-api-contracts.md).
+  for (const edge of connection.edges) {
+    entities[edge.node.id] = edge.node;
+    cursorOrder.push(edge.cursor);
+  }
 
-## Important rules and misconceptions
+  return { entities, cursorOrder };
+}
+```
+</details>
 
-- **Offset pagination is not wrong,** just limited. For small, stable data it is the simplest choice.
-- **A cursor is not an id.** It encodes a position in a particular ordering.
-- **Pagination without a stable order is meaningless.** Always order explicitly, with a unique tiebreaker.
-- **`total` is not free.** Counting can cost more than fetching the page.
-- **Clients must treat cursors as opaque.** Parsing them couples them to your internals.
-- **Page size limits belong on the server,** whatever the client asks for.
+<details>
+<summary>Exercise 6 (Hard): Type-Safe Windowed Cursor Builder</summary>
 
-## Common mistakes
+**Problem:** Create a higher-order function that wraps a database query returning $N + 1$ items, automatically computing `hasNextPage`, slicing the extra item off the results, and returning a typed Connection.
 
-- Offset pagination over a large, frequently changing table.
-- Ordering by a non-unique column, so keyset pagination skips or repeats rows.
-- Not capping `limit` / `pageSize`.
-- Trusting a decoded cursor without validating it.
-- Passing a client-provided sort field straight into SQL.
-- Returning `total` on every request when nobody uses it.
-- Changing the sort between pages of one traversal.
-- Using `nextCursor: undefined` to mean "no more", which JSON drops, instead of `null`.
+**Solution:**
+```typescript
+export function createConnectionWrapper<T extends { id: string }>(
+  getCursor: (item: T) => Cursor
+) {
+  return function toConnection(rows: readonly T[], requestedLimit: number): Connection<T> {
+    const hasNextPage = rows.length > requestedLimit;
+    const items = hasNextPage ? rows.slice(0, requestedLimit) : rows;
 
-## Debugging
+    const edges: Edge<T>[] = items.map((item) => ({
+      cursor: getCursor(item),
+      node: item
+    }));
 
-- **Duplicates or missing items across pages:** the sort is not total, or you are using offset on changing data.
-- **Slow deep pages:** switch to keyset, and check the index matches the sort columns.
-- **Infinite loop in a client:** the server returns a non-null `nextCursor` on the last page, or ignores the cursor. Check the `limit + 1` logic.
-- **400 on a valid-looking cursor:** the cursor was created under a different sort, or has been URL-mangled (base64url avoids `+`, `/`, and `=`).
-- Log the SQL and parameters for a failing page request.
-
-## Quick summary
-
-- Choose **offset** for small, stable data with page numbers and **cursor** for large or changing data.
-- Define generic `OffsetPage<T>` and `CursorPage<T>` types, and a schema factory for the runtime side.
-- Cursor pagination uses a total sort order (add a unique tiebreaker), fetches `limit + 1`, and returns `nextCursor: string | null`.
-- Cursors are opaque to clients and untrusted on the server: validate them.
-- Cap page sizes, whitelist sort fields, and consume pages lazily with an async generator or a data-fetching library.
-
-**Next:** [Error response types](./04-error-response-types.md)
+    return {
+      edges,
+      pageInfo: {
+        hasNextPage,
+        hasPreviousPage: false,
+        startCursor: edges.length > 0 ? edges[0].cursor : null,
+        endCursor: edges.length > 0 ? edges[edges.length - 1].cursor : null
+      }
+    };
+  };
+}
+```
+</details>
