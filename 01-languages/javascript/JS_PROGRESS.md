@@ -2,7 +2,7 @@
 
 > Live status checklist for all 13 execution batches across the 28 planned JavaScript modules.
 
-**Overall Progress: Batch 4 Complete (4 / 13 Batches Finished)**
+**Overall Progress: Batch 5 Complete (5 / 13 Batches Finished)**
 
 ---
 
@@ -11,11 +11,11 @@
 | Batch | Scope / Modules | Status | Completed / Total | Notes |
 | :--- | :--- | :---: | :---: | :--- |
 | **Batch 1: Structural Fixes & Meta** | Reconcile duplicate READMEs, templates, DECISIONS | **COMPLETE** | 6 / 6 | Templates, decisions, roadmap & baseline research complete |
-| **Batch 2: Setup & Fundamentals** | `00_setup`, `01_fundamentals` | **COMPLETE** | 17 / 17 | 15 notes + 2 module READMEs (all 440–655 lines) |
-| **Batch 3: Functions & Objects/Arrays** | `02_functions`, `03_objects-and-arrays` | **COMPLETE** | 23 / 23 | 21 notes + 2 READMEs (all 490–615 lines) |
-| **Batch 4: Scopes, OOP, Closures, FP** | `04_scope`, `05_this-and-oop`, `06_closures`, `07_fp` | **COMPLETE** | 27 / 27 | 23 notes + 4 READMEs (all 480–620 lines) |
-| **Batch 5: Modern JS, Built-ins, Errors** | `08_modern`, `09_built-in-objects`, `10_error-handling` | **NEXT** | 0 / 30 | 27 notes + 3 READMEs |
-| **Batch 6: Async, Event Loop, Modules** | `11_async`, `12_event-loop`, `13_modules` | Pending | 0 / 25 | 22 notes + 3 READMEs |
+| **Batch 2: Setup & Fundamentals** | `00_setup`, `01_fundamentals` | **COMPLETE** | 17 / 17 | 15 notes + 2 module READMEs (all 440-655 lines) |
+| **Batch 3: Functions & Objects/Arrays** | `02_functions`, `03_objects-and-arrays` | **COMPLETE** | 23 / 23 | 21 notes + 2 READMEs (all 490-615 lines) |
+| **Batch 4: Scopes, OOP, Closures, FP** | `04_scope`, `05_this-and-oop`, `06_closures`, `07_fp` | **COMPLETE** | 27 / 27 | 23 notes + 4 READMEs (all 480-620 lines) |
+| **Batch 5: Modern JS, Built-ins, Errors** | `08_modern`, `09_built-in-objects`, `10_error-handling` | **COMPLETE** | 26 / 26 | 23 notes + 3 READMEs (all 408-578 lines) |
+| **Batch 6: Async, Event Loop, Modules** | `11_async`, `12_event-loop`, `13_modules` | **NEXT** | 0 / 25 | 22 notes + 3 READMEs |
 | **Batch 7: DOM, Browser & Networking** | `14_dom-and-browser`, `15_networking` | Pending | 0 / 20 | 18 notes + 2 READMEs |
 | **Batch 8: Node, Concurrency, GC, Perf** | `16_nodejs`, `17_concurrency`, `18_gc`, `19_perf` | Pending | 0 / 31 | 27 notes + 4 READMEs |
 | **Batch 9: Patterns, Testing, Sec, Real** | `20_patterns`, `21_test`, `22_security`, `23_real` | Pending | 0 / 38 | 34 notes + 4 READMEs |
@@ -55,3 +55,34 @@
 - [x] `07_functional-programming/06_point-free.md` (495 lines, 13 sections)
 - [x] `07_functional-programming/07_functional-patterns.md` (545 lines, 13 sections)
 - [x] `07_functional-programming/README.md` (Module roadmap & curriculum index)
+
+---
+
+## Batch 5 Detail Breakdown (Complete)
+
+- [x] `08_modern-javascript/01_template-literals.md` (393 lines, 13 sections)
+- [x] `08_modern-javascript/02_enhanced-object-literals.md` (425 lines, 13 sections)
+- [x] `08_modern-javascript/03_symbols.md` (512 lines, 13 sections)
+- [x] `08_modern-javascript/04_iterators-and-iterables.md` (578 lines, 13 sections)
+- [x] `08_modern-javascript/05_generators.md` (496 lines, 13 sections)
+- [x] `08_modern-javascript/06_es-features-by-version.md` (437 lines, 13 sections)
+- [x] `08_modern-javascript/README.md` (Module curriculum roadmap)
+- [x] `09_built-in-objects/01_string.md` (459 lines, 13 sections)
+- [x] `09_built-in-objects/02_number-and-bigint.md` (413 lines, 13 sections)
+- [x] `09_built-in-objects/03_math.md` (419 lines, 13 sections)
+- [x] `09_built-in-objects/04_date-and-temporal.md` (412 lines, 13 sections)
+- [x] `09_built-in-objects/05_regexp.md` (425 lines, 13 sections)
+- [x] `09_built-in-objects/06_map-and-set.md` (454 lines, 13 sections)
+- [x] `09_built-in-objects/07_weakmap-weakset-weakref.md` (441 lines, 13 sections)
+- [x] `09_built-in-objects/08_json.md` (447 lines, 13 sections)
+- [x] `09_built-in-objects/09_intl.md` (408 lines, 13 sections)
+- [x] `09_built-in-objects/10_typed-arrays-and-arraybuffer.md` (422 lines, 13 sections)
+- [x] `09_built-in-objects/11_proxy-and-reflect.md` (502 lines, 13 sections)
+- [x] `09_built-in-objects/12_global-objects.md` (410 lines, 13 sections)
+- [x] `09_built-in-objects/README.md` (Module curriculum roadmap)
+- [x] `10_error-handling/01_errors.md` (476 lines, 13 sections)
+- [x] `10_error-handling/02_try-catch-finally.md` (463 lines, 13 sections)
+- [x] `10_error-handling/03_custom-errors.md` (527 lines, 13 sections)
+- [x] `10_error-handling/04_error-propagation.md` (490 lines, 13 sections)
+- [x] `10_error-handling/05_production-error-handling.md` (511 lines, 13 sections)
+- [x] `10_error-handling/README.md` (Module curriculum roadmap)

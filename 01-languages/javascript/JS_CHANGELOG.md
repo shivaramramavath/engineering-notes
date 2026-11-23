@@ -6,6 +6,37 @@
 
 ## 2026-11-23
 
+### Batch 5: Modern JavaScript, Built-in Objects & Error Handling (Modules 08, 09, 10)
+- **Module 08 (`08_modern-javascript`):**
+  - Expanded `01_template-literals.md` (393 lines) covering backticks, multiline formatting, embedded expressions `${}`, tagged template functions, `String.raw`, AST sanitization, and SQL injection defense.
+  - Expanded `02_enhanced-object-literals.md` (425 lines) covering property shorthands, method definitions, computed property keys `[key]`, `[[HomeObject]]`, `super` in object literals, and object spread semantics.
+  - Expanded `03_symbols.md` (512 lines) covering primitive uniqueness, the Global Symbol Registry (`Symbol.for`, `Symbol.keyFor`), well-known symbols (`Symbol.iterator`, `Symbol.toPrimitive`, `Symbol.hasInstance`, `Symbol.toStringTag`), and V8 `Name` representation.
+  - Expanded `04_iterators-and-iterables.md` (578 lines) covering the Iterable Protocol (`[Symbol.iterator]`), the Iterator Protocol (`{ next() }`), early termination cleanup via `.return()`, consumer constructs (`for...of`, spread, destructuring), and ES2024 Iterator Helpers (`map`, `filter`, `take`).
+  - Expanded `05_generators.md` (496 lines) covering `function*`, `yield`, `yield*` delegation, bidirectional message passing via `.next(val)`, exception injection via `.throw()`, early return via `.return()`, coroutine state machines, and Redux-Saga cooperative scheduling.
+  - Expanded `06_es-features-by-version.md` (437 lines) covering the TC39 5-stage proposal pipeline, comprehensive edition-by-edition feature breakdowns from ES2015 to ES2025+, V8 harmony flags, and enterprise migration strategies.
+  - Updated `08_modern-javascript/README.md` with complete curriculum roadmap and reading guide.
+- **Module 09 (`09_built-in-objects`):**
+  - Expanded `01_string.md` (459 lines) covering UTF-16 code units vs Unicode code points, surrogate pairs, normalization forms (NFC, NFD), grapheme cluster segmentation, and V8 internal string representations (`ConsString`, `SlicedString`, `ThinString`).
+  - Expanded `02_number-and-bigint.md` (413 lines) covering IEEE-754 64-bit double precision binary layout, floating-point drift ($0.1 + 0.2 \neq 0.3$), `Number.EPSILON`, safe integer boundaries ($2^{53}-1$), `BigInt` arbitrary precision, and V8 Smi tagging.
+  - Expanded `03_math.md` (419 lines) covering mathematical constants (`PI`, `E`), rounding algorithms (`floor`, `ceil`, `trunc`, `round`), trigonometry vectors, `xorshift128+` PRNG mechanics, and TurboFan hardware assembly intrinsics.
+  - Expanded `04_date-and-temporal.md` (412 lines) covering legacy `Date` flaws (0-indexed months, mutability, timezone confusion), Unix epoch milliseconds, UTC vs local timezone resolution, ISO-8601 parsing, and the modern TC39 Stage 3 `Temporal` API (`Instant`, `ZonedDateTime`, `PlainDate`, `Duration`).
+  - Expanded `05_regexp.md` (425 lines) covering modern flags (`d`, `v`, `y`, `s`), named capture groups, lookaround assertions (lookahead/lookbehind), V8 Irregexp engine architecture, and Regular Expression Denial of Service (ReDoS) defense.
+  - Expanded `06_map-and-set.md` (454 lines) covering `Map` and `Set`, `SameValueZero` equality, ES2024 mathematical set algebra (`union`, `intersection`, `difference`, `symmetricDifference`, `isSubsetOf`), V8 `OrderedHashTable` layout, and high-throughput LRU cache implementation.
+  - Expanded `07_weakmap-weakset-weakref.md` (441 lines) covering ephemeron tables, `WeakMap` and `WeakSet`, memory leak prevention, non-enumerable design rationale, and ES2021 `WeakRef` / `FinalizationRegistry` with microtask pinning.
+  - Expanded `08_json.md` (447 lines) covering RFC 8259 invariants, `JSON.stringify` array/function replacers, `JSON.parse` bottom-up revivers, the `toJSON()` protocol, V8 SIMD parsing optimizations, and circular reference handling.
+  - Expanded `09_intl.md` (408 lines) covering ECMA-402, BCP 47 locale tags, `DateTimeFormat`, `NumberFormat`, `Collator`, `ListFormat`, `Segmenter`, ICU C++ bridge, and formatter instance caching patterns.
+  - Expanded `10_typed-arrays-and-arraybuffer.md` (422 lines) covering raw binary memory, `ArrayBuffer`, TypedArray views, `DataView` explicit endianness handling, `Uint8ClampedArray` canvas pixels, ES2024 `ArrayBuffer.prototype.transfer()`, and `SharedArrayBuffer` Atomics.
+  - Expanded `11_proxy-and-reflect.md` (502 lines) covering metaprogramming, the 13 fundamental language traps, 1:1 `Reflect` parity, engine invariants, the `receiver` parameter, private class field (`#`) gotchas, and building a reactive state engine (Vue 3 model).
+  - Expanded `12_global-objects.md` (410 lines) covering `globalThis` universal standard, `encodeURI` vs `encodeURIComponent` delimiter rules, Unicode-safe Base64 (`btoa`/`atob`), `structuredClone` memory transfers, and V8 `JSGlobalProxy` iframe isolation.
+  - Updated `09_built-in-objects/README.md` with complete curriculum roadmap and reading guide.
+- **Module 10 (`10_error-handling`):**
+  - Expanded `01_errors.md` (476 lines) covering the 7 native error subclasses (`TypeError`, `RangeError`, `ReferenceError`, etc.), causal error chaining via `Error.cause` (ES2022), `AggregateError` multi-error bundling (ES2021), V8 stack trace allocation semantics, and APM JSON serialization.
+  - Expanded `02_try-catch-finally.md` (463 lines) covering call stack unwinding, optional catch binding (ES2019), `try...finally` resource guarantees, the fatal `finally` return override trap, and V8 `HandlerTable` zero-cost try blocks.
+  - Expanded `03_custom-errors.md` (527 lines) covering ES6 class inheritance from `Error`, `this.name = this.constructor.name`, V8 `Error.captureStackTrace` trimming, ES5 prototype transpilation fixes, and RFC 7807 Problem Details for REST APIs.
+  - Expanded `04_error-propagation.md` (490 lines) covering synchronous stack bubbling vs asynchronous event loop disconnections, Promise rejection chains, `unhandledRejection` lifecycle, Node.js process crash guards (`uncaughtException`), and graceful shutdown pipelines.
+  - Expanded `05_production-error-handling.md` (511 lines) covering operational vs programmer errors, centralized Express/Fastify error middleware, PII and secret redaction, the Circuit Breaker resilience pattern, and 12-factor JSON logging to stdout.
+  - Updated `10_error-handling/README.md` with complete curriculum roadmap and reading guide.
+
 ### Batch 4: Scopes, OOP, Closures & Functional Programming (Modules 04, 05, 06, 07)
 - **Module 04 (`04_scope-and-execution`):**
   - Expanded `01_scope.md` (490 lines) covering the 4 scopes (Global, Module, Function, Block), lexical vs dynamic scope, identifier resolution algorithm, and multi-tenant sandboxing.
