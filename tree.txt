@@ -1,6 +1,9 @@
 engineering-notes/
 ├── 01-languages
 │   ├── c
+│   │   ├── _templates
+│   │   │   ├── concept-template.md
+│   │   │   └── project-template.md
 │   │   ├── 00-setup
 │   │   │   ├── 01-toolchain.md
 │   │   │   ├── 02-editor-setup.md
@@ -59,6 +62,27 @@ engineering-notes/
 │   │   │   ├── 25-linked-structures-with-pointers-intro.md
 │   │   │   └── README.md
 │   │   ├── 03-intermediate
+│   │   │   ├── data-structures
+│   │   │   │   ├── 01-linked-lists.md
+│   │   │   │   ├── 02-stacks-queues.md
+│   │   │   │   ├── 03-trees.md
+│   │   │   │   ├── 04-hash-tables.md
+│   │   │   │   ├── 05-graphs.md
+│   │   │   │   ├── 06-dynamic-array.md
+│   │   │   │   ├── 07-queues-circular-buffer.md
+│   │   │   │   ├── 08-heaps-and-priority-queues.md
+│   │   │   │   ├── 09-binary-search-trees.md
+│   │   │   │   ├── 10-tries.md
+│   │   │   │   ├── 11-union-find.md
+│   │   │   │   ├── 12-sorting-algorithms.md
+│   │   │   │   ├── 13-searching-algorithms.md
+│   │   │   │   ├── 14-algorithm-complexity.md
+│   │   │   │   ├── 15-skip-lists.md
+│   │   │   │   ├── 16-bloom-filters.md
+│   │   │   │   ├── 17-lru-cache-structure.md
+│   │   │   │   ├── 18-graph-algorithms.md
+│   │   │   │   ├── 19-string-algorithms.md
+│   │   │   │   └── README.md
 │   │   │   ├── 01-function-pointers.md
 │   │   │   ├── 02-multi-file-programs.md
 │   │   │   ├── 03-error-handling.md
@@ -82,28 +106,7 @@ engineering-notes/
 │   │   │   ├── 21-signals-basics-portable.md
 │   │   │   ├── 22-stdint-inttypes-and-limits.md
 │   │   │   ├── 23-locale-and-wide-chars-deep-dive.md
-│   │   │   ├── README.md
-│   │   │   └── data-structures
-│   │   │       ├── 01-linked-lists.md
-│   │   │       ├── 02-stacks-queues.md
-│   │   │       ├── 03-trees.md
-│   │   │       ├── 04-hash-tables.md
-│   │   │       ├── 05-graphs.md
-│   │   │       ├── 06-dynamic-array.md
-│   │   │       ├── 07-queues-circular-buffer.md
-│   │   │       ├── 08-heaps-and-priority-queues.md
-│   │   │       ├── 09-binary-search-trees.md
-│   │   │       ├── 10-tries.md
-│   │   │       ├── 11-union-find.md
-│   │   │       ├── 12-sorting-algorithms.md
-│   │   │       ├── 13-searching-algorithms.md
-│   │   │       ├── 14-algorithm-complexity.md
-│   │   │       ├── 15-skip-lists.md
-│   │   │       ├── 16-bloom-filters.md
-│   │   │       ├── 17-lru-cache-structure.md
-│   │   │       ├── 18-graph-algorithms.md
-│   │   │       ├── 19-string-algorithms.md
-│   │   │       └── README.md
+│   │   │   └── README.md
 │   │   ├── 04-advanced
 │   │   │   ├── 01-custom-allocators-and-arenas.md
 │   │   │   ├── 02-memory-pools.md
@@ -245,7 +248,6 @@ engineering-notes/
 │   │   │   ├── 08-c23-features.md
 │   │   │   ├── 09-bit-tricks.md
 │   │   │   └── README.md
-│   │   ├── CONTRIBUTING.md
 │   │   ├── C_AUDIT.md
 │   │   ├── C_CHANGELOG.md
 │   │   ├── C_COMPLETION_PLAN.md
@@ -253,13 +255,14 @@ engineering-notes/
 │   │   ├── C_FACTS.md
 │   │   ├── C_FINAL_REPORT.md
 │   │   ├── C_PROGRESS.md
+│   │   ├── CONTRIBUTING.md
 │   │   ├── GLOSSARY.md
 │   │   ├── INDEX.md
-│   │   ├── README.md
-│   │   └── _templates
-│   │       ├── concept-template.md
-│   │       └── project-template.md
+│   │   └── README.md
 │   ├── java
+│   │   ├── _templates
+│   │   │   ├── concept-template.md
+│   │   │   └── project-template.md
 │   │   ├── 00-setup
 │   │   │   ├── 00_jdk-installation.md
 │   │   │   ├── 01_java-version-management.md
@@ -491,7 +494,6 @@ engineering-notes/
 │   │   │   ├── 07_code-review-checklist.md
 │   │   │   └── README.md
 │   │   ├── 24-design-patterns
-│   │   │   ├── 00_pattern-selection-guide.md
 │   │   │   ├── 01-creational
 │   │   │   │   ├── 00_singleton.md
 │   │   │   │   ├── 01_factory-method.md
@@ -516,6 +518,7 @@ engineering-notes/
 │   │   │   │   ├── 00_dependency-injection.md
 │   │   │   │   ├── 01_layered-architecture.md
 │   │   │   │   └── 02_repository-and-dao.md
+│   │   │   ├── 00_pattern-selection-guide.md
 │   │   │   ├── 05_anti-patterns.md
 │   │   │   └── README.md
 │   │   ├── 25-real-world-patterns
@@ -610,20 +613,22 @@ engineering-notes/
 │   │   ├── JAVA_COMPLETION_PLAN.md
 │   │   ├── JAVA_DECISIONS.md
 │   │   ├── JAVA_FACTS.md
+│   │   ├── JAVA_FINAL_REPORT.md
 │   │   ├── JAVA_PROGRESS.md
 │   │   ├── LICENSE
 │   │   ├── README.md
-│   │   ├── ROADMAP.md
-│   │   └── _templates
-│   │       ├── concept-template.md
-│   │       └── project-template.md
+│   │   └── ROADMAP.md
 │   ├── javascript
+│   │   ├── _templates
+│   │   │   ├── concept-template.md
+│   │   │   └── project-template.md
 │   │   ├── 00_setup
 │   │   │   ├── 01_what-is-javascript.md
 │   │   │   ├── 02_runtimes-browser-and-node.md
 │   │   │   ├── 03_npm-and-package-managers.md
 │   │   │   ├── 04_devtools-and-debugging.md
 │   │   │   ├── 05_tooling.md
+│   │   │   ├── 06_jsdoc-and-type-checking.md
 │   │   │   └── README.md
 │   │   ├── 01_fundamentals
 │   │   │   ├── 01_variables.md
@@ -633,6 +638,8 @@ engineering-notes/
 │   │   │   ├── 05_expressions-and-statements.md
 │   │   │   ├── 06_conditionals.md
 │   │   │   ├── 07_loops.md
+│   │   │   ├── 08_floating-point-and-number-precision.md
+│   │   │   ├── 09_common-javascript-gotchas.md
 │   │   │   └── README.md
 │   │   ├── 02_functions
 │   │   │   ├── 01_declarations-and-expressions.md
@@ -643,6 +650,7 @@ engineering-notes/
 │   │   │   ├── 06_higher-order-functions.md
 │   │   │   ├── 07_iife-and-function-properties.md
 │   │   │   ├── 08_recursion.md
+│   │   │   ├── 09_function-internals-and-tail-calls.md
 │   │   │   └── README.md
 │   │   ├── 03_objects-and-arrays
 │   │   │   ├── 01_objects.md
@@ -656,6 +664,7 @@ engineering-notes/
 │   │   │   ├── 09_destructuring.md
 │   │   │   ├── 10_spread-and-rest.md
 │   │   │   ├── 11_optional-chaining-and-nullish.md
+│   │   │   ├── 12_property-enumeration-and-symbols.md
 │   │   │   └── README.md
 │   │   ├── 04_scope-and-execution
 │   │   │   ├── 01_scope.md
@@ -812,7 +821,7 @@ engineering-notes/
 │   │   │   ├── 04_vitest-and-jest.md
 │   │   │   ├── 05_mocking.md
 │   │   │   ├── 06_testing-patterns.md
-│   │   │   └── README (1).md
+│   │   │   └── README.md
 │   │   ├── 22_security
 │   │   │   ├── 01_xss.md
 │   │   │   ├── 02_csrf.md
@@ -820,7 +829,7 @@ engineering-notes/
 │   │   │   ├── 04_input-validation.md
 │   │   │   ├── 05_dependency-security.md
 │   │   │   ├── 06_security-checklist.md
-│   │   │   └── README (1).md
+│   │   │   └── README.md
 │   │   ├── 23_real-world-patterns
 │   │   │   ├── 01_debounce.md
 │   │   │   ├── 02_throttle.md
@@ -831,10 +840,87 @@ engineering-notes/
 │   │   │   ├── 07_event-emitter.md
 │   │   │   ├── 08_caching.md
 │   │   │   ├── 09_rate-limiting.md
-│   │   │   └── README (1).md
+│   │   │   └── README.md
+│   │   ├── 24_dsa-in-javascript
+│   │   │   ├── 01_complexity-and-big-o.md
+│   │   │   ├── 02_arrays-and-strings.md
+│   │   │   ├── 03_hash-tables.md
+│   │   │   ├── 04_linked-lists.md
+│   │   │   ├── 05_stacks-and-queues.md
+│   │   │   ├── 06_trees-and-binary-trees.md
+│   │   │   ├── 07_binary-search-trees.md
+│   │   │   ├── 08_heaps-and-priority-queues.md
+│   │   │   ├── 09_graphs-and-graph-algorithms.md
+│   │   │   ├── 10_sorting-algorithms.md
+│   │   │   ├── 11_searching-algorithms.md
+│   │   │   ├── 12_recursion-and-backtracking.md
+│   │   │   ├── 13_dynamic-programming.md
+│   │   │   ├── 14_greedy-algorithms.md
+│   │   │   ├── 15_bitwise-algorithms.md
+│   │   │   ├── 16_trie.md
+│   │   │   ├── 17_disjoint-set-union.md
+│   │   │   ├── 18_algorithmic-patterns.md
+│   │   │   └── README.md
+│   │   ├── 25_projects
+│   │   │   ├── 01_vanilla-todo-app.md
+│   │   │   ├── 02_weather-dashboard.md
+│   │   │   ├── 03_markdown-editor.md
+│   │   │   ├── 04_expense-tracker-indexeddb.md
+│   │   │   ├── 05_quiz-app.md
+│   │   │   ├── 06_kanban-drag-and-drop.md
+│   │   │   ├── 07_realtime-chat-websocket.md
+│   │   │   ├── 08_tiny-event-emitter.md
+│   │   │   ├── 09_promise-from-scratch.md
+│   │   │   ├── 10_mini-virtual-dom.md
+│   │   │   ├── 11_mini-state-manager.md
+│   │   │   ├── 12_mini-router.md
+│   │   │   ├── 13_mini-lodash.md
+│   │   │   ├── 14_dependency-injection-container.md
+│   │   │   ├── 15_cli-task-manager.md
+│   │   │   ├── 16_web-scraper.md
+│   │   │   ├── 17_task-scheduler.md
+│   │   │   ├── 18_mini-bundler.md
+│   │   │   ├── 19_pwa-notes-app.md
+│   │   │   ├── 20_mini-test-framework.md
+│   │   │   ├── 21_mini-reactive-signals.md
+│   │   │   └── README.md
+│   │   ├── 26_interview
+│   │   │   ├── 00_language-core-qa.md
+│   │   │   ├── 01_closures-and-scope-qa.md
+│   │   │   ├── 02_this-and-prototypes-qa.md
+│   │   │   ├── 03_async-and-event-loop-qa.md
+│   │   │   ├── 04_output-based-questions.md
+│   │   │   ├── 05_dom-and-browser-qa.md
+│   │   │   ├── 06_performance-qa.md
+│   │   │   ├── 07_machine-coding-rounds.md
+│   │   │   ├── 08_polyfills-from-scratch.md
+│   │   │   └── README.md
+│   │   ├── 27_cheatsheets
+│   │   │   ├── 00_syntax-and-operators.md
+│   │   │   ├── 01_arrays-and-objects.md
+│   │   │   ├── 02_strings-and-regex.md
+│   │   │   ├── 03_async-and-promises.md
+│   │   │   ├── 04_event-loop-order.md
+│   │   │   ├── 05_dom-and-events.md
+│   │   │   ├── 06_fetch-and-http.md
+│   │   │   ├── 07_es-features-by-version.md
+│   │   │   ├── 07_modern-syntax.md
+│   │   │   ├── 08_node-core-modules.md
+│   │   │   ├── 09_testing-commands.md
+│   │   │   ├── 10_devtools-shortcuts.md
+│   │   │   ├── 11_regex-reference.md
+│   │   │   ├── 12_common-gotchas.md
+│   │   │   └── README.md
 │   │   ├── CODE_OF_CONDUCT.md
 │   │   ├── CONTRIBUTING.md
 │   │   ├── GLOSSARY.md
+│   │   ├── INDEX.md
+│   │   ├── JS_AUDIT.md
+│   │   ├── JS_CHANGELOG.md
+│   │   ├── JS_COMPLETION_PLAN.md
+│   │   ├── JS_DECISIONS.md
+│   │   ├── JS_FACTS.md
+│   │   ├── JS_PROGRESS.md
 │   │   ├── LICENSE
 │   │   ├── README.md
 │   │   └── ROADMAP.md
@@ -1062,10 +1148,10 @@ engineering-notes/
 │       │   │   └── README.md
 │       │   ├── 07-fullstack-application
 │       │   │   └── README.md
-│       │   ├── README.md
-│       │   └── exercises
-│       │       ├── 00-type-challenges.md
-│       │       └── README.md
+│       │   ├── exercises
+│       │   │   ├── 00-type-challenges.md
+│       │   │   └── README.md
+│       │   └── README.md
 │       ├── 27-interview
 │       │   ├── 00-typescript-basics.md
 │       │   ├── 01-type-system-and-runtime.md
@@ -1089,14 +1175,14 @@ engineering-notes/
 │       │   ├── 05-react-typescript.md
 │       │   ├── 06-node-typescript.md
 │       │   └── README.md
+│       ├── templates
+│       │   └── concept-template.md
 │       ├── CONTRIBUTING.md
 │       ├── GLOSSARY.md
 │       ├── INDEX.md
 │       ├── LICENSE
 │       ├── README.md
-│       ├── ROADMAP.md
-│       └── templates
-│           └── concept-template.md
+│       └── ROADMAP.md
 ├── 02-frontend
 │   ├── nextjs
 │   │   ├── 00-setup
@@ -1275,15 +1361,25 @@ engineering-notes/
 │   │   │   └── README.md
 │   │   ├── 24-projects
 │   │   │   ├── 01-blog
+│   │   │   │   └── .gitkeep
 │   │   │   ├── 02-authentication
+│   │   │   │   └── .gitkeep
 │   │   │   ├── 03-ecommerce
+│   │   │   │   └── .gitkeep
 │   │   │   ├── 04-admin-dashboard
+│   │   │   │   └── .gitkeep
 │   │   │   ├── 05-saas-application
+│   │   │   │   └── .gitkeep
 │   │   │   ├── 06-realtime-chat
+│   │   │   │   └── .gitkeep
 │   │   │   ├── 07-ai-chatbot
+│   │   │   │   └── .gitkeep
 │   │   │   ├── 08-rag-application
+│   │   │   │   └── .gitkeep
 │   │   │   ├── 09-timetable-application
+│   │   │   │   └── .gitkeep
 │   │   │   ├── 10-production-fullstack-app
+│   │   │   │   └── .gitkeep
 │   │   │   └── README.md
 │   │   ├── 25-interview
 │   │   │   ├── 00-fundamentals.md
@@ -1316,6 +1412,10 @@ engineering-notes/
 │   │   ├── README.md
 │   │   └── ROADMAP.md
 │   └── reactjs
+│       ├── _libraries
+│       │   └── socket.io-react-hook.md
+│       ├── _templates
+│       │   └── concept.md
 │       ├── 00-setup
 │       │   ├── 00-javascript-for-react.md
 │       │   ├── 01-node-and-npm.md
@@ -1502,7 +1602,6 @@ engineering-notes/
 │       │   ├── 04-scaling-large-applications.md
 │       │   └── README (2).md
 │       ├── 21-specializations
-│       │   ├── README.md
 │       │   ├── animation
 │       │   │   ├── 00-css-transitions-and-animations.md
 │       │   │   ├── 01-framer-motion.md
@@ -1510,13 +1609,14 @@ engineering-notes/
 │       │   │   ├── 03-gestures.md
 │       │   │   ├── 04-animation-performance-and-accessibility.md
 │       │   │   └── README.md
-│       │   └── react-flow
-│       │       ├── 00-nodes-and-edges.md
-│       │       ├── 01-custom-nodes-and-edges.md
-│       │       ├── 02-node-state.md
-│       │       ├── 03-connection-validation.md
-│       │       ├── 04-drag-and-drop.md
-│       │       └── README.md
+│       │   ├── react-flow
+│       │   │   ├── 00-nodes-and-edges.md
+│       │   │   ├── 01-custom-nodes-and-edges.md
+│       │   │   ├── 02-node-state.md
+│       │   │   ├── 03-connection-validation.md
+│       │   │   ├── 04-drag-and-drop.md
+│       │   │   └── README.md
+│       │   └── README.md
 │       ├── 22-projects
 │       │   └── README.md
 │       ├── 23-interview
@@ -1550,13 +1650,12 @@ engineering-notes/
 │       ├── GLOSSARY.md
 │       ├── LICENSE
 │       ├── README.md
-│       ├── ROADMAP.md
-│       ├── _libraries
-│       │   └── socket.io-react-hook.md
-│       └── _templates
-│           └── concept.md
+│       └── ROADMAP.md
 ├── 03-backend
 │   ├── nestjs
+│   │   ├── _templates
+│   │   │   ├── concept-template.md
+│   │   │   └── project-template.md
 │   │   ├── 00-prerequisites
 │   │   │   ├── 01-typescript-essentials.md
 │   │   │   ├── 02-typescript-decorators.md
@@ -1907,10 +2006,7 @@ engineering-notes/
 │   │   ├── INDEX.md
 │   │   ├── LICENSE
 │   │   ├── README.md
-│   │   ├── ROADMAP.md
-│   │   └── _templates
-│   │       ├── concept-template.md
-│   │       └── project-template.md
+│   │   └── ROADMAP.md
 │   └── nodejs
 │       ├── 00-setup
 │       │   ├── 01-getting-started.md
@@ -1967,7 +2063,6 @@ engineering-notes/
 │       │   ├── 08_http-errors.md
 │       │   └── README.md
 │       ├── 07-databases
-│       │   ├── README.md
 │       │   ├── mongodb
 │       │   │   ├── 00-mongodb-basics
 │       │   │   │   ├── 01-installation-and-atlas.md
@@ -2082,141 +2177,142 @@ engineering-notes/
 │       │   ├── postgresql
 │       │   │   ├── 01-connection-and-queries.md
 │       │   │   └── 02-transactions-and-indexing.md
-│       │   └── redis
-│       │       ├── 00_introduction
-│       │       │   ├── 01_why-redis.md
-│       │       │   ├── 02_redis-vs-alternatives.md
-│       │       │   ├── 03_redis-architecture.md
-│       │       │   ├── 04_when-not-to-use-redis.md
-│       │       │   └── README.md
-│       │       ├── 01_setup
-│       │       │   ├── 01_redis-installation.md
-│       │       │   ├── 02_redis-cli-and-insight.md
-│       │       │   ├── 03_ioredis-setup.md
-│       │       │   └── README.md
-│       │       ├── 02_redis-fundamentals
-│       │       │   ├── 01_keys-and-values.md
-│       │       │   ├── 02_data-types-overview.md
-│       │       │   ├── 03_expiration-and-ttl.md
-│       │       │   ├── 04_persistence.md
-│       │       │   ├── 05_memory-and-eviction.md
-│       │       │   └── README.md
-│       │       ├── 03_ioredis-basics
-│       │       │   ├── 01_connection.md
-│       │       │   ├── 02_configuration.md
-│       │       │   ├── 03_commands-and-options.md
-│       │       │   ├── 04_promises-callbacks-buffers.md
-│       │       │   ├── 05_error-handling.md
-│       │       │   ├── 06_graceful-shutdown.md
-│       │       │   └── README.md
-│       │       ├── 04_data-structures
-│       │       │   ├── 01_strings.md
-│       │       │   ├── 02_hashes.md
-│       │       │   ├── 03_lists.md
-│       │       │   ├── 04_sets.md
-│       │       │   ├── 05_sorted-sets.md
-│       │       │   ├── 06_bitmaps-and-bitfields.md
-│       │       │   ├── 07_hyperloglog-and-geo.md
-│       │       │   ├── 08_streams-overview.md
-│       │       │   ├── 09_choosing-the-right-structure.md
-│       │       │   └── README.md
-│       │       ├── 05_key-management
-│       │       │   ├── 01_key-design.md
-│       │       │   ├── 02_scan-and-iteration.md
-│       │       │   ├── 03_delete-and-unlink.md
-│       │       │   └── README.md
-│       │       ├── 06_advanced-commands
-│       │       │   ├── 01_pipelines-and-auto-pipelining.md
-│       │       │   ├── 02_transactions.md
-│       │       │   ├── 03_lua-scripts.md
-│       │       │   ├── 04_atomic-and-conditional-ops.md
-│       │       │   └── README.md
-│       │       ├── 07_caching
-│       │       │   ├── 01_cache-aside.md
-│       │       │   ├── 02_cache-strategies.md
-│       │       │   ├── 03_cache-invalidation.md
-│       │       │   ├── 04_cache-problems.md
-│       │       │   ├── 05_caching-api-responses.md
-│       │       │   └── README.md
-│       │       ├── 08_nodejs-integration
-│       │       │   ├── 01_connection-management.md
-│       │       │   ├── 02_redis-service.md
-│       │       │   ├── 03_redis-repository.md
-│       │       │   ├── 04_typed-redis-client.md
-│       │       │   ├── 05_redis-key-builder.md
-│       │       │   ├── 06_express-integration.md
-│       │       │   └── README.md
-│       │       ├── 09_pub-sub
-│       │       │   ├── 01_pub-sub-fundamentals.md
-│       │       │   ├── 02_event-driven-nodejs.md
-│       │       │   ├── 03_socketio-with-redis.md
-│       │       │   └── README.md
-│       │       ├── 10_streams
-│       │       │   ├── 01_stream-fundamentals.md
-│       │       │   ├── 02_producers-and-consumers.md
-│       │       │   ├── 03_consumer-groups-and-acks.md
-│       │       │   ├── 04_stream-patterns.md
-│       │       │   └── README.md
-│       │       ├── 11_distributed-locks
-│       │       │   ├── 01_locking-fundamentals.md
-│       │       │   ├── 02_lock-expiration-and-renewal.md
-│       │       │   ├── 03_redlock.md
-│       │       │   └── README.md
-│       │       ├── 12_rate-limiting
-│       │       │   ├── 01_fixed-and-sliding-window.md
-│       │       │   ├── 02_token-and-leaky-bucket.md
-│       │       │   ├── 03_distributed-rate-limiter.md
-│       │       │   └── README.md
-│       │       ├── 13_session-management
-│       │       │   ├── 01_session-storage.md
-│       │       │   ├── 02_token-management.md
-│       │       │   └── README.md
-│       │       ├── 14_queues-and-workers
-│       │       │   ├── 01_queue-fundamentals.md
-│       │       │   ├── 02_delayed-jobs.md
-│       │       │   ├── 03_retries-and-dead-letter-queue.md
-│       │       │   ├── 04_bullmq.md
-│       │       │   └── README.md
-│       │       ├── 15_redis-architecture
-│       │       │   ├── 01_replication.md
-│       │       │   ├── 02_sentinel.md
-│       │       │   ├── 03_cluster.md
-│       │       │   ├── 04_high-availability-and-failover.md
-│       │       │   └── README.md
-│       │       ├── 16_performance
-│       │       │   ├── 01_latency-and-benchmarking.md
-│       │       │   ├── 02_command-optimization.md
-│       │       │   ├── 03_memory-optimization.md
-│       │       │   ├── 04_serialization.md
-│       │       │   └── README.md
-│       │       ├── 17_security
-│       │       │   ├── 01_authentication-and-acl.md
-│       │       │   ├── 02_tls.md
-│       │       │   ├── 03_security-checklist.md
-│       │       │   └── README.md
-│       │       ├── 18_testing-and-debugging
-│       │       │   ├── 01_testing-with-redis.md
-│       │       │   ├── 02_debugging.md
-│       │       │   ├── 03_common-pitfalls.md
-│       │       │   └── README.md
-│       │       ├── 19_redis-production
-│       │       │   ├── 01_deployment.md
-│       │       │   ├── 02_monitoring-and-logging.md
-│       │       │   ├── 03_backup-and-disaster-recovery.md
-│       │       │   ├── 04_production-checklist.md
-│       │       │   └── README.md
-│       │       ├── 20_real-world-patterns
-│       │       │   ├── 01_idempotency.md
-│       │       │   ├── 02_request-deduplication.md
-│       │       │   ├── 03_leaderboard.md
-│       │       │   ├── 04_notification-system.md
-│       │       │   ├── 05_feature-flags.md
-│       │       │   ├── 06_event-driven-system.md
-│       │       │   └── README.md
-│       │       ├── CONTRIBUTING.md
-│       │       ├── LICENSE
-│       │       ├── README.md
-│       │       └── ROADMAP.md
+│       │   ├── redis
+│       │   │   ├── 00_introduction
+│       │   │   │   ├── 01_why-redis.md
+│       │   │   │   ├── 02_redis-vs-alternatives.md
+│       │   │   │   ├── 03_redis-architecture.md
+│       │   │   │   ├── 04_when-not-to-use-redis.md
+│       │   │   │   └── README.md
+│       │   │   ├── 01_setup
+│       │   │   │   ├── 01_redis-installation.md
+│       │   │   │   ├── 02_redis-cli-and-insight.md
+│       │   │   │   ├── 03_ioredis-setup.md
+│       │   │   │   └── README.md
+│       │   │   ├── 02_redis-fundamentals
+│       │   │   │   ├── 01_keys-and-values.md
+│       │   │   │   ├── 02_data-types-overview.md
+│       │   │   │   ├── 03_expiration-and-ttl.md
+│       │   │   │   ├── 04_persistence.md
+│       │   │   │   ├── 05_memory-and-eviction.md
+│       │   │   │   └── README.md
+│       │   │   ├── 03_ioredis-basics
+│       │   │   │   ├── 01_connection.md
+│       │   │   │   ├── 02_configuration.md
+│       │   │   │   ├── 03_commands-and-options.md
+│       │   │   │   ├── 04_promises-callbacks-buffers.md
+│       │   │   │   ├── 05_error-handling.md
+│       │   │   │   ├── 06_graceful-shutdown.md
+│       │   │   │   └── README.md
+│       │   │   ├── 04_data-structures
+│       │   │   │   ├── 01_strings.md
+│       │   │   │   ├── 02_hashes.md
+│       │   │   │   ├── 03_lists.md
+│       │   │   │   ├── 04_sets.md
+│       │   │   │   ├── 05_sorted-sets.md
+│       │   │   │   ├── 06_bitmaps-and-bitfields.md
+│       │   │   │   ├── 07_hyperloglog-and-geo.md
+│       │   │   │   ├── 08_streams-overview.md
+│       │   │   │   ├── 09_choosing-the-right-structure.md
+│       │   │   │   └── README.md
+│       │   │   ├── 05_key-management
+│       │   │   │   ├── 01_key-design.md
+│       │   │   │   ├── 02_scan-and-iteration.md
+│       │   │   │   ├── 03_delete-and-unlink.md
+│       │   │   │   └── README.md
+│       │   │   ├── 06_advanced-commands
+│       │   │   │   ├── 01_pipelines-and-auto-pipelining.md
+│       │   │   │   ├── 02_transactions.md
+│       │   │   │   ├── 03_lua-scripts.md
+│       │   │   │   ├── 04_atomic-and-conditional-ops.md
+│       │   │   │   └── README.md
+│       │   │   ├── 07_caching
+│       │   │   │   ├── 01_cache-aside.md
+│       │   │   │   ├── 02_cache-strategies.md
+│       │   │   │   ├── 03_cache-invalidation.md
+│       │   │   │   ├── 04_cache-problems.md
+│       │   │   │   ├── 05_caching-api-responses.md
+│       │   │   │   └── README.md
+│       │   │   ├── 08_nodejs-integration
+│       │   │   │   ├── 01_connection-management.md
+│       │   │   │   ├── 02_redis-service.md
+│       │   │   │   ├── 03_redis-repository.md
+│       │   │   │   ├── 04_typed-redis-client.md
+│       │   │   │   ├── 05_redis-key-builder.md
+│       │   │   │   ├── 06_express-integration.md
+│       │   │   │   └── README.md
+│       │   │   ├── 09_pub-sub
+│       │   │   │   ├── 01_pub-sub-fundamentals.md
+│       │   │   │   ├── 02_event-driven-nodejs.md
+│       │   │   │   ├── 03_socketio-with-redis.md
+│       │   │   │   └── README.md
+│       │   │   ├── 10_streams
+│       │   │   │   ├── 01_stream-fundamentals.md
+│       │   │   │   ├── 02_producers-and-consumers.md
+│       │   │   │   ├── 03_consumer-groups-and-acks.md
+│       │   │   │   ├── 04_stream-patterns.md
+│       │   │   │   └── README.md
+│       │   │   ├── 11_distributed-locks
+│       │   │   │   ├── 01_locking-fundamentals.md
+│       │   │   │   ├── 02_lock-expiration-and-renewal.md
+│       │   │   │   ├── 03_redlock.md
+│       │   │   │   └── README.md
+│       │   │   ├── 12_rate-limiting
+│       │   │   │   ├── 01_fixed-and-sliding-window.md
+│       │   │   │   ├── 02_token-and-leaky-bucket.md
+│       │   │   │   ├── 03_distributed-rate-limiter.md
+│       │   │   │   └── README.md
+│       │   │   ├── 13_session-management
+│       │   │   │   ├── 01_session-storage.md
+│       │   │   │   ├── 02_token-management.md
+│       │   │   │   └── README.md
+│       │   │   ├── 14_queues-and-workers
+│       │   │   │   ├── 01_queue-fundamentals.md
+│       │   │   │   ├── 02_delayed-jobs.md
+│       │   │   │   ├── 03_retries-and-dead-letter-queue.md
+│       │   │   │   ├── 04_bullmq.md
+│       │   │   │   └── README.md
+│       │   │   ├── 15_redis-architecture
+│       │   │   │   ├── 01_replication.md
+│       │   │   │   ├── 02_sentinel.md
+│       │   │   │   ├── 03_cluster.md
+│       │   │   │   ├── 04_high-availability-and-failover.md
+│       │   │   │   └── README.md
+│       │   │   ├── 16_performance
+│       │   │   │   ├── 01_latency-and-benchmarking.md
+│       │   │   │   ├── 02_command-optimization.md
+│       │   │   │   ├── 03_memory-optimization.md
+│       │   │   │   ├── 04_serialization.md
+│       │   │   │   └── README.md
+│       │   │   ├── 17_security
+│       │   │   │   ├── 01_authentication-and-acl.md
+│       │   │   │   ├── 02_tls.md
+│       │   │   │   ├── 03_security-checklist.md
+│       │   │   │   └── README.md
+│       │   │   ├── 18_testing-and-debugging
+│       │   │   │   ├── 01_testing-with-redis.md
+│       │   │   │   ├── 02_debugging.md
+│       │   │   │   ├── 03_common-pitfalls.md
+│       │   │   │   └── README.md
+│       │   │   ├── 19_redis-production
+│       │   │   │   ├── 01_deployment.md
+│       │   │   │   ├── 02_monitoring-and-logging.md
+│       │   │   │   ├── 03_backup-and-disaster-recovery.md
+│       │   │   │   ├── 04_production-checklist.md
+│       │   │   │   └── README.md
+│       │   │   ├── 20_real-world-patterns
+│       │   │   │   ├── 01_idempotency.md
+│       │   │   │   ├── 02_request-deduplication.md
+│       │   │   │   ├── 03_leaderboard.md
+│       │   │   │   ├── 04_notification-system.md
+│       │   │   │   ├── 05_feature-flags.md
+│       │   │   │   ├── 06_event-driven-system.md
+│       │   │   │   └── README.md
+│       │   │   ├── CONTRIBUTING.md
+│       │   │   ├── LICENSE
+│       │   │   ├── README.md
+│       │   │   └── ROADMAP.md
+│       │   └── README.md
 │       ├── 08-authentication-security
 │       │   ├── 01-password-hashing.md
 │       │   ├── 02-jwt-and-tokens.md
@@ -2256,12 +2352,12 @@ engineering-notes/
 │       │   └── README.md
 │       ├── 13-testing
 │       │   ├── 00_README.md
-│       │   ├── 01-unit-and-integration-testing.md
 │       │   ├── 01_testing-fundamentals.md
-│       │   ├── 02-api-testing-and-mocking.md
+│       │   ├── 01-unit-and-integration-testing.md
 │       │   ├── 02_unit-testing.md
-│       │   ├── 03-test-database-and-coverage.md
+│       │   ├── 02-api-testing-and-mocking.md
 │       │   ├── 03_integration-testing.md
+│       │   ├── 03-test-database-and-coverage.md
 │       │   ├── 04_vitest-and-jest.md
 │       │   ├── 05_mocking.md
 │       │   ├── 06_testing-patterns.md
@@ -2334,30 +2430,39 @@ engineering-notes/
 │       │   │   └── 02-logging-and-tracing.md
 │       │   ├── 05-projects
 │       │   │   ├── 01-s3-upload-api
-│       │   │   │   ├── README.md
 │       │   │   │   ├── infra
-│       │   │   │   ├── package.json
+│       │   │   │   │   └── .gitkeep
 │       │   │   │   ├── src
+│       │   │   │   │   └── .gitkeep
 │       │   │   │   ├── test
+│       │   │   │   │   └── .gitkeep
+│       │   │   │   ├── package.json
+│       │   │   │   ├── README.md
 │       │   │   │   └── tsconfig.json
 │       │   │   ├── 02-serverless-api
-│       │   │   │   ├── README.md
 │       │   │   │   ├── infra
-│       │   │   │   ├── package.json
+│       │   │   │   │   └── .gitkeep
 │       │   │   │   ├── src
+│       │   │   │   │   └── .gitkeep
 │       │   │   │   ├── test
+│       │   │   │   │   └── .gitkeep
+│       │   │   │   ├── package.json
+│       │   │   │   ├── README.md
 │       │   │   │   └── tsconfig.json
 │       │   │   ├── 03-node-app-on-ecs
-│       │   │   │   ├── README.md
 │       │   │   │   ├── infra
-│       │   │   │   ├── package.json
+│       │   │   │   │   └── .gitkeep
 │       │   │   │   ├── src
+│       │   │   │   │   └── .gitkeep
 │       │   │   │   ├── test
+│       │   │   │   │   └── .gitkeep
+│       │   │   │   ├── package.json
+│       │   │   │   ├── README.md
 │       │   │   │   └── tsconfig.json
 │       │   │   └── README.md
-│       │   ├── README.md
-│       │   └── reference
-│       │       └── cheatsheet.md
+│       │   ├── reference
+│       │   │   └── cheatsheet.md
+│       │   └── README.md
 │       ├── 22-project-tooling
 │       │   ├── 01_project-structure.md
 │       │   ├── 02_environment-variables.md
@@ -2401,14 +2506,14 @@ engineering-notes/
 │   │   │   ├── 03-security-and-secrets.md
 │   │   │   ├── 04-observability.md
 │   │   │   └── 05-reliability-and-cost.md
-│   │   ├── README.md
-│   │   └── reference
-│   │       ├── cheatsheet.md
-│   │       └── interview.md
+│   │   ├── reference
+│   │   │   ├── cheatsheet.md
+│   │   │   └── interview.md
+│   │   └── README.md
 │   ├── docker
 │   │   ├── 00_setup
-│   │   │   ├── README.md
-│   │   │   └── getting-started.md
+│   │   │   ├── getting-started.md
+│   │   │   └── README.md
 │   │   ├── 01_docker_fundamentals
 │   │   │   ├── 01_docker-vs-vm.md
 │   │   │   ├── 02_images-containers.md
@@ -2442,8 +2547,8 @@ engineering-notes/
 │   │       └── README.md
 │   ├── git-github
 │   │   ├── 00_setup
-│   │   │   ├── README.md
-│   │   │   └── getting-started.md
+│   │   │   ├── getting-started.md
+│   │   │   └── README.md
 │   │   ├── 01_git_fundamentals
 │   │   │   ├── 01_git-vs-github.md
 │   │   │   ├── 02_repositories.md
@@ -2469,6 +2574,12 @@ engineering-notes/
 │   │   │   ├── 04_reflog.md
 │   │   │   └── README.md
 │   │   └── 04_github_actions
+│   │       ├── examples
+│   │       │   ├── deploy-with-approval.yml
+│   │       │   ├── docker-build-push.yml
+│   │       │   ├── nodejs-ci.yml
+│   │       │   ├── release-automation.yml
+│   │       │   └── reusable-workflow-caller.yml
 │   │       ├── 01_core-concepts.md
 │   │       ├── 02_workflow-syntax.md
 │   │       ├── 03_events-and-triggers.md
@@ -2488,13 +2599,7 @@ engineering-notes/
 │   │       ├── 17_security-hardening.md
 │   │       ├── 18_debugging-and-workflow-commands.md
 │   │       ├── CHEATSHEET.md
-│   │       ├── README.md
-│   │       └── examples
-│   │           ├── deploy-with-approval.yml
-│   │           ├── docker-build-push.yml
-│   │           ├── nodejs-ci.yml
-│   │           ├── release-automation.yml
-│   │           └── reusable-workflow-caller.yml
+│   │       └── README.md
 │   ├── linux
 │   │   ├── 01-fundamentals
 │   │   │   ├── 01-getting-started.md
@@ -2524,10 +2629,10 @@ engineering-notes/
 │   │   ├── 06-advanced
 │   │   │   ├── 01-namespaces-and-cgroups.md
 │   │   │   └── 02-advanced-debugging.md
-│   │   ├── README.md
-│   │   └── reference
-│   │       ├── cheatsheet.md
-│   │       └── interview.md
+│   │   ├── reference
+│   │   │   ├── cheatsheet.md
+│   │   │   └── interview.md
+│   │   └── README.md
 │   └── nginx
 │       ├── 01-fundamentals
 │       │   ├── config-structure.md
@@ -2584,10 +2689,10 @@ engineering-notes/
 │   │   │   ├── 03-reliability-and-cost.md
 │   │   │   ├── 04-security.md
 │   │   │   └── 05-serving-and-integration.md
-│   │   ├── README.md
-│   │   └── reference
-│   │       ├── cheatsheet.md
-│   │       └── interview.md
+│   │   ├── reference
+│   │   │   ├── cheatsheet.md
+│   │   │   └── interview.md
+│   │   └── README.md
 │   ├── 02-langgraph-js
 │   │   ├── 01-core
 │   │   │   ├── 01-concepts.md
@@ -2611,10 +2716,10 @@ engineering-notes/
 │   │   │   ├── 02-reliability.md
 │   │   │   ├── 03-security.md
 │   │   │   └── 04-deployment.md
-│   │   ├── README.md
-│   │   └── reference
-│   │       ├── cheatsheet.md
-│   │       └── interview.md
+│   │   ├── reference
+│   │   │   ├── cheatsheet.md
+│   │   │   └── interview.md
+│   │   └── README.md
 │   ├── 03-llamaindex
 │   │   ├── 01-core
 │   │   │   ├── 01-setup-and-first-query.md
@@ -2639,10 +2744,10 @@ engineering-notes/
 │   │   │   ├── 03-reliability-and-cost.md
 │   │   │   ├── 04-security.md
 │   │   │   └── 05-serving-and-integration.md
-│   │   ├── README.md
-│   │   └── reference
-│   │       ├── cheatsheet.md
-│   │       └── interview.md
+│   │   ├── reference
+│   │   │   ├── cheatsheet.md
+│   │   │   └── interview.md
+│   │   └── README.md
 │   └── rag
 │       ├── 01-fundamentals
 │       │   ├── documents-and-nodes.md
@@ -2666,27 +2771,26 @@ engineering-notes/
 │       │   ├── vector-db-comparison.md
 │       │   └── vector-db-concepts.md
 │       ├── 05-pinecone
-│       │   ├── README (2).md
 │       │   ├── delete-and-update.md
 │       │   ├── indexes.md
 │       │   ├── namespaces-and-filters.md
 │       │   ├── query.md
+│       │   ├── README (2).md
 │       │   ├── scaling-and-cost.md
 │       │   ├── setup.md
 │       │   ├── sparse-and-hybrid.md
 │       │   └── upsert.md
 │       ├── 06-llamaindex
-│       │   ├── README (3).md
 │       │   ├── architecture.md
 │       │   ├── indexes.md
 │       │   ├── nodes-and-parsers.md
 │       │   ├── query-engine.md
 │       │   ├── query-pipeline.md
+│       │   ├── README (3).md
 │       │   ├── response-synthesizer.md
 │       │   ├── storage.md
 │       │   └── transformations.md
 │       ├── 07-retrievers
-│       │   ├── README (5).md
 │       │   ├── auto-merging-retriever (2).md
 │       │   ├── auto-retriever (2).md
 │       │   ├── bm25-retriever (2).md
@@ -2695,15 +2799,16 @@ engineering-notes/
 │       │   ├── keyword-table-retriever (2).md
 │       │   ├── property-graph-retriever (2).md
 │       │   ├── query-fusion-retriever (2).md
+│       │   ├── README (5).md
 │       │   ├── recursive-retriever (2).md
 │       │   ├── retrieval-basics (2).md
 │       │   ├── router-retriever (2).md
 │       │   ├── summary-retriever (2).md
 │       │   └── vector-retriever (1).md
 │       ├── 08-query-transformation
-│       │   ├── README.md
 │       │   ├── hyde.md
 │       │   ├── query-rewriting.md
+│       │   ├── README.md
 │       │   └── sub-question-query-engine.md
 │       ├── 09-reranking
 │       │   ├── cohere-reranker.md
@@ -2717,19 +2822,19 @@ engineering-notes/
 │       │   ├── prompt-design.md
 │       │   └── streaming.md
 │       ├── 11-document-management
-│       │   ├── README.md
 │       │   ├── delete-documents.md
 │       │   ├── doc-ids-and-tracking.md
 │       │   ├── insert-documents.md
+│       │   ├── README.md
 │       │   ├── refresh-and-sync.md
 │       │   └── update-documents.md
 │       ├── 12-chat
-│       │   ├── README.md
 │       │   ├── chat-engines.md
 │       │   ├── chat-memory.md
 │       │   ├── chat-sessions.md
 │       │   ├── loading-data-in-chat.md
 │       │   ├── long-term-memory.md
+│       │   ├── README.md
 │       │   └── unloading-data-in-chat.md
 │       ├── 13-workflows
 │       │   ├── advanced-rag.md
@@ -2772,22 +2877,22 @@ engineering-notes/
 │       │   ├── quick-reference.md
 │       │   └── retrieval-and-llamaindex.md
 │       ├── ARCHITECTURE.md
-│       ├── GLOSSARY.md
-│       ├── README (1).md
-│       ├── README.md
-│       ├── ROADMAP.md
-│       ├── SETUP.md
 │       ├── auto-merging-retriever.md
 │       ├── auto-retriever.md
 │       ├── bm25-retriever.md
 │       ├── custom-retriever.md
+│       ├── GLOSSARY.md
 │       ├── hybrid-retrieval.md
 │       ├── keyword-table-retriever.md
 │       ├── property-graph-retriever.md
 │       ├── query-fusion-retriever.md
+│       ├── README (1).md
+│       ├── README.md
 │       ├── recursive-retriever.md
 │       ├── retrieval-basics.md
+│       ├── ROADMAP.md
 │       ├── router-retriever.md
+│       ├── SETUP.md
 │       └── summary-retriever.md
 ├── 06-project-patterns
 │   └── auth
@@ -2852,6 +2957,8 @@ engineering-notes/
 │           ├── 04-input-validation.md
 │           └── 05-logging-and-audit.md
 ├── 07-system-design
+│   ├── _templates
+│   │   └── case-study-template.md
 │   ├── 01-fundamentals
 │   │   ├── 01-approach-and-requirements.md
 │   │   ├── 02-estimation.md
@@ -2903,12 +3010,10 @@ engineering-notes/
 │   │   ├── 07-ride-matching.md
 │   │   ├── 08-web-crawler.md
 │   │   └── 09-rag-and-llm-platform.md
-│   ├── README.md
-│   ├── _templates
-│   │   └── case-study-template.md
-│   └── reference
-│       ├── cheatsheet.md
-│       └── interview.md
+│   ├── reference
+│   │   ├── cheatsheet.md
+│   │   └── interview.md
+│   └── README.md
 ├── 08-solid-design-patterns
 │   ├── 01-foundations
 │   │   ├── 00-overview.md
@@ -3173,9 +3278,9 @@ engineering-notes/
 │   │   │   └── README.md
 │   │   ├── 06-advanced-queries
 │   │   │   └── README.md
-│   │   ├── README.md
-│   │   └── solutions
-│   │       └── README.md
+│   │   ├── solutions
+│   │   │   └── README.md
+│   │   └── README.md
 │   ├── 23-projects
 │   │   ├── 01-library-database
 │   │   │   └── README.md
@@ -3226,7 +3331,8 @@ engineering-notes/
 │   ├── LICENSE
 │   ├── README.md
 │   └── ROADMAP.md
+├── prompts
+│   ├── learning-repository-optimization-prompt.txt
+│   └── markdown-learning-reference-note-prompt.txt
 ├── README.md
-└── prompts
-    ├── learning-repository-optimization-prompt.txt
-    └── markdown-learning-reference-note-prompt.txt
+└── tree.txt
