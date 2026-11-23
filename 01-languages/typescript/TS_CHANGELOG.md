@@ -280,3 +280,25 @@
   - `03-typed-lru-cache-and-bloom-filter.md` (579 lines) - O(1) Map + Doubly Linked List cache, TTL lazy expiration, Murmur3 hashing, Uint8Array bitmasks, probabilistic Bloom filter
   - `04-algorithm-complexity-in-type-space.md` (438 lines) - Type-level Peano arithmetic, type-level BubbleSort, tail-call optimization in TS 4.5+, TS2589 recursion limit guards
   - `README.md` (15 lines)
+
+
+## [Batch 9] - 2026-11-24 - Production Projects & Exercises (Module 26)
+### Added / Completed
+- **26-projects/** (14 end-to-end production projects + exercises bank, 4,712 total lines):
+  - `01-cli-tool/README.md` (398 lines) - Type-safe CLI task runner with Zod flags and process signal handling
+  - `02-type-safe-api-client/README.md` (379 lines) - Composable API client with middleware, retry policy, and RFC 7807 problem details
+  - `03-rest-api/README.md` (326 lines) - Fastify TypeProvider REST API with TypeBox JIT compilation and repository pattern
+  - `04-authentication-system/README.md` (315 lines) - JWT & session authentication engine with Argon2, refresh token rotation, and RBAC
+  - `05-react-dashboard/README.md` (300 lines) - React 19 analytics dashboard with TanStack Query v5 key factories and Zustand filters
+  - `06-nestjs-api/README.md` (308 lines) - NestJS enterprise architecture API with dependency injection, DTOs, and tenant guards
+  - `07-fullstack-application/README.md` (306 lines) - Next.js 15 App Router app with async Server Components and Zod Server Actions
+  - `08-typed-event-sourcing/README.md` (315 lines) - Event Sourcing & CQRS engine with append-only log and read projections
+  - `09-type-safe-form-builder/README.md` (316 lines) - Schema-driven form engine with reactive validation and inferred values
+  - `10-mini-orm-type-queries/README.md` (308 lines) - Type-safe SQL query builder with column projection and parameterized escaping
+  - `11-schema-validation-library/README.md` (348 lines) - Mini-Zod validation library from scratch with parser combinators
+  - `12-typed-state-machine/README.md` (288 lines) - Type-safe finite state machine with compile-time transition matrix and guards
+  - `13-monorepo-shared-types/README.md` (250 lines) - Monorepo shared DTOs with pnpm workspaces, `composite: true`, and Turborepo
+  - `14-trpc-fullstack/README.md` (288 lines) - Fullstack tRPC v11 app with context middleware and React Query hooks
+  - `exercises/00-type-challenges.md` (236 lines) - 5 tiers of type-level algorithm challenges from warm-up to extreme
+  - `exercises/README.md` (14 lines)
+  - `README.md` (25 lines)
