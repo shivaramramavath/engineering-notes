@@ -50,3 +50,41 @@
 - Created \`_templates/\` directory containing:
   - \`_templates/concept-template.md\`: 13-section canonical standard including "TypeScript version / tsconfig tested" metadata field.
   - \`_templates/project-template.md\`: 5-section production project standard with zero placeholders.
+
+
+### Batch 3: Classes, Generics & Utility Types (Modules 05, 06, 07)
+- **Module 05: Classes (11 files, 100% Complete)**:
+  - `00-classes.md` (533 lines): Class field declarations, definite assignment assertions (`!`), constructor initialization order.
+  - `01-access-modifiers.md` (571 lines): TypeScript `private`/`protected` compile-time checks vs ECMAScript `#private` runtime hard privacy.
+  - `02-inheritance-and-abstract-classes.md` (624 lines): Abstract class definitions, abstract member constraints, Liskov substitution verification.
+  - `03-implements.md` (594 lines): Interface implementation contracts, multiple interface conformance, separating static construct signatures from instance types.
+  - `04-static-members.md` (535 lines): Static properties/methods, static initialization blocks (`static {}`), inheritance of static members.
+  - `05-getters-and-setters.md` (561 lines): Accessor pairs, asymmetric getter/setter types (TS 4.3+), prototype property descriptors.
+  - `06-mixins.md` (597 lines): Constructor constraint pattern (`Constructor<T>`), composable behavioral pipelines, avoiding multiple inheritance limits.
+  - `07-decorators.md` (616 lines): Stage 3 ECMAScript decorators (TS 5.0+), decorator context (`ClassMethodDecoratorContext`, `addInitializer`, `metadata` TS 5.2+), migration from legacy `experimentalDecorators`.
+  - `08-constructor-parameter-properties-and-erasable-syntax.md` (563 lines - NEW): Parameter properties vs Node 22 native type stripping, syntax incompatibility, and TS 5.8+ `--erasableSyntaxOnly` boundary.
+  - `09-class-expressions-and-structural-typing.md` (522 lines - NEW): Anonymous class expressions, instance type duck typing, nominal branding techniques.
+  - Authored comprehensive `05-classes/README.md` (56 lines).
+
+- **Module 06: Generics (10 files, 100% Complete)**:
+  - `00-generic-functions.md` (494 lines): Type parameters, contextual inference, generic constraints, multi-parameter dependencies.
+  - `01-generic-types.md` (557 lines): Generic interfaces, type aliases, generic classes, static member type isolation.
+  - `02-generic-constraints-and-defaults.md` (512 lines): `extends` constraints, default type arguments, interdependent generic defaults.
+  - `03-keyof-and-typeof.md` (490 lines): Type-space `typeof`, `keyof` property unions, dictionary types, `as const` integration.
+  - `04-indexed-access-types.md` (460 lines): `T[K]` lookup types, tuple indexing, array element lookup with `T[number]`, chained access.
+  - `05-generic-inference.md` (417 lines): Conditional types, `infer` pattern matching, distributive conditional rules, distributive `never` handling.
+  - `06-const-type-parameters.md` (489 lines - NEW): TS 5.0+ `<const T>` modifier, deep literal tuple and object inference without caller `as const`.
+  - `07-type-parameter-variance-annotations.md` (459 lines - NEW): TS 4.7+ `in` and `out` variance annotations, covariance, contravariance, invariance, compiler subtyping acceleration.
+  - `08-generic-instantiation-limits-and-compiler-perf.md` (413 lines - NEW): `TS2589` error, tail-call recursion optimization (TS 4.5+), accumulator tuples, `--extendedDiagnostics` profiling.
+  - Authored comprehensive `06-generics/README.md` (42 lines).
+
+- **Module 07: Utility Types (9 files, 100% Complete)**:
+  - `00-partial-required-readonly.md` (499 lines): Property modifiers, `+` and `-` token modifiers, `exactOptionalPropertyTypes` interaction.
+  - `01-pick-omit-record.md` (434 lines): Whitelist/blacklist projections, `StrictOmit` implementation, DTO architectural design.
+  - `02-exclude-extract-nonnullable.md` (389 lines): Set operations on unions, distributive conditional types, TS 4.8+ `T & {}` definition of `NonNullable`.
+  - `03-function-and-class-utilities.md` (470 lines): `Parameters`, `ReturnType`, `ConstructorParameters`, `InstanceType`, `ThisParameterType`, `OmitThisParameter`.
+  - `04-building-custom-utility-types.md` (490 lines): Key remapping with `as`, filtering keys by value type, homomorphic mapping, `Prettify` type helper.
+  - `05-awaited-and-promise-unwrapping.md` (420 lines - NEW): TS 4.5+ `Awaited<T>`, recursive unwrapping of Promises and Promises/A+ Thenables.
+  - `06-string-manipulation-types.md` (398 lines - NEW): Intrinsic string types (`Uppercase`, `Lowercase`, `Capitalize`, `Uncapitalize`), template literal types, string pattern extraction.
+  - `07-deep-utility-types.md` (512 lines - NEW): Recursive `DeepPartial`, `DeepReadonly`, `DeepRequired`, `DeepMutable`, guards for `Function`, `Date`, and collections.
+  - Authored comprehensive `07-utility-types/README.md` (42 lines).

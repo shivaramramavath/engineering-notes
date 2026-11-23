@@ -1,196 +1,433 @@
 # Pick, Omit, and Record
 
-`Pick` and `Omit` build a new object type by **selecting or dropping keys** from an existing one. `Record` builds an object type from **a set of keys and one value type**. Together they cover most "derive a type from another type" work: public views of an entity, create/update inputs, lookup tables.
+> Projection and structural transformation utilities in TypeScript allow engineering precise, fine-grained view models, DTOs, and dictionary representations from base domain entities.
 
-**Prerequisites:**
-- [Partial, Required, Readonly](./00-partial-required-readonly.md)
-- [keyof and typeof](../06-generics/03-keyof-and-typeof.md)
-- [Index signatures](../04-objects-and-interfaces/03-index-signatures.md) (for the `Record<string, T>` section)
+| Metadata | Value |
+| :--- | :--- |
+| **Level** | Intermediate |
+| **Prerequisites** | [00-partial-required-readonly.md](file:///E:/Learning/engineering-notes/01-languages/typescript/07-utility-types/00-partial-required-readonly.md), [03-keyof-and-typeof.md](file:///E:/Learning/engineering-notes/01-languages/typescript/06-generics/03-keyof-and-typeof.md) |
+| **Time to Read** | 24 minutes |
+| **Status** | Complete |
+| **TypeScript Baseline** | Since TS 2.1 / TS 3.5 / TS 7.0 Native |
+| **Tested tsconfig** | `strict: true`, `noImplicitAny: true` |
 
 ---
 
-## Definitions
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & API Reference](#4-syntax--api-reference)
+5. [Practical Examples](#5-practical-examples)
+6. [Edge Cases, Pitfalls & Gotchas](#6-edge-cases-pitfalls--gotchas)
+7. [Common Mistakes & Anti-Patterns](#7-common-mistakes--anti-patterns)
+8. [Performance & Type-Checker Complexity](#8-performance--type-checker-complexity)
+9. [Compiler Internals](#9-compiler-internals)
+10. [Best Practices & Design Guidelines](#10-best-practices--design-guidelines)
+11. [Real-World Case Study](#11-real-world-case-study)
+12. [Interview Questions](#12-interview-questions)
+13. [Exercises & Challenges](#13-exercises--challenges)
 
-```ts
-type Pick<T, K extends keyof T> = { [P in K]: T[P] };
-type Omit<T, K extends keyof any> = Pick<T, Exclude<keyof T, K>>;
-type Record<K extends keyof any, T> = { [P in K]: T };
-```
+---
 
-(`keyof any` is `string | number | symbol`.) Two things to notice right away:
+## 1. What & Why
+In software architecture, the shape of data often depends on the context:
+- A database model has private identifiers, hashed passwords, and audit timestamps.
+- A public API response must conceal security-sensitive columns.
+- An input form only asks for user-editable fields.
+- A lookup dictionary maps resource identifiers to entity instances.
 
-- `Pick` requires `K` to be real keys of `T`. A typo is an error.
-- `Omit` is built from `Pick` and `Exclude`, and its `K` is **not** constrained to `keyof T`. A typo is silently accepted. More on this below.
+Rather than authoring divergent interface definitions that become desynchronized, TypeScript provides **`Pick<T, K>`** and **`Omit<T, K>`** for projection, and **`Record<K, T>`** for associative collections.
 
-## Pick: keep only these keys
+---
 
-```ts
-interface User {
-  id: number;
-  name: string;
+## 2. Core Concepts
+
+### `Pick<T, K>`: Whitelist Projection
+`Pick<T, K>` constructs a type by picking the set of properties `K` (where `K extends keyof T`) from type `T`:
+```typescript
+interface UserAccount {
+  id: string;
   email: string;
   passwordHash: string;
-  createdAt: Date;
+  createdDate: Date;
 }
 
-type UserPreview = Pick<User, "id" | "name">;
-// { id: number; name: string }
+type UserPreview = Pick<UserAccount, "id" | "email">;
+// { id: string; email: string }
 ```
 
-`Pick` keeps the modifiers (`?`, `readonly`) of the picked properties, because it maps over keys of `T`.
-
-Typical uses: component props that need only part of an entity, function parameters that should depend on the minimum they read.
-
-```ts
-function greet(user: Pick<User, "name">) {
-  return `Hello ${user.name}`;
-}
+### `Omit<T, K>`: Blacklist Projection
+`Omit<T, K>` constructs a type by picking all properties from `T` and then dropping the keys specified in union `K`:
+```typescript
+type PublicUser = Omit<UserAccount, "passwordHash">;
+// { id: string; email: string; createdDate: Date }
 ```
 
-Narrow parameter types like this make functions easier to call and test: callers pass any object that has `name`.
-
-## Omit: drop these keys
-
-```ts
-type PublicUser = Omit<User, "passwordHash">;
-type CreateUserInput = Omit<User, "id" | "createdAt">;
+### `Record<K, T>`: Associative Mappings
+`Record<K, T>` constructs an object type whose keys are `K` and property values are `T`:
+```typescript
+type Currency = "USD" | "EUR" | "GBP";
+type Rates = Record<Currency, number>;
+// { USD: number; EUR: number; GBP: number }
 ```
 
-Rule of thumb: use `Pick` when you want a **few** keys, `Omit` when you want **almost all** of them. The advantage of `Omit` is that new fields added to `User` flow into the derived type automatically. That is also its risk: a new sensitive field (say `mfaSecret`) would leak into `PublicUser` without any error. For security-facing types, prefer `Pick` (allow-list) over `Omit` (deny-list).
+---
 
-### Gotcha: `Omit` does not check key names
+## 3. How It Works Internally
 
-```ts
-type Oops = Omit<User, "pasword">; // no error, nothing is omitted
 ```
+Type Implementations in lib.es5.d.ts:
 
-If you want the check, define a strict version:
+type Pick<T, K extends keyof T> = {
+  [P in K]: T[P];
+};
 
-```ts
-type StrictOmit<T, K extends keyof T> = Omit<T, K>;
-```
+type Omit<T, K extends keyof any> = Pick<T, Exclude<keyof T, K>>;
 
-### Gotcha: `Omit` does not distribute over unions
-
-`keyof (A | B)` is only the keys **common** to both, so `Omit` on a union flattens it to those common keys and destroys the discriminant structure:
-
-```ts
-type Shape =
-  | { kind: "circle"; radius: number; id: string }
-  | { kind: "square"; size: number; id: string };
-
-type NoId = Omit<Shape, "id">;
-// { kind: "circle" | "square" }   <- radius and size are gone
-```
-
-Fix it with a distributive version:
-
-```ts
-type DistributiveOmit<T, K extends PropertyKey> =
-  T extends unknown ? Omit<T, K> : never;
-
-type NoId2 = DistributiveOmit<Shape, "id">;
-// { kind: "circle"; radius: number } | { kind: "square"; size: number }
-```
-
-This works because a conditional type on a bare type parameter distributes over unions. See [distributive conditional types](../10-advanced-types/01-distributive-conditional-types.md).
-
-### Gotcha: `Omit` on index-signature types
-
-If `T` has a string index signature, `keyof T` is `string | number`, and excluding a literal from it leaves `string | number`. Known properties are lost. Avoid `Omit`/`Pick` on types that mix an index signature with named keys.
-
-## Record: a map from keys to a value type
-
-```ts
-type Role = "admin" | "editor" | "viewer";
-
-const permissions: Record<Role, string[]> = {
-  admin: ["read", "write", "delete"],
-  editor: ["read", "write"],
-  viewer: ["read"],
+type Record<K extends keyof any, T> = {
+  [P in K]: T;
 };
 ```
 
-With a **union of literals** as keys, `Record` is a lookup table where **every key is required**. That gives you free exhaustiveness: if someone adds `"guest"` to `Role`, this object stops compiling until it handles it.
+Mechanics:
+1. `Pick` uses a mapped type constrained directly to the keys of `T`. If an invalid key is specified, the compiler rejects it immediately (`TS2344`).
+2. `Omit` uses `Exclude<keyof T, K>` to filter keys from `keyof T`, then feeds the remaining keys into `Pick`. Note that `K` extends `keyof any`, meaning `Omit` does not enforce that `K` must exist on `T`.
 
-```ts
-const labels: Record<Role, string> = {
-  admin: "Administrator",
-  editor: "Editor",
-  // error: Property 'viewer' is missing
+---
+
+## 4. Syntax & API Reference
+
+### Combining Projections
+```typescript
+// Pick and modify
+type EditableUser = Partial<Pick<UserAccount, "email">>;
+
+// Omit and extend
+type EnrichedUser = Omit<UserAccount, "passwordHash"> & {
+  authToken: string;
 };
 ```
 
-This is often a cleaner alternative to a `switch` for pure mappings. For a sparse map, wrap it: `Partial<Record<Role, string>>`.
+---
 
-### `Record<string, T>` is an index signature
+## 5. Practical Examples
 
-With `string` as the key type, `Record` is equivalent to `{ [key: string]: T }`. Any key is allowed, and reading one gives `T`, even if it is not there at runtime:
+### 5.1 Basic Pick & Omit
+```typescript
+interface BlogPost {
+  id: string;
+  title: string;
+  body: string;
+  authorId: string;
+  views: number;
+}
 
-```ts
-const cache: Record<string, number> = {};
-const n = cache["missing"]; // typed number, actually undefined
+type PostDraft = Omit<BlogPost, "id" | "views">;
+type PostHeader = Pick<BlogPost, "id" | "title" | "authorId">;
 ```
 
-Mitigations:
+### 5.2 Real-World Application: Normalized Entity State Store
+```typescript
+interface EntityState<TEntity extends { id: string }> {
+  byId: Record<string, TEntity>;
+  allIds: string[];
+}
 
-- Turn on [`noUncheckedIndexedAccess`](../13-compiler-and-tsconfig/00-compiler-options.md) so index reads include `undefined`.
-- Use `Map<string, number>` when keys are dynamic and you need real "has / get" semantics.
-- Use `Partial<Record<string, number>>` to make the missing case explicit.
+function createNormalizedStore<T extends { id: string }>(items: T[]): EntityState<T> {
+  const byId: Record<string, T> = {};
+  const allIds: string[] = [];
 
-Also: `Record<string, unknown>` is the usual "any plain object" type, but interfaces are **not** assignable to it (interfaces lack implicit index signatures, type aliases of object literals have them). If you hit that error, use `object` or a generic constraint instead.
+  for (const item of items) {
+    byId[item.id] = item;
+    allIds.push(item.id);
+  }
 
-### Pairing Record with `satisfies`
+  return { byId, allIds };
+}
 
-When you want a typed table but also want the literal types of the values preserved:
-
-```ts
-const routes = {
-  home: "/",
-  profile: "/profile",
-} satisfies Record<string, `/${string}`>;
-
-routes.home; // type is "/", not just string
+const userStore = createNormalizedStore([
+  { id: "u_1", name: "Alice" },
+  { id: "u_2", name: "Bob" },
+]);
 ```
 
-See [type assertions and satisfies](../03-unions-and-narrowing/07-type-assertions-and-satisfies.md).
+### 5.3 Edge Case: `Omit` with Non-Existent Keys
+```typescript
+interface Item {
+  sku: string;
+  price: number;
+}
 
-## Practical patterns
-
-Update input: required id, everything else optional.
-
-```ts
-type UpdateUserInput = Pick<User, "id"> & Partial<Omit<User, "id">>;
+// Omit does NOT error if key does not exist:
+type CleanItem = Omit<Item, "nonExistentKey">; // { sku: string; price: number }
 ```
 
-Mutually-derived DTOs from one source of truth:
-
-```ts
-type UserRow = User;
-type UserResponse = Omit<UserRow, "passwordHash" | "createdAt"> & { createdAt: string };
+### 5.4 Failure Case: `Pick` with Non-Existent Keys
+```typescript
+// @ts-expect-error TS2344: Type '"invalid"' does not satisfy the constraint 'keyof Item'.
+type BrokenPick = Pick<Item, "invalid">;
 ```
 
-Intersections like these show as `A & B` in hover tooltips. Wrap with an `Expand` helper if you want the flattened shape (see [building custom utility types](./04-building-custom-utility-types.md)).
+### 5.5 Idiomatic Pattern: Strict Omit
+```typescript
+// A strictly checked version of Omit that errors on typos
+type StrictOmit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>;
 
-## Common mistakes
+// @ts-expect-error TS2344: Type '"typo"' does not satisfy the constraint 'keyof Item'.
+type SafeCheck = StrictOmit<Item, "typo">;
+```
 
-- **Using `Omit` for security allow-lists.** New fields leak by default. Use `Pick`.
-- **Trusting `Omit` key names.** It does not validate them.
-- **Using `Omit` on a discriminated union.** It collapses the union. Use `DistributiveOmit`.
-- **Using `Record<string, T>` and assuming lookups can be missing.** They are typed as present unless you opt in with `noUncheckedIndexedAccess`.
-- **Using `Record<K, V>` with a wide `K` (like `string`) and expecting exhaustiveness.** Exhaustiveness only works with a finite literal union.
+---
 
-## Debugging
+## 6. Edge Cases, Pitfalls & Gotchas
+1. **`Omit` is Unconstrained in `K`**: `Omit<T, K>` allows `K` to contain arbitrary strings without error. Typos in `Omit` keys fail silently.
+2. **`Omit` on Discriminated Unions**: Applying `Omit` directly to a discriminated union flattens the union into a single object type, destroying discrimination! Use a distributive helper:
+   ```typescript
+   type DistributiveOmit<T, K extends keyof any> = T extends any ? Omit<T, K> : never;
+   ```
+3. **Symbol Keys**: `Record<symbol, T>` is supported. `Pick` and `Omit` preserve symbol keys properly.
 
-- Expand the type to see the real shape: `type Expand<T> = { [K in keyof T]: T[K] } & {}`.
-- If a derived type is missing properties you expected, check whether `T` is a union (use the distributive version) or has an index signature.
-- If `Pick<T, "x">` errors with "Type '"x"' does not satisfy the constraint `keyof T`", the key really is not on `T`, or `T` is a union where `x` exists only on some members.
+---
 
-## Quick summary
+## 7. Common Mistakes & Anti-Patterns
 
-- `Pick<T, K>` keeps the listed keys (checked). `Omit<T, K>` drops them (not checked).
-- Prefer `Pick` for allow-lists and anything security-sensitive. Prefer `Omit` for "everything except".
-- `Omit` flattens unions. Use a distributive wrapper for discriminated unions.
-- `Record<UnionOfLiterals, V>` is an exhaustive lookup table. `Record<string, V>` is just an index signature.
+| Anti-Pattern | Problem | Solution | Compiler Error |
+| :--- | :--- | :--- | :--- |
+| Applying `Omit` to discriminated union | Collapses variants into single non-discriminated type | Use distributive conditional `DistributiveOmit` | Lost discriminated union safety |
+| Misspelling key in `Omit` | Silently succeeds without omitting the target property | Use `StrictOmit<T, K extends keyof T>` | Silent bug / data leak |
+| Using `Pick` to extract methods | Strips `this` typing and prototype inheritance | Preserve method signatures or use interface extension | Incomplete class typing |
+| Relying on `Record<string, V>` for known keys | Destroys autocompletion for expected properties | Use union of known string literals `Record<KnownKeys, V>` | Lost autocompletion |
+| Nesting `Pick` inside `Omit` unnecessarily | Difficult to read and maintain | Consolidate into a single projection | High cognitive load |
+| Forgetting `as const` on key arrays | Array types widen to `string[]` | Pass literal unions directly (`"a" | "b"`) | `TS2344: Type 'string' does not satisfy...` |
 
-**Next:** [Exclude, Extract, and NonNullable](./02-exclude-extract-nonnullable.md)
+---
+
+## 8. Performance & Type-Checker Complexity
+- `Pick` resolves in $O(K)$ where $K$ is the number of keys picked.
+- `Omit` resolves in $O(N + K)$ where $N$ is the number of keys on the source interface.
+- If used heavily over massive unions, prefer `Pick` over `Omit` because `Pick` checks constraints eagerly.
+
+---
+
+## 9. Compiler Internals
+- `Pick` is mapped via `MappedTypeNode` with constraint `TypeParameterDeclaration` `K extends keyof T`.
+- `Omit` delegates to `Exclude`, an intrinsic conditional type evaluated in `src/compiler/checker.ts` through distributive type filtering.
+- The symbol table for `Record<K, T>` constructs fresh `TransientSymbol` members for each key literal in the union `K`.
+
+---
+
+## 10. Best Practices & Design Guidelines
+- Use `Pick` when creating narrow, specific view-models (e.g. form fields, summary cards).
+- Use `Omit` when removing internal identifiers (e.g. `id`, `createdAt`, `passwordHash`) for creation DTOs.
+- Author a project-level `StrictOmit` to catch typos during refactors.
+- Always use distributive conditional types when picking or omitting from union types.
+
+---
+
+## 11. Real-World Case Study
+### Safe REST API Data Transfer Objects (DTOs)
+```typescript
+interface ArticleEntity {
+  id: string;
+  slug: string;
+  title: string;
+  content: string;
+  authorId: string;
+  publishedAt: Date | null;
+  secretReviewNotes: string;
+}
+
+// Creation DTO: User provides content without system fields
+type CreateArticleDto = Omit<ArticleEntity, "id" | "slug" | "publishedAt" | "secretReviewNotes">;
+
+// Public DTO: Expose to frontend without internal notes
+type PublicArticleDto = Omit<ArticleEntity, "secretReviewNotes">;
+
+// Update DTO: Everything in CreateArticleDto is optional
+type UpdateArticleDto = Partial<CreateArticleDto>;
+
+function publishArticle(dto: CreateArticleDto): PublicArticleDto {
+  return {
+    ...dto,
+    id: "art_" + Math.random().toString(36).substring(2),
+    slug: dto.title.toLowerCase().replace(/s+/g, "-"),
+    publishedAt: new Date(),
+  };
+}
+```
+
+---
+
+## 12. Interview Questions
+
+<details>
+<summary>1. How is <code>Omit&lt;T, K&gt;</code> defined in terms of <code>Pick</code> and <code>Exclude</code>?</summary>
+
+```typescript
+type Omit<T, K extends keyof any> = Pick<T, Exclude<keyof T, K>>;
+```
+`Exclude<keyof T, K>` filters out keys present in `K` from the union `keyof T`. The remaining keys are picked from `T`.
+</details>
+
+<details>
+<summary>2. Why does <code>Omit&lt;T, K&gt;</code> not produce a compiler error if <code>K</code> contains a key that does not exist in <code>T</code>?</summary>
+
+Because `K` is constrained to `keyof any` (`string | number | symbol`), not to `keyof T`. This allows omitting keys regardless of whether they exist on the target type, but risks unnoticed typos.
+</details>
+
+<details>
+<summary>3. What happens when you apply <code>Omit</code> to a discriminated union?</summary>
+
+It breaks discrimination. Standard `Omit` takes the common keys of the union and constructs a single merged object. To preserve each union variant, a distributive conditional type like `type DistributiveOmit<T, K> = T extends any ? Omit<T, K> : never` must be used.
+</details>
+
+<details>
+<summary>4. What is the difference between <code>Pick</code> and <code>Extract</code>?</summary>
+
+`Pick<T, K>` operates on **object types**, returning a new object shape with a subset of properties. `Extract<T, U>` operates on **union types**, returning union members that are assignable to `U`.
+</details>
+
+<details>
+<summary>5. How do you create an exact key-to-value map where all keys are required?</summary>
+
+Using `Record<KeyUnion, ValueType>`. Every key in `KeyUnion` must have an associated value assigned.
+</details>
+
+<details>
+<summary>6. Can you pick properties from union types?</summary>
+
+Yes, but `Pick<A | B, K>` will only allow picking keys present in `(keyof A) & (keyof B)` (the shared intersection of keys).
+</details>
+
+<details>
+<summary>7. How do you implement a <code>StrictOmit</code> that rejects nonexistent keys?</summary>
+
+By constraining `K` to `keyof T`:
+```typescript
+type StrictOmit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>;
+```
+</details>
+
+<details>
+<summary>8. Does <code>Pick</code> preserve readonly modifiers on properties?</summary>
+
+Yes. Mapped types like `Pick` preserve both `readonly` and optional (`?`) modifiers from the original property signatures in `T`.
+</details>
+
+---
+
+## 13. Exercises & Challenges
+
+### Exercise 1: Pick Public Profile Fields (Easy)
+Extract `displayName` and `avatarUrl` from a comprehensive account interface.
+<details>
+<summary>Solution</summary>
+
+```typescript
+interface FullAccount {
+  id: string;
+  email: string;
+  displayName: string;
+  avatarUrl: string;
+  hashedToken: string;
+}
+
+type PublicProfile = Pick<FullAccount, "displayName" | "avatarUrl">;
+```
+</details>
+
+### Exercise 2: Strict Omit Implementation (Easy)
+Implement `StrictOmit<T, K extends keyof T>`.
+<details>
+<summary>Solution</summary>
+
+```typescript
+type StrictOmit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>;
+
+interface Vehicle { vin: string; make: string; model: string; }
+type CleanVehicle = StrictOmit<Vehicle, "vin">; // OK
+// type Bad = StrictOmit<Vehicle, "color">; // Compile error
+```
+</details>
+
+### Exercise 3: Distributive Omit for Unions (Medium)
+Implement `DistributiveOmit<T, K extends keyof any>` that works over discriminated unions.
+<details>
+<summary>Solution</summary>
+
+```typescript
+type DistributiveOmit<T, K extends keyof any> = T extends any ? Omit<T, K> : never;
+
+type Action =
+  | { type: "A"; payload: string; meta: number }
+  | { type: "B"; payload: boolean; meta: number };
+
+type CleanAction = DistributiveOmit<Action, "meta">;
+// { type: "A"; payload: string } | { type: "B"; payload: boolean }
+```
+</details>
+
+### Exercise 4: Dynamic Enum Mapper (Medium)
+Write a function that validates every member of a string union is mapped to a handler function.
+<details>
+<summary>Solution</summary>
+
+```typescript
+type Stage = "dev" | "staging" | "prod";
+
+function createDeployer(handlers: Record<Stage, () => void>) {
+  return (stage: Stage) => handlers[stage]();
+}
+
+const deploy = createDeployer({
+  dev: () => console.log("deploy dev"),
+  staging: () => console.log("deploy stg"),
+  prod: () => console.log("deploy prd"),
+});
+```
+</details>
+
+### Exercise 5: Deep Pick Implementation (Hard)
+Implement `DeepPick<T, Paths>` that picks nested properties based on dot notation.
+<details>
+<summary>Solution</summary>
+
+```typescript
+type DeepPick<T, Path extends string> = Path extends `${infer Head}.${infer Tail}`
+  ? Head extends keyof T
+    ? { [K in Head]: DeepPick<T[Head], Tail> }
+    : never
+  : Path extends keyof T
+  ? { [K in Path]: T[Path] }
+  : never;
+
+interface Complex {
+  user: { profile: { name: string; age: number }; token: string };
+  meta: string;
+}
+
+type Result = DeepPick<Complex, "user.profile">;
+// { user: { profile: { name: string; age: number } } }
+```
+</details>
+
+### Exercise 6: Invert Record Keys and Values (Hard)
+Write a utility type `InvertRecord<T>` that takes a `Record<K, V>` (where values are unique strings) and swaps keys with values.
+<details>
+<summary>Solution</summary>
+
+```typescript
+type InvertRecord<T extends Record<string, string>> = {
+  [K in keyof T as T[K]]: K;
+};
+
+const Roles = {
+  admin: "ROLE_ADMIN",
+  user: "ROLE_USER",
+} as const;
+
+type Inverted = InvertRecord<typeof Roles>;
+// { ROLE_ADMIN: "admin"; ROLE_USER: "user" }
+```
+</details>

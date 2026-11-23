@@ -1,62 +1,41 @@
-# 07 - Utility Types
+# 07 Utility Types
 
-Utility types are the generic types that ship with TypeScript (`lib.es5.d.ts`) for transforming other types. Almost all of them are one or two lines of mapped or conditional types. Learn what each one does, then learn how it is built, and you can write your own when the built-ins run out.
+> Complete architectural reference and practical guide for TypeScript's built-in and advanced utility types: property modifiers, projections, union filters, call/construct signature extractors, string intrinsics, and recursive deep transformations.
+
+## Module Overview
+
+TypeScript utility types facilitate compile-time data transformations, allowing developers to derive specialized models, DTOs, and event contracts from base domain types without duplication or drift.
+
+---
+
+## Documents in this Module
+
+| File | Level | Focus | Key Topics |
+| :--- | :--- | :--- | :--- |
+| [00-partial-required-readonly.md](file:///E:/Learning/engineering-notes/01-languages/typescript/07-utility-types/00-partial-required-readonly.md) | Intermediate | Property Modifiers | `Partial`, `Required`, `Readonly`, `Record`, `exactOptionalPropertyTypes` |
+| [01-pick-omit-record.md](file:///E:/Learning/engineering-notes/01-languages/typescript/07-utility-types/01-pick-omit-record.md) | Intermediate | Projections | `Pick`, `Omit`, DTO design, strict omit, discriminated union projection |
+| [02-exclude-extract-nonnullable.md](file:///E:/Learning/engineering-notes/01-languages/typescript/07-utility-types/02-exclude-extract-nonnullable.md) | Intermediate | Union Filtering | `Exclude`, `Extract`, `NonNullable`, distributive conditional types |
+| [03-function-and-class-utilities.md](file:///E:/Learning/engineering-notes/01-languages/typescript/07-utility-types/03-function-and-class-utilities.md) | Advanced | Signature Introspection | `Parameters`, `ReturnType`, `ConstructorParameters`, `InstanceType`, `ThisParameterType` |
+| [04-building-custom-utility-types.md](file:///E:/Learning/engineering-notes/01-languages/typescript/07-utility-types/04-building-custom-utility-types.md) | Advanced | Custom Type Engineering | Key remapping via `as`, filtering keys by value type, homomorphic mapping, `Prettify` |
+| [05-awaited-and-promise-unwrapping.md](file:///E:/Learning/engineering-notes/01-languages/typescript/07-utility-types/05-awaited-and-promise-unwrapping.md) | Advanced | Async Unwrapping | `Awaited<T>`, recursive thenable unpacking, Promises/A+, `Promise.all` typing |
+| [06-string-manipulation-types.md](file:///E:/Learning/engineering-notes/01-languages/typescript/07-utility-types/06-string-manipulation-types.md) | Advanced | Intrinsic String Utilities | `Uppercase`, `Lowercase`, `Capitalize`, `Uncapitalize`, template literal pattern matching |
+| [07-deep-utility-types.md](file:///E:/Learning/engineering-notes/01-languages/typescript/07-utility-types/07-deep-utility-types.md) | Advanced | Recursive Data Transformations | `DeepPartial`, `DeepReadonly`, `DeepRequired`, `DeepMutable`, function and Date guards |
+
+---
 
 ## Prerequisites
+Before tackling this module, ensure you are familiar with:
+- [01-fundamentals/](file:///E:/Learning/engineering-notes/01-languages/typescript/01-fundamentals/) (primitive types, objects, arrays, unions)
+- [02-functions/](file:///E:/Learning/engineering-notes/01-languages/typescript/02-functions/) (call signatures, return types, this parameters)
+- [06-generics/](file:///E:/Learning/engineering-notes/01-languages/typescript/06-generics/) (`keyof`, indexed access, conditional types, `infer`)
 
-- [06 Generics](../06-generics/README.md): especially [generic types](../06-generics/01-generic-types.md) and [keyof and typeof](../06-generics/03-keyof-and-typeof.md)
-- [03 Unions and Narrowing](../03-unions-and-narrowing/README.md): `Exclude` and `Extract` operate on unions
-- [04 Objects and Interfaces](../04-objects-and-interfaces/README.md): optional and readonly properties
+---
 
-You do not need [10 Advanced Types](../10-advanced-types/README.md) first, but the last note here leans on mapped and conditional types, so read those next.
-
-## Notes in this section
-
-| # | Note | Covers |
-|---|---|---|
-| 00 | [Partial, Required, Readonly](./00-partial-required-readonly.md) | Changing `?` and `readonly` modifiers across a whole type |
-| 01 | [Pick, Omit, Record](./01-pick-omit-record.md) | Selecting or dropping keys, and building key-to-value maps |
-| 02 | [Exclude, Extract, NonNullable](./02-exclude-extract-nonnullable.md) | Filtering unions and stripping `null` / `undefined` |
-| 03 | [Function and class utilities](./03-function-and-class-utilities.md) | `Parameters`, `ReturnType`, `Awaited`, `InstanceType`, `NoInfer`, and friends |
-| 04 | [Building custom utility types](./04-building-custom-utility-types.md) | `Mutable`, `PartialBy`, `PickByType`, deep variants, and how to test them |
-
-Read them in order. Each note builds on the previous one.
-
-## Which utility do I need?
-
-| I want to... | Use |
-|---|---|
-| make all properties optional (patches, options) | `Partial<T>` |
-| make all properties required | `Required<T>` |
-| make all properties read-only | `Readonly<T>` |
-| keep a few properties | `Pick<T, K>` |
-| drop a few properties | `Omit<T, K>` |
-| build a typed lookup table from a key union | `Record<K, V>` |
-| remove members from a union | `Exclude<U, X>` |
-| keep only some members of a union | `Extract<U, X>` |
-| remove `null` and `undefined` | `NonNullable<T>` |
-| get a function's parameters or result | `Parameters<typeof f>`, `ReturnType<typeof f>` |
-| get the resolved value of a promise | `Awaited<T>` |
-| get a class's constructor args or instance type | `ConstructorParameters<typeof C>`, `InstanceType<typeof C>` |
-| make only some keys optional | custom `PartialBy` ([04](./04-building-custom-utility-types.md)) |
-| apply a modifier recursively | custom `DeepPartial` / `DeepReadonly` ([04](./04-building-custom-utility-types.md)) |
-
-## Ideas that recur across the section
-
-- **They are not magic.** `Partial`, `Required`, `Readonly`, `Pick`, and `Record` are mapped types. `Exclude`, `Extract`, `Parameters`, and `ReturnType` are conditional types. Reading the definition explains the edge cases.
-- **Modifier and key utilities are shallow.** They act on the top level of an object type only.
-- **Union behavior differs.** `Exclude`/`Extract` distribute over unions. `Omit` and `Pick` do not, which is why `Omit` can flatten a discriminated union.
-- **`Omit` does not validate its keys.** `Pick` does. Prefer `Pick` for allow-lists.
-- **All of this is compile-time only.** Nothing here validates data at runtime. See [15 Runtime Validation](../15-runtime-validation/README.md).
-
-## Related sections
-
-- [10 Advanced Types](../10-advanced-types/README.md): the mechanisms behind every utility
-- [16 Type-Safe APIs](../16-type-safe-apis/README.md): DTOs built with `Pick`, `Omit`, and `Partial`
-- [27 Interview: utility types](../27-interview/03-utility-types.md)
-- [28 Cheatsheet: utility types](../28-cheatsheets/01-utility-types.md)
-- [26 Projects: type challenges](../26-projects/exercises/00-type-challenges.md)
-
-## Next
-
-[08 Modules](../08-modules/README.md)
+## Suggested Study Path
+1. Master core modifiers and projections in **00-partial-required-readonly** and **01-pick-omit-record**.
+2. Learn set operations on unions in **02-exclude-extract-nonnullable**.
+3. Inspect callables and constructors in **03-function-and-class-utilities**.
+4. Learn how to engineer your own utilities in **04-building-custom-utility-types**.
+5. Handle asynchronous types with **05-awaited-and-promise-unwrapping**.
+6. Transform string keys and parse routes with **06-string-manipulation-types**.
+7. Enforce recursive contracts across entire object graphs with **07-deep-utility-types**.
