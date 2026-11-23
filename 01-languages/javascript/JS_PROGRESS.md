@@ -2,7 +2,7 @@
 
 > Live status checklist for all 13 execution batches across the 28 planned JavaScript modules.
 
-**Overall Progress: Batch 2 Complete (2 / 13 Batches Finished)**
+**Overall Progress: Batch 3 Complete (3 / 13 Batches Finished)**
 
 ---
 
@@ -12,8 +12,8 @@
 | :--- | :--- | :---: | :---: | :--- |
 | **Batch 1: Structural Fixes & Meta** | Reconcile duplicate READMEs, templates, DECISIONS | **COMPLETE** | 6 / 6 | Templates, decisions, roadmap & baseline research complete |
 | **Batch 2: Setup & Fundamentals** | `00_setup`, `01_fundamentals` | **COMPLETE** | 17 / 17 | 15 notes + 2 module READMEs (all 440–655 lines) |
-| **Batch 3: Functions & Objects/Arrays** | `02_functions`, `03_objects-and-arrays` | **NEXT** | 0 / 23 | 21 notes + 2 READMEs |
-| **Batch 4: Scopes, OOP, Closures, FP** | `04_scope`, `05_this-and-oop`, `06_closures`, `07_fp` | Pending | 0 / 31 | 27 notes + 4 READMEs |
+| **Batch 3: Functions & Objects/Arrays** | `02_functions`, `03_objects-and-arrays` | **COMPLETE** | 23 / 23 | 21 notes + 2 READMEs (all 490–615 lines) |
+| **Batch 4: Scopes, OOP, Closures, FP** | `04_scope`, `05_this-and-oop`, `06_closures`, `07_fp` | **NEXT** | 0 / 31 | 27 notes + 4 READMEs |
 | **Batch 5: Modern JS, Built-ins, Errors** | `08_modern`, `09_built-in-objects`, `10_error-handling` | Pending | 0 / 30 | 27 notes + 3 READMEs |
 | **Batch 6: Async, Event Loop, Modules** | `11_async`, `12_event-loop`, `13_modules` | Pending | 0 / 25 | 22 notes + 3 READMEs |
 | **Batch 7: DOM, Browser & Networking** | `14_dom-and-browser`, `15_networking` | Pending | 0 / 20 | 18 notes + 2 READMEs |
@@ -26,22 +26,28 @@
 
 ---
 
-## Batch 2 Detail Breakdown (Complete)
+## Batch 3 Detail Breakdown (Complete)
 
-- [x] `00_setup/01_what-is-javascript.md` (473 lines, 13 sections)
-- [x] `00_setup/02_runtimes-browser-and-node.md` (441 lines, 13 sections)
-- [x] `00_setup/03_npm-and-package-managers.md` (511 lines, 13 sections)
-- [x] `00_setup/04_devtools-and-debugging.md` (492 lines, 13 sections)
-- [x] `00_setup/05_tooling.md` (621 lines, 13 sections)
-- [x] `00_setup/06_jsdoc-and-type-checking.md` (655 lines, 13 sections)
-- [x] `00_setup/README.md` (Module roadmap & verification)
-- [x] `01_fundamentals/01_variables.md` (562 lines, 13 sections)
-- [x] `01_fundamentals/02_data-types.md` (569 lines, 13 sections)
-- [x] `01_fundamentals/03_type-conversion-and-equality.md` (550 lines, 13 sections)
-- [x] `01_fundamentals/04_operators.md` (511 lines, 13 sections)
-- [x] `01_fundamentals/05_expressions-and-statements.md` (512 lines, 13 sections)
-- [x] `01_fundamentals/06_conditionals.md` (563 lines, 13 sections)
-- [x] `01_fundamentals/07_loops.md` (536 lines, 13 sections)
-- [x] `01_fundamentals/08_floating-point-and-number-precision.md` (491 lines, 13 sections)
-- [x] `01_fundamentals/09_common-javascript-gotchas.md` (514 lines, 13 sections)
-- [x] `01_fundamentals/README.md` (Module roadmap & curriculum index)
+- [x] `02_functions/01_declarations-and-expressions.md` (520 lines, 13 sections)
+- [x] `02_functions/02_arrow-functions.md` (501 lines, 13 sections)
+- [x] `02_functions/03_parameters-and-arguments.md` (534 lines, 13 sections)
+- [x] `02_functions/04_return-values.md` (530 lines, 13 sections)
+- [x] `02_functions/05_callbacks.md` (610 lines, 13 sections)
+- [x] `02_functions/06_higher-order-functions.md` (562 lines, 13 sections)
+- [x] `02_functions/07_iife-and-function-properties.md` (523 lines, 13 sections)
+- [x] `02_functions/08_recursion.md` (541 lines, 13 sections)
+- [x] `02_functions/09_function-internals-and-tail-calls.md` (500 lines, 13 sections, NEW)
+- [x] `02_functions/README.md` (Module roadmap & curriculum index)
+- [x] `03_objects-and-arrays/01_objects.md` (497 lines, 13 sections)
+- [x] `03_objects-and-arrays/02_property-descriptors.md` (551 lines, 13 sections)
+- [x] `03_objects-and-arrays/03_getters-and-setters.md` (597 lines, 13 sections)
+- [x] `03_objects-and-arrays/04_object-static-methods.md` (540 lines, 13 sections)
+- [x] `03_objects-and-arrays/05_copying-and-cloning.md` (562 lines, 13 sections)
+- [x] `03_objects-and-arrays/06_arrays.md` (515 lines, 13 sections)
+- [x] `03_objects-and-arrays/07_array-methods.md` (530 lines, 13 sections)
+- [x] `03_objects-and-arrays/08_sorting-and-searching.md` (520 lines, 13 sections)
+- [x] `03_objects-and-arrays/09_destructuring.md` (510 lines, 13 sections)
+- [x] `03_objects-and-arrays/10_spread-and-rest.md` (505 lines, 13 sections)
+- [x] `03_objects-and-arrays/11_optional-chaining-and-nullish.md` (495 lines, 13 sections)
+- [x] `03_objects-and-arrays/12_property-enumeration-and-symbols.md` (525 lines, 13 sections, NEW)
+- [x] `03_objects-and-arrays/README.md` (Module roadmap & curriculum index)
