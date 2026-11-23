@@ -112,3 +112,62 @@
   - Expanded `03_type-conversion-and-equality.md` to 550 lines covering ECMAScript abstract operations (`ToPrimitive`, `ToNumber`, `ToBoolean`), loose `==`, strict `===`, `Object.is`, and `SameValueZero`.
   - Expanded `04_operators.md` to 511 lines covering arithmetic, bitwise 32-bit integer casting, short-circuiting, `??`, `?.`, logical assignment, and operator precedence.
   - Expanded `05_expressions-and-statements.md` to 512 lines covering the dual grammar, Automatic Semicolon Insertion (ASI) specification rules, and restricted productions.
+
+
+### Batch 5: Modern JavaScript, Built-in Objects & Error Handling (Modules 08, 09, 10)
+- **Module 08 (`08_modern-javascript`):**
+  - Expanded `01_template-literals.md` (393 lines) covering tagged templates, String.raw, cooked vs raw strings, and DSL creation.
+  - Expanded `02_enhanced-object-literals.md` (425 lines) covering shorthand methods, computed property keys, prototype assignment via `__proto__`, and super calls.
+  - Expanded `03_symbols.md` (512 lines) covering primitive uniqueness, global registry (`Symbol.for`), and well-known symbols (`Symbol.iterator`, `Symbol.toPrimitive`, `Symbol.hasInstance`).
+  - Expanded `04_iterators-and-iterables.md` (578 lines) covering iteration protocols, `Symbol.iterator`, `for...of`, infinite sequences, and consumer protocol hooks (`return()`).
+  - Expanded `05_generators.md` (496 lines) covering generator suspension, two-way message passing via `next(value)`, error injection via `throw()`, and coroutine design.
+  - Expanded `06_es-features-by-version.md` (437 lines) covering detailed release history from ES2016 through ES2024/ES2025 proposals.
+  - Updated `08_modern-javascript/README.md` with complete curriculum roadmap.
+- **Module 09 (`09_built-in-objects`):**
+  - Expanded `01_string.md` (459 lines) covering UTF-16 surrogate pairs, normalization forms (NFC/NFD), code point iteration, and string algorithms.
+  - Expanded `02_number-and-bigint.md` (413 lines) covering IEEE 754 double precision floats, subnormal numbers, EPSILON comparisons, and arbitrary precision `BigInt`.
+  - Expanded `03_math.md` (419 lines) covering numeric manipulation, clamping, trigonometry, pseudo-randomness, and cryptographic random numbers.
+  - Expanded `04_date-and-temporal.md` (412 lines) covering legacy `Date` UTC bugs, month-indexing pitfalls, and the Stage 3/4 `Temporal` API architecture.
+  - Expanded `05_regexp.md` (425 lines) covering regex engine automata (NFA), lookarounds, named capture groups, the `d` indices flag, and ReDoS prevention.
+  - Expanded `06_map-and-set.md` (454 lines) covering hash tables, `SameValueZero` key equality, insertion-order preservation, and ES2024 Set composition methods.
+  - Expanded `07_weakmap-weakset-weakref.md` (441 lines) covering ephemeron tables, garbage collection semantics, private data hiding, `WeakRef`, and `FinalizationRegistry`.
+  - Expanded `08_json.md` (447 lines) covering JSON grammar, replacer/reviver functions, circular reference serialization, and JSON injection prevention.
+  - Expanded `09_intl.md` (408 lines) covering internationalization standard: `Collator`, `DateTimeFormat`, `NumberFormat`, `RelativeTimeFormat`, `PluralRules`, and `Segmenter`.
+  - Expanded `10_typed-arrays-and-arraybuffer.md` (422 lines) covering binary memory buffers, `ArrayBuffer`, `DataView` endianness, `TypedArray` views, and `SharedArrayBuffer`.
+  - Expanded `11_proxy-and-reflect.md` (502 lines) covering meta-programming, the 13 internal `Proxy` traps, `Reflect` 1:1 mirroring, and transparent reactive observation.
+  - Expanded `12_global-objects.md` (410 lines) covering `globalThis` resolution across environments, global lexical scope vs global object properties, and sandbox security.
+  - Updated `09_built-in-objects/README.md` with complete curriculum roadmap.
+- **Module 10 (`10_error-handling`):**
+  - Expanded `01_errors.md` (476 lines) covering the `Error` prototype hierarchy, native error types, stack frame structure, and `Error.captureStackTrace`.
+  - Expanded `02_try-catch-finally.md` (463 lines) covering exception handling semantics, optional catch binding (ES2019), `finally` override traps, and synchronous rethrows.
+  - Expanded `03_custom-errors.md` (527 lines) covering subclassing `Error`, prototype chain repair, serialization, error codes, and operational metadata.
+  - Expanded `04_error-propagation.md` (490 lines) covering operational vs programmer errors, centralized domain handlers, error classification, and ES2022 `error.cause`.
+  - Expanded `05_production-error-handling.md` (511 lines) covering defensive logging, correlation IDs, graceful shutdown (`SIGTERM`), unhandled rejection crashes, and Sentry/Datadog reporting.
+  - Updated `10_error-handling/README.md` with complete curriculum roadmap.
+
+### Batch 6: Asynchronous JavaScript, Event Loop & Modules (Modules 11, 12, 13)
+- **Module 11 (`11_asynchronous-javascript`):**
+  - Expanded `01_sync-vs-async.md` (460 lines) covering execution models, single-threaded concurrency, run-to-completion guarantees, and non-blocking I/O.
+  - Expanded `02_callbacks.md` (467 lines) covering CPS, error-first callback conventions, callback hell, inversion of control, and Zalgo hazards.
+  - Expanded `03_promises.md` (453 lines) covering Promise state machine, chaining, microtask scheduling, unhandled rejections, and zero-cost async stack stitching.
+  - Expanded `04_promise-combinators.md` (473 lines) covering `all`, `allSettled`, `race`, `any`, empty array edge cases, and AggregateError.
+  - Expanded `05_async-await.md` (491 lines) covering generator/promise synthesis, return await catch-block traps, and zero-cost async stack traces.
+  - Expanded `06_async-error-handling.md` (467 lines) covering rejection tracking, process/window rejection events, and async boundaries.
+  - Expanded `07_async-iterators-and-generators.md` (426 lines) covering `Symbol.asyncIterator`, `for await...of`, `async function*`, pull-based backpressure, and resource cleanup.
+  - Expanded `08_cancellation-and-abort.md` (390 lines) covering `AbortController`, `AbortSignal`, `AbortSignal.timeout()`, `AbortSignal.any()`, and cooperative cancellation.
+  - Expanded `09_async-patterns.md` (444 lines) covering `p-limit` concurrency pools, async queues, in-flight request deduplication (single-flight), and retries with jitter.
+  - Updated `11_asynchronous-javascript/README.md` with complete curriculum roadmap.
+- **Module 12 (`12_event-loop`):**
+  - Expanded `01_event-loop.md` (400 lines) covering call stack, heap, Web APIs, libuv, macrotask & microtask queues, and phase sequence.
+  - Expanded `02_microtasks-and-macrotasks.md` (405 lines) covering queue differences, microtask checkpoints, `queueMicrotask`, starvation hazards, and rendering timing.
+  - Expanded `03_timers.md` (378 lines) covering `setTimeout`, `setInterval`, 4ms HTML clamping rule, timer drift, monotonic clocks, and Node `unref()`.
+  - Expanded `04_task-ordering.md` (388 lines) covering execution puzzles, Node `process.nextTick` vs `setImmediate`, browser vs Node discrepancies, and microtask checkpoints.
+  - Expanded `05_event-loop-patterns.md` (372 lines) covering long tasks (>50ms), INP optimization, `scheduler.yield()`, `isInputPending()`, and progressive chunking.
+  - Updated `12_event-loop/README.md` with complete curriculum roadmap.
+- **Module 13 (`13_modules`):**
+  - Expanded `01_es-modules.md` (352 lines) covering static dependency graphs, live read-only bindings, 3-phase loading (Construction, Instantiation, Evaluation), dynamic `import()`, top-level await, and `import.meta`.
+  - Expanded `02_commonjs.md` (403 lines) covering synchronous runtime resolution, module wrapper function, `module.exports` vs `exports`, `require.cache`, and circular dependency handling.
+  - Expanded `03_esm-vs-commonjs.md` (386 lines) covering loading differences, Node interop rules, synthetic module records, dual-package hazard, and `package.json` conditional exports.
+  - Expanded `04_bundlers-and-tree-shaking.md` (362 lines) covering Rollup, Webpack, esbuild, live code inclusion, pure annotations `/*#__PURE__*/`, and `"sideEffects": false`.
+  - Expanded `05_module-patterns.md` (404 lines) covering barrel file hazards, dependency injection, breaking circular dependencies, and subpath exports encapsulation.
+  - Updated `13_modules/README.md` with complete curriculum roadmap.

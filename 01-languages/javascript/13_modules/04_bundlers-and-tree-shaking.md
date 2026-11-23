@@ -1,270 +1,464 @@
-# Bundlers and Tree Shaking
+# Bundlers & Tree-Shaking
 
-A **bundler** reads your module graph starting from entry points and produces optimized files for the browser (or for Node). Tree shaking, code splitting and minification make production bundles small and fast.
+> Modern module bundlers analyze the static dependency graph of ECMAScript Modules to perform live code inclusion, dead-code elimination, scope hoisting, and optimal chunk splitting.
 
-```
-src/main.js ─┐
-src/ui.js    ├──► bundler ──► dist/main.[hash].js  (+ chunks, CSS, assets, source maps)
-node_modules ┘
-```
+---
 
-## Why bundle?
+## Metadata
 
-| Reason | Detail |
-|--------|--------|
-| **Bare specifiers** | browsers cannot resolve `import "lodash-es"` without import maps |
-| **Fewer requests / waterfalls** | deeply nested imports cause sequential network round trips |
-| **Optimization** | minify, tree-shake, scope-hoist, compress |
-| **Transform** | TypeScript, JSX, modern syntax down-leveling, CSS, images, assets |
-| **Cache busting** | content-hashed file names |
-| **Compatibility** | polyfills and target-specific builds |
-| **Dev experience** | hot module replacement, source maps |
+| Attribute | Details |
+| :--- | :--- |
+| **Level** | Advanced |
+| **Prerequisites** | [ES Modules](./01_es-modules.md), [CommonJS](./02_commonjs.md) |
+| **Time to Read** | 25 minutes |
+| **Status** | Complete |
+| **Standard** | ECMAScript Module Specification / Rollup & Webpack Optimization Standards |
 
-Native ESM plus HTTP/2/3 reduces the need for bundling small apps, but production apps with hundreds of modules still benefit.
+---
 
-## The landscape
+## Table of Contents
 
-| Tool | Notes |
-|------|-------|
-| **Vite** | dev server serving native ESM + esbuild pre-bundling, production build by Rollup (Rolldown in newer versions); the common default for apps |
-| **Rollup** | best for libraries, excellent tree shaking, ESM-first |
-| **esbuild** | extremely fast (Go), great for libraries, simple builds |
-| **webpack** | mature, huge plugin ecosystem, flexible, slower |
-| **Rspack** | webpack-compatible, Rust, faster |
-| **Parcel** | zero-config |
-| **Bun** | built-in bundler with the runtime |
-| **tsup / unbuild / tsdown** | library builders on top of esbuild/Rollup/Rolldown |
-| **SWC / Babel** | transpilers (not bundlers) |
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & API Reference](#4-syntax--api-reference)
+5. [Practical Examples](#5-practical-examples)
+6. [Edge Cases, Pitfalls & Gotchas](#6-edge-cases-pitfalls--gotchas)
+7. [Common Mistakes & Anti-Patterns](#7-common-mistakes--anti-patterns)
+8. [Performance Characteristics](#8-performance-characteristics)
+9. [Engine Internals](#9-engine-internals)
+10. [Best Practices & Design Guidelines](#10-best-practices--design-guidelines)
+11. [Real-World Case Study](#11-real-world-case-study)
+12. [Interview Questions](#12-interview-questions)
+13. [Exercises & Challenges](#13-exercises--challenges)
 
-## Minimal config examples
+---
 
-```bash
-npm create vite@latest my-app && cd my-app && npm i && npm run dev
-npm run build            # production bundle in dist/
-```
+## 1. What & Why
 
-```js
-// vite.config.js
-import { defineConfig } from "vite";
-export default defineConfig({
-  build: { target: "es2022", sourcemap: true },
-  resolve: { alias: { "@": new URL("./src", import.meta.url).pathname } },
-});
-```
+In production web applications, deploying thousands of individual ES Module files across the network causes catastrophic performance degradation. Even with HTTP/2 and HTTP/3 multiplexing, deep dependency graphs create severe round-trip latency waterfalls, repetitive header overhead, and suboptimal compression ratios. Furthermore, applications frequently import large third-party libraries (e.g., Lodash, date-fns, Lucide icons) while consuming only a fraction of their exported functions.
 
-```bash
-npx esbuild src/index.js --bundle --minify --sourcemap --outfile=dist/out.js
-```
+**Bundlers** (such as Rollup, Vite, esbuild, and Webpack) solve these challenges by:
+1. Concatenating modular source files into optimized distribution bundles.
+2. Performing **Tree-Shaking** (Live Code Inclusion): analyzing static ESM exports and omitting all unused code from the final bundle.
+3. **Scope Hoisting**: merging module scopes into a single shared closure to eliminate function call overhead and reduce file size.
+4. **Code Splitting**: dividing the application into on-demand chunks loaded dynamically as users navigate.
 
-## Tree shaking
+---
 
-**Tree shaking** removes exports that are never used ("dead code elimination" guided by the module graph).
+## 2. Core Concepts
 
-```js
-// utils.js
-export function used() { return 1; }
-export function unused() { return 2; }      // removed from the bundle if nobody imports it
+### Dead-Code Elimination (DCE) vs Tree-Shaking
+While often used interchangeably, DCE and Tree-Shaking operate from opposite philosophical directions:
+- **Dead-Code Elimination (DCE)**: Starts with the full codebase and aggressively prunes unreachable branches (e.g., `if (false) { ... }`). Historically performed by minifiers like Terser.
+- **Tree-Shaking (Live Code Inclusion)**: Starts at the entry point with an empty bundle and traces the directed graph of *used* exports, including *only* what is provably referenced. Introduced by Rollup.
 
-// main.js
-import { used } from "./utils.js";
-console.log(used());
+```text
+Full Library: [fnA, fnB, fnC, fnD, fnE]
+Application:  import { fnA } from 'library';
+
+Dead-Code Elimination:
+ Starts with [fnA, fnB, fnC, fnD, fnE] -> Searches for unreachable code -> May miss dynamic references
+
+Tree-Shaking (Live Code Inclusion):
+ Starts with Entry Point -> Follows reference to fnA -> Bundle contains ONLY [fnA]
+ (fnB, fnC, fnD, fnE are never even added to the bundle!)
 ```
 
-### What makes it work
+### The Side-Effects Hazard
+Tree-shaking relies on the invariant that unused modules have no observable side effects when imported. A **side effect** is any operation that modifies global state or host APIs upon evaluation (e.g., modifying `window`, modifying prototypes, configuring polyfills, or logging). If a bundler cannot prove that an unreferenced module is free of side effects, it must bundle the module to preserve correctness.
 
-| Requirement | Why |
-|-------------|-----|
-| **ES modules** (static `import`/`export`) | the bundler can see what is used before running anything |
-| **No side effects at module top level** | otherwise the bundler must keep the code in case it matters |
-| `"sideEffects": false` (or a file list) in `package.json` | promises that unused imports of the package are safe to drop |
-| `/* @__PURE__ */` annotations | marks a call as removable if its result is unused |
-| Production mode / minifier | the final dead-code removal is done by the minifier (Terser, esbuild, SWC) |
+---
+
+## 3. How It Works Internally
+
+### The Static Module Graph Analysis Pipeline
+
+```
+ [ Entry Point: app.js ]
+            |
+            v
+ [ AST Parsing & Dependency Discovery ]
+   - Parse code with Acorn / SWC / Babel into Abstract Syntax Trees (AST)
+   - Scan top-level `import` and `export` statements
+   - Build Module Graph of all reachable dependencies
+            |
+            v
+ [ Export Usage Tracking (Mark & Sweep) ]
+   - Start with entry point exports as "Live"
+   - Traverse downstream imports: mark referenced identifiers as "Used"
+   - Any export not marked as "Used" is flagged for omission
+            |
+            v
+ [ Side-Effect Verification ]
+   - Check package.json "sideEffects" field
+   - Inspect AST for expressions with potential side effects:
+     - Global object mutations
+     - Unannotated top-level function invocations
+     - If module is pure and has no used exports -> DISCARD COMPLETELY
+            |
+            v
+ [ Scope Hoisting & Code Generation ]
+   - Concatenate all modules into a single flattened closure
+   - Rename variables to prevent name collisions
+   - Emit optimized production bundle chunks
+```
+
+---
+
+## 4. Syntax & API Reference
+
+### Declarations & Bundler Annotations
 
 ```json
-{ "sideEffects": false }
-{ "sideEffects": ["./src/polyfills.js", "**/*.css"] }
-```
+// 1. package.json "sideEffects" declaration
+// Informs bundlers that all files in this package are pure (safe to drop if unused)
+{
+  "name": "my-library",
+  "sideEffects": false
+}
 
-```js
-export const instance = /* @__PURE__ */ createThing();    // removable when unused
-```
-
-### What breaks tree shaking
-
-| Cause | Fix |
-|-------|-----|
-| CommonJS modules (`require`, `module.exports`) | use ESM builds (`lodash-es`, not `lodash`) |
-| `import * as ns` with dynamic property access (`ns[name]`) | import specific names |
-| Top-level side effects (`window.foo = ...`, registering things) | isolate in separate modules, mark in `sideEffects` |
-| Barrel files (`index.js` re-exporting everything) with side effects | import from specific files or set `sideEffects: false` |
-| Classes with static initialization / decorators | keep them lean or annotate |
-| Transpiling ESM to CJS **before** bundling (Babel `modules: "commonjs"`) | keep ESM (`modules: false`) |
-| Importing a default object (`import _ from "lodash"; _.map`) | named imports from an ESM build |
-
-```js
-// bad: pulls the whole library
-import _ from "lodash";
-_.debounce(fn, 100);
-
-// good
-import debounce from "lodash-es/debounce.js";
-import { debounce } from "lodash-es";            // fine with a tree-shakable ESM build
-```
-
-## Code splitting
-
-Break the bundle into **chunks** loaded on demand.
-
-```js
-// route-level splitting
-const routes = {
-  "/": () => import("./pages/Home.js"),
-  "/settings": () => import("./pages/Settings.js"),
-};
-
-// component-level
-button.onclick = async () => {
-  const { renderChart } = await import("./chart.js");
-  renderChart(data);
-};
-```
-
-| Kind | How |
-|------|-----|
-| **Entry splitting** | multiple entry points (multi-page apps) |
-| **Dynamic import** | each `import()` becomes a chunk |
-| **Vendor chunks** | `manualChunks` / `splitChunks` group dependencies for caching |
-| **Shared chunks** | modules used by several chunks are extracted automatically |
-| **Prefetch / preload** | `<link rel="modulepreload">`, `/* webpackPrefetch: true */` hints |
-
-```js
-// vite.config.js
-build: { rollupOptions: { output: { manualChunks: { vendor: ["react", "react-dom"] } } } }
-```
-
-Frameworks (React.lazy, Vue async components, SvelteKit, Next.js) build on `import()`.
-
-## Production optimizations
-
-| Step | Effect |
-|------|--------|
-| **Minification** | shorter identifiers, removed whitespace/dead branches (Terser, esbuild, SWC) |
-| **Scope hoisting** | concatenates modules into one scope to cut wrapper overhead |
-| **Content hashing** | `main.a1b2c3.js` for long-term caching |
-| **Compression** | gzip/brotli at the server or CDN |
-| **Source maps** | map minified code back to source (upload privately to error trackers) |
-| **Target selection** | `target: "es2022"` avoids unnecessary syntax down-leveling |
-| **CSS extraction/minification** | separate CSS files, purging unused CSS |
-| **Asset handling** | images/fonts hashed, small ones inlined as data URIs |
-| **Environment replacement** | `process.env.NODE_ENV` and flags replaced at build time so dead branches vanish |
-
-```js
-if (process.env.NODE_ENV !== "production") {
-  validateProps();                 // removed from production bundles
+// Or declare specific files that contain real side effects (e.g. CSS or polyfills)
+{
+  "name": "my-ui-library",
+  "sideEffects": [
+    "*.css",
+    "src/polyfills.js"
+  ]
 }
 ```
 
-## Dev server vs production build
+```javascript
+// 2. Pure function call annotation for minifiers/bundlers
+// /*#__PURE__*/ tells the bundler that if the result is unused, the call has NO side effects
+export const defaultFormatter = /*#__PURE__*/ createComplexFormatter();
 
-| | Dev | Production |
-|---|-----|-----------|
-| Vite | native ESM per module, instant start, HMR | Rollup bundle with splitting/minification |
-| webpack | in-memory bundle with HMR | optimized chunks |
-| Goal | fast feedback | small, cacheable output |
-
-Differences between dev and prod can hide bugs: always test the **production build** (`vite preview`).
-
-## Library builds
-
-| Practice | Detail |
-|----------|--------|
-| Emit **ESM** (and CJS if needed) + type declarations | see the previous file |
-| Mark dependencies as **external** | do not bundle `react`, `lodash-es`; list in `dependencies`/`peerDependencies` |
-| Preserve modules (`preserveModules`/unbundled output) | lets consumers tree-shake at file granularity |
-| Set `sideEffects` accurately | enables consumer tree shaking |
-| Avoid top-level side effects | |
-| Keep the public surface in `exports` | |
-
-```js
-// rollup.config.js
-export default {
-  input: "src/index.js",
-  external: [/^react/, "lodash-es"],
-  output: [{ dir: "dist", format: "es", preserveModules: true }],
-};
+// 3. Dynamic Code Splitting boundary
+const AdminPanel = await import('./admin/AdminPanel.js');
 ```
 
-## Analyzing bundle size
+---
 
-| Tool | Use |
-|------|-----|
-| `rollup-plugin-visualizer`, `vite-bundle-visualizer` | treemap of what is in the bundle |
-| `webpack-bundle-analyzer` | same for webpack |
-| `source-map-explorer` | inspect via source maps |
-| bundlephobia / `packagephobia` | package cost before installing |
-| `esbuild --analyze`, `--metafile` | quick analysis |
-| Lighthouse / WebPageTest | real-user impact |
+## 5. Practical Examples
 
-Typical wins: replace heavy libraries (moment → date-fns/Temporal), lazy-load rarely used features, import only needed functions, use modern browser targets, remove duplicate versions of a dependency.
+### Example 1: Tree-Shakable Library Architecture
+```javascript
+// math-library.js
+// PURE EXPORTS: No top-level side effects!
+export function add(a, b) {
+  return a + b;
+}
 
-## Performance budgets
+export function multiply(a, b) {
+  return a * b;
+}
 
-Set a limit and fail CI when exceeded:
+export function heavyMatrixMultiply(matrixA, matrixB) {
+  // Heavy algorithm with large internal lookup tables
+  console.log('Heavy computation');
+  return [];
+}
 
-```json
-{ "bundlesize": [{ "path": "dist/*.js", "maxSize": "170 kB", "compression": "brotli" }] }
+// app.js
+import { add } from './math-library.js';
+console.log(add(2, 3));
+
+// Production Bundled Output:
+// The bundler omits `multiply` and `heavyMatrixMultiply` entirely!
+// Output contains only:
+function add(a, b) { return a + b; }
+console.log(add(2, 3));
 ```
 
-Watch **JavaScript execution time** (parse + run), not only transfer size.
+### Example 2: How Top-Level Invocations Break Tree-Shaking
+```javascript
+// BROKEN: Impure Top-Level Call
+class Logger {
+  log(msg) { console.log(msg); }
+}
 
-## Polyfills
+// Even if `defaultLogger` is never imported, bundlers must retain this
+// because `new Logger()` could execute arbitrary side effects!
+export const defaultLogger = new Logger();
 
-| Approach | Notes |
-|----------|-------|
-| Target modern browsers | smallest output |
-| `core-js` with `@babel/preset-env` `useBuiltIns: "usage"` | adds only needed polyfills |
-| Differential loading | `<script type="module">` for modern, `nomodule` fallback for legacy (rarely needed now) |
-| Polyfill services | on-demand polyfills by user agent |
+// FIXED: Mark with /*#__PURE__*/ annotation
+export const safeDefaultLogger = /*#__PURE__*/ new Logger();
+```
 
-## Unbundled and no-build options
+### Example 3: Chunk Splitting Configuration in Vite / Rollup
+```javascript
+// vite.config.js / rollup.config.js
+import { defineConfig } from 'vite';
 
-- **Import maps + native ESM** for small apps, prototypes, demos
-- **CDNs** (`esm.sh`, `jsdelivr`, `unpkg`) serving ESM builds
-- **Deno/Bun** run TypeScript and ESM directly on the server
-- Trade-off: more requests, no tree shaking, no minification
+export default defineConfig({
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          // Isolate vendor dependencies into independent long-lived cached chunks
+          if (id.includes('node_modules')) {
+            if (id.includes('react')) return 'vendor-react';
+            if (id.includes('lodash-es')) return 'vendor-lodash';
+            return 'vendor-common';
+          }
+        },
+      },
+    },
+  },
+});
+```
 
-## Common bundler errors
+### Example 4: Rollup Scope Hoisting Before and After
+```javascript
+// BEFORE (Standard Modules):
+// moduleA.js
+export const greeting = 'Hello';
+// moduleB.js
+import { greeting } from './moduleA.js';
+export function greet(name) { return `${greeting}, ${name}`; }
 
-| Error | Cause |
-|-------|-------|
-| `Failed to resolve import "x"` | missing dependency or bad alias/extension |
-| `"x" is not exported by "y"` | importing a name the module lacks (CJS interop or typo) |
-| `Cannot use import statement outside a module` | file treated as CJS or script |
-| `require is not defined` in the browser | CJS code not transformed |
-| Circular dependency warnings | restructure modules |
-| Duplicate package versions in the bundle | dedupe (`npm dedupe`, `resolutions`/`overrides`) |
-| Huge chunk size warning | split or lazy-load |
+// AFTER (Scope Hoisted Bundle):
+// Both modules flattened into single scope; function wrapper overhead eliminated!
+const greeting = 'Hello';
+function greet(name) { return `${greeting}, ${name}`; }
+export { greet };
+```
 
-## Pitfalls
+### Example 5: Barrel File Tree-Shaking Hazard
+```javascript
+// icons/index.js (The Barrel File)
+export { HomeIcon } from './HomeIcon.js';
+export { UserIcon } from './UserIcon.js';
+export { SettingsIcon } from './SettingsIcon.js';
+// ... 5,000 more icons ...
 
-| Pitfall | Why it hurts | Better |
-|---------|--------------|--------|
-| Importing CJS-only packages | No tree shaking, big bundles | Choose ESM-ready libraries |
-| Barrel files re-exporting hundreds of modules | Slow dev server, accidental inclusion | Import directly or ensure `sideEffects: false` |
-| Missing `sideEffects` field in your library | Consumers cannot shake it | Declare it accurately |
-| Forgetting that CSS/polyfill imports are side effects | Dropped by `sideEffects: false` | List them in the array form |
-| Shipping dev-only code to production | Bigger bundles | Guard with `process.env.NODE_ENV`/`import.meta.env.DEV` |
-| Bundling dependencies into a library | Duplicates for consumers | Externalize |
-| Not testing the production build | Dev/prod differences | `vite preview`, CI smoke tests |
-| Source maps leaked publicly with secrets in code | Information exposure | Upload privately, keep secrets out of bundles |
-| One giant bundle | Slow first load | Route-level code splitting |
-| Over-splitting into tiny chunks | Request overhead | Reasonable chunk sizes, preload critical ones |
+// app.js
+import { HomeIcon } from './icons/index.js';
 
-## Key takeaways
+// If package.json lacks "sideEffects": false, bundlers must parse and bundle
+// all 5,000 icon files because evaluating them might contain side effects!
+```
 
-- Bundlers resolve imports, transform code, and emit optimized, hashed files
-- Tree shaking needs static ESM and side-effect-free modules (`sideEffects`, `/*@__PURE__*/`)
-- Use dynamic `import()` for code splitting and analyze bundles regularly
-- Libraries should ship ESM, externalize dependencies and declare `sideEffects`
+---
 
-**Next:** [Module Patterns](./05_module-patterns.md)
+## 6. Edge Cases, Pitfalls & Gotchas
+
+1. **Re-exporting via Barrel Files**: Re-exporting hundreds of modules from a single `index.js` forces the bundler to parse and build ASTs for every re-exported module, drastically slowing down build times and frequently leaking unused modules if side-effects are improperly declared.
+2. **Class Field Initializers**: Transpiling class properties down to ES5/ES2020 sometimes introduces helper calls (e.g., `_defineProperty`) that bundlers cannot prove are pure without `/*#__PURE__*/`.
+3. **CommonJS Bailouts**: When an ES Module imports a CommonJS package (or a package that compiles down to CJS internally), tree-shaking fails completely; the entire CJS module object is included in the bundle.
+4. **Mutating Prototype Chains**: Modifying built-in prototypes (`Array.prototype.customMethod = ...`) is an observable side effect that prevents bundlers from discarding the file even if no exports are imported.
+
+---
+
+## 7. Common Mistakes & Anti-Patterns
+
+| Mistake | Incorrect Pattern | Correct Solution | Why It Fails |
+| :--- | :--- | :--- | :--- |
+| **Missing `"sideEffects": false`** | Omitting field in library `package.json` | Add `"sideEffects": false` | Bundlers assume unimported files may have side effects and bundle them. |
+| **Importing CommonJS Lodash** | `import { debounce } from 'lodash'` | `import debounce from 'lodash-es/debounce'` | `lodash` is CommonJS; bundler pulls in all 300+ functions (~70KB). |
+| **Top-Level Impure Expressions** | `export const instance = createInstance()` | Annotate with `/*#__PURE__*/` | Bundler cannot know if `createInstance()` mutates global state. |
+| **Default Export of Object Bags** | `export default { add, subtract, multiply }` | Use named exports `export { add, ... }` | Bundler treats default object as a single atomic unit, breaking tree-shaking. |
+| **Dynamic Import with Variable String** | `import(`./modules/${name}.js`)` | Use explicit mapping or bounded regex | Prevents bundler from statically identifying which chunks to build. |
+| **Re-exporting Everything Naively** | `export * from './heavy-subsystem'` | Export only what consumers actually require | Pulls unnecessary subgraphs into the module resolution graph. |
+
+---
+
+## 8. Performance Characteristics
+
+- **Bundle Payload Reduction**: Proper tree-shaking and side-effect annotations typically reduce third-party dependency payload size by 40%–80%.
+- **Scope Hoisting Runtime Boost**: Eliminating CommonJS/AMD function wrappers reduces runtime function call overhead and shrinks minified variable name collision tables.
+- **Build-Time Memory Footprint**: Deep barrel files and unannotated side-effect trees increase bundler memory consumption and slow down hot module replacement (HMR) cycles by orders of magnitude.
+
+---
+
+## 9. Engine Internals
+
+1. **AST Pruning in esbuild**: Written in Go, `esbuild` constructs ASTs and performs cross-module symbol reference tracing using multi-threaded parallel passes, achieving tree-shaking speeds 10x–50x faster than JavaScript-based tools.
+2. **Rollup Tree-Shaking Algorithm**: Rollup creates `Module` instances where each top-level statement is represented by a `Statement` node. It tracks which statements have side effects; statements without side effects whose bound variables are not included in the entry graph are omitted during chunk rendering.
+
+---
+
+## 10. Best Practices & Design Guidelines
+
+1. **Always Set `"sideEffects": false` in Libraries**: If your package consists of pure modules, explicitly declare `"sideEffects": false` in `package.json`.
+2. **Use `/*#__PURE__*/` on Top-Level Factory Invocations**: Annotate class instantiations and factory calls assigned to top-level variables.
+3. **Prefer Granular Path Imports Over Giant Barrel Files**: Write `import map from 'lodash-es/map'` instead of pulling from a monolithic barrel when tooling cannot optimize barrels.
+4. **Leverage Dynamic `import()` for Large Dependencies**: Load charting engines, rich text editors, and PDF generators only when the user requests them.
+
+---
+
+## 11. Real-World Case Study
+
+### Optimizing a Heavy Web App Bundle Size by 65%
+
+An enterprise SaaS dashboard application suffered from a 3.8MB initial JavaScript bundle, resulting in an 8-second Time to Interactive (TTI) on mobile devices.
+
+```javascript
+// vite.config.js - PRODUCTION OPTIMIZATION
+import { defineConfig } from 'vite';
+import { visualizer } from 'rollup-plugin-visualizer';
+
+export default defineConfig({
+  build: {
+    target: 'es2022',
+    minify: 'esbuild',
+    rollupOptions: {
+      plugins: [
+        visualizer({ open: true, filename: 'bundle-stats.html' }),
+      ],
+      output: {
+        // Enforce code-splitting across vendor boundaries
+        manualChunks: {
+          'vendor-charts': ['chart.js'],
+          'vendor-dates': ['date-fns'],
+        },
+      },
+    },
+  },
+});
+```
+
+```javascript
+// app.js - REFACTORED ENTRY POINT
+// 1. REPLACED MONOLITHIC CJS LODASH WITH TREE-SHAKABLE ESM
+// Before: import { debounce } from 'lodash'; (Pulls entire 75KB library)
+// After:
+import debounce from 'lodash-es/debounce'; // Bundles only ~2KB!
+
+// 2. LAZY-LOADED CHARTING MODULE VIA DYNAMIC IMPORT
+const chartButton = document.getElementById('view-chart');
+chartButton.addEventListener('click', async () => {
+  const { renderSalesChart } = await import('./charts/salesChart.js');
+  renderSalesChart();
+});
+
+// Outcome:
+// - Initial bundle plummeted from 3.8MB to 420KB (-89% initial JS)
+// - Time to Interactive dropped from 8.2s to 1.1s on 4G networks.
+```
+
+---
+
+## 12. Interview Questions
+
+<details>
+<summary><strong>1. What is the fundamental difference between dead-code elimination and tree-shaking?</strong></summary>
+
+Dead-code elimination starts with the entire program and searches for unreachable code to delete. Tree-shaking (live code inclusion) starts at the application entry point and traverses the static ESM import graph, including only functions and variables that are provably referenced.
+</details>
+
+<details>
+<summary><strong>2. What does <code>"sideEffects": false</code> in package.json tell a bundler?</strong></summary>
+
+It informs bundlers that no files in the package perform observable side effects upon initial evaluation (such as modifying global variables or prototypes). If an application imports a file from this package without using any of its exports, the bundler can safely skip including the file entirely.
+</details>
+
+<details>
+<summary><strong>3. Why does tree-shaking fail when a library exports an object with functions?</strong></summary>
+
+When a library does `export default { add, subtract }`, it exports a single JavaScript object. The bundler cannot safely determine at compile time which properties of that object will be dynamically accessed at runtime (`obj[prop]`), so it must include the entire object and all its methods.
+</details>
+
+<details>
+<summary><strong>4. What is the purpose of the <code>/*#__PURE__*/</code> annotation?</strong></summary>
+
+It informs bundlers and minifiers that a top-level function or constructor call has no side effects. If the variable storing the result of that call is never used, the bundler can safely delete the function call entirely.
+</details>
+
+<details>
+<summary><strong>5. What is "Scope Hoisting"?</strong></summary>
+
+Scope hoisting is a bundler optimization that flattens all imported modules into a single shared closure or scope instead of wrapping each module in an individual function closure. This eliminates function overhead and reduces bundle size.
+</details>
+
+<details>
+<summary><strong>6. Why do "barrel files" (index.js exporting hundreds of modules) harm performance?</strong></summary>
+
+They force the bundler to parse and construct ASTs for every re-exported module, slowing build times. If side-effects are not properly declared, bundlers may include unused modules in the final bundle simply because they passed through the barrel file.
+</details>
+
+<details>
+<summary><strong>7. Can CommonJS code be tree-shaken as effectively as ES Modules?</strong></summary>
+
+No. CommonJS modules execute dynamically at runtime, allowing exports to be added conditionally or modified. Bundlers cannot statically analyze the dependency tree of CJS with absolute certainty without executing the code.
+</details>
+
+<details>
+<summary><strong>8. How does code splitting interact with HTTP caching?</strong></summary>
+
+Code splitting divides the bundle into smaller, content-hashed chunks (e.g. `vendor-react.abc123.js`). When application code updates, users only re-download the mutated application chunks; long-lived vendor chunks remain served directly from the browser HTTP cache.
+</details>
+
+---
+
+## 13. Exercises & Challenges
+
+### Challenge 1: Identify and Fix Tree-Shaking Leaks
+Examine the following utility module and explain why importing only `formatDate` still bundles `initDatabase`:
+
+```javascript
+// utils.js
+export function formatDate(date) {
+  return date.toISOString().split('T')[0];
+}
+
+export function initDatabase() {
+  console.log('Connecting to database...');
+}
+
+// Side effect at top level!
+export const dbInstance = initDatabase();
+```
+
+<details>
+<summary>View Solution & Explanation</summary>
+
+**Why it fails:**
+Even if the consumer only imports `formatDate`, the top-level statement `export const dbInstance = initDatabase();` executes immediately upon module evaluation. Because `initDatabase()` logs to the console (a side effect), the bundler cannot omit `initDatabase()` or `dbInstance` without changing runtime behavior.
+
+**Fix:**
+Make the initialization lazy or annotate it if pure:
+```javascript
+// utils.js
+export function formatDate(date) {
+  return date.toISOString().split('T')[0];
+}
+
+let dbInstance = null;
+export function getDatabase() {
+  if (!dbInstance) {
+    dbInstance = initDatabase();
+  }
+  return dbInstance;
+}
+
+function initDatabase() {
+  console.log('Connecting to database...');
+  return { connected: true };
+}
+```
+</details>
+
+### Challenge 2: Configure a Granular Code-Splitting Rule
+Write a Rollup/Vite `manualChunks` function that separates `node_modules` dependencies into three distinct bundles:
+1. `vendor-core` for `react` and `react-dom`.
+2. `vendor-charts` for `chart.js` or `d3`.
+3. `vendor-other` for any remaining third-party dependencies.
+
+<details>
+<summary>View Solution</summary>
+
+```javascript
+function manualChunks(id) {
+  if (id.includes('node_modules')) {
+    if (id.includes('/react/') || id.includes('/react-dom/')) {
+      return 'vendor-core';
+    }
+    if (id.includes('/chart.js/') || id.includes('/d3/')) {
+      return 'vendor-charts';
+    }
+    return 'vendor-other';
+  }
+}
+```
+</details>

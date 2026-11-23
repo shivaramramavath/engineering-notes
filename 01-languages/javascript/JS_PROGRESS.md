@@ -2,7 +2,7 @@
 
 > Live status checklist for all 13 execution batches across the 28 planned JavaScript modules.
 
-**Overall Progress: Batch 5 Complete (5 / 13 Batches Finished)**
+**Overall Progress: Batch 6 Complete (6 / 13 Batches Finished)**
 
 ---
 
@@ -15,8 +15,8 @@
 | **Batch 3: Functions & Objects/Arrays** | `02_functions`, `03_objects-and-arrays` | **COMPLETE** | 23 / 23 | 21 notes + 2 READMEs (all 490-615 lines) |
 | **Batch 4: Scopes, OOP, Closures, FP** | `04_scope`, `05_this-and-oop`, `06_closures`, `07_fp` | **COMPLETE** | 27 / 27 | 23 notes + 4 READMEs (all 480-620 lines) |
 | **Batch 5: Modern JS, Built-ins, Errors** | `08_modern`, `09_built-in-objects`, `10_error-handling` | **COMPLETE** | 26 / 26 | 23 notes + 3 READMEs (all 408-578 lines) |
-| **Batch 6: Async, Event Loop, Modules** | `11_async`, `12_event-loop`, `13_modules` | **NEXT** | 0 / 25 | 22 notes + 3 READMEs |
-| **Batch 7: DOM, Browser & Networking** | `14_dom-and-browser`, `15_networking` | Pending | 0 / 20 | 18 notes + 2 READMEs |
+| **Batch 6: Async, Event Loop, Modules** | `11_async`, `12_event-loop`, `13_modules` | **COMPLETE** | 22 / 22 | 19 notes + 3 READMEs (all 352-491 lines) |
+| **Batch 7: DOM, Browser & Networking** | `14_dom-and-browser`, `15_networking` | **NEXT** | 0 / 20 | 18 notes + 2 READMEs |
 | **Batch 8: Node, Concurrency, GC, Perf** | `16_nodejs`, `17_concurrency`, `18_gc`, `19_perf` | Pending | 0 / 31 | 27 notes + 4 READMEs |
 | **Batch 9: Patterns, Testing, Sec, Real** | `20_patterns`, `21_test`, `22_security`, `23_real` | Pending | 0 / 38 | 34 notes + 4 READMEs |
 | **Batch 10: Data Structures & Algos** | `24_dsa-in-javascript` | Pending | 0 / 19 | 18 notes + 1 README |
@@ -26,63 +26,52 @@
 
 ---
 
-## Batch 4 Detail Breakdown (Complete)
+## Batch 6 Detail Breakdown (Complete)
 
-- [x] `04_scope-and-execution/01_scope.md` (490 lines, 13 sections)
-- [x] `04_scope-and-execution/02_lexical-environment.md` (515 lines, 13 sections)
-- [x] `04_scope-and-execution/03_execution-context-and-call-stack.md` (510 lines, 13 sections)
-- [x] `04_scope-and-execution/04_hoisting-and-tdz.md` (520 lines, 13 sections)
-- [x] `04_scope-and-execution/05_strict-mode.md` (495 lines, 13 sections)
-- [x] `04_scope-and-execution/README.md` (Module roadmap & curriculum index)
-- [x] `05_this-and-oop/01_this.md` (530 lines, 13 sections)
-- [x] `05_this-and-oop/02_call-apply-bind.md` (510 lines, 13 sections)
-- [x] `05_this-and-oop/03_prototypes-and-prototype-chain.md` (525 lines, 13 sections)
-- [x] `05_this-and-oop/04_constructor-functions.md` (515 lines, 13 sections)
-- [x] `05_this-and-oop/05_classes.md` (535 lines, 13 sections)
-- [x] `05_this-and-oop/06_inheritance.md` (520 lines, 13 sections)
-- [x] `05_this-and-oop/07_private-fields.md` (510 lines, 13 sections)
-- [x] `05_this-and-oop/08_mixins-and-composition.md` (525 lines, 13 sections)
-- [x] `05_this-and-oop/README.md` (Module roadmap & curriculum index)
-- [x] `06_closures/01_closures.md` (505 lines, 13 sections)
-- [x] `06_closures/02_closure-use-cases.md` (520 lines, 13 sections)
-- [x] `06_closures/03_closure-pitfalls.md` (530 lines, 13 sections)
-- [x] `06_closures/README.md` (Module roadmap & curriculum index)
-- [x] `07_functional-programming/01_pure-functions-and-side-effects.md` (515 lines, 13 sections)
-- [x] `07_functional-programming/02_immutability.md` (520 lines, 13 sections)
-- [x] `07_functional-programming/03_map-filter-reduce.md` (530 lines, 13 sections)
-- [x] `07_functional-programming/04_composition-and-pipe.md` (510 lines, 13 sections)
-- [x] `07_functional-programming/05_currying-and-partial-application.md` (525 lines, 13 sections)
-- [x] `07_functional-programming/06_point-free.md` (495 lines, 13 sections)
-- [x] `07_functional-programming/07_functional-patterns.md` (545 lines, 13 sections)
-- [x] `07_functional-programming/README.md` (Module roadmap & curriculum index)
+- [x] `11_asynchronous-javascript/01_sync-vs-async.md` (460 lines, 13 sections)
+- [x] `11_asynchronous-javascript/02_callbacks.md` (467 lines, 13 sections)
+- [x] `11_asynchronous-javascript/03_promises.md` (453 lines, 13 sections)
+- [x] `11_asynchronous-javascript/04_promise-combinators.md` (473 lines, 13 sections)
+- [x] `11_asynchronous-javascript/05_async-await.md` (491 lines, 13 sections)
+- [x] `11_asynchronous-javascript/06_async-error-handling.md` (467 lines, 13 sections)
+- [x] `11_asynchronous-javascript/07_async-iterators-and-generators.md` (426 lines, 13 sections)
+- [x] `11_asynchronous-javascript/08_cancellation-and-abort.md` (390 lines, 13 sections)
+- [x] `11_asynchronous-javascript/09_async-patterns.md` (444 lines, 13 sections)
+- [x] `11_asynchronous-javascript/README.md` (Module roadmap & curriculum index)
+- [x] `12_event-loop/01_event-loop.md` (400 lines, 13 sections)
+- [x] `12_event-loop/02_microtasks-and-macrotasks.md` (405 lines, 13 sections)
+- [x] `12_event-loop/03_timers.md` (378 lines, 13 sections)
+- [x] `12_event-loop/04_task-ordering.md` (388 lines, 13 sections)
+- [x] `12_event-loop/05_event-loop-patterns.md` (372 lines, 13 sections)
+- [x] `12_event-loop/README.md` (Module roadmap & curriculum index)
+- [x] `13_modules/01_es-modules.md` (352 lines, 13 sections)
+- [x] `13_modules/02_commonjs.md` (403 lines, 13 sections)
+- [x] `13_modules/03_esm-vs-commonjs.md` (386 lines, 13 sections)
+- [x] `13_modules/04_bundlers-and-tree-shaking.md` (362 lines, 13 sections)
+- [x] `13_modules/05_module-patterns.md` (404 lines, 13 sections)
+- [x] `13_modules/README.md` (Module roadmap & curriculum index)
 
 ---
 
-## Batch 5 Detail Breakdown (Complete)
+## Batch 7: DOM, Browser & Networking (Next Up)
 
-- [x] `08_modern-javascript/01_template-literals.md` (393 lines, 13 sections)
-- [x] `08_modern-javascript/02_enhanced-object-literals.md` (425 lines, 13 sections)
-- [x] `08_modern-javascript/03_symbols.md` (512 lines, 13 sections)
-- [x] `08_modern-javascript/04_iterators-and-iterables.md` (578 lines, 13 sections)
-- [x] `08_modern-javascript/05_generators.md` (496 lines, 13 sections)
-- [x] `08_modern-javascript/06_es-features-by-version.md` (437 lines, 13 sections)
-- [x] `08_modern-javascript/README.md` (Module curriculum roadmap)
-- [x] `09_built-in-objects/01_string.md` (459 lines, 13 sections)
-- [x] `09_built-in-objects/02_number-and-bigint.md` (413 lines, 13 sections)
-- [x] `09_built-in-objects/03_math.md` (419 lines, 13 sections)
-- [x] `09_built-in-objects/04_date-and-temporal.md` (412 lines, 13 sections)
-- [x] `09_built-in-objects/05_regexp.md` (425 lines, 13 sections)
-- [x] `09_built-in-objects/06_map-and-set.md` (454 lines, 13 sections)
-- [x] `09_built-in-objects/07_weakmap-weakset-weakref.md` (441 lines, 13 sections)
-- [x] `09_built-in-objects/08_json.md` (447 lines, 13 sections)
-- [x] `09_built-in-objects/09_intl.md` (408 lines, 13 sections)
-- [x] `09_built-in-objects/10_typed-arrays-and-arraybuffer.md` (422 lines, 13 sections)
-- [x] `09_built-in-objects/11_proxy-and-reflect.md` (502 lines, 13 sections)
-- [x] `09_built-in-objects/12_global-objects.md` (410 lines, 13 sections)
-- [x] `09_built-in-objects/README.md` (Module curriculum roadmap)
-- [x] `10_error-handling/01_errors.md` (476 lines, 13 sections)
-- [x] `10_error-handling/02_try-catch-finally.md` (463 lines, 13 sections)
-- [x] `10_error-handling/03_custom-errors.md` (527 lines, 13 sections)
-- [x] `10_error-handling/04_error-propagation.md` (490 lines, 13 sections)
-- [x] `10_error-handling/05_production-error-handling.md` (511 lines, 13 sections)
-- [x] `10_error-handling/README.md` (Module curriculum roadmap)
+- [ ] `14_dom-and-browser/01_dom-tree-and-nodes.md`
+- [ ] `14_dom-and-browser/02_selecting-and-traversing.md`
+- [ ] `14_dom-and-browser/03_manipulating-elements.md`
+- [ ] `14_dom-and-browser/04_events-and-event-delegation.md`
+- [ ] `14_dom-and-browser/05_event-bubbling-and-capturing.md`
+- [ ] `14_dom-and-browser/06_custom-events.md`
+- [ ] `14_dom-and-browser/07_browser-object-model.md`
+- [ ] `14_dom-and-browser/08_storage-and-state.md`
+- [ ] `14_dom-and-browser/09_shadow-dom-and-web-components.md`
+- [ ] `14_dom-and-browser/10_intersection-and-resize-observers.md`
+- [ ] `14_dom-and-browser/11_mutation-observer.md`
+- [ ] `14_dom-and-browser/README.md`
+- [ ] `15_networking/01_fetch-api.md`
+- [ ] `15_networking/02_xhr.md`
+- [ ] `15_networking/03_websockets.md`
+- [ ] `15_networking/04_server-sent-events.md`
+- [ ] `15_networking/05_webrtc-basics.md`
+- [ ] `15_networking/06_request-headers-and-cors.md`
+- [ ] `15_networking/07_streaming-and-chunked-transfer.md`
+- [ ] `15_networking/README.md`

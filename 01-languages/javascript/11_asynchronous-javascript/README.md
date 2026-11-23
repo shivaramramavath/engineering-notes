@@ -1,42 +1,44 @@
-# 11 · Asynchronous JavaScript
+# Module 11: Asynchronous JavaScript
 
-JavaScript runs your code on a **single thread**, yet it handles network calls, timers, files and user input without freezing. It does this by starting work, **continuing**, and handling the result later. This chapter covers every tool for that: callbacks, promises, `async`/`await`, async iteration, cancellation, and the patterns built on them.
+> Master asynchronous control flow in JavaScript: from foundational callback patterns and native Promises to async/await syntax, streaming async generators, universal cancellation with `AbortController`, and advanced concurrency orchestration patterns.
 
+---
+
+## Curriculum Overview
+
+| File | Title | Summary | Standard |
+| :--- | :--- | :--- | :--- |
+| [01_sync-vs-async.md](./01_sync-vs-async.md) | Synchronous vs Asynchronous Execution | Execution models, single-threaded runtimes, non-blocking I/O, run-to-completion semantics | ECMAScript Baseline |
+| [02_callbacks.md](./02_callbacks.md) | Callbacks & Continuation-Passing Style | Node error-first callbacks, callback hell, inversion of control, Zalgo hazards | Node.js / Core JS |
+| [03_promises.md](./03_promises.md) | Promises & Microtask Semantics | Promise states, chaining, settlement, error handling, microtask scheduling | ECMAScript 2015 (ES6) |
+| [04_promise-combinators.md](./04_promise-combinators.md) | Promise Combinators | `Promise.all`, `Promise.allSettled`, `Promise.race`, `Promise.any`, fast-fail vs aggregated rejections | ES2015–ES2021 |
+| [05_async-await.md](./05_async-await.md) | Async / Await Syntax & Architecture | Syntactic sugar over generators & promises, return await subtleties, engine optimizations | ECMAScript 2017 (ES8) |
+| [06_async-error-handling.md](./06_async-error-handling.md) | Asynchronous Error Handling & Propagation | Unhandled rejections, rejection tracking, try/catch with await, cross-boundary stacks | Node.js / Browser |
+| [07_async-iterators-and-generators.md](./07_async-iterators-and-generators.md) | Async Iterators & Generators | `Symbol.asyncIterator`, `for await...of`, `async function*`, pull-based backpressure | ECMAScript 2018 (ES9) |
+| [08_cancellation-and-abort.md](./08_cancellation-and-abort.md) | Cancellation & AbortController | `AbortController`, `AbortSignal`, `AbortSignal.timeout()`, `AbortSignal.any()`, cooperative cancellation | WHATWG / Node 15+ |
+| [09_async-patterns.md](./09_async-patterns.md) | Asynchronous Design Patterns | Concurrency limiters (`p-limit`), queues, in-flight single-flight deduplication, retries with jitter | Modern ES / Node LTS |
+
+---
+
+## Recommended Learning Path
+
+```mermaid
+flowchart TD
+    M11_1["01: Sync vs Async Execution"] --> M11_2["02: Callbacks & Continuation Passing"]
+    M11_2 --> M11_3["03: Promises & Microtask Semantics"]
+    M11_3 --> M11_4["04: Promise Combinators"]
+    M11_3 --> M11_5["05: Async / Await Syntax"]
+    M11_5 --> M11_6["06: Async Error Handling"]
+    M11_5 --> M11_7["07: Async Iterators & Generators"]
+    M11_5 --> M11_8["08: Cancellation & AbortController"]
+    M11_8 --> M11_9["09: Asynchronous Design Patterns"]
 ```
-start work ──► keep running other code ──► result arrives ──► your continuation runs
-```
 
-## Reading order
+---
 
-| # | File | You will learn |
-|---|------|----------------|
-| 1 | [Sync vs Async](./01_sync-vs-async.md) | Blocking, the event loop at a glance, why async exists |
-| 2 | [Callbacks](./02_callbacks.md) | Continuation-passing, error-first, callback hell, promisify |
-| 3 | [Promises](./03_promises.md) | States, chaining, `then`/`catch`/`finally`, creating promises |
-| 4 | [Promise Combinators](./04_promise-combinators.md) | `all`, `allSettled`, `race`, `any`, `withResolvers`, `try` |
-| 5 | [async/await](./05_async-await.md) | Syntax, sequential vs parallel, loops, top-level `await` |
-| 6 | [Async Error Handling](./06_async-error-handling.md) | `try/catch`, unhandled rejections, floating promises |
-| 7 | [Async Iterators and Generators](./07_async-iterators-and-generators.md) | `for await...of`, async generators, streaming data |
-| 8 | [Cancellation and Abort](./08_cancellation-and-abort.md) | `AbortController`, timeouts, "latest wins" |
-| 9 | [Async Patterns](./09_async-patterns.md) | Retry, timeout, concurrency limits, queues, dedupe, polling |
+## Key Takeaways
 
-## Quick comparison
-
-| Style | Looks like | Best for |
-|-------|-----------|----------|
-| Callbacks | `fn(args, (err, data) => {})` | events, legacy APIs, simple hooks |
-| Promises | `fn().then(ok).catch(fail)` | composition, parallelism, library APIs |
-| `async`/`await` | `const data = await fn()` | readable sequential logic (the default today) |
-| Async iterators | `for await (const x of stream)` | streams, pagination, event sequences |
-
-## Goal
-
-By the end you can read and write any asynchronous JavaScript, run work in parallel safely, cancel it, and avoid the classic race conditions and swallowed errors.
-
-## Prerequisites
-
-- [Callbacks](../02_functions/05_callbacks.md) and [Closures](../06_closures/01_closures.md)
-- [Error Handling](../10_error-handling/00_README.md)
-- Skim [Event Loop](../12_event-loop/00_README.md) for the full mechanics (this chapter gives the working model)
-
-**Next:** [Sync vs Async](./01_sync-vs-async.md)
+1. **JavaScript is Single-Threaded with Non-Blocking I/O**: The JS engine executes one operation at a time on the call stack, offloading long-running network and file I/O to host platform threads.
+2. **Microtasks Preempt Macrotasks**: Promise callbacks (`.then()`, `.catch()`, `.finally()`, and `await` resumptions) run in the microtask queue, which drains completely before any timers or I/O events run.
+3. **Always Handle Cancellation Cooperatively**: Pass `AbortSignal` through asynchronous pipelines so callers can terminate operations cleanly and prevent resource leaks.
+4. **Throttle Concurrency**: Never fire unbounded `Promise.all` over hundreds of items; apply concurrency limiters to protect downstream systems.
