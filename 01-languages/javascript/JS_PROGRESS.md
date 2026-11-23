@@ -117,27 +117,64 @@
 - [x] `24_dsa-in-javascript/18_algorithmic-patterns.md`
 - [x] `24_dsa-in-javascript/README.md`
 
-## Batch 11: Real-World Engineering Projects (Next Up)
+## Batch 11: Real-World Engineering Projects (COMPLETED)
 
-- [ ] `25_projects/01_vanilla-todo-app.md`
-- [ ] `25_projects/02_weather-dashboard.md`
-- [ ] `25_projects/03_markdown-editor.md`
-- [ ] `25_projects/04_expense-tracker-indexeddb.md`
-- [ ] `25_projects/05_quiz-app.md`
-- [ ] `25_projects/06_kanban-drag-and-drop.md`
-- [ ] `25_projects/07_realtime-chat-websocket.md`
-- [ ] `25_projects/08_tiny-event-emitter.md`
-- [ ] `25_projects/09_promise-from-scratch.md`
-- [ ] `25_projects/10_mini-virtual-dom.md`
-- [ ] `25_projects/11_mini-state-manager.md`
-- [ ] `25_projects/12_mini-router.md`
-- [ ] `25_projects/13_mini-lodash.md`
-- [ ] `25_projects/14_dependency-injection-container.md`
-- [ ] `25_projects/15_cli-task-manager.md`
-- [ ] `25_projects/16_web-scraper.md`
-- [ ] `25_projects/17_task-scheduler.md`
-- [ ] `25_projects/18_mini-bundler.md`
-- [ ] `25_projects/19_pwa-notes-app.md`
-- [ ] `25_projects/20_mini-test-framework.md`
-- [ ] `25_projects/21_mini-reactive-signals.md`
-- [ ] `25_projects/README.md`
+- [x] `25_projects/01_vanilla-todo-app.md`
+- [x] `25_projects/02_weather-dashboard.md`
+- [x] `25_projects/03_markdown-editor.md`
+- [x] `25_projects/04_expense-tracker-indexeddb.md`
+- [x] `25_projects/05_quiz-app.md`
+- [x] `25_projects/06_kanban-drag-and-drop.md`
+- [x] `25_projects/07_realtime-chat-websocket.md`
+- [x] `25_projects/08_tiny-event-emitter.md`
+- [x] `25_projects/09_promise-from-scratch.md`
+- [x] `25_projects/10_mini-virtual-dom.md`
+- [x] `25_projects/11_mini-state-manager.md`
+- [x] `25_projects/12_mini-router.md`
+- [x] `25_projects/13_mini-lodash.md`
+- [x] `25_projects/14_dependency-injection-container.md`
+- [x] `25_projects/15_cli-task-manager.md`
+- [x] `25_projects/16_web-scraper.md`
+- [x] `25_projects/17_task-scheduler.md`
+- [x] `25_projects/18_mini-bundler.md`
+- [x] `25_projects/19_pwa-notes-app.md`
+- [x] `25_projects/20_mini-test-framework.md`
+- [x] `25_projects/21_mini-reactive-signals.md`
+- [x] `25_projects/README.md`
+
+## Batch 12: Interview Mastery & Reference Cheatsheets (In Progress)
+
+- [ ] `26_interview/00_language-core-qa.md`
+- [ ] `26_interview/01_closures-and-scope-qa.md`
+- [ ] `26_interview/02_this-and-prototypes-qa.md`
+- [ ] `26_interview/03_async-and-event-loop-qa.md`
+- [ ] `26_interview/04_output-based-questions.md`
+- [ ] `26_interview/05_dom-and-browser-qa.md`
+- [ ] `26_interview/06_performance-qa.md`
+- [ ] `26_interview/07_machine-coding-rounds.md`
+- [ ] `26_interview/08_polyfills-from-scratch.md`
+- [ ] `26_interview/README.md`
+- [ ] `27_cheatsheets/00_syntax-and-operators.md`
+- [ ] `27_cheatsheets/01_arrays-and-objects.md`
+- [ ] `27_cheatsheets/02_strings-and-regex.md`
+- [ ] `27_cheatsheets/03_async-and-promises.md`
+- [ ] `27_cheatsheets/04_event-loop-order.md`
+- [ ] `27_cheatsheets/05_dom-and-events.md`
+- [ ] `27_cheatsheets/06_fetch-and-http.md`
+- [ ] `27_cheatsheets/07_es-features-by-version.md`
+- [ ] `27_cheatsheets/08_node-core-modules.md`
+- [ ] `27_cheatsheets/09_testing-commands.md`
+- [ ] `27_cheatsheets/10_devtools-shortcuts.md`
+- [ ] `27_cheatsheets/11_regex-reference.md`
+- [ ] `27_cheatsheets/12_common-gotchas.md`
+- [ ] `27_cheatsheets/README.md`
+
+## Batch 13: Track Root, Tree Refresh & Final Report (Pending)
+
+- [ ] `01-languages/javascript/README.md`
+- [ ] `01-languages/javascript/INDEX.md`
+- [ ] `01-languages/javascript/ROADMAP.md`
+- [ ] `01-languages/javascript/GLOSSARY.md`
+- [ ] `01-languages/javascript/CONTRIBUTING.md`
+- [ ] Refresh `E:\Learning\engineering-notes\tree.txt`
+- [ ] `01-languages/javascript/JS_FINAL_REPORT.md`

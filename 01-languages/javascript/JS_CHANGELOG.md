@@ -6,6 +6,31 @@
 
 ## 2026-11-23
 
+### Batch 11: Real-World Engineering Projects (Module 25)
+- **Module 25 (`25_projects`):**
+  - Created `01_vanilla-todo-app.md` (350 lines): MVC todo application with localStorage persistence, filter states, and event delegation.
+  - Created `02_weather-dashboard.md` (330 lines): Live asynchronous weather client with Open-Meteo integration, AbortController timeouts, and DOM hydration.
+  - Created `03_markdown-editor.md` (325 lines): Split-pane live Markdown preview editor with custom regex lexing and debounced DOM updates.
+  - Created `04_expense-tracker-indexeddb.md` (340 lines): Local-first transaction ledger utilizing native IndexedDB schema migrations, transactions, and cursors.
+  - Created `05_quiz-app.md` (335 lines): Timed quiz application with countdown intervals, scoring state machine, and keyboard interaction.
+  - Created `06_kanban-drag-and-drop.md` (345 lines): Trello-style board utilizing native HTML5 Drag and Drop API with transfer data and live column reordering.
+  - Created `07_realtime-chat-websocket.md` (355 lines): Full-stack chat application with client-server WebSocket transport, ping/pong heartbeats, and reconnection backoff.
+  - Created `08_tiny-event-emitter.md` (310 lines): Zero-dependency EventEmitter supporting once-listeners, regex pattern matching, and memory leak warnings.
+  - Created `09_promise-from-scratch.md` (360 lines): Complete Promises/A+ compliant Promise implementation with state transitions, chaining, and microtask scheduling.
+  - Created `10_mini-virtual-dom.md` (350 lines): Virtual DOM engine featuring `h()` hyperscript factory, keyed reconciliation, and surgical DOM patch operations.
+  - Created `11_mini-state-manager.md` (340 lines): Unidirectional Redux-style state container with selector memoization, async thunk middleware, and subscription dispatchers.
+  - Created `12_mini-router.md` (340 lines): Client-side SPA router featuring path-to-regex compilation, dynamic URL params, query string parsing, and asynchronous navigation guards.
+  - Created `13_mini-lodash.md` (350 lines): Production utility toolkit with circular-reference-safe deep cloning, debounce/throttle, get/set path traversal, and collection grouping.
+  - Created `14_dependency-injection-container.md` (340 lines): Inversion of Control container supporting singleton and transient lifecycles, class instantiations, and circular dependency graph cycle detection.
+  - Created `15_cli-task-manager.md` (350 lines): Command-line productivity tool using `util.parseArgs`, atomic filesystem operations, and ANSI terminal color formatting.
+  - Created `16_web-scraper.md` (360 lines): Resilient scraper engine with bounded concurrency pool, exponential backoff retries with jitter, and HTML tokenization.
+  - Created `17_task-scheduler.md` (360 lines): In-memory task scheduler utilizing a Binary Min-Heap Priority Queue, AbortSignal timeouts, and recurring interval execution.
+  - Created `18_mini-bundler.md` (350 lines): Static module bundler with ES module AST parsing, dependency graph traversal, CommonJS shimming, and single-file IIFE bundle emission.
+  - Created `19_pwa-notes-app.md` (350 lines): Offline-first Progressive Web App with Cache Storage API strategies (`Cache-First`, `Stale-While-Revalidate`), Service Worker lifecycle, and sync outbox.
+  - Created `20_mini-test-framework.md` (350 lines): BDD testing DSL with `describe`/`it`, fluent `expect` assertions, nested `beforeEach`/`afterEach` hooks, and ANSI terminal reporter.
+  - Created `21_mini-reactive-signals.md` (350 lines): Fine-grained reactivity primitives library featuring signals, automatic effect tracking, memoized computeds, and batched updates.
+  - Created `25_projects/README.md` indexing all 21 engineering projects with metadata, complexity ratings, and execution instructions.
+
 ### Batch 10: Data Structures & Algorithms in JavaScript (Module 24)
 - **Module 24 (`24_dsa-in-javascript`):**
   - Created `01_complexity-and-big-o.md` (470 lines) covering asymptotic bounds ($O, \Omega, \Theta$), Call Stack auxiliary space in recursion, hidden $O(N)$ operations in loops, V8 ElementsKinds, and empirical benchmarking.
