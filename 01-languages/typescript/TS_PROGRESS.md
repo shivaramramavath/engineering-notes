@@ -138,8 +138,8 @@
 - [x] 24-best-practices/ (4 concept notes + README, 1,766 lines) - Type design principles, anti-patterns, project structure, code style & conventions
 - [x] 25-real-world-patterns/ (3 concept notes + README, 1,579 lines) - Domain modeling, filtering/sorting/pagination, advanced state management
 
-## Batch 8: Typed DSA (Module 29 - NEW) (Pending)
-- [ ] \`29-typed-data-structures-and-algorithms/\` (5 notes + README)
+## Batch 8: Typed DSA (Module 29 - NEW) (COMPLETED)
+- [x] 29-typed-data-structures-and-algorithms/ (5 concept notes + README, 2,796 lines) - Linked lists & BSTs, generic heap & priority queue, type-safe graphs & topological sort, LRU cache & Bloom filter, type-space algorithm complexity
 
 ## Batch 9: Projects & Exercises (Module 26) (Pending)
 - [ ] \`26-projects/\` (14 end-to-end production projects + comprehensive exercises)

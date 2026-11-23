@@ -269,3 +269,14 @@
   - `01-filtering-and-sorting.md` (493 lines) - Type-safe query criteria, dynamic operator mapping, cursor vs offset pagination
   - `02-state-management.md` (523 lines) - Finite state machines, discriminated union reducers, Zustand stores, optimistic updates
   - `README.md` (13 lines)
+
+
+## [Batch 8] - 2026-11-24 - Typed Data Structures and Algorithms (Module 29 - NEW)
+### Added / Completed
+- **29-typed-data-structures-and-algorithms/** (5 concept notes + README, 2,796 total lines):
+  - `00-typed-linked-lists-and-trees.md` (545 lines) - Generic singly/doubly linked lists, Binary Search Trees, in-order/pre-order/post-order traversals, IterableIterator<T> protocol, AVL rotations
+  - `01-generic-heap-and-priority-queue.md` (617 lines) - Array-backed MinHeap/MaxHeap, sift-up/sift-down operations, comparator functions, streaming top-K algorithms, indexed priority queues
+  - `02-type-safe-graphs-and-topological-sort.md` (602 lines) - Adjacency list representation, Kahn's BFS algorithm, 3-color DFS cycle detection, Dijkstra's shortest path with typed weights
+  - `03-typed-lru-cache-and-bloom-filter.md` (579 lines) - O(1) Map + Doubly Linked List cache, TTL lazy expiration, Murmur3 hashing, Uint8Array bitmasks, probabilistic Bloom filter
+  - `04-algorithm-complexity-in-type-space.md` (438 lines) - Type-level Peano arithmetic, type-level BubbleSort, tail-call optimization in TS 4.5+, TS2589 recursion limit guards
+  - `README.md` (15 lines)
