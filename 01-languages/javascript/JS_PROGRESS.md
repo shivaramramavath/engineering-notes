@@ -95,24 +95,49 @@
 - [x] `23_real-world-patterns/09_rate-limiting.md`
 - [x] `23_real-world-patterns/README.md`
 
-## Batch 10: DSA in JavaScript (Next Up)
+## Batch 10: DSA in JavaScript (COMPLETED)
 
-- [ ] `24_dsa-in-javascript/01_complexity-and-big-o.md`
-- [ ] `24_dsa-in-javascript/02_arrays-and-strings.md`
-- [ ] `24_dsa-in-javascript/03_hash-tables.md`
-- [ ] `24_dsa-in-javascript/04_linked-lists.md`
-- [ ] `24_dsa-in-javascript/05_stacks-and-queues.md`
-- [ ] `24_dsa-in-javascript/06_trees-and-binary-trees.md`
-- [ ] `24_dsa-in-javascript/07_binary-search-trees.md`
-- [ ] `24_dsa-in-javascript/08_heaps-and-priority-queues.md`
-- [ ] `24_dsa-in-javascript/09_graphs-and-graph-algorithms.md`
-- [ ] `24_dsa-in-javascript/10_sorting-algorithms.md`
-- [ ] `24_dsa-in-javascript/11_searching-algorithms.md`
-- [ ] `24_dsa-in-javascript/12_recursion-and-backtracking.md`
-- [ ] `24_dsa-in-javascript/13_dynamic-programming.md`
-- [ ] `24_dsa-in-javascript/14_greedy-algorithms.md`
-- [ ] `24_dsa-in-javascript/15_bitwise-algorithms.md`
-- [ ] `24_dsa-in-javascript/16_trie.md`
-- [ ] `24_dsa-in-javascript/17_disjoint-set-union.md`
-- [ ] `24_dsa-in-javascript/18_algorithmic-patterns.md`
-- [ ] `24_dsa-in-javascript/README.md`
+- [x] `24_dsa-in-javascript/01_complexity-and-big-o.md`
+- [x] `24_dsa-in-javascript/02_arrays-and-strings.md`
+- [x] `24_dsa-in-javascript/03_hash-tables.md`
+- [x] `24_dsa-in-javascript/04_linked-lists.md`
+- [x] `24_dsa-in-javascript/05_stacks-and-queues.md`
+- [x] `24_dsa-in-javascript/06_trees-and-binary-trees.md`
+- [x] `24_dsa-in-javascript/07_binary-search-trees.md`
+- [x] `24_dsa-in-javascript/08_heaps-and-priority-queues.md`
+- [x] `24_dsa-in-javascript/09_graphs-and-graph-algorithms.md`
+- [x] `24_dsa-in-javascript/10_sorting-algorithms.md`
+- [x] `24_dsa-in-javascript/11_searching-algorithms.md`
+- [x] `24_dsa-in-javascript/12_recursion-and-backtracking.md`
+- [x] `24_dsa-in-javascript/13_dynamic-programming.md`
+- [x] `24_dsa-in-javascript/14_greedy-algorithms.md`
+- [x] `24_dsa-in-javascript/15_bitwise-algorithms.md`
+- [x] `24_dsa-in-javascript/16_trie.md`
+- [x] `24_dsa-in-javascript/17_disjoint-set-union.md`
+- [x] `24_dsa-in-javascript/18_algorithmic-patterns.md`
+- [x] `24_dsa-in-javascript/README.md`
+
+## Batch 11: Real-World Engineering Projects (Next Up)
+
+- [ ] `25_projects/01_vanilla-todo-app.md`
+- [ ] `25_projects/02_weather-dashboard.md`
+- [ ] `25_projects/03_markdown-editor.md`
+- [ ] `25_projects/04_expense-tracker-indexeddb.md`
+- [ ] `25_projects/05_quiz-app.md`
+- [ ] `25_projects/06_kanban-drag-and-drop.md`
+- [ ] `25_projects/07_realtime-chat-websocket.md`
+- [ ] `25_projects/08_tiny-event-emitter.md`
+- [ ] `25_projects/09_promise-from-scratch.md`
+- [ ] `25_projects/10_mini-virtual-dom.md`
+- [ ] `25_projects/11_mini-state-manager.md`
+- [ ] `25_projects/12_mini-router.md`
+- [ ] `25_projects/13_mini-lodash.md`
+- [ ] `25_projects/14_dependency-injection-container.md`
+- [ ] `25_projects/15_cli-task-manager.md`
+- [ ] `25_projects/16_web-scraper.md`
+- [ ] `25_projects/17_task-scheduler.md`
+- [ ] `25_projects/18_mini-bundler.md`
+- [ ] `25_projects/19_pwa-notes-app.md`
+- [ ] `25_projects/20_mini-test-framework.md`
+- [ ] `25_projects/21_mini-reactive-signals.md`
+- [ ] `25_projects/README.md`

@@ -6,6 +6,28 @@
 
 ## 2026-11-23
 
+### Batch 10: Data Structures & Algorithms in JavaScript (Module 24)
+- **Module 24 (`24_dsa-in-javascript`):**
+  - Created `01_complexity-and-big-o.md` (470 lines) covering asymptotic bounds ($O, \Omega, \Theta$), Call Stack auxiliary space in recursion, hidden $O(N)$ operations in loops, V8 ElementsKinds, and empirical benchmarking.
+  - Created `02_arrays-and-strings.md` (470 lines) covering opposite-end and fast/slow two-pointer patterns, sliding window, prefix sums, and UTF-16 surrogate pairs / Intl.Segmenter graphemes.
+  - Created `03_hash-tables.md` (470 lines) covering hash functions (djb2), collision resolution (separate chaining vs open addressing), load factor rehashing, and V8 OrderedHashTable.
+  - Created `04_linked-lists.md` (470 lines) covering Singly and Doubly Linked Lists, Sentinel node patterns, in-place reversal, and Floyd's Cycle Detection.
+  - Created `05_stacks-and-queues.md` (470 lines) covering $O(1)$ Linked-List Queues, Monotonic Stacks, Reverse Polish Notation, and Dual-Stack queues.
+  - Created `06_trees-and-binary-trees.md` (470 lines) covering Full/Complete/Balanced binary trees, iterative DFS stack traversals, BFS level-order queues, LCA, and Virtual DOM diffing.
+  - Created `07_binary-search-trees.md` (470 lines) covering BST ordering invariants, in-order successor deletion, global boundary validation ($-\infty < x < \infty$), and sorted array balancing.
+  - Created `08_heaps-and-priority-queues.md` (470 lines) covering Min/Max Heaps, complete binary tree array mappings ($2i+1, 2i+2$), sift-up/down, $O(N)$ linear-time heapify, and Dual-Heap median tracking.
+  - Created `09_graphs-and-graph-algorithms.md` (475 lines) covering Adjacency Lists vs Matrices, BFS/DFS traversals, Kahn's Topological Sorting, Dijkstra's shortest path, and circular dependency detection.
+  - Created `10_sorting-algorithms.md` (470 lines) covering Merge Sort, 3-Way QuickSort (Dutch National Flag), Counting Sort, QuickSelect, and V8's native TimSort.
+  - Created `11_searching-algorithms.md` (470 lines) covering Classic Binary Search, Lower/Upper Bounds, Rotated Sorted Array searches, 2D matrices, and Binary Search on Answer spaces.
+  - Created `12_recursion-and-backtracking.md` (470 lines) covering the Choose-Explore-Unchoose template, state-space trees, constraint pruning, N-Queens, permutations, and subsets.
+  - Created `13_dynamic-programming.md` (470 lines) covering Overlapping subproblems, Memoization vs Tabulation, 1D/2D state transitions, rolling space compression, and LCS text diffing.
+  - Created `14_greedy-algorithms.md` (470 lines) covering the Greedy Choice Property, exchange arguments, interval scheduling, Jump Game, and Fractional Knapsack.
+  - Created `15_bitwise-algorithms.md` (470 lines) covering 32-bit two's complement coercion, bitmasking flags, Brian Kernighan's trick, XOR properties, and RBAC permissions.
+  - Created `16_trie.md` (470 lines) covering Prefix trees, $O(L)$ lookups, autocomplete suggestion engines, wildcard search (`.`), and Boggle board pruning.
+  - Created `17_disjoint-set-union.md` (470 lines) covering Path compression, Union by Rank, Inverse Ackermann bounds, Kruskal's MST, and connected components.
+  - Created `18_algorithmic-patterns.md` (470 lines) covering the 14 core algorithmic patterns, problem recognition decision flowchart, Cyclic Sort, and K-Way Merge.
+  - Created `24_dsa-in-javascript/README.md` with complete module roadmap and curriculum cross-references.
+
 ### Batch 9: Patterns, Testing, Security & Real-World Architecture (Modules 20, 21, 22, 23)
 - **Module 20 (`20_design-patterns`):**
   - Expanded `01_module-pattern.md` (430 lines) covering IIFE closures, Revealing Module Pattern, ESM static import/export trees, and live binding mechanics.
