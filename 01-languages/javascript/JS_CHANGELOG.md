@@ -171,3 +171,26 @@
   - Expanded `04_bundlers-and-tree-shaking.md` (362 lines) covering Rollup, Webpack, esbuild, live code inclusion, pure annotations `/*#__PURE__*/`, and `"sideEffects": false`.
   - Expanded `05_module-patterns.md` (404 lines) covering barrel file hazards, dependency injection, breaking circular dependencies, and subpath exports encapsulation.
   - Updated `13_modules/README.md` with complete curriculum roadmap.
+
+
+### Batch 7: DOM, Browser & Networking (Modules 14, 15)
+- **Module 14 (`14_dom-and-browser`):**
+  - Expanded `01_dom.md` (385 lines) covering DOM inheritance tree (`EventTarget` -> `Node` -> `Element`), live vs static collections, `DocumentFragment`, and parsing pipelines.
+  - Expanded `02_selectors.md` (330 lines) covering `querySelector`, CSS Level 4 selectors (`:has()`, `:is()`, `:where()`), `:scope`, `element.closest()`, and `CSS.escape()`.
+  - Expanded `03_element-manipulation.md` (373 lines) covering attributes vs properties, boolean attributes, `classList`, inline styles vs `getComputedStyle`, and layout thrashing prevention.
+  - Expanded `04_events.md` (380 lines) covering event lifecycle (Capture, Target, Bubble), passive listeners, `isTrusted`, and cancellation via `AbortSignal`.
+  - Expanded `05_event-delegation.md` (375 lines) covering delegated bubbling, `element.closest()` matching, boundary checking, and delegating non-bubbling events (`focusin`/`focusout`).
+  - Expanded `06_forms.md` (466 lines) covering Constraint Validation API (`validity`, `setCustomValidity`), `FormData` serialization, `form.requestSubmit()`, and File API.
+  - Expanded `07_observers.md` (394 lines) covering `IntersectionObserver` (lazy loading, scroll spy), `ResizeObserver` (box models, loop limits), and `MutationObserver` (microtask batching).
+  - Expanded `08_browser-storage.md` (455 lines) covering `localStorage`, `sessionStorage`, HTTP-only security cookies, `IndexedDB` transactions, and `BroadcastChannel`.
+  - Expanded `09_web-apis.md` (419 lines) covering Page Visibility API, Clipboard API, Geolocation, Fullscreen, Web Share, and Permissions API.
+  - Expanded `10_web-components.md` (506 lines) covering Custom Elements lifecycle (`connectedCallback`, `attributeChangedCallback`), Shadow DOM encapsulation, and `<template>`/`<slot>`.
+  - Updated `14_dom-and-browser/README.md` with complete curriculum roadmap.
+- **Module 15 (`15_networking`):**
+  - Expanded `01_http-fundamentals.md` (403 lines) covering HTTP/1.1 vs HTTP/2 vs HTTP/3 (QUIC), idempotency, status code semantics, Keep-Alive connection pooling, and Head-of-Line blocking.
+  - Expanded `02_fetch.md` (397 lines) covering two-step async resolution, body stream consumption (`json`, `blob`, `arrayBuffer`), `AbortSignal.timeout()`, and credentials.
+  - Expanded `03_headers-and-cors.md` (375 lines) covering Same-Origin Policy, simple vs preflighted requests (`OPTIONS`), wildcard credentials trap, and `Access-Control-Expose-Headers`.
+  - Expanded `04_request-and-response.md` (419 lines) covering constructible `Request` and `Response`, Service Worker caching, stream teeing/cloning, and `Response.json()`.
+  - Expanded `05_websockets-and-sse.md` (448 lines) covering full-duplex WebSockets (`ws://`/`wss://`), Server-Sent Events (`EventSource`), heartbeats, auto-reconnection, and binary data.
+  - Expanded `06_networking-patterns.md` (482 lines) covering Circuit Breaker state machines, Request Preemption, Single-Flight deduplication, Full Jitter, and Offline Mutation Queues.
+  - Updated `15_networking/README.md` with complete curriculum roadmap.

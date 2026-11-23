@@ -1,322 +1,574 @@
-# WebSockets and Server-Sent Events
+# Real-Time Networking: WebSockets & SSE
 
-HTTP request/response is client-initiated. For **live updates** (chat, notifications, dashboards, collaboration, games) you need the server to **push** data. The main options:
+> Real-time communication architectures in JavaScript: bidirectional full-duplex messaging via WebSockets, unidirectional push streaming via Server-Sent Events (SSE), and modern WebTransport.
 
-| Technique | Direction | Transport | Notes |
-|-----------|-----------|-----------|-------|
-| **Polling** | client → server repeatedly | plain HTTP | simplest, wasteful, delayed |
-| **Long polling** | client waits for the server to answer when data exists | HTTP | works everywhere, higher overhead |
-| **Server-Sent Events (SSE)** | server → client (one way) | HTTP stream | built-in reconnect, text only |
-| **WebSocket** | both directions | own protocol over one TCP connection | low latency, text and binary |
-| **WebTransport** | both directions, streams and datagrams | HTTP/3 (QUIC) | newer, check support |
-| **WebRTC data channels** | peer to peer | UDP-based | games, calls, file sharing |
+---
 
-## WebSocket basics
+## Metadata
 
-A WebSocket starts as an HTTP request with `Upgrade: websocket`; after the server answers `101 Switching Protocols`, the same TCP connection carries **bidirectional messages**.
+| Attribute | Details |
+| :--- | :--- |
+| **Level** | Intermediate to Advanced |
+| **Prerequisites** | [Event Loop](../12_event-loop/01_event-loop.md), [HTTP Fundamentals](./01_http-fundamentals.md) |
+| **Time to Read** | 25 minutes |
+| **Status** | Complete |
+| **Standard** | IETF RFC 6455 (WebSocket Protocol) / WHATWG HTML Server-Sent Events / W3C WebTransport |
 
-```js
-const socket = new WebSocket("wss://example.com/ws");        // use wss:// (TLS) in production
+---
 
-socket.addEventListener("open", () => {
-  socket.send(JSON.stringify({ type: "subscribe", channel: "prices" }));
-});
+## Table of Contents
 
-socket.addEventListener("message", (event) => {
-  const msg = JSON.parse(event.data);                        // string, Blob or ArrayBuffer
-  handle(msg);
-});
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & API Reference](#4-syntax--api-reference)
+5. [Practical Examples](#5-practical-examples)
+6. [Edge Cases, Pitfalls & Gotchas](#6-edge-cases-pitfalls--gotchas)
+7. [Common Mistakes & Anti-Patterns](#7-common-mistakes--anti-patterns)
+8. [Performance Characteristics](#8-performance-characteristics)
+9. [Engine Internals](#9-engine-internals)
+10. [Best Practices & Design Guidelines](#10-best-practices--design-guidelines)
+11. [Real-World Case Study](#11-real-world-case-study)
+12. [Interview Questions](#12-interview-questions)
+13. [Exercises & Challenges](#13-exercises--challenges)
 
-socket.addEventListener("close", (event) => {
-  console.log(event.code, event.reason, event.wasClean);
-});
+---
 
-socket.addEventListener("error", () => { /* details are intentionally hidden; a close event follows */ });
+## 1. What & Why
+
+Standard HTTP is fundamentally half-duplex and request-driven: the client initiates a request, and the server returns a response. For applications requiring instant server-to-client updates—such as financial trading terminals, collaborative document editors, live chat rooms, and multiplayer games—traditional HTTP polling (`setInterval` + `fetch`) is grossly inefficient. Polling introduces latency, wastes bandwidth by continuously retransmitting HTTP headers, and generates millions of useless empty requests.
+
+The web platform provides two specialized real-time primitives:
+1. **WebSockets (RFC 6455)**: A full-duplex, bidirectional, persistent TCP connection enabling simultaneous client $\leftrightarrow$ server message transmission with minimal frame overhead (2–10 bytes).
+2. **Server-Sent Events (SSE)**: A lightweight, unidirectional server $\rightarrow$ client push stream operating over standard HTTP with automatic reconnection and native event ID tracking.
+
+---
+
+## 2. Core Concepts
+
+### Architectural Comparison: WebSockets vs SSE vs Long Polling
+
+| Feature | WebSockets (`WebSocket`) | Server-Sent Events (`EventSource`) | HTTP Long Polling |
+| :--- | :--- | :--- | :--- |
+| **Directionality** | Full-Duplex (Bidirectional) | Unidirectional (Server $\rightarrow$ Client) | Unidirectional (Simulated via repeated requests) |
+| **Underlying Protocol**| TCP (Upgraded from HTTP/1.1) | Standard HTTP/1.1 or HTTP/2 | Standard HTTP/1.1 |
+| **Data Format** | UTF-8 Text or Binary (Blob/ArrayBuffer) | Plaintext UTF-8 Stream (`text/event-stream`)| Arbitrary HTTP payloads (JSON, Text) |
+| **Reconnection** | Must be hand-rolled in JavaScript | Built-in native auto-reconnection | Hand-rolled in JavaScript loop |
+| **Header Overhead** | $\approx 2 - 10$ bytes per frame | Zero after initial HTTP handshake | Full HTTP request/response headers on every tick |
+| **Firewall / Proxy** | May require special proxy configuration | Works through standard corporate proxies | Works everywhere standard HTTP works |
+
+```text
+WebSocket (Full-Duplex):
+ Client <══════════════ [ Persistent TCP Socket ] ══════════════> Server
+   (Client sends messages freely)            (Server pushes messages freely)
+
+Server-Sent Events (Unidirectional Push):
+ Client <──────────────── [ Open HTTP Stream ] ────────────────── Server
+   (Client sends data via separate POST)     (Server pushes live events)
 ```
 
-### API summary
+---
 
-| Member | Meaning |
-|--------|---------|
-| `new WebSocket(url, protocols?)` | connect (sub-protocols optional) |
-| `readyState` | `0` CONNECTING, `1` OPEN, `2` CLOSING, `3` CLOSED |
-| `send(data)` | string, `Blob`, `ArrayBuffer`, typed array (only when OPEN) |
-| `close(code?, reason?)` | start the closing handshake |
-| `binaryType` | `"blob"` (default) or `"arraybuffer"` |
-| `bufferedAmount` | bytes queued but not yet sent (backpressure signal) |
-| `protocol`, `extensions`, `url` | negotiated info |
+## 3. How It Works Internally
 
-Common close codes: `1000` normal, `1001` going away, `1006` abnormal (no close frame, connection lost; not sendable), `1008` policy violation, `1011` server error, `4000-4999` application-defined.
+### 1. The WebSocket Opening Handshake
+A WebSocket begins as a standard HTTP/1.1 request that requests a protocol upgrade:
 
-## Message design
-
-WebSocket gives you a raw message channel: **you define the protocol**.
-
-```js
-// envelope with a type and optional id for request/response matching
-{ "type": "chat.message", "id": "c1", "data": { "room": "general", "text": "Hi" } }
-{ "type": "ack", "replyTo": "c1" }
-{ "type": "error", "code": "RATE_LIMITED", "message": "Slow down" }
+```
+ Client sends:
+ GET /chat HTTP/1.1
+ Host: server.example.com
+ Upgrade: websocket
+ Connection: Upgrade
+ Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
+ Sec-WebSocket-Version: 13
+                  │
+                  ▼
+ Server verifies key, computes SHA-1 hash + GUID, and replies:
+ HTTP/1.1 101 Switching Protocols
+ Upgrade: websocket
+ Connection: Upgrade
+ Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
+                  │
+                  ▼
+ [ Connection Upgraded: Raw TCP Socket switched to WebSocket Framing Protocol ]
 ```
 
-Guidelines:
+### 2. SSE Stream Format
+Server-Sent Events operate over a persistent HTTP connection returning `Content-Type: text/event-stream`. The server sends newline-delimited event blocks:
 
-- Version your message types
-- Validate every incoming message (schema validation) on **both** sides
-- Include ids for acknowledgments, idempotency and ordering
-- Use `binaryType = "arraybuffer"` and a compact format (MessagePack, Protobuf) for high-volume data
+```text
+id: 101\n
+event: price-update\n
+data: {"symbol": "NVDA", "price": 140.25}\n\n
+```
 
-## A reconnecting client
+---
 
-Connections drop (mobile networks, deploys, proxies). Always reconnect with **exponential backoff and jitter**, and resubscribe.
+## 4. Syntax & API Reference
 
-```js
-class ReconnectingSocket extends EventTarget {
-  #url; #socket; #attempt = 0; #closedByUser = false; #queue = []; #heartbeat;
+### 1. WebSocket API
 
-  constructor(url) { super(); this.#url = url; this.#connect(); }
+```javascript
+// Connect to WebSocket server (use wss:// in production!)
+const socket = new WebSocket('wss://api.example.com/live');
+
+// Configure binary data format: 'blob' (default) or 'arraybuffer'
+socket.binaryType = 'arraybuffer';
+
+// Lifecycle Events
+socket.onopen = (event) => {
+  console.log('Connected! ReadyState:', socket.readyState);
+  socket.send(JSON.stringify({ type: 'AUTH', token: 'jwt_123' }));
+};
+
+socket.onmessage = (event) => {
+  if (typeof event.data === 'string') {
+    const payload = JSON.parse(event.data);
+    console.log('Received message:', payload);
+  } else {
+    // ArrayBuffer binary frame
+    const buffer = new Uint8Array(event.data);
+    console.log('Binary bytes received:', buffer.length);
+  }
+};
+
+socket.onerror = (error) => console.error('Socket error:', error);
+
+socket.onclose = (event) => {
+  console.log(`Disconnected. Code: ${event.code}, Reason: ${event.reason}`);
+};
+
+// ReadyState Constants:
+// 0: CONNECTING, 1: OPEN, 2: CLOSING, 3: CLOSED
+```
+
+### 2. Server-Sent Events (`EventSource`) API
+
+```javascript
+// Initialize unidirectional push connection
+const eventSource = new EventSource('/api/live-stream', {
+  withCredentials: true, // Send cookies cross-origin
+});
+
+// Default 'message' event listener
+eventSource.onmessage = (event) => {
+  console.log('Data:', JSON.parse(event.data));
+  console.log('Last Event ID:', event.lastEventId);
+};
+
+// Custom named event listener (matches 'event: alert' from server)
+eventSource.addEventListener('alert', (event) => {
+  console.warn('Custom Alert:', event.data);
+});
+
+eventSource.onerror = (err) => {
+  console.error('SSE Error. Browser will automatically retry reconnection...');
+};
+
+// Explicit termination
+eventSource.close();
+```
+
+---
+
+## 5. Practical Examples
+
+### Example 1: Resilient WebSocket with Auto-Reconnect & Heartbeat (Ping/Pong)
+```javascript
+class RobustWebSocket {
+  #url;
+  #socket = null;
+  #heartbeatInterval = null;
+  #reconnectAttempts = 0;
+  #maxReconnectDelay = 30000;
+  #isTerminated = false;
+
+  constructor(url) {
+    this.#url = url;
+    this.#connect();
+  }
 
   #connect() {
+    if (this.#isTerminated) return;
+
     this.#socket = new WebSocket(this.#url);
 
     this.#socket.onopen = () => {
-      this.#attempt = 0;
-      this.#queue.splice(0).forEach((m) => this.#socket.send(m));        // flush queued messages
+      console.log('[WS] Connected successfully');
+      this.#reconnectAttempts = 0;
       this.#startHeartbeat();
-      this.dispatchEvent(new Event("open"));
     };
 
     this.#socket.onmessage = (e) => {
-      const msg = JSON.parse(e.data);
-      if (msg.type === "pong") return;
-      this.dispatchEvent(new CustomEvent("message", { detail: msg }));
+      if (e.data === 'pong') return; // Heartbeat response
+      this.onMessage?.(JSON.parse(e.data));
     };
 
     this.#socket.onclose = () => {
-      clearInterval(this.#heartbeat);
-      this.dispatchEvent(new Event("close"));
-      if (this.#closedByUser) return;
-      const delay = Math.min(30_000, 500 * 2 ** this.#attempt++) * (0.5 + Math.random() / 2);   // backoff + jitter
-      setTimeout(() => this.#connect(), delay);
+      this.#stopHeartbeat();
+      if (!this.#isTerminated) {
+        this.#scheduleReconnect();
+      }
     };
   }
 
   #startHeartbeat() {
-    clearInterval(this.#heartbeat);
-    this.#heartbeat = setInterval(() => this.#socket.readyState === 1 && this.#socket.send('{"type":"ping"}'), 25_000);
+    this.#heartbeatInterval = setInterval(() => {
+      if (this.#socket?.readyState === WebSocket.OPEN) {
+        this.#socket.send('ping');
+      }
+    }, 25000);
   }
 
-  send(msg) {
-    const text = JSON.stringify(msg);
-    if (this.#socket.readyState === WebSocket.OPEN) this.#socket.send(text);
-    else this.#queue.push(text);
+  #stopHeartbeat() {
+    clearInterval(this.#heartbeatInterval);
   }
 
-  close() { this.#closedByUser = true; clearInterval(this.#heartbeat); this.#socket.close(1000); }
+  #scheduleReconnect() {
+    this.#reconnectAttempts++;
+    const delay = Math.min(this.#maxReconnectDelay, 1000 * 2 ** this.#reconnectAttempts);
+    console.log(`[WS] Reconnecting in ${delay}ms (Attempt ${this.#reconnectAttempts})...`);
+    setTimeout(() => this.#connect(), delay);
+  }
+
+  send(data) {
+    if (this.#socket?.readyState === WebSocket.OPEN) {
+      this.#socket.send(JSON.stringify(data));
+    } else {
+      console.warn('[WS] Cannot send: Socket not open');
+    }
+  }
+
+  close() {
+    this.#isTerminated = true;
+    this.#stopHeartbeat();
+    this.#socket?.close();
+  }
 }
 ```
 
-Libraries add features: **Socket.IO** (rooms, acks, fallbacks, auto-reconnect; uses its own protocol, so both sides need it), **reconnecting-websocket**, **PartySocket**, **ws** (Node server/client).
-
-## Heartbeats and dead connections
-
-Browsers cannot send protocol-level ping frames and may not notice a silently dead connection for a long time. Use **application-level ping/pong** and close the socket when no reply arrives within a timeout. Servers (`ws`) can send protocol pings and terminate unresponsive clients.
-
-```js
-// Node server with `ws`
-import { WebSocketServer } from "ws";
-const wss = new WebSocketServer({ port: 8080 });
-
-wss.on("connection", (ws, req) => {
-  ws.isAlive = true;
-  ws.on("pong", () => { ws.isAlive = true; });
-  ws.on("message", (data) => {
-    const msg = JSON.parse(data);
-    for (const client of wss.clients) if (client.readyState === 1) client.send(JSON.stringify(msg));   // broadcast
-  });
-});
-
-setInterval(() => {
-  for (const ws of wss.clients) {
-    if (!ws.isAlive) { ws.terminate(); continue; }
-    ws.isAlive = false;
-    ws.ping();
-  }
-}, 30_000);
-```
-
-## Authentication
-
-The browser WebSocket API **cannot set custom headers**.
-
-| Approach | Notes |
-|----------|-------|
-| **Cookies** | sent automatically on the upgrade request (same-site); validate on the server; check `Origin` |
-| **Short-lived ticket in the URL** | fetch a one-time token over HTTPS, then `new WebSocket(url + "?ticket=...")`; tokens in URLs can be logged, so keep them single-use and short-lived |
-| **First message auth** | connect, then send `{ type: "auth", token }`; server ignores everything else until authenticated |
-| **Sub-protocol trick** | pass a token via `Sec-WebSocket-Protocol`: works, but non-standard use |
-
-Security checklist:
-
-- Use **`wss://`**
-- **Validate the `Origin`** header on the server (WebSockets are not protected by CORS: cross-site hijacking is possible with cookie auth)
-- Authenticate and **authorize** each message/subscription
-- Rate limit and cap message size
-- Validate and sanitize all input; never trust client messages
-- Clean up subscriptions when sockets close
-
-## Scaling WebSockets
-
-- Connections are **stateful** and long-lived: each consumes memory and a file descriptor
-- Behind load balancers use **sticky sessions** or a pub/sub backbone so any server can reach any client
-- Fan out through **Redis Pub/Sub**, NATS, Kafka or managed services (Ably, Pusher, AWS API Gateway WebSockets)
-- Plan graceful shutdown: tell clients to reconnect (`1001`/custom code) so deploys do not drop everyone at once
-- Watch **backpressure**: check `bufferedAmount` before sending bulk data
-
-```js
-function sendSafe(socket, data) {
-  if (socket.bufferedAmount > 1_000_000) return false;      // skip or queue: the connection is congested
-  socket.send(data);
-  return true;
-}
-```
-
-## Server-Sent Events (SSE)
-
-SSE is a simple, **one-way** (server → client) stream over a normal HTTP response with `Content-Type: text/event-stream`. The browser's `EventSource` handles parsing and **automatic reconnection**.
-
-### Client
-
-```js
-const source = new EventSource("/api/stream", { withCredentials: true });   // cookies for cross-origin
-
-source.onopen = () => console.log("connected");
-source.onmessage = (e) => console.log("message", e.data, e.lastEventId);      // events without a name
-source.addEventListener("price", (e) => update(JSON.parse(e.data)));          // named events
-source.onerror = () => { /* the browser retries automatically unless readyState is CLOSED */ };
-
-source.close();                                                                 // stop reconnecting
-```
-
-### Wire format
-
-```text
-retry: 5000
-id: 101
-event: price
-data: {"symbol":"ACME","value":42.1}
-
-data: first line of a message
-data: second line of the same message
-
-: this is a comment, often used as a keep-alive ping
-
-```
-
-- Messages end with a **blank line**
-- `id:` sets the **last event ID**; on reconnect the browser sends `Last-Event-ID` so the server can **resume**
-- `retry:` sets the reconnect delay (ms)
-- Text only (UTF-8): encode binary as Base64
-
-### Server (Node.js, no framework)
-
-```js
-import http from "node:http";
+### Example 2: Node.js SSE Stream Producer (Vanilla HTTP)
+```javascript
+import http from 'node:http';
 
 http.createServer((req, res) => {
-  if (req.url !== "/api/stream") { res.writeHead(404).end(); return; }
+  if (req.url === '/events') {
+    // 1. Send SSE Headers
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+    });
 
-  res.writeHead(200, {
-    "Content-Type": "text/event-stream",
-    "Cache-Control": "no-cache, no-transform",
-    Connection: "keep-alive",
-    "X-Accel-Buffering": "no",                       // disable proxy buffering (nginx)
-  });
+    let messageId = 0;
 
-  const lastId = Number(req.headers["last-event-id"] ?? 0);
-  let id = lastId;
-  const send = (event, data) => res.write(`id: ${++id}\nevent: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    // 2. Stream events periodically
+    const timer = setInterval(() => {
+      messageId++;
+      const payload = JSON.stringify({ cpu: Math.random() * 100 });
 
-  const timer = setInterval(() => send("tick", { time: Date.now() }), 1000);
-  const ping = setInterval(() => res.write(": keep-alive\n\n"), 15_000);
+      // SSE Wire Format: id: <id>\nevent: <name>\ndata: <json>\n\n
+      res.write(`id: ${messageId}\n`);
+      res.write(`event: metric\n`);
+      res.write(`data: ${payload}\n\n`);
+    }, 2000);
 
-  req.on("close", () => { clearInterval(timer); clearInterval(ping); });   // client disconnected
-}).listen(3000);
+    // 3. Clean up when client disconnects
+    req.on('close', () => {
+      clearInterval(timer);
+      console.log('Client closed SSE connection');
+    });
+  }
+}).listen(5000);
 ```
 
-### SSE limits and workarounds
+### Example 3: Consuming Binary WebSockets with `ArrayBuffer`
+```javascript
+function setupAudioStreamSocket(wsUrl, audioContext) {
+  const socket = new WebSocket(wsUrl);
+  socket.binaryType = 'arraybuffer'; // Raw binary frames
 
-| Limitation | Workaround |
-|------------|-----------|
-| `EventSource` cannot set headers or use `POST` | use cookies, query tickets, or stream with `fetch()` and parse the body (libraries like `@microsoft/fetch-event-source`) |
-| Max ~6 connections per origin on HTTP/1.1 (shared across tabs) | use HTTP/2 or HTTP/3 (many streams on one connection) |
-| One-way only | send client messages with normal `fetch` calls |
-| Proxies/CDNs may buffer or time out idle streams | send comments as keep-alive, disable buffering, set long timeouts |
-| Text only | Base64 or JSON |
+  socket.onmessage = async (event) => {
+    if (event.data instanceof ArrayBuffer) {
+      // Decode raw PCM / WAV audio buffer
+      const audioBuffer = await audioContext.decodeAudioData(event.data);
+      playBuffer(audioBuffer, audioContext);
+    }
+  };
+}
 
-SSE is also used by many AI chat APIs to stream tokens (`fetch` + `ReadableStream` parsing).
+function playBuffer(buffer, ctx) {
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+  source.connect(ctx.destination);
+  source.start();
+}
+```
 
-## Streaming with `fetch` (SSE-like, any method/headers)
+### Example 4: Handling SSE Automatic Reconnection with `Last-Event-ID`
+```javascript
+// When EventSource reconnects after a dropout, it automatically transmits the
+// 'Last-Event-ID' HTTP header containing the last received 'id:' field!
+// The server reads this header to replay missed events seamlessly.
 
-```js
-const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt }), signal });
-const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
-let buffer = "";
-while (true) {
-  const { done, value } = await reader.read();
-  if (done) break;
-  buffer += value;
-  let i;
-  while ((i = buffer.indexOf("\n\n")) !== -1) {
-    const frame = buffer.slice(0, i);
-    buffer = buffer.slice(i + 2);
-    const data = frame.split("\n").filter((l) => l.startsWith("data:")).map((l) => l.slice(5).trim()).join("\n");
-    if (data) onMessage(JSON.parse(data));
+// Server implementation:
+function handleSseConnection(req, res) {
+  const lastId = req.headers['last-event-id'];
+  if (lastId) {
+    console.log(`Client reconnected. Replaying missed events starting after ID: ${lastId}`);
+    replayEventsFrom(parseInt(lastId, 10), res);
   }
 }
 ```
 
-## Choosing the technique
+### Example 5: Backpressure Detection on WebSockets (`bufferedAmount`)
+```javascript
+function sendLargeDatasetSafely(socket, dataChunks) {
+  // socket.bufferedAmount indicates bytes queued in memory waiting for TCP send
+  const MAX_BUFFER = 1024 * 1024; // 1MB threshold
 
-| Need | Choose |
-|------|--------|
-| Occasional refresh, simple backend | **polling** (with `ETag`/`304`) |
-| Server pushes notifications, feeds, progress, streaming text | **SSE** |
-| Chat, collaboration, games, low-latency two-way | **WebSocket** |
-| Binary streams, many parallel streams, unreliable datagrams | WebTransport (check support) |
-| Peer-to-peer media/data | WebRTC |
-| Work behind restrictive proxies, simple infra | SSE or long polling |
+  function pump() {
+    while (dataChunks.length > 0) {
+      if (socket.bufferedAmount > MAX_BUFFER) {
+        // Backpressure detected! Wait for socket buffer to drain before sending more
+        console.warn('Socket buffer congested. Throttling sender...');
+        setTimeout(pump, 50);
+        return;
+      }
+      const chunk = dataChunks.shift();
+      socket.send(chunk);
+    }
+  }
 
-| | Polling | SSE | WebSocket |
-|---|---------|-----|-----------|
-| Direction | pull | server → client | both |
-| Reconnect | n/a | **automatic** | you build it |
-| Binary | yes | no (encode) | yes |
-| Custom headers / methods | yes | limited | no (browser) |
-| Works through HTTP infra | yes | mostly | usually, needs support for `Upgrade` |
-| Complexity | lowest | low | highest |
+  pump();
+}
+```
 
-## Pitfalls
+---
 
-| Pitfall | Why it hurts | Better |
-|---------|--------------|--------|
-| Using WebSocket when SSE would do | More infra and state | SSE for one-way pushes |
-| No reconnect logic | Silent dead connections after network changes | Backoff + jitter + resubscribe |
-| No heartbeat | Half-open connections unnoticed | Ping/pong with timeouts |
-| Sending before `OPEN` | `InvalidStateError` | Check `readyState` / queue |
-| Trusting `Origin` or messages blindly | Cross-site hijacking, injection | Validate origin and payloads |
-| Tokens in long-lived URLs | Leaked via logs | Short-lived tickets or first-message auth |
-| Unbounded broadcast queues | Memory growth | Backpressure with `bufferedAmount`, drop/coalesce |
-| Proxy buffering SSE | Events arrive late or in bursts | Disable buffering, send keep-alives |
-| Reconnect stampede after a deploy | Server overload | Jittered backoff, staggered restarts |
-| Treating `error` event as informative | No details exposed | Log `close` code and reason |
-| Forgetting cleanup on close | Leaked subscriptions/timers | Unsubscribe in `close` handlers |
+## 6. Edge Cases, Pitfalls & Gotchas
 
-## Key takeaways
+1. **Proxy and Load Balancer Timeouts**: Corporate proxies, NGINX, and AWS ALBs close idle TCP sockets after a timeout (default 60 seconds). You **must implement application-level heartbeats (ping/pong)** every 25–45 seconds to prevent silent disconnections.
+2. **HTTP/1.1 6-Connection Limit on SSE**: Under HTTP/1.1, opening an `EventSource` in 6 different browser tabs consumes the maximum allowed connections per domain, completely blocking all subsequent `fetch()` and `<img>` requests in that browser! **Always serve SSE over HTTP/2 or HTTP/3**, where connections are multiplexed.
+3. **CORS on WebSockets**: WebSockets do **not** follow the standard Same-Origin Policy! WebSockets can be opened to any external origin (`wss://evil.com`) without a CORS preflight. The server must explicitly validate the `Origin` header during the initial HTTP upgrade handshake to prevent Cross-Site WebSocket Hijacking (CSWSH).
+4. **Closing Codes**: Standard WebSocket close codes:
+   - `1000`: Normal Closure (clean shutdown).
+   - `1001`: Going Away (tab navigating away).
+   - `1006`: Abnormal Closure (network dropped abruptly, no close frame received).
 
-- WebSocket = bidirectional, you design the protocol and reconnection; SSE = simple server push with built-in reconnect and `Last-Event-ID`
-- Always use `wss://`, validate `Origin`, authenticate, and validate every message
-- Reconnect with exponential backoff and jitter; add heartbeats
-- Choose the simplest transport that satisfies the direction and latency needs
+---
 
-**Next:** [Networking Patterns](./06_networking-patterns.md)
+## 7. Common Mistakes & Anti-Patterns
+
+| Mistake | Incorrect Pattern | Correct Solution | Why It Fails |
+| :--- | :--- | :--- | :--- |
+| **Missing Heartbeat** | No ping/pong mechanism on WebSocket | Send heartbeat every 30 seconds | Proxies and mobile carriers silently terminate idle sockets. |
+| **Using `ws://` in Production** | `new WebSocket('ws://api.com')` | Always use `wss://` (TLS) | Unencrypted `ws://` is blocked by corporate firewalls and modern HTTPS pages. |
+| **SSE over HTTP/1.1 across Tabs** | Multiple `EventSource` instances | Use HTTP/2 or single `SharedWorker` | Exhausts browser 6-connection per-domain limit. |
+| **Recreating Socket without Backoff**| Reconnecting immediately in `onclose` | Use exponential backoff + jitter | Overwhelms recovering backend with a thundering herd. |
+| **Ignoring `socket.bufferedAmount`**| Blasting gigabytes into `socket.send()` | Monitor `socket.bufferedAmount` | Causes client-side memory blowup if network is slow. |
+| **Assuming SSE is Bidirectional** | Trying to send data via `eventSource.send()` | Send client data via `fetch(POST)` | SSE is strictly unidirectional (server to client). |
+
+---
+
+## 8. Performance Characteristics
+
+- **Frame Framing Overhead**: WebSocket frames carry only 2 bytes for small payloads ($< 126$ bytes), compared to 500–1000 bytes of HTTP headers per request in polling.
+- **Connection Scalability**: A single Node.js or Go server can maintain 100,000+ idle WebSocket connections, provided kernel file descriptor (`ulimit`) and TCP socket buffer settings are tuned.
+- **Battery Impact on Mobile**: Maintaining an active WebSocket keeps the mobile cellular radio energized in high-power mode; SSE over HTTP/2 integrates better with system sleep cycles.
+
+---
+
+## 9. Engine Internals
+
+1. **Chromium WebSocket Masking**: Under RFC 6455, all frames sent from client to server **must be XOR-masked** using a random 32-bit key to prevent cache-poisoning attacks on intermediate proxies. Chromium's C++ network layer generates this mask and applies the XOR transformation natively before socket transmission.
+2. **`EventSource` Parser**: Chromium's SSE parser buffers incoming chunks until a double newline (`\n\n`) is encountered, emitting a parsed `blink::MessageEvent` to JavaScript.
+
+---
+
+## 10. Best Practices & Design Guidelines
+
+1. **Use SSE for News Feeds, Notifications, and LLM Token Streams**: If the client only receives updates (like OpenAI ChatGPT completions or dashboards), choose Server-Sent Events over WebSockets for built-in reconnection and native HTTP/2 multiplexing.
+2. **Use WebSockets for Two-Way Interactive Applications**: Choose WebSockets for games, real-time whiteboards, and instant chat.
+3. **Always Implement Exponential Backoff with Jitter**: Avoid synchronized reconnect loops when recovering from server restarts.
+4. **Validate the `Origin` Header on the Server**: Prevent Cross-Site WebSocket Hijacking by enforcing origin checks during the handshake.
+
+---
+
+## 11. Real-World Case Study
+
+### Real-Time Financial Stock Ticker Terminal with Hybrid SSE & WebSocket
+
+A financial platform displays live trade updates for 500 stocks. Market ticks are broadcast to 50,000 clients, while users execute limit orders interactively.
+
+```javascript
+class FinancialTradingSession {
+  #tickerSource;
+  #orderSocket;
+
+  init() {
+    // 1. Unidirectional Market Price Updates via SSE over HTTP/2
+    // Takes advantage of native reconnection, automatic Last-Event-ID, and HTTP/2 multiplexing
+    this.#tickerSource = new EventSource('/api/market/ticks');
+
+    this.#tickerSource.addEventListener('trade', (event) => {
+      const trade = JSON.parse(event.data);
+      this.updatePriceDisplay(trade.symbol, trade.price);
+    });
+
+    this.#tickerSource.onerror = () => {
+      console.warn('Ticker stream interrupted. Browser auto-reconnecting...');
+    };
+
+    // 2. Bidirectional Trading Connection via Secure WebSocket
+    // Reserved for interactive order submissions requiring sub-10ms latency
+    this.#orderSocket = new RobustWebSocket('wss://trading.platform.com/orders');
+    this.#orderSocket.onMessage = (orderAck) => {
+      this.handleOrderConfirmation(orderAck);
+    };
+  }
+
+  submitOrder(symbol, quantity, price) {
+    this.#orderSocket.send({
+      action: 'BUY',
+      symbol,
+      quantity,
+      price,
+      timestamp: Date.now(),
+    });
+  }
+
+  updatePriceDisplay(symbol, price) { /* ... DOM updates ... */ }
+  handleOrderConfirmation(ack) { /* ... UI feedback ... */ }
+}
+```
+
+---
+
+## 12. Interview Questions
+
+<details>
+<summary><strong>1. What is the fundamental difference between WebSockets and Server-Sent Events (SSE)?</strong></summary>
+
+WebSockets provide a full-duplex, bidirectional persistent connection over a single TCP socket that supports both text and binary frames. Server-Sent Events provide a unidirectional (server-to-client) text stream operating over standard HTTP with native automatic reconnection and event IDs.
+</details>
+
+<details>
+<summary><strong>2. How does the initial WebSocket handshake work?</strong></summary>
+
+The client sends a standard HTTP/1.1 `GET` request with `Upgrade: websocket` and `Connection: Upgrade` headers along with a `Sec-WebSocket-Key`. If the server accepts, it responds with HTTP status `101 Switching Protocols` and an accept hash. The underlying TCP socket then switches to the binary WebSocket framing protocol.
+</details>
+
+<details>
+<summary><strong>3. Why is HTTP/2 essential when using Server-Sent Events?</strong></summary>
+
+Under HTTP/1.1, browsers limit concurrent connections to 6 per domain. Because an SSE stream remains open indefinitely, opening multiple tabs exhausts this limit, blocking all other HTTP traffic. HTTP/2 multiplexes unlimited streams over a single connection, bypassing this bottleneck.
+</details>
+
+<details>
+<summary><strong>4. Why do client-to-server WebSocket frames require XOR masking?</strong></summary>
+
+RFC 6455 requires clients to XOR-mask all frame payloads with a random 32-bit key to prevent cache-poisoning attacks on intermediate proxy servers that might misinterpret framed data as cached HTTP responses.
+</details>
+
+<details>
+<summary><strong>5. What does the <code>socket.bufferedAmount</code> property indicate?</strong></summary>
+
+It indicates the number of bytes that have been queued using `socket.send()` but have not yet been transmitted to the operating system's network socket buffer. It is used to detect and handle network backpressure.
+</details>
+
+<details>
+<summary><strong>6. Does the Same-Origin Policy protect WebSockets?</strong></summary>
+
+No. The Same-Origin Policy does not block cross-origin WebSocket connections. A web page on `evil.com` can establish a WebSocket connection directly to `bank.com`. The server must validate the `Origin` header during the initial HTTP handshake to prevent Cross-Site WebSocket Hijacking.
+</details>
+
+<details>
+<summary><strong>7. How does SSE handle automatic reconnection?</strong></summary>
+
+The `EventSource` API handles reconnection natively in the browser. When the connection drops, it waits (default 3 seconds, customizable via the server `retry: <ms>` field) and reconnects, automatically transmitting the `Last-Event-ID` header so the server can resume missed events.
+</details>
+
+<details>
+<summary><strong>8. What is WebTransport?</strong></summary>
+
+WebTransport is an emerging modern web API running over HTTP/3 (QUIC) that provides bidirectional, multiplexed, low-latency transport supporting both reliable streams and **unreliable datagrams** (similar to UDP), ideal for gaming and live media.
+</details>
+
+---
+
+## 13. Exercises & Challenges
+
+### Challenge 1: Implement an SSE Reconnection Parser
+Write a vanilla JavaScript function `parseSseChunk(rawText)` that parses raw SSE text chunks into structured event objects: `{ id, event, data }`.
+
+<details>
+<summary>View Solution</summary>
+
+```javascript
+function parseSseChunk(rawText) {
+  const lines = rawText.split('\n');
+  let id = null;
+  let event = 'message';
+  let dataLines = [];
+
+  for (const line of lines) {
+    if (line.startsWith('id:')) {
+      id = line.slice(3).trim();
+    } else if (line.startsWith('event:')) {
+      event = line.slice(6).trim();
+    } else if (line.startsWith('data:')) {
+      dataLines.push(line.slice(5).trim());
+    }
+  }
+
+  if (dataLines.length === 0) return null;
+
+  return {
+    id,
+    event,
+    data: dataLines.join('\n'),
+  };
+}
+```
+</details>
+
+### Challenge 2: Implement a Safe WebSocket Queue
+Create a class `QueuedWebSocket` that allows calling `send(data)` at any time; if the socket is still in the `CONNECTING` state, messages are buffered in memory and flushed automatically once `onopen` fires.
+
+<details>
+<summary>View Solution</summary>
+
+```javascript
+class QueuedWebSocket {
+  #socket;
+  #queue = [];
+
+  constructor(url) {
+    this.#socket = new WebSocket(url);
+
+    this.#socket.onopen = () => {
+      console.log('Socket opened. Flushing queued messages...');
+      while (this.#queue.length > 0) {
+        const msg = this.#queue.shift();
+        this.#socket.send(msg);
+      }
+    };
+  }
+
+  send(data) {
+    const payload = typeof data === 'string' ? data : JSON.stringify(data);
+
+    if (this.#socket.readyState === WebSocket.OPEN) {
+      this.#socket.send(payload);
+    } else if (this.#socket.readyState === WebSocket.CONNECTING) {
+      this.#queue.push(payload);
+    } else {
+      throw new Error(`Cannot send message: Socket is in state ${this.#socket.readyState}`);
+    }
+  }
+}
+```
+</details>

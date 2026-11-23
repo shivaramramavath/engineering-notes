@@ -1,44 +1,39 @@
-# 15 · Networking
+# Module 15: Networking & Web Protocols
 
-Almost every real application talks to a server. This chapter covers how the web's request/response model works (**HTTP**), how to use it from JavaScript (**`fetch`**), how browsers control cross-site access (**headers and CORS**), how to model requests and responses, how to get real-time updates (**WebSockets and Server-Sent Events**), and the reusable **patterns** that make network code reliable.
+> Production web networking in JavaScript: HTTP semantics, the WHATWG Fetch API, Headers & CORS security, Request & Response streaming architectures, WebSockets, Server-Sent Events, and resilient networking patterns.
 
+---
+
+## Curriculum Overview
+
+| File | Title | Summary | Standard |
+| :--- | :--- | :--- | :--- |
+| [01_http-fundamentals.md](./01_http-fundamentals.md) | HTTP Fundamentals | HTTP/1.1 vs HTTP/2 vs HTTP/3 (QUIC), idempotency, status codes, keep-alive, TCP HoL blocking | RFC 9110 / 9114 |
+| [02_fetch.md](./02_fetch.md) | The Fetch API | Two-step async resolution, body stream consumption, AbortSignal timeouts, credentials | WHATWG Fetch |
+| [03_headers-and-cors.md](./03_headers-and-cors.md) | Headers & CORS | Same-Origin Policy, simple vs preflighted requests, OPTIONS, wildcard credentials trap | W3C CORS / Fetch |
+| [04_request-and-response.md](./04_request-and-response.md) | Request & Response Interfaces | Constructible HTTP entities, stream teeing & cloning, Service Worker interception, Response.json() | WHATWG Fetch |
+| [05_websockets-and-sse.md](./05_websockets-and-sse.md) | Real-Time Networking: WebSockets & SSE | Full-duplex WebSockets, Server-Sent Events, heartbeats, automatic reconnection, binary frames | RFC 6455 / HTML5 |
+| [06_networking-patterns.md](./06_networking-patterns.md) | Networking Architecture Patterns | Circuit Breakers, Request Preemption, Single-Flight deduplication, Full Jitter, Offline Queues | Distributed Systems |
+
+---
+
+## Recommended Learning Path
+
+```mermaid
+flowchart TD
+    M15_1["01: HTTP Fundamentals"] --> M15_2["02: The Fetch API"]
+    M15_2 --> M15_3["03: Headers & CORS"]
+    M15_2 --> M15_4["04: Request & Response Interfaces"]
+    M15_1 --> M15_5["05: WebSockets & Server-Sent Events"]
+    M15_2 --> M15_6["06: Networking Architecture Patterns"]
+    M15_5 --> M15_6
 ```
-browser / Node ──request──►  server
-                ◄─response──
-```
 
-## Reading order
+---
 
-| # | File | You will learn |
-|---|------|----------------|
-| 1 | [HTTP Fundamentals](./01_http-fundamentals.md) | URLs, methods, status codes, HTTPS, HTTP/2 and 3, caching basics |
-| 2 | [Fetch](./02_fetch.md) | Making requests, reading bodies, errors, JSON, forms, streaming |
-| 3 | [Headers and CORS](./03_headers-and-cors.md) | Important headers, same-origin policy, preflight, security headers |
-| 4 | [Request and Response](./04_request-and-response.md) | `Request`/`Response` objects, bodies, files, ranges, error formats |
-| 5 | [WebSockets and SSE](./05_websockets-and-sse.md) | Real-time channels, reconnection, protocols compared |
-| 6 | [Networking Patterns](./06_networking-patterns.md) | API clients, retries, timeouts, auth refresh, pagination, caching |
+## Key Takeaways
 
-## The network is unreliable
-
-Every request can be **slow**, **fail**, **time out**, **return unexpected data**, be **duplicated**, or arrive **out of order**. Good networking code assumes all of this.
-
-| Concern | Typical answer |
-|---------|----------------|
-| Slow or hanging | timeouts, cancellation (`AbortSignal`) |
-| Transient failures | retries with backoff (idempotent requests only) |
-| Bad responses | status checks, validation of data |
-| Duplicate submissions | idempotency keys, disabling UI |
-| Stale responses | abort previous requests, request IDs |
-| Offline | queues, caching, clear UI states |
-
-## Goal
-
-By the end you can call APIs correctly with `fetch`, understand and debug CORS and caching, choose between polling, SSE and WebSockets, and build a resilient API client.
-
-## Prerequisites
-
-- [Promises and async/await](../11_asynchronous-javascript/00_README.md)
-- [Cancellation and Abort](../11_asynchronous-javascript/08_cancellation-and-abort.md)
-- [Error Handling](../10_error-handling/00_README.md)
-
-**Next:** [HTTP Fundamentals](./01_http-fundamentals.md)
+1. **`fetch()` Only Rejects on Network Errors**: `fetch()` resolves successfully on HTTP 404 and 500 status codes; always inspect `response.ok` before parsing response bodies.
+2. **CORS is a Browser Enforcement**: Servers process the incoming request; the browser blocks JavaScript from reading the response if the server lacks valid `Access-Control-Allow-*` headers.
+3. **Response Bodies Are Single-Use**: Because a `Response` body is a `ReadableStream`, you must call `response.clone()` before reading if multiple readers require the payload.
+4. **Guard Distributed Services with Circuit Breakers**: Wrap external APIs in circuit breakers and pair retries with full jitter to avoid cascading outages and thundering herds.

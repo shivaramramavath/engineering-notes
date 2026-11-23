@@ -1,44 +1,46 @@
-# 14 · DOM and Browser
+# Module 14: DOM & Browser Engineering
 
-In the browser, JavaScript's main job is to **read and change the page** and to **react to the user**. The browser exposes the page as a tree of objects (the **DOM**) and offers many platform APIs for events, storage, observation, navigation and device features.
+> Comprehensive engineering guide to the Document Object Model (DOM), CSS selector engines, element manipulation, event architecture, delegation patterns, form constraint validation, observers, client storage, Web APIs, and Web Components.
 
+---
+
+## Curriculum Overview
+
+| File | Title | Summary | Standard |
+| :--- | :--- | :--- | :--- |
+| [01_dom.md](./01_dom.md) | The Document Object Model (DOM) | Node hierarchy, TreeWalker, live vs static collections, DocumentFragment, parsing pipelines | WHATWG DOM |
+| [02_selectors.md](./02_selectors.md) | DOM Selectors & Traversal | `querySelector[All]`, right-to-left matching, `:has()`, `:is()`, `:scope`, `closest()`, `matches()` | CSS Selectors Level 4 |
+| [03_element-manipulation.md](./03_element-manipulation.md) | DOM Element Manipulation | Content insertion, attributes vs properties, `classList`, styles, layout thrashing prevention | HTML / CSSOM |
+| [04_events.md](./04_events.md) | The DOM Event Architecture | Event propagation, capture/target/bubble phases, passive listeners, AbortSignal teardown | UI Events / WHATWG |
+| [05_event-delegation.md](./05_event-delegation.md) | Event Delegation | Centralized handling, `closest()` matching, boundary checking, delegating non-bubbling events | WHATWG DOM |
+| [06_forms.md](./06_forms.md) | Forms & Constraint Validation | Native constraints, `validity`, `setCustomValidity`, `FormData`, `requestSubmit()`, File API | HTML Forms / File API |
+| [07_observers.md](./07_observers.md) | Modern DOM Observers | `IntersectionObserver`, `ResizeObserver`, `MutationObserver`, microtask batching | W3C Observers |
+| [08_browser-storage.md](./08_browser-storage.md) | Browser Storage & Offline State | `localStorage`, `sessionStorage`, `IndexedDB`, security cookies, `BroadcastChannel` | Web Storage / IDB 3.0 |
+| [09_web-apis.md](./09_web-apis.md) | Modern Browser Web APIs | Page Visibility, Clipboard, Geolocation, Fullscreen, Web Share, Permissions API | W3C Web APIs |
+| [10_web-components.md](./10_web-components.md) | Web Components & Shadow DOM | Custom Elements, Shadow DOM encapsulation, lifecycle hooks, `<template>`, slots | W3C Custom Elements |
+
+---
+
+## Recommended Learning Path
+
+```mermaid
+flowchart TD
+    M14_1["01: The DOM Tree & Nodes"] --> M14_2["02: Selectors & Traversal"]
+    M14_2 --> M14_3["03: Element Manipulation"]
+    M14_3 --> M14_4["04: DOM Event Architecture"]
+    M14_4 --> M14_5["05: Event Delegation"]
+    M14_5 --> M14_6["06: Forms & Validation"]
+    M14_4 --> M14_7["07: Modern DOM Observers"]
+    M14_6 --> M14_8["08: Browser Storage"]
+    M14_7 --> M14_9["09: Modern Web APIs"]
+    M14_3 --> M14_10["10: Web Components & Shadow DOM"]
 ```
-HTML text ──parse──► DOM tree ──style/layout──► pixels
-                       ▲   │
-        your JS reads/writes   events flow back to your JS
-```
 
-## Reading order
+---
 
-| # | File | You will learn |
-|---|------|----------------|
-| 1 | [DOM](./01_dom.md) | The tree, node types, traversal, live vs static collections, rendering basics |
-| 2 | [Selectors](./02_selectors.md) | `querySelector`, `closest`, `matches`, collections |
-| 3 | [Element Manipulation](./03_element-manipulation.md) | Create, insert, remove, attributes, classes, styles, safe HTML |
-| 4 | [Events](./04_events.md) | Listeners, capture/bubble, the event object, custom events |
-| 5 | [Event Delegation](./05_event-delegation.md) | One listener for many elements, dynamic content |
-| 6 | [Forms](./06_forms.md) | `FormData`, validation API, inputs, files |
-| 7 | [Observers](./07_observers.md) | `IntersectionObserver`, `MutationObserver`, `ResizeObserver` |
-| 8 | [Browser Storage](./08_browser-storage.md) | `localStorage`, cookies, IndexedDB, quotas, security |
-| 9 | [Web APIs](./09_web-apis.md) | History, Clipboard, Geolocation, Notifications, permissions |
-| 10 | [Web Components](./10_web-components.md) | Custom elements, Shadow DOM, templates and slots |
+## Key Takeaways
 
-## Where the code runs
-
-| Context | Has DOM? | Notes |
-|---------|----------|-------|
-| Main thread (`window`) | Yes | one per tab/frame; heavy work blocks the UI |
-| Web Worker | No | no `document`/`window`, communicates by messages |
-| Service Worker | No | network proxy, offline, push |
-| Node.js | No | use `jsdom`/`happy-dom` for DOM-like testing |
-
-## Goal
-
-By the end you can find and change elements efficiently, handle events robustly, validate forms, observe the page, persist data and use common browser APIs safely.
-
-## Prerequisites
-
-- [Event Loop](../12_event-loop/00_README.md) (rendering and tasks)
-- [Modules](../13_modules/01_es-modules.md) (`<script type="module">`)
-
-**Next:** [DOM](./01_dom.md)
+1. **Avoid Layout Thrashing**: Never interleave reading layout geometry (`offsetHeight`) with DOM mutations; batch reads first, then execute writes.
+2. **Delegate Events Efficiently**: Use `event.target.closest(selector)` on container listeners instead of attaching individual callbacks to thousands of child nodes.
+3. **Use Passive Listeners on Scroll**: Add `{ passive: true }` to touch and wheel handlers to allow the browser compositor thread to scroll smoothly without waiting on JavaScript.
+4. **Prefer `IntersectionObserver` over Scroll Event Listeners**: Offload visibility, lazy loading, and infinite scrolling checks to the browser engine.

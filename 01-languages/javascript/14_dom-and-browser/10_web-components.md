@@ -1,298 +1,620 @@
-# Web Components
+# Web Components & Shadow DOM
 
-**Web Components** are browser-native building blocks for reusable UI elements with encapsulated markup, style and behavior. They work in any framework (or none).
+> Web Components provide native, framework-agnostic component encapsulation built directly into browser standards via Custom Elements, Shadow DOM, and HTML Templates.
 
-Three main technologies:
+---
 
-| Technology | Purpose |
-|------------|---------|
-| **Custom Elements** | define your own HTML tags with lifecycle callbacks |
-| **Shadow DOM** | encapsulated DOM and CSS scope |
-| **Templates and slots** (`<template>`, `<slot>`) | reusable markup with content projection |
+## Metadata
 
-```html
-<user-card name="Ada" role="Engineer"></user-card>
+| Attribute | Details |
+| :--- | :--- |
+| **Level** | Advanced |
+| **Prerequisites** | [The DOM](./01_dom.md), [DOM Events](./04_events.md), [Classes & OOP](../05_this-and-oop/05_classes.md) |
+| **Time to Read** | 25 minutes |
+| **Status** | Complete |
+| **Standard** | W3C Custom Elements / WHATWG DOM Shadow Trees / HTML Templates / Baseline Widely Available |
+
+---
+
+## Table of Contents
+
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & API Reference](#4-syntax--api-reference)
+5. [Practical Examples](#5-practical-examples)
+6. [Edge Cases, Pitfalls & Gotchas](#6-edge-cases-pitfalls--gotchas)
+7. [Common Mistakes & Anti-Patterns](#7-common-mistakes--anti-patterns)
+8. [Performance Characteristics](#8-performance-characteristics)
+9. [Engine Internals](#9-engine-internals)
+10. [Best Practices & Design Guidelines](#10-best-practices--design-guidelines)
+11. [Real-World Case Study](#11-real-world-case-study)
+12. [Interview Questions](#12-interview-questions)
+13. [Exercises & Challenges](#13-exercises--challenges)
+
+---
+
+## 1. What & Why
+
+In traditional web development, building reusable UI widgets (such as date pickers, modal dialogs, or video players) suffers from fundamental encapsulation breakdown:
+1. **Global CSS Leaks**: CSS styles declared in one part of an application bleed into widget components, or widget styles accidentally override application layouts.
+2. **DOM Identifier Collisions**: Global IDs and class names collide easily across independent libraries.
+3. **Framework Lock-in**: Components authored in React, Vue, or Angular cannot easily be shared across projects authored in different frameworks without shipping multiple heavy runtime runtimes.
+
+**Web Components** solve this by introducing three native, interoperable browser standards:
+- **Custom Elements**: The ability to define custom HTML tags with full lifecycle hooks.
+- **Shadow DOM**: True style and DOM subtree encapsulation that shields internal markup from outside scripts and global CSS rules.
+- **HTML Templates (`<template>` and `<slot>`)**: Reusable chunks of non-rendered markup with content projection capabilities.
+
+---
+
+## 2. Core Concepts
+
+### The Three Pillars of Web Components
+
+```text
++--------------------------------------------------------------------------+
+|                             <user-card>                                  |
+|                                                                          |
+|  [ Custom Element Definition ]                                           |
+|  class UserCard extends HTMLElement { ... }                              |
+|  customElements.define('user-card', UserCard);                           |
+|                                                                          |
+|  [ Shadow DOM Boundary (#shadow-root) ]                                  |
+|  +--------------------------------------------------------------------+  |
+|  | <style>                                                            |  |
+|  |   :host { display: block; border: 1px solid #ccc; }                |  |
+|  |   h3 { color: blue; } /* Encapsulated! Does NOT leak outside! */   |  |
+|  | </style>                                                           |  |
+|  |                                                                    |  |
+|  | <h3>User Details</h3>                                              |  |
+|  | <slot name="username">Default Name</slot> <── [ Content Projected] |  |
+|  +--------------------------------------------------------------------+  |
++--------------------------------------------------------------------------+
 ```
 
-## Custom elements
+### Autonomous vs Customized Built-in Elements
+1. **Autonomous Custom Elements**: Inherit from `HTMLElement` and define completely new HTML tags (`<ui-modal>`, `<user-avatar>`). Must contain a hyphen in their name.
+2. **Customized Built-in Elements**: Inherit from specific HTML element classes (e.g., `HTMLButtonElement`), extending existing tags (`<button is="fancy-button">`). *Note: Safari/WebKit refuses to support customized built-ins, so autonomous elements are the industry standard.*
 
-```js
-class UserCard extends HTMLElement {
-  static observedAttributes = ["name", "role"];        // attributes to watch
+### Shadow DOM Modes: `open` vs `closed`
+- **`mode: 'open'`**: Allows outside JavaScript to inspect the shadow tree via `element.shadowRoot` (recommended).
+- **`mode: 'closed'`**: Hides the shadow root (`element.shadowRoot === null`). *Note: Closed mode does not provide real cryptographic security, as internal references can still be intercepted.*
 
-  constructor() {
-    super();                                           // always first
-    this.attachShadow({ mode: "open" });               // create the shadow root
+---
+
+## 3. How It Works Internally
+
+### Custom Element Lifecycle Sequence
+
+When a Custom Element is instantiated, mounted, mutated, or unmounted:
+
+```
+ [ Browser parses <my-element> or document.createElement('my-element') ]
+                                    │
+                                    v
+ 1. constructor()
+    - Invoked when element is allocated in memory
+    - Must call super()
+    - Attach Shadow DOM: this.attachShadow({ mode: 'open' })
+                                    │
+                                    v
+ 2. connectedCallback()
+    - Invoked when element is inserted into document DOM tree
+    - Setup DOM listeners, fetch data, render template
+                                    │
+                                    v
+ 3. attributeChangedCallback(name, oldValue, newValue)
+    - Invoked when an attribute listed in observedAttributes changes
+    - Updates component state in response to attribute mutation
+                                    │
+                                    v
+ 4. disconnectedCallback()
+    - Invoked when element is removed from DOM tree
+    - Clean up timers, abort controllers, global window listeners
+                                    │
+                                    v
+ 5. adoptedCallback()
+    - Invoked when element is moved to a new document (e.g., via iframe)
+```
+
+---
+
+## 4. Syntax & API Reference
+
+### Component Class Declaration
+
+```javascript
+class BaseCounter extends HTMLElement {
+  // 1. Declare attributes to observe
+  static get observedAttributes() {
+    return ['count', 'disabled'];
   }
 
-  connectedCallback() { this.render(); }               // inserted into the DOM
-  disconnectedCallback() { /* cleanup listeners, timers, observers */ }
-  adoptedCallback() { /* moved to another document */ }
-  attributeChangedCallback(name, oldValue, newValue) { this.render(); }
+  constructor() {
+    super();
+    // 2. Attach encapsulated shadow root
+    this.attachShadow({ mode: 'open' });
+  }
+
+  connectedCallback() {
+    // 3. Render when attached to DOM
+    this.render();
+  }
+
+  disconnectedCallback() {
+    // 4. Cleanup on unmount
+  }
+
+  attributeChangedCallback(name, oldValue, newValue) {
+    // 5. React to attribute changes
+    if (oldValue !== newValue) {
+      this.render();
+    }
+  }
 
   render() {
     this.shadowRoot.innerHTML = `
       <style>
-        :host { display: block; padding: 1rem; border: 1px solid #ccc; border-radius: 8px; }
-        h2 { margin: 0; font-size: 1.1rem; }
+        :host { display: inline-block; font-family: sans-serif; }
+        :host([disabled]) { opacity: 0.5; pointer-events: none; }
+        button { padding: 4px 8px; cursor: pointer; }
       </style>
-      <h2></h2>
-      <p><slot>No description</slot></p>
+      <button id="btn">Count: ${this.getAttribute('count') || 0}</button>
     `;
-    this.shadowRoot.querySelector("h2").textContent = `${this.getAttribute("name")} (${this.getAttribute("role")})`;
+    this.shadowRoot.getElementById('btn').onclick = () => {
+      const next = (parseInt(this.getAttribute('count') || '0', 10)) + 1;
+      this.setAttribute('count', String(next));
+      this.dispatchEvent(new CustomEvent('count-change', { detail: next, bubbles: true }));
+    };
   }
 }
 
-customElements.define("user-card", UserCard);          // name MUST contain a hyphen
+// Register custom tag (MUST contain a hyphen!)
+customElements.define('base-counter', BaseCounter);
 ```
 
-Rules:
+### Shadow DOM Styling Selectors
+- **`:host`**: Targets the custom element host itself from inside the shadow tree.
+- **`:host([disabled])`**: Targets the host when it has the `disabled` attribute.
+- **`:host-context(.dark-theme)`**: Targets the host when an ancestor matches the selector.
+- **`::slotted(selector)`**: Targets elements projected into a `<slot>` from the light DOM.
 
-- Tag names are **lowercase with a hyphen** (`user-card`, not `usercard`) so they never clash with built-in tags
-- The constructor must not read attributes/children or add children: wait for `connectedCallback`
-- Custom elements are **upgraded**: HTML parsed before `define()` is upgraded when the class registers (`customElements.whenDefined("user-card")`)
-- Self-closing is not allowed: write `<user-card></user-card>`
+---
 
-## Lifecycle summary
+## 5. Practical Examples
 
-| Callback | When | Typical use |
-|----------|------|-------------|
-| `constructor` | created / upgraded | set up shadow root, initial state |
-| `connectedCallback` | added to the document (can run multiple times) | render, add listeners, start observers |
-| `disconnectedCallback` | removed | clean up |
-| `attributeChangedCallback` | an observed attribute changes | react to attributes |
-| `adoptedCallback` | moved via `document.adoptNode` | rare |
-
-## Properties, attributes and reflection
-
-Attributes are strings in HTML; properties can be any type. Keep them in sync intentionally:
-
-```js
-class ToggleSwitch extends HTMLElement {
-  static observedAttributes = ["checked"];
-
-  get checked() { return this.hasAttribute("checked"); }
-  set checked(value) { this.toggleAttribute("checked", Boolean(value)); }       // reflect property to attribute
-
-  attributeChangedCallback() { this.#update(); }
-  connectedCallback() { this.#update(); this.addEventListener("click", this.#onClick); }
-  disconnectedCallback() { this.removeEventListener("click", this.#onClick); }
-
-  #onClick = () => {
-    this.checked = !this.checked;
-    this.dispatchEvent(new CustomEvent("toggle", { detail: { checked: this.checked }, bubbles: true, composed: true }));
-  };
-  #update() { this.setAttribute("aria-checked", String(this.checked)); this.setAttribute("role", "switch"); this.tabIndex = 0; }
-}
-customElements.define("toggle-switch", ToggleSwitch);
-```
-
-Complex data should be passed as **properties** (`el.items = [...]`), not serialized into attributes.
-
-## Shadow DOM
-
-```js
-const shadow = el.attachShadow({ mode: "open" });     // "open": el.shadowRoot accessible; "closed": not (rarely useful)
-shadow.append(content);
-```
-
-What it gives you:
-
-| Feature | Detail |
-|---------|--------|
-| **DOM encapsulation** | `document.querySelector` does not see inside |
-| **Style encapsulation** | outer CSS does not leak in; inner CSS does not leak out |
-| **Composition** | `<slot>` projects light DOM children |
-| **Event retargeting** | listeners outside see the **host** as `event.target`; use `composedPath()` for the real origin |
-
-### Styling
-
-```css
-/* inside the shadow root */
-:host { display: block; }                    /* the host element itself */
-:host([disabled]) { opacity: 0.5; }          /* host with an attribute */
-:host(:hover) { outline: 2px solid; }
-:host-context(.dark) { color: white; }       /* ancestor-based (limited support) */
-::slotted(p) { margin: 0; }                  /* top-level slotted light DOM children */
-```
-
-Theming across the boundary:
-
-| Mechanism | How |
-|-----------|-----|
-| **CSS custom properties** (inherit through shadow roots) | `--card-bg`; consumers set `user-card { --card-bg: #fff; }` |
-| **`::part()`** | author marks `part="title"` inside; consumers style `user-card::part(title) { color: red; }` |
-| **Inherited properties** (`font`, `color`, ...) | pass through automatically |
-| **Constructable stylesheets** | share one `CSSStyleSheet` across instances |
-
-```js
-const sheet = new CSSStyleSheet();
-sheet.replaceSync(`:host { display: block; } .title { font-weight: 700; }`);
-shadow.adoptedStyleSheets = [sheet];                // efficient reuse, no duplicate <style> parsing
-```
-
-## Templates and slots
-
-```html
-<template id="tpl">
-  <style> .box { border: 1px solid; padding: 8px; } </style>
-  <div class="box">
-    <header><slot name="title">Default title</slot></header>
-    <slot></slot>                                    <!-- default slot -->
-  </div>
-</template>
-```
-
-```js
-class InfoBox extends HTMLElement {
+### Example 1: Fully Encapsulated Modal Dialog
+```javascript
+class UIModal extends HTMLElement {
   constructor() {
     super();
-    this.attachShadow({ mode: "open" }).append(document.getElementById("tpl").content.cloneNode(true));
+    this.attachShadow({ mode: 'open' });
+  }
+
+  connectedCallback() {
+    this.shadowRoot.innerHTML = `
+      <style>
+        :host {
+          display: none;
+          position: fixed;
+          top: 0; left: 0; width: 100vw; height: 100vh;
+          background: rgba(0,0,0,0.6);
+          align-items: center; justify-content: center;
+          z-index: 9999;
+        }
+        :host([open]) {
+          display: flex;
+        }
+        .modal-box {
+          background: white; border-radius: 8px; padding: 24px;
+          min-width: 320px; max-width: 500px;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        header { font-weight: bold; font-size: 1.25rem; margin-bottom: 12px; }
+        footer { margin-top: 16px; display: flex; justify-content: flex-end; }
+      </style>
+
+      <div class="modal-box">
+        <header><slot name="title">Modal Title</slot></header>
+        <div class="content"><slot>Default content goes here...</slot></div>
+        <footer>
+          <button id="close-btn">Close</button>
+        </footer>
+      </div>
+    `;
+
+    this.shadowRoot.getElementById('close-btn').onclick = () => this.close();
+  }
+
+  close() {
+    this.removeAttribute('open');
+    this.dispatchEvent(new CustomEvent('modal-closed', { bubbles: true, composed: true }));
+  }
+
+  open() {
+    this.setAttribute('open', '');
   }
 }
-customElements.define("info-box", InfoBox);
+
+customElements.define('ui-modal', UIModal);
 ```
 
-```html
-<info-box>
-  <span slot="title">Heads up</span>
-  <p>This content goes into the default slot.</p>
-</info-box>
-```
-
-- Slotted nodes stay in the **light DOM** (styled by the page, and discoverable by `querySelector` on the host)
-- `slot.assignedNodes()` / `assignedElements()` and the `slotchange` event let you react to content changes
-
-```js
-shadow.querySelector("slot").addEventListener("slotchange", (e) => console.log(e.target.assignedElements()));
-```
-
-## Events from components
-
-```js
-this.dispatchEvent(new CustomEvent("select", {
-  detail: { id: 7 },
-  bubbles: true,          // travels up through ancestors
-  composed: true,         // crosses the shadow boundary
-}));
-```
-
-Listeners outside: `card.addEventListener("select", (e) => e.detail.id)`. Events like `click` are already `composed`; custom events are **not** composed by default.
-
-## Form-associated custom elements
-
-Make a custom element participate in forms (value, validation, reset).
-
-```js
-class RatingInput extends HTMLElement {
-  static formAssociated = true;
-  #internals = this.attachInternals();
-  #value = 0;
-
-  get value() { return this.#value; }
-  set value(v) {
-    this.#value = Number(v);
-    this.#internals.setFormValue(String(this.#value));                         // included in FormData
-    this.#internals.setValidity(this.#value ? {} : { valueMissing: true }, "Pick a rating", this);
-  }
-  formResetCallback() { this.value = 0; }
+### Example 2: Event Retargeting & Composed Events
+```javascript
+// Inside a Shadow Root:
+// By default, events dispatched inside Shadow DOM do NOT cross the shadow boundary!
+// To allow an event to bubble out to the outer document:
+function emitScoreEvent(element, score) {
+  element.dispatchEvent(new CustomEvent('score-update', {
+    detail: { score },
+    bubbles: true,   // Allow bubbling up the DOM tree
+    composed: true,  // Allow event to cross the Shadow DOM boundary into Light DOM!
+  }));
 }
-customElements.define("rating-input", RatingInput);
+
+// In outer light DOM:
+document.body.addEventListener('score-update', (event) => {
+  // Event retargeting: event.target appears as the Custom Element (<game-widget>),
+  // NOT the internal button that actually fired the dispatch!
+  console.log('Event target in outer document:', event.target.tagName); // "GAME-WIDGET"
+});
 ```
 
-`ElementInternals` also provides ARIA reflection (`internals.role`, `ariaLabel`) and custom states (`internals.states`, `:state(...)`, check support).
-
-## Declarative Shadow DOM (server-side rendering)
-
+### Example 3: Reusable Template Cloning with Slots
 ```html
-<user-card>
+<template id="user-badge-template">
+  <style>
+    .badge { display: flex; align-items: center; gap: 8px; }
+    ::slotted(img) { border-radius: 50%; width: 40px; height: 40px; }
+  </style>
+  <div class="badge">
+    <slot name="avatar"></slot>
+    <slot name="name">Anonymous</slot>
+  </div>
+</template>
+
+<script>
+class UserBadge extends HTMLElement {
+  constructor() {
+    super();
+    const template = document.getElementById('user-badge-template');
+    const shadowRoot = this.attachShadow({ mode: 'open' });
+    shadowRoot.appendChild(template.content.cloneNode(true));
+  }
+}
+customElements.define('user-badge', UserBadge);
+</script>
+```
+
+### Example 4: Declarative Shadow DOM (SSR Support)
+```html
+<!-- Modern browsers support Declarative Shadow DOM for Server-Side Rendering! -->
+<!-- No JavaScript required to render initial encapsulated shadow tree! -->
+<fancy-card>
   <template shadowrootmode="open">
-    <style>:host { display: block; }</style>
-    <slot></slot>
+    <style>
+      p { color: darkblue; font-style: italic; }
+    </style>
+    <p>This renders with encapsulated styles instantly, before JS evaluates!</p>
   </template>
-  Server-rendered content
-</user-card>
+</fancy-card>
 ```
 
-Allows shadow roots to be created by the HTML parser, enabling SSR without JavaScript.
+### Example 5: Synchronizing Properties and Attributes
+```javascript
+class ToggleButton extends HTMLElement {
+  static get observedAttributes() { return ['active']; }
 
-## Customized built-in elements
+  // Sync boolean property to HTML attribute
+  get active() {
+    return this.hasAttribute('active');
+  }
 
-```js
-class FancyButton extends HTMLButtonElement {}
-customElements.define("fancy-button", FancyButton, { extends: "button" });
-// <button is="fancy-button">
-```
+  set active(val) {
+    if (Boolean(val)) {
+      this.setAttribute('active', '');
+    } else {
+      this.removeAttribute('active');
+    }
+  }
 
-Not supported in Safari: prefer **autonomous** custom elements (`class extends HTMLElement`) and compose real `<button>`s inside.
-
-## Accessibility
-
-- Reuse **native elements** inside shadow DOM (`<button>`, `<input>`) when possible
-- Set `role`, `aria-*`, `tabindex` appropriately; manage focus (`delegatesFocus: true` in `attachShadow`)
-- ARIA ID references (`aria-labelledby`) **do not cross** shadow boundaries; use `ElementInternals` ARIA properties or keep related elements in the same root
-- Support keyboard interaction and visible focus styles
-
-```js
-this.attachShadow({ mode: "open", delegatesFocus: true });
-```
-
-## Libraries and frameworks
-
-| Option | Notes |
-|--------|-------|
-| **Lit** | tiny library with reactive properties and templates (`html`, `css`) |
-| **Stencil**, **FAST**, **Shoelace/Web Awesome**, **Material Web** | compilers and component libraries built on web components |
-| Frameworks | React 19+, Vue, Angular, Svelte can consume custom elements (pass complex data as properties; listen for custom events) |
-
-```js
-import { LitElement, html, css } from "lit";
-
-class MyCounter extends LitElement {
-  static properties = { count: { type: Number } };
-  static styles = css`button { padding: 0.5rem 1rem; }`;
-  count = 0;
-  render() { return html`<button @click=${() => this.count++}>Clicked ${this.count} times</button>`; }
+  attributeChangedCallback(name, oldVal, newVal) {
+    if (name === 'active') {
+      this.classList.toggle('btn-active', this.active);
+    }
+  }
 }
-customElements.define("my-counter", MyCounter);
+customElements.define('toggle-button', ToggleButton);
 ```
 
-## When to use web components
+---
 
-| Good fit | Poor fit |
-|----------|----------|
-| Design systems shared across frameworks | Apps already fully built in one framework with no sharing need |
-| Embeddable widgets and third-party components | Components needing heavy SSR/hydration tooling |
-| Long-lived UI primitives (buttons, dialogs, inputs) | Highly dynamic data-heavy views where framework state management shines |
-| Progressive enhancement of server-rendered HTML | |
+## 6. Edge Cases, Pitfalls & Gotchas
 
-## Testing and tooling
+1. **Mandatory Hyphen in Tag Names**: The HTML standard requires all custom element names to contain at least one hyphen (e.g. `<app-header>`, `<user-card>`, not `<header>` or `<card>`). This guarantees no collision with future native HTML elements.
+2. **`constructor()` DOM Access Prohibition**: You **must not** inspect attributes or children inside the `constructor()`, because during parsing, attributes and children have not yet been attached! Perform DOM queries and attribute initialization inside `connectedCallback()`.
+3. **Event Retargeting across Shadow Boundaries**: When a bubbling event crosses the Shadow DOM boundary (`composed: true`), the browser **retargets** `event.target` to point to the host Custom Element rather than the internal shadow node. Use `event.composedPath()` to inspect the real internal dispatch path.
+4. **CSS Inheritance Leaks**: While classes and element tag styles do not cross the Shadow DOM boundary, **inheritable CSS properties** (like `color`, `font-family`, `line-height`, `visibility`) **do inherit** from the light DOM parent into the shadow root! Use `all: initial` inside `:host` to completely reset inherited styles.
 
-- **Web Test Runner**, **Playwright**, **Vitest browser mode**; `@open-wc/testing` helpers
-- `customElements.whenDefined(name)` to await registration
-- DevTools show shadow roots in the Elements panel (`#shadow-root`)
+---
 
-## Pitfalls
+## 7. Common Mistakes & Anti-Patterns
 
-| Pitfall | Why it hurts | Better |
-|---------|--------------|--------|
-| Reading attributes/children in the constructor | Not available yet | Use `connectedCallback` |
-| Forgetting a hyphen in the tag name | `DOMException` | `my-element` |
-| Not cleaning up in `disconnectedCallback` | Leaks, ghost listeners | Remove listeners/timers/observers |
-| `connectedCallback` re-running on move | Duplicate setup | Make setup idempotent |
-| Custom events without `composed: true` | Cannot escape the shadow root | Set `bubbles` and `composed` |
-| Passing objects through attributes | Stringified | Use properties |
-| Rebuilding the whole `innerHTML` on every change | Slow, loses focus/state | Update targeted nodes or use Lit |
-| Styling internals from the page | Blocked by encapsulation | CSS custom properties, `::part()` |
-| ARIA references across shadow roots | Do not resolve | Keep references in one root, `ElementInternals` |
-| Relying on customized built-ins | No Safari support | Autonomous elements |
-| Defining the same element twice | Error | Guard with `customElements.get(name)` |
+| Mistake | Incorrect Pattern | Correct Solution | Why It Fails |
+| :--- | :--- | :--- | :--- |
+| **Omitting Hyphen in Name** | `customElements.define('card', Card)` | Use `'my-card'` | Custom element names must contain a hyphen; throws DOMException. |
+| **DOM Queries in Constructor** | `this.getAttribute('id')` in constructor | Move to `connectedCallback()` | Element attributes and children are not parsed during construction. |
+| **Missing `super()` Call** | `constructor() { this.attachShadow() }` | Always call `super()` first | Uncaught ReferenceError: Must call super constructor. |
+| **Non-Composed Custom Events** | `new CustomEvent('save', { bubbles: true })` | Add `{ composed: true }` | Events without `composed: true` cannot cross the shadow boundary. |
+| **Modifying Children in Constructor**| `this.appendChild(div)` in constructor | Append to `this.shadowRoot` or in connected | Violates HTML parser contract for Custom Elements. |
+| **Styling Slotted Elements Deeply** | `::slotted(div > p)` | `::slotted(div)` | `::slotted()` can only style top-level slotted nodes, not nested children. |
 
-## Key takeaways
+---
 
-- Custom elements add your own tags with lifecycle callbacks; names need a hyphen
-- Shadow DOM encapsulates markup and styles; slots project content; custom properties and `::part()` expose styling hooks
-- Use properties for complex data, attributes for simple state, and `composed` custom events for output
-- Clean up in `disconnectedCallback`, and consider Lit for ergonomics
+## 8. Performance Characteristics
 
-**Next:** [Networking](../15_networking/00_README.md)
+- **Zero-Runtime Framework Overhead**: Web Components run natively in C++ inside the browser rendering engine, requiring 0KB of React/Vue framework runtime overhead.
+- **Style Invalidation Scoping**: Modifying CSS styles inside a Shadow Root invalidates styles **only for that shadow tree**, preventing expensive document-wide CSS rule recalculations.
+
+---
+
+## 9. Engine Internals
+
+1. **Blink `ShadowRoot` Tree**: In Chromium Blink, `ShadowRoot` is a C++ node derived from `blink::DocumentFragment` with a special `Type::kOpen` or `Type::kClosed` flag.
+2. **Flat Tree Resolution**: During the layout phase, the rendering engine resolves the **Flat Tree (Composed Tree)**: it merges Light DOM `<slot>` assignments with Shadow DOM markup into a single flattened layout tree for layout and paint.
+
+---
+
+## 10. Best Practices & Design Guidelines
+
+1. **Keep Component API Accessible via Attributes & Properties**: Mirror public properties to attributes so consumers can configure components via markup or script.
+2. **Use `composed: true` for Public Events**: Ensure public custom events emitted by the component can bubble out to parent frameworks.
+3. **Use CSS Custom Properties (Variables) for Theming**: Expose styling hooks via CSS variables (`color: var(--card-bg, #fff);`) since CSS variables pierce the shadow boundary.
+4. **Clean Up Listeners in `disconnectedCallback`**: Always remove window-level listeners and disconnect internal observers when the component unmounts.
+
+---
+
+## 11. Real-World Case Study
+
+### Cross-Framework Design System Component Library
+
+An enterprise with applications written in React, Angular, and vanilla HTML requires a universal, framework-agnostic design system. They build their components as native Web Components with CSS custom variable theming.
+
+```javascript
+class EnterpriseDatePicker extends HTMLElement {
+  #input;
+  #controller = new AbortController();
+
+  static get observedAttributes() {
+    return ['value', 'disabled', 'min', 'max'];
+  }
+
+  constructor() {
+    super();
+    this.attachShadow({ mode: 'open' });
+  }
+
+  connectedCallback() {
+    this.shadowRoot.innerHTML = `
+      <style>
+        :host {
+          display: inline-flex;
+          font-family: var(--ds-font-family, system-ui);
+        }
+        .wrapper {
+          display: flex; align-items: center;
+          border: 1px solid var(--ds-border-color, #ccc);
+          border-radius: var(--ds-border-radius, 4px);
+          padding: 6px 10px;
+          background: var(--ds-bg-color, #fff);
+        }
+        :host([disabled]) .wrapper {
+          background: #f5f5f5; opacity: 0.6; pointer-events: none;
+        }
+        input {
+          border: none; outline: none;
+          font-size: 1rem; color: var(--ds-text-color, #333);
+        }
+      </style>
+      <div class="wrapper">
+        <input type="date" id="date-input">
+      </div>
+    `;
+
+    this.#input = this.shadowRoot.getElementById('date-input');
+    this.#syncAttributes();
+
+    const { signal } = this.#controller;
+    this.#input.addEventListener('change', () => {
+      this.setAttribute('value', this.#input.value);
+      this.dispatchEvent(new CustomEvent('date-selected', {
+        detail: { value: this.#input.value },
+        bubbles: true,
+        composed: true, // Crosses shadow boundary to React/Angular apps!
+      }));
+    }, { signal });
+  }
+
+  disconnectedCallback() {
+    this.#controller.abort(); // Clean up listeners
+  }
+
+  attributeChangedCallback(name, oldVal, newVal) {
+    if (this.#input && oldVal !== newVal) {
+      this.#syncAttributes();
+    }
+  }
+
+  #syncAttributes() {
+    if (!this.#input) return;
+    if (this.hasAttribute('value')) this.#input.value = this.getAttribute('value');
+    if (this.hasAttribute('min')) this.#input.min = this.getAttribute('min');
+    if (this.hasAttribute('max')) this.#input.max = this.getAttribute('max');
+    this.#input.disabled = this.hasAttribute('disabled');
+  }
+
+  get value() { return this.getAttribute('value'); }
+  set value(val) { this.setAttribute('value', val); }
+}
+
+customElements.define('ds-date-picker', EnterpriseDatePicker);
+```
+
+---
+
+## 12. Interview Questions
+
+<details>
+<summary><strong>1. What are the three core technologies that comprise Web Components?</strong></summary>
+
+1. **Custom Elements**: A set of JavaScript APIs to define custom HTML tags and their lifecycle behavior.
+2. **Shadow DOM**: A private, encapsulated DOM tree attached to an element that isolates styles, IDs, and markup from the rest of the document.
+3. **HTML Templates (`<template>` and `<slot>`)**: Markup fragments that are not rendered until instantiated, supporting content projection.
+</details>
+
+<details>
+<summary><strong>2. Why must Custom Element tag names contain a hyphen?</strong></summary>
+
+To prevent collisions with standard HTML elements. The W3C and WHATWG reserve all single-word tag names (like `<card>`, `<button>`, `<accordion>`) for future HTML specification additions.
+</details>
+
+<details>
+<summary><strong>3. What is the difference between <code>connectedCallback()</code> and the <code>constructor()</code>?</strong></summary>
+
+The `constructor()` is called when the element is instantiated in memory. At that point, attributes and children have not yet been attached. `connectedCallback()` is called when the element is actually inserted into the active DOM tree, making it the appropriate place to perform initial rendering, fetch data, and inspect attributes.
+</details>
+
+<details>
+<summary><strong>4. How do styles defined inside a Shadow Root interact with external global styles?</strong></summary>
+
+Styles defined inside a Shadow Root cannot leak out to affect the external document, and global CSS selectors (classes, IDs, tags) cannot penetrate into the Shadow DOM. However, **inheritable CSS properties** (such as `font-family`, `color`) and **CSS Custom Properties (Variables)** cross the shadow boundary naturally.
+</details>
+
+<details>
+<summary><strong>5. What is "Event Retargeting" in the Shadow DOM?</strong></summary>
+
+When an event originates inside a Shadow DOM tree and bubbles across the shadow boundary into the light DOM (`composed: true`), the browser retargets `event.target` to refer to the host Custom Element rather than the internal shadow node, preserving internal component encapsulation.
+</details>
+
+<details>
+<summary><strong>6. What does <code>::slotted()</code> do, and what is its primary limitation?</strong></summary>
+
+`::slotted(selector)` allows styling elements that have been placed into a `<slot>` from the light DOM. Its limitation is that it can only target top-level slotted elements; it cannot style nested descendants inside slotted elements.
+</details>
+
+<details>
+<summary><strong>7. What is Declarative Shadow DOM?</strong></summary>
+
+Declarative Shadow DOM allows authoring Shadow DOM directly in static HTML using `<template shadowrootmode="open">`, enabling Server-Side Rendering (SSR) for Web Components without requiring JavaScript execution to render initial shadow trees.
+</details>
+
+<details>
+<summary><strong>8. What is the difference between <code>observedAttributes</code> and standard properties?</strong></summary>
+
+`observedAttributes` is a static getter returning an array of attribute names that trigger `attributeChangedCallback()` when modified. Standard JavaScript properties are object fields that must be explicitly synchronized with attributes if reflection is desired.
+</details>
+
+---
+
+## 13. Exercises & Challenges
+
+### Challenge 1: Implement an Accessible Tabs Web Component
+Implement a `<ui-tabs>` custom element with encapsulated styles that projects tab headers and panels using slots and handles keyboard navigation (`ArrowRight`, `ArrowLeft`) across tabs.
+
+<details>
+<summary>View Solution</summary>
+
+```javascript
+class UITabs extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: 'open' });
+  }
+
+  connectedCallback() {
+    this.shadowRoot.innerHTML = `
+      <style>
+        :host { display: block; }
+        .tab-bar { display: flex; border-bottom: 2px solid #ddd; gap: 8px; }
+        ::slotted([role="tab"]) {
+          cursor: pointer; padding: 8px 16px; border: none; background: none; font-size: 1rem;
+        }
+        ::slotted([role="tab"][aria-selected="true"]) {
+          border-bottom: 2px solid blue; color: blue; font-weight: bold;
+        }
+        ::slotted([role="tabpanel"]:not([aria-hidden="false"])) {
+          display: none;
+        }
+      </style>
+      <div class="tab-bar" role="tablist">
+        <slot name="tab"></slot>
+      </div>
+      <div class="panel-container">
+        <slot name="panel"></slot>
+      </div>
+    `;
+
+    this.shadowRoot.addEventListener('click', (e) => {
+      const tab = e.target.closest('[role="tab"]');
+      if (tab) this.selectTab(tab);
+    });
+  }
+
+  selectTab(selectedTab) {
+    const tabs = this.querySelectorAll('[role="tab"]');
+    const panels = this.querySelectorAll('[role="tabpanel"]');
+
+    tabs.forEach((tab, index) => {
+      const isMatch = tab === selectedTab;
+      tab.setAttribute('aria-selected', String(isMatch));
+      if (panels[index]) {
+        panels[index].setAttribute('aria-hidden', String(!isMatch));
+      }
+    });
+  }
+}
+
+customElements.define('ui-tabs', UITabs);
+```
+</details>
+
+### Challenge 2: Implement a Theme-Reactive Badge Component
+Write a `<theme-badge>` custom element that inspects if an ancestor has class `.dark-mode` using the CSS `:host-context()` selector, automatically inverting its color palette without JavaScript polling.
+
+<details>
+<summary>View Solution</summary>
+
+```javascript
+class ThemeBadge extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: 'open' });
+  }
+
+  connectedCallback() {
+    this.shadowRoot.innerHTML = `
+      <style>
+        :host {
+          display: inline-block;
+          padding: 4px 10px;
+          border-radius: 12px;
+          font-size: 0.85rem;
+          background-color: #e0e0e0;
+          color: #222;
+        }
+        /* Inverts colors when an ancestor has .dark-mode */
+        :host-context(.dark-mode) {
+          background-color: #333;
+          color: #fff;
+          border: 1px solid #555;
+        }
+      </style>
+      <span><slot>Badge</slot></span>
+    `;
+  }
+}
+
+customElements.define('theme-badge', ThemeBadge);
+```
+</details>

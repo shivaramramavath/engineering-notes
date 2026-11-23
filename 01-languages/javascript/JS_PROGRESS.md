@@ -2,7 +2,7 @@
 
 > Live status checklist for all 13 execution batches across the 28 planned JavaScript modules.
 
-**Overall Progress: Batch 6 Complete (6 / 13 Batches Finished)**
+**Overall Progress: Batch 7 Complete (7 / 13 Batches Finished)**
 
 ---
 
@@ -16,8 +16,8 @@
 | **Batch 4: Scopes, OOP, Closures, FP** | `04_scope`, `05_this-and-oop`, `06_closures`, `07_fp` | **COMPLETE** | 27 / 27 | 23 notes + 4 READMEs (all 480-620 lines) |
 | **Batch 5: Modern JS, Built-ins, Errors** | `08_modern`, `09_built-in-objects`, `10_error-handling` | **COMPLETE** | 26 / 26 | 23 notes + 3 READMEs (all 408-578 lines) |
 | **Batch 6: Async, Event Loop, Modules** | `11_async`, `12_event-loop`, `13_modules` | **COMPLETE** | 22 / 22 | 19 notes + 3 READMEs (all 352-491 lines) |
-| **Batch 7: DOM, Browser & Networking** | `14_dom-and-browser`, `15_networking` | **NEXT** | 0 / 20 | 18 notes + 2 READMEs |
-| **Batch 8: Node, Concurrency, GC, Perf** | `16_nodejs`, `17_concurrency`, `18_gc`, `19_perf` | Pending | 0 / 31 | 27 notes + 4 READMEs |
+| **Batch 7: DOM, Browser & Networking** | `14_dom-and-browser`, `15_networking` | **COMPLETE** | 18 / 18 | 16 notes + 2 READMEs (all 330-506 lines) |
+| **Batch 8: Node, Concurrency, GC, Perf** | `16_nodejs`, `17_concurrency`, `18_gc`, `19_perf` | **NEXT** | 0 / 31 | 27 notes + 4 READMEs |
 | **Batch 9: Patterns, Testing, Sec, Real** | `20_patterns`, `21_test`, `22_security`, `23_real` | Pending | 0 / 38 | 34 notes + 4 READMEs |
 | **Batch 10: Data Structures & Algos** | `24_dsa-in-javascript` | Pending | 0 / 19 | 18 notes + 1 README |
 | **Batch 11: Production Projects** | `25_projects` | Pending | 0 / 22 | 21 projects + 1 README |
@@ -26,52 +26,58 @@
 
 ---
 
-## Batch 6 Detail Breakdown (Complete)
+## Batch 7 Detail Breakdown (Complete)
 
-- [x] `11_asynchronous-javascript/01_sync-vs-async.md` (460 lines, 13 sections)
-- [x] `11_asynchronous-javascript/02_callbacks.md` (467 lines, 13 sections)
-- [x] `11_asynchronous-javascript/03_promises.md` (453 lines, 13 sections)
-- [x] `11_asynchronous-javascript/04_promise-combinators.md` (473 lines, 13 sections)
-- [x] `11_asynchronous-javascript/05_async-await.md` (491 lines, 13 sections)
-- [x] `11_asynchronous-javascript/06_async-error-handling.md` (467 lines, 13 sections)
-- [x] `11_asynchronous-javascript/07_async-iterators-and-generators.md` (426 lines, 13 sections)
-- [x] `11_asynchronous-javascript/08_cancellation-and-abort.md` (390 lines, 13 sections)
-- [x] `11_asynchronous-javascript/09_async-patterns.md` (444 lines, 13 sections)
-- [x] `11_asynchronous-javascript/README.md` (Module roadmap & curriculum index)
-- [x] `12_event-loop/01_event-loop.md` (400 lines, 13 sections)
-- [x] `12_event-loop/02_microtasks-and-macrotasks.md` (405 lines, 13 sections)
-- [x] `12_event-loop/03_timers.md` (378 lines, 13 sections)
-- [x] `12_event-loop/04_task-ordering.md` (388 lines, 13 sections)
-- [x] `12_event-loop/05_event-loop-patterns.md` (372 lines, 13 sections)
-- [x] `12_event-loop/README.md` (Module roadmap & curriculum index)
-- [x] `13_modules/01_es-modules.md` (352 lines, 13 sections)
-- [x] `13_modules/02_commonjs.md` (403 lines, 13 sections)
-- [x] `13_modules/03_esm-vs-commonjs.md` (386 lines, 13 sections)
-- [x] `13_modules/04_bundlers-and-tree-shaking.md` (362 lines, 13 sections)
-- [x] `13_modules/05_module-patterns.md` (404 lines, 13 sections)
-- [x] `13_modules/README.md` (Module roadmap & curriculum index)
+- [x] `14_dom-and-browser/01_dom.md` (385 lines, 13 sections)
+- [x] `14_dom-and-browser/02_selectors.md` (330 lines, 13 sections)
+- [x] `14_dom-and-browser/03_element-manipulation.md` (373 lines, 13 sections)
+- [x] `14_dom-and-browser/04_events.md` (380 lines, 13 sections)
+- [x] `14_dom-and-browser/05_event-delegation.md` (375 lines, 13 sections)
+- [x] `14_dom-and-browser/06_forms.md` (466 lines, 13 sections)
+- [x] `14_dom-and-browser/07_observers.md` (394 lines, 13 sections)
+- [x] `14_dom-and-browser/08_browser-storage.md` (455 lines, 13 sections)
+- [x] `14_dom-and-browser/09_web-apis.md` (419 lines, 13 sections)
+- [x] `14_dom-and-browser/10_web-components.md` (506 lines, 13 sections)
+- [x] `14_dom-and-browser/README.md` (Module roadmap & curriculum index)
+- [x] `15_networking/01_http-fundamentals.md` (403 lines, 13 sections)
+- [x] `15_networking/02_fetch.md` (397 lines, 13 sections)
+- [x] `15_networking/03_headers-and-cors.md` (375 lines, 13 sections)
+- [x] `15_networking/04_request-and-response.md` (419 lines, 13 sections)
+- [x] `15_networking/05_websockets-and-sse.md` (448 lines, 13 sections)
+- [x] `15_networking/06_networking-patterns.md` (482 lines, 13 sections)
+- [x] `15_networking/README.md` (Module roadmap & curriculum index)
 
 ---
 
-## Batch 7: DOM, Browser & Networking (Next Up)
+## Batch 8: Node.js, Concurrency, GC & Performance (Next Up)
 
-- [ ] `14_dom-and-browser/01_dom-tree-and-nodes.md`
-- [ ] `14_dom-and-browser/02_selecting-and-traversing.md`
-- [ ] `14_dom-and-browser/03_manipulating-elements.md`
-- [ ] `14_dom-and-browser/04_events-and-event-delegation.md`
-- [ ] `14_dom-and-browser/05_event-bubbling-and-capturing.md`
-- [ ] `14_dom-and-browser/06_custom-events.md`
-- [ ] `14_dom-and-browser/07_browser-object-model.md`
-- [ ] `14_dom-and-browser/08_storage-and-state.md`
-- [ ] `14_dom-and-browser/09_shadow-dom-and-web-components.md`
-- [ ] `14_dom-and-browser/10_intersection-and-resize-observers.md`
-- [ ] `14_dom-and-browser/11_mutation-observer.md`
-- [ ] `14_dom-and-browser/README.md`
-- [ ] `15_networking/01_fetch-api.md`
-- [ ] `15_networking/02_xhr.md`
-- [ ] `15_networking/03_websockets.md`
-- [ ] `15_networking/04_server-sent-events.md`
-- [ ] `15_networking/05_webrtc-basics.md`
-- [ ] `15_networking/06_request-headers-and-cors.md`
-- [ ] `15_networking/07_streaming-and-chunked-transfer.md`
-- [ ] `15_networking/README.md`
+- [ ] `16_nodejs/01_architecture-and-libuv.md`
+- [ ] `16_nodejs/02_buffers-and-binary.md`
+- [ ] `16_nodejs/03_streams.md`
+- [ ] `16_nodejs/04_file-system.md`
+- [ ] `16_nodejs/05_events.md`
+- [ ] `16_nodejs/06_child-processes.md`
+- [ ] `16_nodejs/07_crypto.md`
+- [ ] `16_nodejs/08_diagnostics-and-debugging.md`
+- [ ] `16_nodejs/README.md`
+- [ ] `17_concurrency-and-parallelism/01_web-workers.md`
+- [ ] `17_concurrency-and-parallelism/02_shared-workers.md`
+- [ ] `17_concurrency-and-parallelism/03_service-workers.md`
+- [ ] `17_concurrency-and-parallelism/04_worker-threads.md`
+- [ ] `17_concurrency-and-parallelism/05_atomics-and-shared-array-buffer.md`
+- [ ] `17_concurrency-and-parallelism/06_concurrency-patterns.md`
+- [ ] `17_concurrency-and-parallelism/README.md`
+- [ ] `18_memory-and-garbage-collection/01_memory-lifecycle.md`
+- [ ] `18_memory-and-garbage-collection/02_v8-heap-architecture.md`
+- [ ] `18_memory-and-garbage-collection/03_garbage-collection-algorithms.md`
+- [ ] `18_memory-and-garbage-collection/04_memory-leaks.md`
+- [ ] `18_memory-and-garbage-collection/05_profiling-and-snapshots.md`
+- [ ] `18_memory-and-garbage-collection/README.md`
+- [ ] `19_performance/01_v8-compiler-pipeline.md`
+- [ ] `19_performance/02_hidden-classes-and-inline-caches.md`
+- [ ] `19_performance/03_deoptimization.md`
+- [ ] `19_performance/04_rendering-performance.md`
+- [ ] `19_performance/05_core-web-vitals.md`
+- [ ] `19_performance/06_bundling-and-code-splitting.md`
+- [ ] `19_performance/07_performance-patterns.md`
+- [ ] `19_performance/README.md`

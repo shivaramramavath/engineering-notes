@@ -1,378 +1,605 @@
-# Networking Patterns
+# Networking Architecture Patterns
 
-Reusable designs that turn raw `fetch` calls into **reliable, maintainable** network code. Most examples build on the helpers from the async chapter (`sleep`, `retry`, `mapLimit`, `dedupe`).
+> Enterprise networking patterns in JavaScript: resilient Circuit Breakers, Request Preemption, Single-Flight deduplication, offline synchronization queues, and protocol selection heuristics.
 
-## 1. A central API client
+---
 
-One module that owns base URL, headers, JSON, errors, timeouts and auth.
+## Metadata
 
-```js
-// api-client.js
-export class ApiError extends Error {
-  constructor(status, problem, response) {
-    super(problem?.title ?? problem?.message ?? `HTTP ${status}`);
-    this.name = "ApiError";
-    this.status = status;
-    this.problem = problem;
-    this.requestId = response?.headers.get("x-request-id");
+| Attribute | Details |
+| :--- | :--- |
+| **Level** | Advanced |
+| **Prerequisites** | [HTTP Fundamentals](./01_http-fundamentals.md), [The Fetch API](./02_fetch.md), [WebSockets & SSE](./05_websockets-and-sse.md) |
+| **Time to Read** | 25 minutes |
+| **Status** | Complete |
+| **Standard** | Enterprise Distributed Systems Standards / Microservices Resilience Patterns |
+
+---
+
+## Table of Contents
+
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & API Reference](#4-syntax--api-reference)
+5. [Practical Examples](#5-practical-examples)
+6. [Edge Cases, Pitfalls & Gotchas](#6-edge-cases-pitfalls--gotchas)
+7. [Common Mistakes & Anti-Patterns](#7-common-mistakes--anti-patterns)
+8. [Performance Characteristics](#8-performance-characteristics)
+9. [Engine Internals](#9-engine-internals)
+10. [Best Practices & Design Guidelines](#10-best-practices--design-guidelines)
+11. [Real-World Case Study](#11-real-world-case-study)
+12. [Interview Questions](#12-interview-questions)
+13. [Exercises & Challenges](#13-exercises--challenges)
+
+---
+
+## 1. What & Why
+
+In distributed systems, the network is fundamentally unreliable. Remote services experience transient latency spikes, database connection pools exhaust, reverse proxies restart, and mobile clients lose cellular coverage. Naive client implementations that blindly retry requests or send unbounded concurrent queries turn minor downstream hiccups into total cascading system outages (the "thundering herd" problem).
+
+To build resilient, high-availability software, JavaScript engineers must implement battle-tested **Networking Architecture Patterns**:
+- **Circuit Breaker**: Prevents a client from repeatedly hammering an already-failing downstream service.
+- **Request Preemption (Single-Flight & Abort)**: Cancels superseded in-flight requests during rapid user interactions.
+- **Exponential Backoff with Full Jitter**: Desynchronizes retry attempts to allow recovering servers to heal.
+- **Offline Mutation Queues**: Queues operations locally in `IndexedDB` and synchronizes them upon network restoration.
+
+---
+
+## 2. Core Concepts
+
+### The Circuit Breaker Pattern
+A Circuit Breaker wraps an asynchronous network operation and tracks failures. It operates across three states:
+1. **CLOSED (Normal Operation)**: Requests pass through freely. If consecutive failures exceed a threshold, the breaker **TRIPS** into the OPEN state.
+2. **OPEN (Fail Fast)**: All requests fail immediately without attempting network I/O, preventing resource starvation and protecting the backend. After a cooldown duration, it transitions to HALF-OPEN.
+3. **HALF-OPEN (Trial Probe)**: A limited number of trial requests are permitted through. If they succeed, the breaker resets to CLOSED. If they fail, it immediately reverts to OPEN.
+
+```text
+               +-----------------------------------------+
+               |                 CLOSED                  |
+               |         (Normal Network Traffic)        |
+               +-----------------------------------------+
+                     │                             ▲
+      Failures reach │                             │ Trial requests
+      threshold      ▼                             │ succeed
+               +-----------------------------------------+
+               |                  OPEN                   |
+               |         (Fail-Fast Immediately)         |
+               +-----------------------------------------+
+                     │                             ▲
+      Cooldown timer │                             │ Trial request
+      expires        ▼                             │ fails
+               +-----------------------------------------+
+               |                HALF-OPEN                |
+               |         (Send Trial Probe Query)        |
+               +-----------------------------------------+
+```
+
+### Protocol Selection Matrix
+
+| Use Case | Recommended Protocol | Primary Rationale |
+| :--- | :--- | :--- |
+| **Standard CRUD REST / GraphQL** | HTTP/2 or HTTP/3 `fetch()` | Multiplexed, cachable, simple error boundaries |
+| **Live Dashboards & LLM Streaming**| Server-Sent Events (SSE) | Built-in reconnection, works over HTTP/2 |
+| **Collaborative Docs & Live Gaming**| WebSockets (`wss://`) | Low latency, bidirectional, binary frame support |
+| **High-Frequency Unreliable Telemetry**| WebTransport Datagrams | Runs over UDP (QUIC); zero head-of-line blocking |
+
+---
+
+## 3. How It Works Internally
+
+### Single-Flight Request Deduplication Architecture
+
+When five independent UI components request identical user profile data simultaneously:
+
+```
+ Component A: fetch('/user/10') ────┐
+ Component B: fetch('/user/10') ────┼───> [ Single-Flight Registry ]
+ Component C: fetch('/user/10') ────┘               │
+                                                    ▼
+                                         Is request active?
+                                               /         \
+                                         YES  /           \ NO
+                                             v             v
+                                 [ Return Existing ]  [ Fire 1 Real Network Request ]
+                                 [ Pending Promise ]  [ Store Promise in Map       ]
+                                                           │
+                                                           ▼
+                                         Network settles (resolve/reject)
+                                         All components resolve simultaneously
+                                         Delete key from Registry in finally block
+```
+
+---
+
+## 4. Syntax & API Reference
+
+### Architectural Interface Contracts
+
+```javascript
+// Circuit Breaker signature
+const breaker = new CircuitBreaker(asyncFetchFn, {
+  failureThreshold: 5,  // Trip after 5 consecutive failures
+  cooldownMs: 30000,    // Remain open for 30 seconds
+});
+const data = await breaker.execute('/api/resource');
+
+// Idempotent retry with jitter signature
+const result = await retryWithJitter(fetchFn, {
+  maxRetries: 4,
+  baseDelayMs: 300,
+  maxDelayMs: 10000,
+});
+```
+
+---
+
+## 5. Practical Examples
+
+### Example 1: Production-Grade Circuit Breaker Class
+```javascript
+class CircuitBreaker {
+  #fn;
+  #failureThreshold;
+  #cooldownMs;
+  #state = 'CLOSED'; // 'CLOSED' | 'OPEN' | 'HALF_OPEN'
+  #failureCount = 0;
+  #nextAttemptTime = 0;
+
+  constructor(fn, options = {}) {
+    this.#fn = fn;
+    this.#failureThreshold = options.failureThreshold || 5;
+    this.#cooldownMs = options.cooldownMs || 30000;
   }
-  get retryable() { return this.status === 429 || this.status >= 500; }
-}
 
-export function createClient({ baseUrl, getToken, onUnauthorized, timeoutMs = 10_000 }) {
-  async function request(path, { method = "GET", query, json, headers, signal, retries = method === "GET" ? 2 : 0 } = {}) {
-    const url = new URL(path, baseUrl);
-    for (const [k, v] of Object.entries(query ?? {})) if (v !== undefined && v !== null) url.searchParams.set(k, String(v));
+  async execute(...args) {
+    const now = Date.now();
 
-    const attempt = async () => {
-      const token = await getToken?.();
-      const res = await fetch(url, {
-        method,
-        headers: {
-          Accept: "application/json",
-          ...(json !== undefined && { "Content-Type": "application/json" }),
-          ...(token && { Authorization: `Bearer ${token}` }),
-          ...headers,
-        },
-        body: json !== undefined ? JSON.stringify(json) : undefined,
-        signal: AbortSignal.any([...(signal ? [signal] : []), AbortSignal.timeout(timeoutMs)]),
-      });
-      const payload = res.status === 204 ? null : await res.json().catch(() => null);
-      if (!res.ok) throw new ApiError(res.status, payload, res);
-      return payload;
-    };
+    // 1. OPEN Check: Fail fast if still within cooldown
+    if (this.#state === 'OPEN') {
+      if (now > this.#nextAttemptTime) {
+        this.#state = 'HALF_OPEN';
+        console.warn('[CircuitBreaker] Transitioned to HALF-OPEN. Probing downstream...');
+      } else {
+        throw new Error('[CircuitBreaker] Circuit is OPEN. Request rejected immediately.');
+      }
+    }
 
-    return withRetry(attempt, { retries, shouldRetry: (e) => e instanceof ApiError ? e.retryable : e.name === "TypeError" });
+    try {
+      // 2. Execute underlying network call
+      const result = await this.#fn(...args);
+
+      // 3. Success handling: Reset breaker
+      if (this.#state === 'HALF_OPEN') {
+        console.log('[CircuitBreaker] Probe succeeded. Resetting to CLOSED.');
+      }
+      this.#reset();
+      return result;
+    } catch (error) {
+      // 4. Failure handling
+      this.#recordFailure();
+      throw error;
+    }
   }
 
-  return {
-    get: (path, opts) => request(path, { ...opts, method: "GET" }),
-    post: (path, json, opts) => request(path, { ...opts, method: "POST", json }),
-    put: (path, json, opts) => request(path, { ...opts, method: "PUT", json }),
-    patch: (path, json, opts) => request(path, { ...opts, method: "PATCH", json }),
-    delete: (path, opts) => request(path, { ...opts, method: "DELETE" }),
-  };
+  #recordFailure() {
+    this.#failureCount++;
+    console.warn(`[CircuitBreaker] Failure recorded (${this.#failureCount}/${this.#failureThreshold})`);
+
+    if (this.#state === 'HALF_OPEN' || this.#failureCount >= this.#failureThreshold) {
+      this.#state = 'OPEN';
+      this.#nextAttemptTime = Date.now() + this.#cooldownMs;
+      console.error(`[CircuitBreaker] Circuit TRIPPED to OPEN. Cooldown: ${this.#cooldownMs}ms`);
+    }
+  }
+
+  #reset() {
+    this.#state = 'CLOSED';
+    this.#failureCount = 0;
+  }
+
+  get state() { return this.#state; }
 }
 ```
 
-Benefits: one place to add logging, tracing headers, metrics, auth and error mapping.
+### Example 2: Autocomplete Search with Debounce & Request Preemption
+```javascript
+class PreemptiveSearchController {
+  #currentAbortController = null;
+  #endpoint;
 
-## 2. Retry with exponential backoff and jitter
+  constructor(endpoint) {
+    this.#endpoint = endpoint;
+  }
 
-```js
-const sleep = (ms, signal) => new Promise((resolve, reject) => {
-  const id = setTimeout(resolve, ms);
-  signal?.addEventListener("abort", () => { clearTimeout(id); reject(signal.reason); }, { once: true });
-});
+  async search(query) {
+    // 1. Abort any previous pending in-flight request
+    if (this.#currentAbortController) {
+      this.#currentAbortController.abort('New keystroke entered');
+    }
 
-async function withRetry(fn, { retries = 3, baseMs = 300, maxMs = 8000, shouldRetry = () => true, signal } = {}) {
-  for (let attempt = 0; ; attempt++) {
-    try { return await fn(attempt); }
-    catch (err) {
-      if (attempt >= retries || signal?.aborted || !shouldRetry(err)) throw err;
-      const retryAfter = Number(err?.retryAfterSeconds) * 1000;                          // from the Retry-After header
-      const backoff = Math.random() * Math.min(maxMs, baseMs * 2 ** attempt);            // full jitter
-      await sleep(Math.max(backoff, retryAfter || 0), signal);
+    // 2. Initialize fresh AbortController for current query
+    this.#currentAbortController = new AbortController();
+    const { signal } = this.#currentAbortController;
+
+    try {
+      const response = await fetch(`${this.#endpoint}?q=${encodeURIComponent(query)}`, {
+        signal,
+      });
+
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return await response.json();
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        console.log(`Query "${query}" preempted by newer keystroke.`);
+        return null; // Gracefully ignore cancelled requests
+      }
+      throw err;
     }
   }
 }
 ```
 
-| Retry | Do not retry |
-|-------|--------------|
-| network errors (`TypeError`), `408`, `429`, `502`, `503`, `504` | `400`, `401` (refresh instead), `403`, `404`, `409`, `422` |
-| idempotent methods (`GET`, `PUT`, `DELETE`) | `POST` **unless** protected by an idempotency key |
+### Example 3: Full Jitter Exponential Backoff Algorithm
+```javascript
+async function fetchWithFullJitter(requestFn, options = {}) {
+  const { maxRetries = 4, baseDelayMs = 200, maxDelayMs = 8000 } = options;
 
-Honor `Retry-After` (seconds or HTTP date). Cap total attempts and total time.
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await requestFn();
+    } catch (error) {
+      if (attempt === maxRetries) throw error;
 
-## 3. Idempotency keys for safe `POST` retries
+      // Full Jitter Formula: Sleep = rand(0, min(maxDelay, baseDelay * 2^attempt))
+      const exponentialCap = Math.min(maxDelayMs, baseDelayMs * 2 ** attempt);
+      const sleepDuration = Math.floor(Math.random() * exponentialCap);
 
-```js
-const key = crypto.randomUUID();                       // generate ONCE per user action, reuse across retries
-await withRetry(() => api.post("/payments", { amount }, { headers: { "Idempotency-Key": key } }), { retries: 3 });
-```
-
-The server stores the result per key and returns the same response on duplicates.
-
-## 4. Timeouts and cancellation
-
-```js
-const controller = new AbortController();
-const res = await fetch(url, { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(5000)]) });
-```
-
-- Per-request timeouts plus an **overall** deadline for multi-step operations
-- Cancel stale requests (search-as-you-type), on navigation/unmount, and when a user clicks "Cancel"
-- Treat `AbortError` as expected, not as a failure to report
-
-## 5. Token refresh with single-flight
-
-When many requests hit `401` at once, refresh **once** and replay them.
-
-```js
-let refreshing = null;
-
-async function refreshToken() {
-  refreshing ??= fetch("/auth/refresh", { method: "POST", credentials: "include" })
-    .then((r) => { if (!r.ok) throw new Error("refresh failed"); return r.json(); })
-    .then(({ accessToken }) => (setToken(accessToken), accessToken))
-    .finally(() => { refreshing = null; });
-  return refreshing;
-}
-
-async function authFetch(url, options = {}) {
-  let res = await fetch(url, withAuth(options));
-  if (res.status !== 401) return res;
-  try { await refreshToken(); } catch { redirectToLogin(); throw new Error("Session expired"); }
-  res = await fetch(url, withAuth(options));                                // replay once
-  return res;
-}
-```
-
-Keep access tokens short-lived and in memory; keep the refresh token in an `HttpOnly` cookie.
-
-## 6. Deduplicate and cache requests
-
-```js
-const inflight = new Map();
-const cache = new Map();
-
-async function cachedGet(url, { ttlMs = 30_000 } = {}) {
-  const hit = cache.get(url);
-  if (hit && hit.expires > Date.now()) return hit.value;
-
-  if (inflight.has(url)) return inflight.get(url);                        // share one request
-  const p = api.get(url)
-    .then((value) => { cache.set(url, { value, expires: Date.now() + ttlMs }); return value; })
-    .finally(() => inflight.delete(url));
-  inflight.set(url, p);
-  return p;
-}
-```
-
-Strategies:
-
-| Strategy | Meaning |
-|----------|---------|
-| Cache-first | use the cache, update only when expired |
-| Network-first | try the network, fall back to cache when offline |
-| **Stale-while-revalidate** | show cached data immediately, refresh in the background |
-| HTTP caching | rely on `Cache-Control`/`ETag`: the browser does it for you |
-| Data-fetching libraries | **TanStack Query**, **SWR**, **RTK Query**, **Apollo**: caching, dedupe, retries, refetch on focus, pagination |
-
-Prefer a data-fetching library for UI-heavy apps instead of hand-rolling every feature.
-
-## 7. Pagination and infinite loading
-
-```js
-async function* paginate(path, { limit = 50 } = {}) {
-  let cursor;
-  do {
-    const page = await api.get(path, { query: { limit, cursor } });
-    yield* page.items;
-    cursor = page.nextCursor;
-  } while (cursor);
-}
-
-for await (const item of paginate("/orders")) process(item);
-```
-
-For infinite scroll use an `IntersectionObserver` sentinel to trigger the next page load, abort stale loads, and prevent duplicate loads with an `isLoading` flag.
-
-## 8. Batching and concurrency limits
-
-```js
-// at most 5 requests at a time
-const results = await mapLimit(ids, 5, (id) => api.get(`/users/${id}`));
-
-// coalesce many lookups into one request (DataLoader-style)
-const loadUser = createBatcher((ids) => api.get("/users", { query: { ids: ids.join(",") } }).then((users) => ids.map((id) => users.find((u) => u.id === id))));
-```
-
-Respect rate limits: parse `X-RateLimit-*` / `Retry-After`, queue requests, and back off on `429`.
-
-## 9. Optimistic updates
-
-Update the UI immediately, then reconcile with the server.
-
-```js
-async function toggleLike(post) {
-  const previous = post.liked;
-  post.liked = !previous;                                   // optimistic
-  render(post);
-  try {
-    await api.put(`/posts/${post.id}/like`, { liked: post.liked });
-  } catch (err) {
-    post.liked = previous;                                  // roll back
-    render(post);
-    showToast("Could not update. Please try again.");
+      console.warn(`Attempt ${attempt + 1} failed. Jittered sleep: ${sleepDuration}ms`);
+      await new Promise(resolve => setTimeout(resolve, sleepDuration));
+    }
   }
 }
 ```
 
-Combine with request ordering: ignore responses from older requests (version numbers or abort).
+### Example 4: Single-Flight (In-Flight Request Deduplication)
+```javascript
+function createSingleFlight() {
+  const inFlightMap = new Map();
 
-## 10. Polling the right way
+  return async function execute(key, asyncFn) {
+    if (inFlightMap.has(key)) {
+      return inFlightMap.get(key); // Return shared active promise
+    }
 
-```js
-async function poll(fn, { intervalMs = 2000, until = Boolean, signal, maxMs = 60_000 }) {
-  const deadline = Date.now() + maxMs;
-  while (Date.now() < deadline) {
-    const result = await fn({ signal });
-    if (until(result)) return result;
-    await sleep(intervalMs, signal);                        // sequential: never overlaps
+    const promise = (async () => {
+      try {
+        return await asyncFn();
+      } finally {
+        inFlightMap.delete(key); // Clean up immediately when done
+      }
+    })();
+
+    inFlightMap.set(key, promise);
+    return promise;
+  };
+}
+```
+
+### Example 5: Offline Mutation Queue with IndexedDB
+```javascript
+class OfflineMutationQueue {
+  #db;
+
+  async init() {
+    this.#db = await new Promise((resolve) => {
+      const req = indexedDB.open('OfflineQueueDB', 1);
+      req.onupgradeneeded = () => req.result.createObjectStore('mutations', { autoIncrement: true });
+      req.onsuccess = () => resolve(req.result);
+    });
+
+    window.addEventListener('online', () => this.flush());
   }
-  throw new Error("Timed out waiting");
-}
-```
 
-Improve efficiency with `ETag`/`304`, slow down on hidden tabs (`document.hidden`), back off over time, or switch to SSE/WebSocket.
+  async enqueue(url, method, body) {
+    if (navigator.onLine) {
+      try {
+        return await fetch(url, { method, body: JSON.stringify(body) });
+      } catch {
+        // Fall through to queue on failure
+      }
+    }
 
-## 11. Large uploads and downloads
+    const tx = this.#db.transaction('mutations', 'readwrite');
+    tx.objectStore('mutations').add({ url, method, body, createdAt: Date.now() });
+    console.log('Action queued offline');
+  }
 
-| Task | Approach |
-|------|----------|
-| Big file upload | **chunked/resumable** uploads (`tus` protocol, S3 multipart, `Blob.slice`), retry chunks independently |
-| Direct-to-storage | request a **pre-signed URL** from your API, then `PUT` the file to storage (keeps load off your server) |
-| Progress | XHR `upload.onprogress` (fetch lacks upload progress) |
-| Large download | stream with `res.body`, write via File System Access API/OPFS; `Range` requests for resuming |
-| Image/media | CDN, responsive sizes, `Cache-Control: immutable` |
+  async flush() {
+    const tx = this.#db.transaction('mutations', 'readwrite');
+    const store = tx.objectStore('mutations');
+    const allRecordsReq = store.getAll();
 
-```js
-async function uploadInChunks(file, url, chunkSize = 5 * 1024 * 1024) {
-  for (let start = 0; start < file.size; start += chunkSize) {
-    const chunk = file.slice(start, start + chunkSize);
-    await withRetry(() => fetch(url, {
-      method: "PUT",
-      headers: { "Content-Range": `bytes ${start}-${start + chunk.size - 1}/${file.size}` },
-      body: chunk,
-    }).then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); }), { retries: 3 });
+    allRecordsReq.onsuccess = async () => {
+      const mutations = allRecordsReq.result;
+      store.clear(); // Clear local store before replay
+
+      for (const m of mutations) {
+        try {
+          await fetch(m.url, { method: m.method, body: JSON.stringify(m.body) });
+          console.log(`Synced offline mutation to ${m.url}`);
+        } catch (e) {
+          console.error('Failed to replay mutation, re-queuing:', e);
+          this.enqueue(m.url, m.method, m.body);
+        }
+      }
+    };
   }
 }
 ```
 
-## 12. Offline and flaky networks
+---
 
-- Detect with `online`/`offline` events as **hints**, but rely on real request outcomes
-- Queue mutations in **IndexedDB** and replay when back online (idempotency keys!)
-- Use a **service worker** (Workbox) for cache strategies and **Background Sync** where supported
-- Show clear states: loading, empty, error with retry, offline banner, stale-data indicator
+## 6. Edge Cases, Pitfalls & Gotchas
 
-```js
-window.addEventListener("online", () => flushQueue());
-```
+1. **Thundering Herd after Circuit Breaker Closes**: When a service recovers and a circuit breaker resets, thousands of paused clients may flood the service simultaneously. Use randomized delays (jitter) when transitioning from OPEN to HALF-OPEN.
+2. **Deduplication Key Collision**: Naive string concatenation for deduplication keys (`url + JSON.stringify(body)`) fails if body properties are ordered differently (`{ a: 1, b: 2 }` vs `{ b: 2, a: 1 }`). Use deterministic object sorting.
+3. **Memory Leaks in In-Flight Maps**: If an async operation hangs indefinitely without a timeout, the promise remains permanently in the in-flight deduplication map, leaking memory and preventing future queries. Always pair single-flight operations with `AbortSignal.timeout()`.
+4. **Out-of-Order Execution in Offline Queues**: Replaying offline mutations asynchronously with `Promise.all` can cause race conditions (e.g., executing a DELETE before an UPDATE). Replay offline queues sequentially using strict FIFO ordering.
 
-## 13. Validating responses
+---
 
-Never trust network data.
+## 7. Common Mistakes & Anti-Patterns
 
-```js
-import { z } from "zod";
+| Mistake | Incorrect Pattern | Correct Solution | Why It Fails |
+| :--- | :--- | :--- | :--- |
+| **Unjittered Retries** | Retrying every exact 1000ms | Add randomized full jitter | Causes synchronized traffic spikes that re-crash recovering servers. |
+| **Hammering Downstream Services**| Retrying in tight loop on 503 | Implement a Circuit Breaker | Keeps failing servers saturated, preventing recovery. |
+| **Orphaned Search Requests** | Firing fetch on every keystroke without abort | Cancel previous via `AbortController` | Stale responses arrive out of order and overwrite newer results. |
+| **Parallel Offline Sync** | `Promise.all(offlineMutations.map(fetch))` | Replay sequentially (`for...of`) | Can commit database state out of chronological order. |
+| **Permanent Single-Flight Errors**| Caching rejected promise permanently | Clear key in `finally` block | One transient network error causes all future callers to fail forever. |
+| **Missing Request Timeout** | Infinite fetch without abort signal | Always set `AbortSignal.timeout()` | Sockets stay hung in memory during network blackholes. |
 
-const User = z.object({ id: z.number(), name: z.string(), email: z.string().email() });
+---
 
-async function getUser(id) {
-  const data = await api.get(`/users/${id}`);
-  return User.parse(data);                 // throws a descriptive error if the shape is wrong
+## 8. Performance Characteristics
+
+- **Bandwidth Reduction via Preemption**: Aborting superseded autocomplete requests closes network sockets early, saving up to 80% of unnecessary payload downloads on mobile.
+- **Circuit Breaker Overhead**: In the CLOSED state, a circuit breaker adds $< 0.01\text{ms}$ execution overhead (simple integer and condition checks). In the OPEN state, it avoids $500\text{ms} - 30\text{s}$ timeout delays by failing in microseconds ($0.05\text{ms}$).
+
+---
+
+## 9. Engine Internals
+
+1. **AbortSignal Memory Reclaim**: When an `AbortController` aborts, Chromium immediately disconnects the C++ socket stream and frees underlying TCP buffers without waiting for application JavaScript garbage collection.
+2. **LevelDB Serialization in IndexedDB**: Chromium flushes IndexedDB mutations to disk asynchronously using LevelDB batch transactions, preventing main thread I/O stalls during offline queue saves.
+
+---
+
+## 10. Best Practices & Design Guidelines
+
+1. **Always Combine Retries with Full Jitter**: Randomize sleep durations to break synchronization across clients.
+2. **Wrap Remote Dependencies in Circuit Breakers**: Isolate third-party APIs (payment processors, SMS gateways) with circuit breakers.
+3. **Enforce Strict Sequential Replay for Offline Queues**: Maintain causal consistency by replaying offline mutations in exact FIFO order.
+4. **Preempt In-Flight Requests in Interactive UIs**: Cancel active requests when users type new queries or navigate to new tabs.
+
+---
+
+## 11. Real-World Case Study
+
+### Resilient Order Dispatch System with Circuit Breaker and Offline Queue
+
+A warehouse logistics mobile web app transmits shipment scans. Workers regularly walk through Wi-Fi dead zones, and the central inventory microservice occasionally experiences database connection spikes.
+
+```javascript
+class WarehouseScanManager {
+  #circuitBreaker;
+  #offlineQueue;
+
+  constructor() {
+    // 1. Initialize Circuit Breaker around central inventory endpoint
+    this.#circuitBreaker = new CircuitBreaker(
+      async (scanData) => {
+        const res = await fetch('/api/inventory/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(scanData),
+          signal: AbortSignal.timeout(5000), // 5s timeout
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      },
+      { failureThreshold: 3, cooldownMs: 15000 }
+    );
+
+    // 2. Initialize Offline Queue
+    this.#offlineQueue = new OfflineMutationQueue();
+    this.#offlineQueue.init();
+  }
+
+  async recordBarcodeScan(barcode, employeeId) {
+    const scanData = { barcode, employeeId, scannedAt: Date.now() };
+
+    try {
+      // Attempt live dispatch through Circuit Breaker
+      const result = await this.#circuitBreaker.execute(scanData);
+      this.#displayStatus('Scan recorded live', 'green');
+      return result;
+    } catch (err) {
+      console.warn('Live dispatch failed. Storing in offline queue:', err.message);
+
+      // Automatically store in IndexedDB offline queue on failure or circuit open
+      await this.#offlineQueue.enqueue('/api/inventory/scan', 'POST', scanData);
+      this.#displayStatus('Scan saved offline (Queued)', 'orange');
+    }
+  }
+
+  #displayStatus(msg, color) {
+    const statusEl = document.getElementById('scan-status');
+    statusEl.textContent = msg;
+    statusEl.style.color = color;
+  }
 }
 ```
 
-TypeScript types alone are erased at runtime and do not validate server data.
+---
 
-## 14. Error handling in the UI
+## 12. Interview Questions
 
-| Error | UX |
-|-------|----|
-| Network / timeout | message with **Retry** button, keep user input |
-| `401` | silent refresh, otherwise redirect to login |
-| `403` | explain missing permissions |
-| `404` | "not found" view |
-| `409` / `412` | conflict dialog: reload or merge |
-| `422` | field-level messages from the error body |
-| `429` | "Too many requests, try again in N seconds" |
-| `5xx` | generic apology, request id for support, automatic retry for reads |
+<details>
+<summary><strong>1. What is the Circuit Breaker pattern, and what problem does it solve?</strong></summary>
 
-Log errors with the **request id** and correlation headers; surface the id to users when helpful.
+The Circuit Breaker pattern wraps calls to remote services and monitors failure rates. When failures exceed a threshold, it "trips" open, causing subsequent calls to fail immediately without attempting network I/O. This protects failing services from being overwhelmed and prevents client worker threads from blocking on long timeouts.
+</details>
 
-## 15. Observability and tracing
+<details>
+<summary><strong>2. What is "Full Jitter" in retry algorithms, and why is standard exponential backoff insufficient?</strong></summary>
 
-```js
-headers["X-Request-Id"] = crypto.randomUUID();
-headers.traceparent = makeTraceparent();                     // W3C trace context: link client and server spans
+Standard exponential backoff causes all clients that failed simultaneously to retry at identical intervals ($200\text{ms}, 400\text{ms}, 800\text{ms}$), hitting the recovering backend in synchronized waves. Full Jitter picks a random sleep duration uniformly between $0$ and the exponential backoff cap, spreading retries smoothly across time.
+</details>
+
+<details>
+<summary><strong>3. What is Request Preemption, and how is it implemented in JavaScript?</strong></summary>
+
+Request Preemption is the cancellation of an ongoing, in-flight asynchronous request when a newer, superseding operation is initiated (e.g. typing in an autocomplete search bar). It is implemented by calling `abort()` on an active `AbortController` before initializing a new `fetch()` call.
+</details>
+
+<details>
+<summary><strong>4. How does Single-Flight (Request Deduplication) prevent cache stampedes?</strong></summary>
+
+When multiple parts of an application request identical data simultaneously, Single-Flight intercepts subsequent requests and binds them to the existing in-flight Promise. When the network request settles, all callers receive the result while executing only a single network request.
+</details>
+
+<details>
+<summary><strong>5. Why must offline mutation queues be replayed sequentially rather than in parallel?</strong></summary>
+
+Replaying mutations in parallel (`Promise.all`) can cause operations to settle out of chronological order (e.g. processing an "Update Item" before a "Create Item"), corrupting database state. Sequential FIFO replay preserves causal ordering.
+</details>
+
+<details>
+<summary><strong>6. What are the three states of a Circuit Breaker?</strong></summary>
+
+- **CLOSED**: Normal operation; requests pass through.
+- **OPEN**: Fail-fast; requests are rejected immediately without network calls.
+- **HALF-OPEN**: Probe state; a small number of trial requests are sent to test if the service has recovered.
+</details>
+
+<details>
+<summary><strong>7. When should you use Server-Sent Events (SSE) instead of WebSockets?</strong></summary>
+
+When communication is strictly unidirectional from server to client (such as stock price tickers, live sports scores, system notifications, or LLM token streaming). SSE uses standard HTTP, handles reconnection natively, and works over HTTP/2 without custom framing.
+</details>
+
+<details>
+<summary><strong>8. What is the danger of caching rejected promises in a Single-Flight deduplication cache?</strong></summary>
+
+If a rejected promise is kept in the cache without being removed in a `finally` block, all future callers requesting that key will permanently receive the cached rejection, even after network connectivity is fully restored.
+</details>
+
+---
+
+## 13. Exercises & Challenges
+
+### Challenge 1: Implement an In-Flight Deduplication Utility with TTL
+Write a function `dedupeAsync(fn, ttlMs)` that deduplicates in-flight calls to `fn(...args)` and caches the resolved result for `ttlMs` milliseconds.
+
+<details>
+<summary>View Solution</summary>
+
+```javascript
+function dedupeAsync(fn, ttlMs = 0) {
+  const inFlight = new Map();
+  const cache = new Map();
+
+  return async function (...args) {
+    const key = JSON.stringify(args);
+    const now = Date.now();
+
+    // Check TTL cache
+    if (cache.has(key)) {
+      const entry = cache.get(key);
+      if (now < entry.expiry) {
+        return entry.value;
+      }
+      cache.delete(key);
+    }
+
+    // Check In-Flight
+    if (inFlight.has(key)) {
+      return inFlight.get(key);
+    }
+
+    const promise = (async () => {
+      try {
+        const result = await fn(...args);
+        if (ttlMs > 0) {
+          cache.set(key, { value: result, expiry: Date.now() + ttlMs });
+        }
+        return result;
+      } finally {
+        inFlight.delete(key);
+      }
+    })();
+
+    inFlight.set(key, promise);
+    return promise;
+  };
+}
 ```
+</details>
 
-- Measure latency with `performance.getEntriesByType("resource")` or `PerformanceObserver`
-- Read `Server-Timing` response headers
-- Send client errors and slow request metrics to monitoring (with sampling)
-- Track success rate, p95 latency, retries and cancellations
+### Challenge 2: Implement a Half-Open Circuit Breaker Probe
+Extend the `CircuitBreaker` pattern so that in the `HALF_OPEN` state, it allows exactly **1 probe request** through while rejecting any concurrent requests until the probe settles.
 
-## 16. Security patterns
+<details>
+<summary>View Solution</summary>
 
-| Concern | Practice |
-|---------|----------|
-| CSRF (cookie auth) | `SameSite=Lax/Strict`, CSRF tokens (`X-CSRF-Token`), check `Origin` |
-| XSS | never inject response data with `innerHTML`; CSP |
-| Secrets | never ship API secrets to the browser; proxy through your backend |
-| Token storage | prefer `HttpOnly` cookies; keep access tokens in memory |
-| SSRF (server-side fetch of user URLs) | allowlists, block internal IPs, timeouts, size limits |
-| Input | validate on the server regardless of client validation |
-| HTTPS | enforce with HSTS; avoid mixed content |
+```javascript
+class ProbeCircuitBreaker {
+  #fn;
+  #state = 'CLOSED';
+  #isProbing = false;
+  #nextAttempt = 0;
+  #cooldownMs = 10000;
 
-## 17. Testing network code
+  constructor(fn) {
+    this.#fn = fn;
+  }
 
-```js
-// Mock Service Worker (MSW) intercepts fetch in tests and the browser
-import { http, HttpResponse } from "msw";
-import { setupServer } from "msw/node";
+  async execute(...args) {
+    const now = Date.now();
 
-const server = setupServer(
-  http.get("https://api.example.com/users/:id", ({ params }) => HttpResponse.json({ id: Number(params.id), name: "Ada" })),
-  http.post("https://api.example.com/users", () => HttpResponse.json({ error: "boom" }, { status: 500 })),
-);
-beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
-afterEach(() => server.resetHandlers());
-afterAll(() => server.close());
+    if (this.#state === 'OPEN') {
+      if (now > this.#nextAttempt) {
+        this.#state = 'HALF_OPEN';
+        this.#isProbing = false;
+      } else {
+        throw new Error('Circuit OPEN');
+      }
+    }
+
+    if (this.#state === 'HALF_OPEN') {
+      if (this.#isProbing) {
+        // Reject secondary concurrent requests while trial probe is in flight!
+        throw new Error('Circuit HALF-OPEN: Probe already in flight');
+      }
+      this.#isProbing = true;
+    }
+
+    try {
+      const result = await this.#fn(...args);
+      if (this.#state === 'HALF_OPEN') {
+        this.#state = 'CLOSED';
+      }
+      return result;
+    } catch (err) {
+      this.#state = 'OPEN';
+      this.#nextAttempt = Date.now() + this.#cooldownMs;
+      throw err;
+    } finally {
+      this.#isProbing = false;
+    }
+  }
+}
 ```
-
-Test: success, each error class, timeouts and aborts (fake timers), retries/backoff, token refresh races, and malformed payloads.
-
-## Pattern chooser
-
-| Problem | Pattern |
-|---------|---------|
-| Flaky network | retry + backoff + jitter (idempotent calls) |
-| Hung requests | timeouts + cancellation |
-| Duplicate `POST`s | idempotency keys, disabled UI |
-| Many identical requests | dedupe + cache (or a data-fetching library) |
-| Many small requests | batching |
-| Overloading APIs | concurrency limits, honor `429` |
-| Expired sessions | single-flight token refresh |
-| Slow-feeling UI | optimistic updates, stale-while-revalidate |
-| Live data | SSE/WebSocket, polling as fallback |
-| Large files | chunked/resumable, pre-signed URLs |
-| Untrusted data | schema validation |
-
-## Pitfalls
-
-| Pitfall | Why it hurts | Better |
-|---------|--------------|--------|
-| Scattered `fetch` calls with copy-pasted handling | Inconsistent errors, hard changes | Central client |
-| Retrying everything | Duplicates, overload | Retry only safe cases with backoff |
-| Parallel token refreshes | Race conditions, revoked tokens | Single-flight refresh |
-| No timeouts | Spinners forever | Timeout every request |
-| Unbounded parallelism | Rate limits, memory spikes | `mapLimit`, queues |
-| Caching without invalidation | Stale or wrong data | TTLs, invalidation on mutations, SWR |
-| Optimistic updates without rollback | UI lies on failure | Rollback and notify |
-| Trusting response shapes | Runtime crashes | Validate with schemas |
-| Overlapping polls | Piling up requests | Sequential loop with `await sleep` |
-| Logging full payloads/tokens | Privacy and security leaks | Redact, log ids and metadata |
-| Reinventing caching/fetching logic in big UIs | Bugs and complexity | TanStack Query / SWR |
-
-## Key takeaways
-
-- Centralize networking in a client that handles auth, JSON, errors, timeouts and tracing
-- Retry only idempotent (or key-protected) requests, with backoff, jitter and `Retry-After`
-- Deduplicate, cache, batch and limit concurrency to be kind to servers and fast for users
-- Validate data, handle each error class explicitly in the UI, and test failure paths with mocks
-
-**Next:** [Node.js](../16_nodejs/00_README.md)
+</details>

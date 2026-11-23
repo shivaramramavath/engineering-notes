@@ -1,280 +1,487 @@
-# Element Manipulation
+# DOM Element Manipulation
 
-Creating, inserting, removing and updating elements, attributes, classes and styles.
+> Dynamic modification of DOM element content, attributes, properties, styles, and classes: understanding reflows, XSS defense, the Sanitizer API, and high-performance batch mutations.
 
-## Creating elements
+---
 
-```js
-const card = document.createElement("article");
-card.className = "card";
-card.id = "post-1";
-card.textContent = "Hello";
+## Metadata
 
-const text = document.createTextNode("plain text");
-const clone = card.cloneNode(true);       // true = deep copy (children included); listeners are NOT copied
+| Attribute | Details |
+| :--- | :--- |
+| **Level** | Core / Intermediate |
+| **Prerequisites** | [The DOM](./01_dom.md), [Selectors & Traversal](./02_selectors.md) |
+| **Time to Read** | 24 minutes |
+| **Status** | Complete |
+| **Standard** | WHATWG DOM / HTML Living Standard / CSSOM / Baseline Widely Available |
+
+---
+
+## Table of Contents
+
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & API Reference](#4-syntax--api-reference)
+5. [Practical Examples](#5-practical-examples)
+6. [Edge Cases, Pitfalls & Gotchas](#6-edge-cases-pitfalls--gotchas)
+7. [Common Mistakes & Anti-Patterns](#7-common-mistakes--anti-patterns)
+8. [Performance Characteristics](#8-performance-characteristics)
+9. [Engine Internals](#9-engine-internals)
+10. [Best Practices & Design Guidelines](#10-best-practices--design-guidelines)
+11. [Real-World Case Study](#11-real-world-case-study)
+12. [Interview Questions](#12-interview-questions)
+13. [Exercises & Challenges](#13-exercises--challenges)
+
+---
+
+## 1. What & Why
+
+In interactive web applications, static HTML documents are continuously transformed into responsive interfaces through **DOM Element Manipulation**. Modifying an element encompasses altering its text content, attributes, class names, inline styles, or replacing its child nodes dynamically.
+
+However, element manipulation is directly coupled to browser layout rendering. Naive updates—such as reading layout geometry immediately after setting style properties—trigger **Forced Synchronous Layouts (Layout Thrashing)**, causing dropped frames and sluggish UI responsiveness. Furthermore, improper insertion of dynamic strings via `innerHTML` is the primary vector for **Cross-Site Scripting (XSS)** security vulnerabilities.
+
+---
+
+## 2. Core Concepts
+
+### Attributes vs Properties
+One of the most frequent sources of confusion in DOM programming is the distinction between HTML **Attributes** and JavaScript DOM **Properties**:
+- **Attributes**: Stored in the HTML markup as written (`<input value="default" class="btn">`). Values are always strings. Accessed via `getAttribute()` and `setAttribute()`.
+- **Properties**: Stored as live properties on the underlying JavaScript DOM object (`input.value = "user input"`). Properties can be booleans, numbers, or objects.
+
+```text
+HTML Markup: <input id="age" value="25" type="text" checked>
+
+Attribute: input.getAttribute('value')  ──> "25" (Original default string)
+Property:  input.value                 ──> Current live text entered by user
+Attribute: input.getAttribute('checked')──> "" (Presence indicates true)
+Property:  input.checked               ──> true (Boolean property)
 ```
 
-## Inserting
+### Content Insertion Primitives
+- **`textContent`**: Sets or retrieves the raw text of a node and all its descendants. Fast and completely safe against XSS injection because strings are treated as plain text, never parsed as markup.
+- **`innerText`**: Renders layout-aware text. Triggers reflow to determine CSS visibility (`display: none` text is omitted).
+- **`innerHTML`**: Parses a string as HTML markup and injects the resulting DOM nodes. Powerful, but dangerous if used with unsanitized user inputs.
+- **`setHTMLUnsafe()` / Sanitizer API**: Modern standards for parsing HTML while stripping script tags and malicious attributes.
 
-| Method | Position |
-|--------|----------|
-| `parent.append(...nodesOrStrings)` | after the last child |
-| `parent.prepend(...)` | before the first child |
-| `el.before(...)` / `el.after(...)` | siblings |
-| `el.replaceWith(...)` | replace the element |
-| `parent.replaceChildren(...nodes)` | replace all children (no args clears) |
-| `parent.appendChild(node)` / `insertBefore(node, ref)` | older single-node versions |
-| `el.insertAdjacentElement(pos, el2)` | `"beforebegin"`, `"afterbegin"`, `"beforeend"`, `"afterend"` |
-| `el.insertAdjacentHTML(pos, html)` | parse HTML string (XSS risk) |
+---
 
-```js
-const list = document.querySelector("ul");
-const li = document.createElement("li");
-li.textContent = "New item";
-list.append(li);                         // strings are inserted as text, not HTML
-list.prepend("plain text", li2);
-list.replaceChildren();                  // clear
+## 3. How It Works Internally
+
+### The Reflow and Repaint Cycle
+
+When JavaScript mutates an element, the browser marks portions of the tree as "dirty":
+
+```
+ JavaScript mutates DOM: element.style.width = '200px'
+                         │
+                         ▼
+             [ DOM Tree Marked Dirty ]
+                         │
+                         ▼
+        Does script immediately request geometry?
+        (e.g., const w = element.offsetWidth;)
+               /                     \
+         YES  /                       \ NO
+             v                         v
+ [ FORCED SYNCHRONOUS REFLOW ]   [ Batch Reflow at next frame ]
+ Browser stops JS immediately,   Recalculate Styles
+ parses CSSOM, computes layout   Compute Layout (Geometry)
+ (LAYOUT THRASHING HAZARD!)      Repaint & Composite Layers
 ```
 
-Inserting an **existing** node **moves** it.
+---
 
-## Removing
+## 4. Syntax & API Reference
 
-```js
-el.remove();                             // modern
-parent.removeChild(el);                  // older
-el.replaceChildren();                    // empty the element (fast)
-el.innerHTML = "";                       // also works, parses nothing
+### Attributes & Datasets
+
+```javascript
+// Attribute manipulation
+element.hasAttribute('disabled');
+element.getAttribute('href');
+element.setAttribute('aria-expanded', 'true');
+element.removeAttribute('data-pending');
+
+// Data attributes (data-*)
+// Automatically camelCased via dataset API:
+element.dataset.userId = '42';          // Sets data-user-id="42"
+const role = element.dataset.userRole;  // Reads data-user-role
+delete element.dataset.pending;         // Removes data-pending
 ```
 
-Remove listeners or use `AbortController` signals if you manually attached them to nodes you discard (nodes themselves become garbage once unreferenced).
+### Class Manipulation via `classList`
 
-## Text vs HTML
-
-```js
-el.textContent = userInput;              // SAFE: always text
-el.innerHTML = userInput;                // DANGEROUS: parses markup, scripts in attributes (XSS)
+```javascript
+element.classList.add('active', 'visible');
+element.classList.remove('loading');
+element.classList.toggle('collapsed');       // Inverts state
+element.classList.toggle('pinned', isPinned);// Explicit force boolean
+element.classList.contains('active');        // Returns boolean
+element.classList.replace('old-cls', 'new-cls');
 ```
 
-```js
-const name = `<img src=x onerror=alert(1)>`;
-el.innerHTML = `<p>${name}</p>`;         // executes the handler!
-el.textContent = name;                   // shows the literal text
+### Styles and CSS Variables
+
+```javascript
+// Inline styles (CamelCase properties)
+element.style.backgroundColor = '#f0f0f0';
+element.style.transform = 'translateY(10px)';
+
+// CSS Variables (Custom Properties)
+element.style.setProperty('--theme-color', '#ff4500');
+const primaryColor = element.style.getPropertyValue('--theme-color');
+
+// Read computed styles (including styles from external CSS sheets)
+const computed = window.getComputedStyle(element);
+console.log('Computed font-size:', computed.fontSize);
 ```
 
-Safe alternatives:
+---
 
-| Need | Approach |
-|------|----------|
-| Plain text | `textContent` |
-| Structured markup from data | build with `createElement` / templates |
-| Trusted static HTML | `innerHTML` is fine |
-| Untrusted HTML | sanitize (DOMPurify) or the browser **Sanitizer API** (`el.setHTML(html)`, check support) |
-| Enforce at scale | Content Security Policy, Trusted Types |
+## 5. Practical Examples
 
-## `<template>` and `DocumentFragment`
-
-```html
-<template id="row-tpl">
-  <tr><td class="name"></td><td class="age"></td></tr>
-</template>
-```
-
-```js
-const tpl = document.getElementById("row-tpl");
-const fragment = document.createDocumentFragment();
-
-for (const person of people) {
-  const row = tpl.content.cloneNode(true);          // inert content, cloned
-  row.querySelector(".name").textContent = person.name;
-  row.querySelector(".age").textContent = person.age;
-  fragment.append(row);
-}
-tbody.append(fragment);                              // one insertion, one reflow
-```
-
-A fragment is a lightweight, off-DOM container: its children move into the target on insertion.
-
-## Attributes vs properties
-
-| | Attribute | Property |
-|---|-----------|----------|
-| What | what is written in HTML (`getAttribute`) | the live JS object field |
-| Values | strings | typed (boolean, number, object) |
-| Example | `<input value="a">` initial value | `input.value` current value |
-
-```js
-el.getAttribute("href");  el.setAttribute("href", "/x");
-el.hasAttribute("hidden");  el.removeAttribute("hidden");
-el.toggleAttribute("disabled", true);
-el.attributes;                           // NamedNodeMap
-
-input.value = "typed";                   // property reflects what the user sees
-input.getAttribute("value");             // still the original markup value
-checkbox.checked = true;                 // property; the "checked" attribute is only the default
-a.href;                                  // absolute URL (property) vs a.getAttribute("href") raw text
-```
-
-Prefer **properties** for state (`value`, `checked`, `disabled`, `hidden`, `selected`), **attributes** for custom data and ARIA.
-
-## Classes
-
-```js
-el.classList.add("a", "b");
-el.classList.remove("a");
-el.classList.toggle("open");             // returns new state
-el.classList.toggle("open", isOpen);     // force on/off
-el.classList.contains("open");
-el.classList.replace("old", "new");
-el.className = "x y";                    // replaces all classes (avoid unless intended)
-```
-
-## Data attributes
-
-```js
-el.dataset.userId = "42";                // data-user-id="42"
-delete el.dataset.userId;
-Object.entries(el.dataset);
-```
-
-Store state in classes/attributes for styling, and in JS variables for logic.
-
-## Styles
-
-```js
-el.style.color = "tomato";
-el.style.backgroundColor = "#fff";       // camelCase
-el.style.setProperty("--accent", "teal");// CSS custom properties
-el.style.cssText = "color: red; margin: 0";
-el.style.removeProperty("color");
-
-getComputedStyle(el).fontSize;           // resolved value (read-only, triggers style calc)
-getComputedStyle(el).getPropertyValue("--accent");
-```
-
-Prefer **toggling classes** over writing inline styles; use inline styles only for dynamic values (positions, custom properties).
-
-```js
-el.style.setProperty("--progress", `${percent}%`);   // CSS: width: var(--progress)
-```
-
-## Dimensions and position
-
-| API | Gives |
-|-----|-------|
-| `el.getBoundingClientRect()` | size and position relative to the viewport (`x, y, width, height, top, left, ...`) |
-| `offsetWidth/Height` | layout size including padding and border |
-| `clientWidth/Height` | inner size (without border/scrollbar) |
-| `scrollWidth/Height`, `scrollTop/Left` | scrollable size and offset |
-| `window.innerWidth/innerHeight` | viewport size |
-| `window.scrollY`, `scrollX` | page scroll offset |
-
-```js
-el.scrollIntoView({ behavior: "smooth", block: "center" });
-window.scrollTo({ top: 0, behavior: "smooth" });
-el.focus({ preventScroll: true });
-```
-
-## Layout thrashing
-
-Interleaving reads of layout with writes forces repeated reflows.
-
-```js
-// slow: each iteration reads (forces layout) then writes (invalidates layout)
-for (const el of items) {
-  el.style.width = `${el.offsetWidth + 10}px`;
+### Example 1: Avoiding Layout Thrashing via Read-Write Batching
+```javascript
+// BAD (Causes Layout Thrashing):
+// Interleaving reads and writes forces browser to recalculate layout repeatedly!
+function badResize(elements) {
+  for (const el of elements) {
+    const width = el.offsetWidth; // READ (Forces reflow)
+    el.style.width = `${width + 10}px`; // WRITE (Dirties layout)
+  }
 }
 
-// fast: batch reads, then writes
-const widths = items.map((el) => el.offsetWidth);
-items.forEach((el, i) => { el.style.width = `${widths[i] + 10}px`; });
-```
+// GOOD (Batched Reads, then Batched Writes):
+function optimizedResize(elements) {
+  // Phase 1: Batch all geometry reads
+  const widths = elements.map(el => el.offsetWidth);
 
-Other tips:
-
-- Build detached trees/fragments and insert once
-- Animate with `transform` and `opacity` (composite-only), not `top/left/width`
-- Use `requestAnimationFrame` for visual updates
-- Use `content-visibility`, `contain`, and virtualization for very long lists
-- Avoid `innerHTML +=` in loops (reparses everything and drops listeners)
-
-## Visibility and modern elements
-
-```js
-el.hidden = true;                        // hidden attribute (display: none by default)
-el.inert = true;                         // not focusable/clickable, hidden from assistive tech
-dialog.showModal(); dialog.close();      // <dialog> with built-in focus trap and backdrop
-popoverEl.showPopover();                 // popover attribute API (modern browsers)
-details.open = true;
-```
-
-## Animations
-
-```js
-el.animate(
-  [{ opacity: 0, transform: "translateY(10px)" }, { opacity: 1, transform: "none" }],
-  { duration: 200, easing: "ease-out", fill: "forwards" },
-);
-
-document.startViewTransition?.(() => updateDOM());    // View Transitions API (check support)
-```
-
-CSS transitions and the Web Animations API run off the main thread when possible.
-
-## Cloning, moving and swapping
-
-```js
-const copy = el.cloneNode(true);         // listeners and internal state like JS properties are not cloned
-a.replaceWith(b);                        // moves b
-parent.insertBefore(newNode, parent.children[2]);
-[a, b] = [b, a];                         // only swaps variables; to swap nodes: a.after(b)
-```
-
-## Example: render a list safely
-
-```js
-function renderTodos(container, todos) {
-  const items = todos.map((todo) => {
-    const li = document.createElement("li");
-    li.dataset.id = todo.id;
-    li.classList.toggle("done", todo.done);
-
-    const label = document.createElement("span");
-    label.textContent = todo.title;             // safe
-
-    const del = document.createElement("button");
-    del.type = "button";
-    del.dataset.action = "delete";
-    del.setAttribute("aria-label", `Delete ${todo.title}`);
-    del.textContent = "×";
-
-    li.append(label, del);
-    return li;
+  // Phase 2: Batch all style mutations
+  elements.forEach((el, index) => {
+    el.style.width = `${widths[index] + 10}px`;
   });
-  container.replaceChildren(...items);
 }
 ```
 
-## Pitfalls
+### Example 2: Safe HTML Templating with `DocumentFragment`
+```javascript
+function createUserCard(user) {
+  const card = document.createElement('article');
+  card.className = 'user-card';
 
-| Pitfall | Why it hurts | Better |
-|---------|--------------|--------|
-| `innerHTML` with untrusted data | XSS | `textContent`, DOM APIs, sanitizer |
-| `innerHTML +=` | Reparses and destroys listeners/state | `append`, `insertAdjacentHTML` |
-| Reading layout between writes | Layout thrashing | Batch reads then writes |
-| Setting many inline styles | Hard to maintain, specificity issues | Classes and CSS variables |
-| Confusing attribute and property | Stale values (`value`, `checked`) | Use properties for state |
-| `el.className = ...` clobbering classes | Lost classes | `classList` |
-| Appending nodes one by one into the live DOM | Many reflows | Fragment or `replaceChildren` |
-| Cloning and expecting event listeners | They do not copy | Re-attach or use delegation |
-| Animating layout properties | Jank | `transform`/`opacity` |
-| Forgetting accessibility on dynamic UI | Unusable for screen readers | Roles, labels, focus management, live regions |
+  const avatar = document.createElement('img');
+  avatar.src = user.avatarUrl;
+  avatar.alt = `${user.name}'s profile picture`;
 
-## Key takeaways
+  const info = document.createElement('div');
+  info.className = 'user-info';
 
-- Build elements with `createElement`, insert with `append`/`before`/`replaceChildren`
-- Use `textContent`, never raw `innerHTML` with untrusted data
-- Use properties for state, `classList` for classes, `dataset` for custom data
-- Batch DOM writes (fragments, templates) and avoid mixing layout reads with writes
+  const nameHeading = document.createElement('h3');
+  nameHeading.textContent = user.name; // Safe against XSS!
 
-**Next:** [Events](./04_events.md)
+  const bioParagraph = document.createElement('p');
+  bioParagraph.textContent = user.bio; // Safe against XSS!
+
+  info.append(nameHeading, bioParagraph);
+  card.append(avatar, info);
+
+  return card;
+}
+```
+
+### Example 3: Dynamic Theme Switching via CSS Variables
+```javascript
+function applyTheme(theme) {
+  const root = document.documentElement;
+
+  if (theme === 'dark') {
+    root.style.setProperty('--bg-color', '#121212');
+    root.style.setProperty('--text-color', '#ffffff');
+    root.style.setProperty('--accent-color', '#bb86fc');
+  } else {
+    root.style.setProperty('--bg-color', '#ffffff');
+    root.style.setProperty('--text-color', '#000000');
+    root.style.setProperty('--accent-color', '#6200ee');
+  }
+}
+```
+
+### Example 4: Parsing Markup Safely using `DOMParser`
+```javascript
+function parseUntrustedHtmlSafely(rawHtmlString) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(rawHtmlString, 'text/html');
+
+  // Strip script tags and dangerous event attributes
+  doc.querySelectorAll('script').forEach(el => el.remove());
+  doc.querySelectorAll('*').forEach(el => {
+    for (const attr of Array.from(el.attributes)) {
+      if (attr.name.startsWith('on') || attr.value.startsWith('javascript:')) {
+        el.removeAttribute(attr.name);
+      }
+    }
+  });
+
+  return doc.body.children;
+}
+```
+
+### Example 5: Toggle Switch Component with Accessible Attributes
+```javascript
+class ToggleSwitch {
+  constructor(element) {
+    this.el = element;
+    this.el.setAttribute('role', 'switch');
+    this.el.setAttribute('tabindex', '0');
+    this.el.addEventListener('click', () => this.toggle());
+    this.el.addEventListener('keydown', (e) => {
+      if (e.key === ' ' || e.key === 'Enter') {
+        e.preventDefault();
+        this.toggle();
+      }
+    });
+  }
+
+  toggle() {
+    const isChecked = this.el.getAttribute('aria-checked') === 'true';
+    const newState = !isChecked;
+
+    this.el.setAttribute('aria-checked', String(newState));
+    this.el.classList.toggle('switch-on', newState);
+    this.el.dispatchEvent(new CustomEvent('change', { detail: { checked: newState } }));
+  }
+}
+```
+
+---
+
+## 6. Edge Cases, Pitfalls & Gotchas
+
+1. **Boolean Attributes in HTML**: Boolean attributes (`disabled`, `checked`, `hidden`, `required`) are considered `true` if present, regardless of their string value! Writing `el.setAttribute('disabled', 'false')` still disables the button! To enable it, you must invoke `el.removeAttribute('disabled')` or set the boolean property `el.disabled = false`.
+2. **`style` Property vs `getComputedStyle`**: `element.style` contains **only** styles set inline directly on that element. Styles applied via external CSS stylesheets or `<style>` blocks return empty strings when queried through `element.style`. Always use `window.getComputedStyle(element)` to read active styles.
+3. **`innerHTML` Script Execution**: Scripts inserted via `innerHTML` are not executed by modern browsers. However, malicious markup can still execute JavaScript via `onerror` attributes (`<img src="x" onerror="stealTokens()">`).
+4. **Data Attribute Hyphenation**: Attributes named `data-app-user-id` are automatically camelCased to `dataset.appUserId`. Setting `dataset.AppUserId` creates `data--app-user-id` with extra hyphens.
+
+---
+
+## 7. Common Mistakes & Anti-Patterns
+
+| Mistake | Incorrect Pattern | Correct Solution | Why It Fails |
+| :--- | :--- | :--- | :--- |
+| **`setAttribute('disabled', 'false')`**| `btn.setAttribute('disabled', 'false')` | `btn.disabled = false` or `btn.removeAttribute('disabled')` | In HTML, the mere presence of `disabled` means true. |
+| **Reading Styles from `element.style`** | `const color = el.style.color` | `window.getComputedStyle(el).color` | `el.style` only reads inline styles; misses stylesheet rules. |
+| **Layout Thrashing in Loops** | Reading `.offsetHeight` then setting `.height` in loop | Batch all reads before executing writes | Triggers repeated forced synchronous reflows. |
+| **Concatenating User Input into `innerHTML`**| `el.innerHTML = '<b>' + input + '</b>'` | Use `textContent` or template with DOM nodes | Creates critical Cross-Site Scripting (XSS) vulnerabilities. |
+| **Direct String Class Replacement** | `el.className = el.className + ' active'` | `el.classList.add('active')` | Prone to whitespace bugs and accidental duplicates. |
+| **Setting Inline Styles with Strings** | `el.setAttribute('style', 'color: red')`| `el.style.color = 'red'` | Overwrites all existing inline styles on the element. |
+
+---
+
+## 8. Performance Characteristics
+
+- **Reflow Triggers**: Accessing properties like `offsetWidth`, `clientHeight`, `scrollLeft`, `getBoundingClientRect()`, or calling `getComputedStyle()` after a DOM mutation forces synchronous layout calculation.
+- **`classList` vs `className`**: `classList.add()` uses compiled C++ hash sets to avoid duplicate entries and is substantially faster than string splitting/regex operations on `className`.
+- **CSS Variable Cascade**: Setting a CSS variable on `:root` recalculates styles for the entire document tree; setting it on a localized component element scopes recalculations strictly to that subtree.
+
+---
+
+## 9. Engine Internals
+
+1. **CSSStyleDeclaration Wrapper**: Accessing `element.style` allocates a lightweight V8 wrapper around Blink's native `blink::MutableCSSPropertyValueSet`.
+2. **Computed Style Caching**: Blink caches computed styles in the `Element::ComputedStyle` structure. When an element or ancestor style mutates, the cache is invalidated, and styles are re-resolved during the next style calculation pass.
+
+---
+
+## 10. Best Practices & Design Guidelines
+
+1. **Always Use `textContent` for User-Generated Strings**: Eliminate XSS injection risks by default.
+2. **Batch Layout Reads and Writes**: Separate DOM read phases from DOM mutation phases to eliminate layout thrashing.
+3. **Use CSS Classes for Style Mutations**: Avoid hardcoding multiple inline style declarations; toggle semantic CSS classes via `classList`.
+4. **Use `dataset` for Data Attributes**: Leverage `dataset` to attach metadata cleanly without polluting element property prototypes.
+
+---
+
+## 11. Real-World Case Study
+
+### High-Performance Drag-and-Drop Card Reordering
+
+A Trello-like kanban board moves task cards across columns. Smooth 60 FPS performance requires updating card positions without triggering document-wide reflows.
+
+```javascript
+class DraggableCardManager {
+  #draggedEl = null;
+  #placeholder = null;
+
+  constructor(boardElement) {
+    this.board = boardElement;
+    this.#init();
+  }
+
+  #init() {
+    this.board.addEventListener('dragstart', (e) => this.#onDragStart(e));
+    this.board.addEventListener('dragover', (e) => this.#onDragOver(e));
+    this.board.addEventListener('dragend', () => this.#onDragEnd());
+  }
+
+  #onDragStart(e) {
+    const card = e.target.closest('.kanban-card');
+    if (!card) return;
+
+    this.#draggedEl = card;
+    card.classList.add('is-dragging');
+
+    // Create lightweight placeholder node
+    this.#placeholder = document.createElement('div');
+    this.#placeholder.className = 'kanban-placeholder';
+    this.#placeholder.style.height = `${card.offsetHeight}px`;
+
+    // Defer DOM modification so drag image snapshot captures original card
+    requestAnimationFrame(() => {
+      card.before(this.#placeholder);
+      card.style.display = 'none';
+    });
+  }
+
+  #onDragOver(e) {
+    e.preventDefault();
+    if (!this.#draggedEl || !this.#placeholder) return;
+
+    const column = e.target.closest('.kanban-column');
+    if (!column) return;
+
+    const cardContainer = column.querySelector('.card-list');
+    const targetCard = e.target.closest('.kanban-card:not(.is-dragging)');
+
+    if (targetCard) {
+      const rect = targetCard.getBoundingClientRect();
+      const isAfter = e.clientY > rect.top + rect.height / 2;
+      targetCard[isAfter ? 'after' : 'before'](this.#placeholder);
+    } else if (cardContainer && !cardContainer.contains(this.#placeholder)) {
+      cardContainer.appendChild(this.#placeholder);
+    }
+  }
+
+  #onDragEnd() {
+    if (!this.#draggedEl || !this.#placeholder) return;
+
+    // Move real card to final placeholder position
+    this.#placeholder.replaceWith(this.#draggedEl);
+    this.#draggedEl.style.display = '';
+    this.#draggedEl.classList.remove('is-dragging');
+
+    this.#draggedEl = null;
+    this.#placeholder = null;
+  }
+}
+```
+
+---
+
+## 12. Interview Questions
+
+<details>
+<summary><strong>1. What is the fundamental difference between an HTML attribute and a DOM property?</strong></summary>
+
+An attribute represents initial markup declared in HTML; its value is always a string and is read via `getAttribute()`. A DOM property is a live, typed field on the JavaScript DOM object (e.g. `input.checked` is a boolean). Some properties reflect their attributes (like `id`), while others diverge once mutated by the user (like `input.value`).
+</details>
+
+<details>
+<summary><strong>2. What is "Layout Thrashing" (Forced Synchronous Layout)?</strong></summary>
+
+Layout Thrashing occurs when JavaScript repeatedly alternates between mutating the DOM (which dirties the layout) and reading layout geometry properties (like `offsetWidth`, `clientHeight`), forcing the browser to pause JavaScript execution and recalculate styles and layout synchronously on every iteration.
+</details>
+
+<details>
+<summary><strong>3. Why is <code>element.style.color</code> empty if a color was defined in an external stylesheet?</strong></summary>
+
+`element.style` accesses only the element's inline style declarations. To inspect styles calculated from external stylesheets or `<style>` rules, you must use `window.getComputedStyle(element)`.
+</details>
+
+<details>
+<summary><strong>4. How do you properly disable a button element using attributes vs properties?</strong></summary>
+
+Using properties: `btn.disabled = true;` (or `false` to enable).
+Using attributes: `btn.setAttribute('disabled', '');` to disable, and `btn.removeAttribute('disabled');` to enable. Setting `setAttribute('disabled', 'false')` still disables the button because boolean attributes in HTML evaluate to true by their mere presence.
+</details>
+
+<details>
+<summary><strong>5. Why is <code>textContent</code> preferred over <code>innerHTML</code> for inserting plain text?</strong></summary>
+
+`textContent` treats input as literal text, preventing cross-site scripting (XSS) attacks. Additionally, `textContent` avoids the performance cost of invoking the HTML parser.
+</details>
+
+<details>
+<summary><strong>6. What is the difference between <code>outerHTML</code> and <code>innerHTML</code>?</strong></summary>
+
+`innerHTML` represents the serialized HTML markup of the element's children. `outerHTML` represents the serialized markup of the element itself, including its opening tag, attributes, child contents, and closing tag.
+</details>
+
+<details>
+<summary><strong>7. How does <code>classList.toggle(className, force)</code> work when the force argument is provided?</strong></summary>
+
+If the optional boolean `force` argument is provided, `classList.toggle` does not invert the state. If `force === true`, it adds the class; if `force === false`, it removes the class.
+</details>
+
+<details>
+<summary><strong>8. What is the modern standard replacement for unsafe <code>innerHTML</code> assignments?</strong></summary>
+
+The emerging `Element.prototype.setHTMLUnsafe()` method, and the W3C Sanitizer API (`setHTML(input, { sanitizer })`), which parses HTML markup while automatically stripping dangerous scripts, event handlers, and protocol URIs.
+</details>
+
+---
+
+## 13. Exercises & Challenges
+
+### Challenge 1: Implement an XSS-Safe HTML String Tagged Template
+Create a tagged template function `safeHtml` that sanitizes all interpolated values, converting special characters (`<`, `>`, `&`, `"`, `'`) into HTML entities while preserving literal template strings.
+
+<details>
+<summary>View Solution</summary>
+
+```javascript
+function safeHtml(strings, ...values) {
+  const escapeChar = (str) => {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  };
+
+  return strings.reduce((acc, str, i) => {
+    const val = i < values.length ? escapeChar(values[i]) : '';
+    return acc + str + val;
+  }, '');
+}
+
+// Verification:
+const untrusted = '<script>alert("hack")</script>';
+const cleanHtml = safeHtml`<div class="comment">${untrusted}</div>`;
+// Result: '<div class="comment">&lt;script&gt;alert(&quot;hack&quot;)&lt;/script&gt;</div>'
+```
+</details>
+
+### Challenge 2: Implement a Fast Batch Style Applicator
+Write a function `applyStyles(element, styleObject)` that sets multiple style properties on an element efficiently, supporting both camelCase property names, CSS custom variables (`--var`), and `!important` priorities.
+
+<details>
+<summary>View Solution</summary>
+
+```javascript
+function applyStyles(element, styleObject) {
+  for (const [prop, value] of Object.entries(styleObject)) {
+    if (prop.startsWith('--')) {
+      element.style.setProperty(prop, value);
+    } else if (typeof value === 'string' && value.includes('!important')) {
+      const cleanVal = value.replace('!important', '').trim();
+      const cssProp = prop.replace(/([A-Z])/g, '-$1').toLowerCase();
+      element.style.setProperty(cssProp, cleanVal, 'important');
+    } else {
+      element.style[prop] = value;
+    }
+  }
+}
+```
+</details>
