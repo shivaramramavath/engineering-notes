@@ -211,3 +211,61 @@
   - `07-ts-morph-and-programmatic-ast-manipulation.md` (469 lines, 13 sections): `ts-morph` Project, wrapped nodes, symbol navigation, automated migrations, in-memory testing.
   - `08-writing-a-custom-language-service-plugin.md` (563 lines, 13 sections): TSServer plugins, intercepting diagnostics, custom autocompletions, hover quick info, quick fixes in VS Code.
   - `README.md` (86 lines): Module architecture, learning paths, and compiler extensibility best practices.
+
+
+## [Batch 7] - 2026-11-24 - Ecosystem, Tooling & Real-World (Modules 19, 20, 21, 22, 23, 24, 25)
+### Added / Completed
+- **19-react-and-frontend/** (10 concept notes + README, 5,147 total lines):
+  - `00-component-props-and-children.md` (547 lines) - React 19 function components, `ReactNode` vs `ReactElement`, children typing, polymorphic props
+  - `01-event-types.md` (486 lines) - Synthetic events, change handlers, keyboard/mouse events, generic event wrappers
+  - `02-hooks.md` (548 lines) - useState, useReducer, useEffect, useCallback, useMemo, custom hook return types
+  - `03-context.md` (548 lines) - Generic context factories, null checks, provider typing, splitting state and dispatch
+  - `04-refs.md` (526 lines) - RefObject vs MutableRefObject, React 19 prop refs, callback refs, imperative handles
+  - `05-forms.md` (522 lines) - React Hook Form, Zod resolver integration, type-safe error messages, nested field arrays
+  - `06-generic-and-polymorphic-components.md` (499 lines) - `as` prop, ComponentPropsWithoutRef, slot patterns, forwardRef generics
+  - `07-server-state-tanstack-query.md` (499 lines) - QueryKey factory, useQuery, useMutation, optimistic updates, query cancellation
+  - `08-client-state-zustand.md` (557 lines) - Curried create, slices pattern, immutable updates, selectors, middleware typing
+  - `09-nextjs.md` (518 lines) - App Router, async Server Components, Next.js 15 dynamic params promises, Server Actions
+  - `README.md` (25 lines)
+- **20-nodejs-backend/** (9 concept notes + README, 4,378 total lines):
+  - `00-node-types.md` (431 lines) - @types/node, Buffer, Streams, EventEmitter, global declarations, Node 22 type stripping
+  - `01-config-and-environment.md` (435 lines) - ProcessEnv typing, Zod schema validation, dotenv-safe, typed config services
+  - `02-express.md` (492 lines) - Typed Request, Response, ParamsDictionary, typed query and body, async error handling
+  - `03-middleware.md` (513 lines) - Augmenting express namespace, auth middleware, rate limiting, error middleware
+  - `04-service-and-repository-layers.md` (468 lines) - Interface-driven architecture, dependency injection, Result types, repository pattern
+  - `05-databases.md` (476 lines) - Prisma client types, Drizzle ORM `$inferSelect` / `$inferInsert`, Kysely SQL query builder
+  - `06-redis-and-caching.md` (503 lines) - ioredis typing, cache serialization, cache-aside pattern, distributed locks with redlock
+  - `07-authentication-and-authorization.md` (445 lines) - JWT verification, Argon2 password hashing, RBAC, session typing
+  - `08-nestjs.md` (491 lines) - Decorators, modules, dependency injection containers, DTO validation with class-validator
+  - `README.md` (24 lines)
+- **21-production-tooling/** (7 concept notes + README, 3,506 total lines):
+  - `00-linting-and-formatting.md` (546 lines) - Biome, Oxlint, typescript-eslint v8 Flat Config (`eslint.config.mjs`)
+  - `01-build-and-bundling.md` (527 lines) - tsup, esbuild, swc, tsc dual-track, TS 5.5 `isolatedDeclarations`
+  - `02-monorepos.md` (489 lines) - pnpm workspaces, TypeScript Project References (`composite: true`), Turborepo caching
+  - `03-publishing-packages.md` (499 lines) - package.json conditional exports, publint, @arethetypeswrong/cli, npm provenance
+  - `04-js-to-ts-migration.md` (506 lines) - allowJs, checkJs, JSDoc typing, gradual migration roadmap
+  - `05-ci-and-deployment.md` (482 lines) - GitHub Actions matrix, .tsbuildinfo caching, multi-stage Docker builds
+  - `06-logging-and-observability.md` (531 lines) - Pino structured logging, OpenTelemetry distributed tracing, AsyncLocalStorage
+  - `README.md` (17 lines)
+- **22-performance/** (3 concept notes + README, 1,330 total lines):
+  - `00-type-checking-performance.md` (447 lines) - Profiling with `--generateTrace`, `@typescript/analyze-trace`, union explosion, interface vs type caching
+  - `01-build-performance.md` (391 lines) - Incremental builds, .tsbuildinfo serialization, signature hashing, Project References
+  - `02-runtime-performance.md` (479 lines) - V8 hidden classes, monomorphic call sites, avoid delete operator, enum overhead vs `as const`
+  - `README.md` (13 lines)
+- **23-security/** (4 concept notes + README, 1,785 total lines):
+  - `00-unsafe-types-and-assertions.md` (431 lines) - Dangers of `any`, double assertions (`as unknown as T`), non-null assertion `!`, satisfies
+  - `01-input-validation.md` (461 lines) - Zero-trust boundaries, Zod `.strict()`, ArkType, TypeBox, prototype pollution defense
+  - `02-dependency-security.md` (409 lines) - Ambient declaration poisoning, lockfile pinning, `ignore-scripts=true`, pnpm isolation
+  - `03-security-checklist.md` (470 lines) - 5-pillar production readiness checklist, `noUncheckedIndexedAccess`, non-root Docker user
+  - `README.md` (14 lines)
+- **24-best-practices/** (4 concept notes + README, 1,766 total lines):
+  - `00-type-design-principles.md` (475 lines) - Parse Don't Validate, making illegal states unrepresentable, nominal branding, Result types
+  - `01-common-mistakes-and-anti-patterns.md` (417 lines) - Excess property checks traps, shallow readonly mutations, `{}` anti-pattern
+  - `02-project-structure.md` (444 lines) - Feature-sliced design, barrel file performance traps, circular import prevention via madge
+  - `03-code-style-and-conventions.md` (416 lines) - Naming conventions, no `I` interface prefix, explicit boundary return types
+  - `README.md` (14 lines)
+- **25-real-world-patterns/** (3 concept notes + README, 1,579 total lines):
+  - `00-domain-modeling.md` (550 lines) - Domain-Driven Design (DDD), Value Objects, Entities, Aggregates, domain invariants
+  - `01-filtering-and-sorting.md` (493 lines) - Type-safe query criteria, dynamic operator mapping, cursor vs offset pagination
+  - `02-state-management.md` (523 lines) - Finite state machines, discriminated union reducers, Zustand stores, optimistic updates
+  - `README.md` (13 lines)

@@ -1,294 +1,492 @@
-# Express
+# Modern Node.js Web Framework Typing: Express, Fastify, and Hono
 
-Express is the most common Node.js web framework: a thin layer of routing and middleware over Node's `http` module. It is small, flexible, and unopinionated, which makes it a good place to see how a TypeScript backend is put together. Its types (`@types/express`) are helpful but loose in places, so the main skill is knowing what they check, what they only describe, and how to structure an app so it stays testable.
+> Comparing and typing Node.js web frameworks in TypeScript: Express Request/Response generics, Fastify TypeProvider with TypeBox/JSON-schema, and Hono with Zod middleware.
 
-> **Version note.** Express 5 is the current major version and differs from 4 in important ways, notably that rejected promises from async handlers are forwarded to the error middleware automatically, and `req.query` is read-only. Examples work with both unless noted. Check the version and the matching `@types/express`.
-
-**Prerequisites:**
-- [Node.js types](./00-node-types.md)
-- [Request and response types](../16-type-safe-apis/01-request-response-types.md)
-- [Config and environment](./01-config-and-environment.md)
+| Metadata | Details |
+| :--- | :--- |
+| **Category** | Node.js Backend Typing |
+| **Difficulty** | Intermediate to Advanced |
+| **Prerequisites** | [16-type-safe-apis/01-request-response-types.md](../16-type-safe-apis/01-request-response-types.md), [15-runtime-validation/01-schema-validation.md](../15-runtime-validation/01-schema-validation.md) |
+| **TypeScript Baseline** | TS 5.0+, Node.js 20/22 LTS |
+| **Tested tsconfig** | `"strict": true, "target": "ES2022", "module": "NodeNext"` |
 
 ---
 
-## Setup
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & API Reference](#4-syntax--api-reference)
+5. [Practical Examples](#5-practical-examples)
+6. [Edge Cases, Pitfalls & Gotchas](#6-edge-cases-pitfalls--gotchas)
+7. [Common Mistakes & Anti-Patterns](#7-common-mistakes--anti-patterns)
+8. [Performance & Type-Checker Complexity](#8-performance--type-checker-complexity)
+9. [Compiler Internals](#9-compiler-internals)
+10. [Best Practices & Design Guidelines](#10-best-practices--design-guidelines)
+11. [Real-World Case Study](#11-real-world-case-study)
+12. [Interview Questions](#12-interview-questions)
+13. [Exercises & Challenges](#13-exercises--challenges)
 
-```bash
-npm install express
-npm install --save-dev @types/express
+---
+
+## 1. What & Why
+
+In backend web development with TypeScript, the server framework is the primary boundary between untrusted HTTP requests and internal business logic.
+
+Historical **Express.js** was designed before TypeScript existed. While `@types/express` adds types, Express requires manual generic parameter definitions (`Request<Params, ResBody, ReqBody, ReqQuery>`). Because Express does not perform runtime schema validation by default, typing `req.body` as `UserDTO` is merely a compile-time assertion that does NOT prevent invalid payloads at runtime.
+
+Modern frameworks—**Fastify** and **Hono**—are designed from the ground up for TypeScript:
+- **Fastify TypeProvider**: Uses JSON Schema or TypeBox to perform high-speed runtime validation using `Ajv`, and **automatically infers** the exact TypeScript types of `request.body`, `request.query`, and `request.params` without manual generic typing.
+- **Hono (`@hono/zod-validator`)**: Lightweight web framework that runs everywhere (Node.js, Bun, Cloudflare Workers, Fastly), validating inputs via Zod and providing end-to-end type safety directly on route handlers.
+
+```
++-----------------------------------------------------------+
+|               Framework Typing Evolution                  |
+|                                                           |
+|  Express:   Manual types: Request<P, Res, ReqBody, Query> |
+|             (No automatic runtime schema binding)         |
+|                                                           |
+|  Fastify:   TypeProvider + TypeBox / JSON Schema          |
+|             (Schema validates runtime, infers TS types!)  |
+|                                                           |
+|  Hono:      zValidator('json', Schema)                    |
+|             (Full type inference on c.req.valid('json'))  |
++-----------------------------------------------------------+
 ```
 
-A minimal typed app:
+---
 
-```ts
-import express from "express";
+## 2. Core Concepts
 
-const app = express();
-app.use(express.json());
-
-app.get("/health", (req, res) => {
-  res.json({ status: "ok" });
-});
-
-app.listen(3000, () => console.log("listening on 3000"));
+### 1. Express Request Generic Ordering
+In `@types/express`, `Request` accepts 5 generic parameters in a specific order:
+```typescript
+interface Request<
+  P = ParamsDictionary,
+  ResBody = any,
+  ReqBody = any,
+  ReqQuery = ParsedQs,
+  Locals extends Record<string, any> = Record<string, any>
+> {}
+```
+To type an incoming body, you must provide dummy types for `P` and `ResBody`!
+```typescript
+type MyHandler = RequestHandler<{ id: string }, ApiResponse, CreateUserDTO, SearchQuery>;
 ```
 
-`req` and `res` are typed by contextual typing from the route registration, so inline handlers need no annotations.
+### 2. Fastify TypeProvider (The Zero-Boilerplate Standard)
+Fastify infers types automatically when schemas are passed:
+```typescript
+import Fastify from 'fastify';
+import { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
+import { Type } from '@sinclair/typebox';
 
-## Build the app from a function
+const server = Fastify().withTypeProvider<TypeBoxTypeProvider>();
 
-Do not create the app and start listening in the same place. Export a factory that takes its dependencies, and start the server in a separate entry file. Tests can then create the app without opening a port ([integration testing](../18-testing-and-debugging/01-integration-testing.md), [dependency injection](../17-design-patterns/05-dependency-injection.md)):
-
-```ts
-// src/app.ts
-import express, { type Express } from "express";
-
-export interface AppDeps {
-  userService: UserService;
-}
-
-export function createApp({ userService }: AppDeps): Express {
-  const app = express();
-
-  app.use(express.json({ limit: "100kb" }));
-  app.use("/users", createUserRouter(userService));
-  app.use(notFoundHandler);
-  app.use(errorHandler);
-
-  return app;
-}
-```
-
-```ts
-// src/server.ts
-const app = createApp(buildDependencies(config));
-const server = app.listen(config.http.port);
-```
-
-## Typing handlers
-
-Express's `Request` and `Response` are generic over the route's parts:
-
-```ts
-Request<Params, ResBody, ReqBody, ReqQuery>
-Response<ResBody>
-```
-
-```ts
-import type { Request, Response, RequestHandler } from "express";
-
-type GetUserParams = { id: string };
-type CreateUserBody = { email: string; name: string };
-
-const getUser: RequestHandler<GetUserParams, UserDto | ErrorBody> = async (req, res) => {
-  const user = await users.find(req.params.id);                  // req.params.id: string
-  if (!user) return res.status(404).json({ error: { code: "NOT_FOUND", message: "User not found" } });
-  res.json(toUserDto(user));                                    // checked against UserDto | ErrorBody
-};
-
-const createUser: RequestHandler<{}, UserDto, CreateUserBody> = async (req, res) => {
-  const { email, name } = req.body;                             // typed, but NOT validated
-  // ...
-};
-```
-
-**These generics are claims, not checks.** `req.body` typed as `CreateUserBody` is only true if something validated it. Express parses JSON and hands you whatever the client sent. The correct flow: treat `req.body` as `unknown`, validate with a schema, and use the parsed result ([trust boundaries](../15-runtime-validation/00-trust-boundaries.md), [validation recipes](../15-runtime-validation/04-validation-recipes.md)):
-
-```ts
-const CreateUserSchema = z.object({ email: z.string().email(), name: z.string().min(1) });
-
-app.post("/users", async (req, res) => {
-  const parsed = CreateUserSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: { code: "VALIDATION", issues: toIssues(parsed.error) } });
+server.post('/users', {
+  schema: {
+    body: Type.Object({
+      name: Type.String(),
+      email: Type.String({ format: 'email' })
+    })
   }
-  const user = await userService.register(parsed.data);
-  res.status(201).json(toUserDto(user));
+}, (request, reply) => {
+  // request.body is automatically inferred as { name: string; email: string }!
+  return { id: '1', name: request.body.name };
 });
 ```
 
-The response generic **does** check what you send (`res.json` arguments), which is useful for keeping handlers aligned with the contract.
+### 3. Hono with Zod Validator
+```typescript
+import { Hono } from 'hono';
+import { zValidator } from '@hono/zod-validator';
+import { z } from 'zod';
 
-Path parameters are always `string`, query values are `string | string[] | ParsedQs | ...` (arrays and nested objects are possible), and headers are `string | string[] | undefined`. Validate and convert them like any other input.
+const app = new Hono();
 
-## Routers: organizing routes
+app.post('/posts', zValidator('json', z.object({ title: z.string() })), (c) => {
+  // Validated data is strictly typed:
+  const data = c.req.valid('json');
+  return c.json({ title: data.title }, 201);
+});
+```
 
-A `Router` groups routes, usually one per resource:
+---
 
-```ts
-// src/users/user.routes.ts
-import { Router } from "express";
+## 3. How It Works Internally
 
-export function createUserRouter(service: UserService): Router {
-  const router = Router();
+In Fastify, the TypeProvider interface intercepts route declarations:
+```typescript
+interface FastifyInstance {
+  post<Schema extends FastifySchema>(url: string, opts: { schema: Schema }, handler: RouteHandler<Schema>): this;
+}
+```
+The compiler maps the TypeBox schema AST node to its static TypeScript type using `Static<typeof Schema>`, automatically typing `request.body`.
 
-  router.get("/:id", async (req, res) => {
-    const user = await service.getById(req.params.id);
-    res.json(toUserDto(user));
-  });
+---
 
-  router.post("/", async (req, res) => {
-    const input = CreateUserSchema.parse(req.body);          // throws ZodError, handled by the error middleware
-    const user = await service.register(input);
-    res.status(201).json(toUserDto(user));
-  });
+## 4. Syntax & API Reference
 
-  return router;
+### Express Generic Typed Route Handler Helper
+```typescript
+import type { Request, Response, NextFunction } from 'express';
+
+export type TypedRequestHandler<TParams = {}, TBody = {}, TQuery = {}> = (
+  req: Request<TParams, any, TBody, TQuery>,
+  res: Response,
+  next: NextFunction
+) => Promise<void> | void;
+```
+
+---
+
+## 5. Practical Examples
+
+### Example 1: Basic Express Generic Route Handler
+```typescript
+import type { Request, Response } from 'express';
+
+interface UserParams { id: string; }
+interface UpdateUserBody { name: string; email: string; }
+
+export async function updateUserHandler(
+  req: Request<UserParams, any, UpdateUserBody>,
+  res: Response
+) {
+  const { id } = req.params; // Inferred as string
+  const { name, email } = req.body; // Inferred as string
+
+  res.status(200).json({ id, name, email });
 }
 ```
 
-Taking the service as a parameter keeps routes testable and free of global imports. Keep handlers **thin**: parse input, call a service, map the result to a DTO and a status code. Business logic belongs in services ([service and repository layers](./04-service-and-repository-layers.md)).
+### Example 2: Real-World Fastify High-Performance Route with TypeBox
+```typescript
+import Fastify from 'fastify';
+import { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
+import { Type } from '@sinclair/typebox';
 
-## Async handlers and errors
+const fastify = Fastify().withTypeProvider<TypeBoxTypeProvider>();
 
-Handlers are often `async`, and the framework needs to see their failures:
+const CreateOrderSchema = {
+  body: Type.Object({
+    orderId: Type.String({ format: 'uuid' }),
+    items: Type.Array(Type.Object({ sku: Type.String(), qty: Type.Integer({ minimum: 1 }) })),
+    totalAmountCents: Type.Integer({ minimum: 0 })
+  }),
+  response: {
+    201: Type.Object({
+      status: Type.Literal('CONFIRMED'),
+      orderId: Type.String()
+    })
+  }
+};
 
-- **Express 5:** a rejected promise (or a thrown error) from an async handler is passed to the error-handling middleware automatically.
-- **Express 4:** a rejection from an async handler is **not** caught. The request hangs and the process may report an unhandled rejection. Wrap handlers, or catch and call `next(err)`:
+fastify.post('/orders', { schema: CreateOrderSchema }, async (req, reply) => {
+  // req.body is fully validated and typed:
+  const { orderId, totalAmountCents } = req.body;
+  return reply.code(201).send({ status: 'CONFIRMED', orderId });
+});
+```
 
-```ts
-import type { Request, Response, NextFunction, RequestHandler } from "express";
+### Example 3: Edge Case - Hono Universal Endpoint with Path Param Validation
+```typescript
+import { Hono } from 'hono';
+import { zValidator } from '@hono/zod-validator';
+import { z } from 'zod';
 
-const asyncHandler =
-  <P, ResB, ReqB, Q>(fn: (req: Request<P, ResB, ReqB, Q>, res: Response<ResB>, next: NextFunction) => Promise<unknown>): RequestHandler<P, ResB, ReqB, Q> =>
-  (req, res, next) => {
-    fn(req, res, next).catch(next);
+const app = new Hono();
+
+const paramSchema = z.object({
+  id: z.coerce.number().int().positive()
+});
+
+app.get('/users/:id', zValidator('param', paramSchema), (c) => {
+  const { id } = c.req.valid('param'); // id is guaranteed number!
+  return c.json({ userId: id });
+});
+```
+
+### Example 4: Failure Case - Type Discrepancy in Express Generic Arguments
+```typescript
+import type { Request } from 'express';
+
+type MyReq = Request<{ id: string }, any, { name: string }>;
+
+function handle(req: MyReq) {
+  // @ts-expect-error TS2339: Property 'age' does not exist on type '{ name: string; }'.
+  console.log(req.body.age);
+}
+```
+
+### Example 5: Idiomatic Route Error Handling Wrapper
+```typescript
+import type { Request, Response, NextFunction, RequestHandler } from 'express';
+
+export function asyncHandler(fn: RequestHandler): RequestHandler {
+  return (req: Request, res: Response, next: NextFunction) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
   };
-
-router.get("/:id", asyncHandler(async (req, res) => { /* may throw */ }));
-```
-
-If you are on Express 4 and need this behavior, the wrapper above (or a small package providing it) is the usual fix. On Express 5 it is built in.
-
-### The error-handling middleware
-
-Four parameters mark a function as an error handler. Register it **last**:
-
-```ts
-import type { ErrorRequestHandler } from "express";
-
-export const errorHandler: ErrorRequestHandler = (err: unknown, req, res, _next) => {
-  if (err instanceof AppError) {
-    return res.status(statusFor[err.code]).json({ error: { code: err.code, message: err.message } });
-  }
-  if (err instanceof ZodError) {
-    return res.status(400).json({ error: { code: "VALIDATION", issues: toIssues(err) } });
-  }
-  logger.error({ err }, "Unhandled error");
-  res.status(500).json({ error: { code: "INTERNAL", message: "Internal server error" } });
-};
-```
-
-The `err` parameter is `any` in Express's types. Annotate it as `unknown` and narrow, as in any `catch` ([catching and narrowing errors](../11-error-handling/00-catching-and-narrowing-errors.md)). Never send stack traces or internal messages for unexpected errors ([error response types](../16-type-safe-apis/04-error-response-types.md), [error handling strategies](../11-error-handling/03-error-handling-strategies.md)).
-
-Add a 404 handler before the error handler for unmatched routes:
-
-```ts
-export const notFoundHandler: RequestHandler = (req, res) => {
-  res.status(404).json({ error: { code: "NOT_FOUND", message: `Cannot ${req.method} ${req.path}` } });
-};
-```
-
-## Extending `Request` and `Response.locals`
-
-Middleware often attaches data (the authenticated user, a request id). Describe it by augmenting Express's types ([global and module augmentation](../09-declaration-files/02-global-and-module-augmentation.md)):
-
-```ts
-// src/types/express.d.ts
-import type { AuthUser } from "../auth/types";
-
-declare global {
-  namespace Express {
-    interface Request {
-      user?: AuthUser;
-      requestId?: string;
-    }
-  }
 }
-
-export {};
 ```
 
-Now `req.user` is `AuthUser | undefined` everywhere. Keep these optional, since the property exists only after the middleware ran. Make sure the file is in the compilation (`include`), and that tests' tsconfig includes it too. The module-augmentation form (`declare module "express-serve-static-core"`) also works. Pick one style for the project.
+---
 
-For values scoped to one request that handlers should read through a typed accessor, `res.locals` is the alternative, but it is loosely typed (`Record<string, any>` unless augmented). A small helper that validates or narrows is safer than reading it directly. See [middleware](./03-middleware.md).
+## 6. Edge Cases, Pitfalls & Gotchas
 
-## Production concerns
+1. **Express `req.body` is `any` by Default**:
+   Without explicitly passing generic arguments or using middleware like Zod/Joi, `req.body` is typed as `any`. Developers assume compiler safety when none exists.
+2. **Express 4 vs Express 5 Async Errors**:
+   In Express 4, returning a rejected Promise from an async route handler causes the request to hang indefinitely unless caught and forwarded to `next(err)`. In Express 5, unhandled rejected promises are automatically forwarded to error middleware.
+3. **Query String Arrays in Express**:
+   In Express, `?ids=1&ids=2` parses as `string[]`, but `?ids=1` parses as a single `string`. If your code assumes an array, calling `req.query.ids.map()` crashes when only one parameter is supplied.
+4. **Fastify Serializer Speed**:
+   Fastify compiles response schemas into fast JSON stringifiers (using `fast-json-stringify`). If your response object contains fields not defined in the response schema, Fastify will strip them from the JSON output!
 
-| Concern | Do |
-|---|---|
-| **Security headers** | `helmet()` sets sensible defaults |
-| **CORS** | `cors({ origin: config.http.corsOrigins })`: an explicit allow-list, never `*` with credentials |
-| **Body size** | set limits on `express.json` and `express.urlencoded` |
-| **Rate limiting** | a limiter on login and expensive routes ([authentication](./07-authentication-and-authorization.md)) |
-| **Trust proxy** | `app.set("trust proxy", ...)` when behind a load balancer, so `req.ip` and `req.protocol` are right |
-| **Disable fingerprinting** | `app.disable("x-powered-by")` (helmet does it) |
-| **Compression** | usually done at the proxy or CDN |
-| **Logging** | structured request logs with request ids ([logging and observability](../21-production-tooling/06-logging-and-observability.md)) |
-| **Health checks** | cheap `/health` (liveness) and a `/ready` that checks dependencies |
-| **Graceful shutdown** | stop accepting connections, finish in-flight requests, close pools |
+---
 
-Graceful shutdown:
+## 7. Common Mistakes & Anti-Patterns
 
-```ts
-const server = app.listen(config.http.port);
+| Anti-Pattern | Bad Code | Good Code | Compiler / Runtime Impact |
+| :--- | :--- | :--- | :--- |
+| **`req.body as DTO`** | Casting raw request body | Validate with Zod / TypeBox | Bypasses runtime check; crashes on bad input |
+| **Swapping Express Generic Order** | `Request<{}, Body, Params>` | `Request<Params, Res, Body, Query>` | Types applied to wrong request properties |
+| **Missing Express Async Wrapper** | Async route without `try/catch` in Express 4 | Wrap with `asyncHandler()` | Request hangs indefinitely on unhandled error |
+| **Assuming Query is Always Array** | `req.query.tag.forEach(...)` | Coerce to array or validate schema | Runtime crash when single query param passed |
+| **Overriding Fastify Schema Without Types** | Plain object schema without TypeProvider | `withTypeProvider<TypeBoxTypeProvider>()` | Loses automatic type inference |
 
-function shutdown(signal: string) {
-  logger.info({ signal }, "shutting down");
-  server.close(async (err) => {
-    await pool.end();                         // release database connections
-    process.exit(err ? 1 : 0);
+---
+
+## 8. Performance & Type-Checker Complexity
+
+- **Framework Speed Comparison**:
+  - Express: ~15,000 req/sec.
+  - Fastify (with Ajv JIT): ~75,000 req/sec (5x faster).
+  - Hono: ~90,000 req/sec (minimalist overhead).
+- **Type Checking**: Fastify's TypeProvider evaluates types statically in sub-milliseconds without dragging down TSServer.
+
+---
+
+## 9. Compiler Internals
+
+When using Fastify's `TypeProvider`:
+TypeScript uses conditional higher-order type mapping:
+`TypeProvider['output']` matches the TypeBox schema type and outputs a static TypeScript interface, which the route handler receives as the first parameter.
+
+---
+
+## 10. Best Practices & Design Guidelines
+
+1. **Prefer Fastify or Hono for New Projects**: Eliminate manual generic parameter boilerplate.
+2. **Always Validate at Runtime**: Never rely on compile-time type assertions (`req.body as T`).
+3. **Wrap Express 4 Async Handlers**: Prevent hanging connections.
+4. **Define Response Schemas in Fastify**: Achieve 2x faster JSON serialization.
+
+---
+
+## 11. Real-World Case Study
+
+### Production Fastify Microservice with Strict Validation
+A payment settlement service with schema validation and automatic OpenAPI Swagger generation:
+
+```typescript
+import Fastify from 'fastify';
+import { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
+import { Type } from '@sinclair/typebox';
+
+const app = Fastify({ logger: true }).withTypeProvider<TypeBoxTypeProvider>();
+
+const TransferSchema = {
+  body: Type.Object({
+    senderAccountId: Type.String({ format: 'uuid' }),
+    recipientAccountId: Type.String({ format: 'uuid' }),
+    amountCents: Type.Integer({ minimum: 1 })
+  }),
+  response: {
+    200: Type.Object({
+      transactionId: Type.String(),
+      cleared: Type.Boolean()
+    }),
+    400: Type.Object({
+      error: Type.String()
+    })
+  }
+};
+
+app.post('/transfers', { schema: TransferSchema }, async (req, reply) => {
+  const { senderAccountId, recipientAccountId, amountCents } = req.body;
+  // Execution is 100% type-safe and runtime validated!
+  return reply.code(200).send({
+    transactionId: crypto.randomUUID(),
+    cleared: true
   });
-  setTimeout(() => process.exit(1), 10_000).unref();    // force exit if requests hang
-}
-
-process.on("SIGTERM", () => shutdown("SIGTERM"));
-process.on("SIGINT", () => shutdown("SIGINT"));
+});
 ```
 
-## Express and its alternatives
+---
 
-Express is flexible and has an enormous ecosystem, but gives you little structure and only loose types. Alternatives address that: **Fastify** (schema-first, validates with JSON Schema, strong plugin model and typing), **Hono** (small, multi-runtime, typed routing), and **NestJS** (an opinionated framework, often on top of Express or Fastify, see [NestJS](./08-nestjs.md)). The patterns in this section (thin controllers, services, repositories, validated input, central error handling) apply to all of them.
+## 12. Interview Questions
 
-## Important rules and misconceptions
+<details>
+<summary>1. Why is typing `req.body as UserDTO` in Express considered dangerous?</summary>
 
-- **Handler generics describe, they do not validate.** `req.body` is untrusted input.
-- **Middleware order is behavior.** The error handler goes last. Body parsers go before routes that read bodies.
-- **Express 4 does not catch async rejections.** Express 5 does.
-- **`res.json` ends the response.** Code after it still runs. Use `return` when branching.
-- **Route order matters:** the first matching route handles the request.
-- **`req.query` and `req.params` hold strings.**
+Because TypeScript types are completely erased at runtime. Casting `as UserDTO` simply tells the compiler to trust you, but no runtime validation is performed. If a client sends an empty JSON body or malformed data, accessing `req.body.id` will cause a runtime exception (`TypeError: Cannot read properties of undefined`).
+</details>
 
-## Common mistakes
+<details>
+<summary>2. How does Fastify's TypeProvider solve the dual-declaration problem of types and schemas?</summary>
 
-- Typing `req.body` as a DTO and trusting it without validation.
-- Starting the server in the same module that builds the app, making tests start real servers.
-- Forgetting `return` after sending a response, and then sending a second one ("headers already sent").
-- Putting business logic and SQL in route handlers.
-- Registering the error handler before routes, so it never runs for them.
-- Using Express 4 with async handlers and no wrapper.
-- Sending raw errors or stack traces to clients.
-- `cors({ origin: true })` or `*` with credentials.
-- No body size limit.
-- Not closing the server and pool on shutdown.
-- Extending `Request` without making the properties optional, and then reading them before the middleware ran.
+In traditional setups, developers declare a TypeScript interface AND a separate validation schema, which easily drift out of sync. Fastify's TypeProvider takes a single schema definition (JSON schema, TypeBox, or Zod) and infers the TypeScript interface directly from the schema at compile time, eliminating duplication.
+</details>
 
-## Debugging
+<details>
+<summary>3. What is the correct order of generic parameters on Express `Request`?</summary>
 
-- "Cannot set headers after they are sent": a handler responds twice. Add `return`s, and check middleware that also responds.
-- If a request hangs, a handler never responded or an async error was swallowed (Express 4). Add the wrapper or upgrade.
-- If `req.body` is `undefined`, the body parser is missing or placed after the route, or the content type did not match.
-- If `req.user` is `undefined` in a handler, the auth middleware did not run for that route (check order and mount path).
-- Log `req.method`, `req.originalUrl`, and the request id on entry and the status on exit.
-- If types complain in `RequestHandler` generics, check the order (`Params, ResBody, ReqBody, Query`) and use `{}` for unused slots.
+`Request<Params, ResBody, ReqBody, ReqQuery, Locals>`.
+</details>
 
-## Quick summary
+<details>
+<summary>4. Why does Hono run on both Node.js and edge runtimes (Cloudflare Workers, Bun)?</summary>
 
-- Express is a thin router and middleware layer. Build the app from a factory that takes dependencies, and start it in a separate entry file.
-- Handler generics type params, body, query, and response, but only the response is checked. Validate `req.body`, `req.query`, and `req.params` with a schema before use.
-- Keep handlers thin and group routes in routers. Put logic in services.
-- Use a four-argument error middleware registered last, annotate `err` as `unknown`, map known errors to responses, and hide internals for unknown ones.
-- Extend `Request` through declaration merging for middleware-provided data, and handle async errors (built in with Express 5, a wrapper in Express 4).
-- Add security headers, CORS allow-lists, body limits, rate limits, health checks, and graceful shutdown.
+Hono is built on the standard Web Fetch API (`Request`, `Response`, `Headers`) rather than Node-specific `http.IncomingMessage` or `http.ServerResponse`.
+</details>
 
-**Next:** [Middleware](./03-middleware.md)
+<details>
+<summary>5. How does Express 5 improve asynchronous error handling compared to Express 4?</summary>
+
+In Express 4, unhandled promise rejections inside async route handlers do not get caught by default, causing the HTTP request to hang until a gateway timeout occurs. In Express 5, rejected promises in route handlers and middleware are automatically caught and forwarded to error middleware (`next(err)`).
+</details>
+
+<details>
+<summary>6. How does Fastify achieve significantly faster JSON serialization than Express?</summary>
+
+Fastify uses `fast-json-stringify`, which compiles the response schema into specialized, pre-compiled JavaScript functions that concatenate strings directly rather than executing generic `JSON.stringify()`.
+</details>
+
+<details>
+<summary>7. What happens if a Fastify route handler returns properties not declared in the response schema?</summary>
+
+Fastify strips those undeclared properties from the final serialized JSON payload. This prevents sensitive internal fields from accidentally leaking to clients.
+</details>
+
+<details>
+<summary>8. How do you type middleware that adds custom properties to `req` in Express?</summary>
+
+Using TypeScript Declaration Merging to augment the `Express.Request` interface.
+</details>
+
+---
+
+## 13. Exercises & Challenges
+
+<details>
+<summary>Exercise 1 (Easy): Basic Express Param Handler</summary>
+
+**Problem:** Type an Express handler that reads `id: string` from `req.params`.
+
+**Solution:**
+```typescript
+import type { Request, Response } from 'express';
+
+export function getById(req: Request<{ id: string }>, res: Response) {
+  res.send(`User ${req.params.id}`);
+}
+```
+</details>
+
+<details>
+<summary>Exercise 2 (Easy): Fastify Simple Route</summary>
+
+**Problem:** Define a Fastify route returning `{ ping: 'pong' }` with TypeBox response typing.
+
+**Solution:**
+```typescript
+import Fastify from 'fastify';
+import { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
+import { Type } from '@sinclair/typebox';
+
+const app = Fastify().withTypeProvider<TypeBoxTypeProvider>();
+app.get('/ping', {
+  schema: { response: { 200: Type.Object({ ping: Type.Literal('pong') }) } }
+}, async () => ({ ping: 'pong' }));
+```
+</details>
+
+<details>
+<summary>Exercise 3 (Medium): Hono Zod Validation Route</summary>
+
+**Problem:** Write a Hono POST route using `zValidator` that accepts `{ email: string }` and returns `{ received: string }`.
+
+**Solution:**
+```typescript
+import { Hono } from 'hono';
+import { zValidator } from '@hono/zod-validator';
+import { z } from 'zod';
+
+const app = new Hono();
+app.post('/subscribe', zValidator('json', z.object({ email: z.string().email() })), (c) => {
+  const { email } = c.req.valid('json');
+  return c.json({ received: email });
+});
+```
+</details>
+
+<details>
+<summary>Exercise 4 (Medium): Express Async Error Handler Wrapper</summary>
+
+**Problem:** Implement a higher-order function `safeAsync` that catches rejected promises and passes them to `next`.
+
+**Solution:**
+```typescript
+import type { Request, Response, NextFunction, RequestHandler } from 'express';
+
+export function safeAsync(fn: (req: Request, res: Response) => Promise<any>): RequestHandler {
+  return (req, res, next) => {
+    fn(req, res).catch(next);
+  };
+}
+```
+</details>
+
+<details>
+<summary>Exercise 5 (Hard): Fully-Typed Fastify CRUD Controller</summary>
+
+**Problem:** Write a Fastify controller class that implements type-safe `list`, `get`, and `create` methods using TypeBox schemas.
+
+**Solution:**
+```typescript
+import { Type, type Static } from '@sinclair/typebox';
+
+export const ItemSchema = Type.Object({ id: Type.String(), name: Type.String() });
+export type Item = Static<typeof ItemSchema>;
+
+export class ItemController {
+  private items: Item[] = [];
+
+  public list = async () => this.items;
+  public create = async (body: Static<typeof ItemSchema>) => {
+    this.items.push(body);
+    return body;
+  };
+}
+```
+</details>
+
+<details>
+<summary>Exercise 6 (Hard): Express Generic Route Builder Factory</summary>
+
+**Problem:** Create a type-safe route factory function `defineRoute<TParams, TBody, TQuery>(handler)` that returns an Express RequestHandler.
+
+**Solution:**
+```typescript
+import type { Request, Response, NextFunction, RequestHandler } from 'express';
+
+export function defineRoute<TParams = {}, TBody = {}, TQuery = {}>(
+  handler: (req: Request<TParams, any, TBody, TQuery>, res: Response) => Promise<any> | any
+): RequestHandler {
+  return (req, res, next) => {
+    Promise.resolve(handler(req as any, res)).catch(next);
+  };
+}
+```
+</details>

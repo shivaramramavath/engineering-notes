@@ -1,226 +1,486 @@
-# Event Types
+# React Synthetic Events and DOM Event Typing in TypeScript
 
-React wraps browser events in its own **synthetic event** objects, and `@types/react` has a matching type for each: `MouseEvent`, `ChangeEvent`, `KeyboardEvent`, and so on, each generic over the element the handler is attached to. Getting these right gives you typed `currentTarget`, correct property names, and autocomplete. Getting them wrong produces some of the most annoying TypeScript errors in React code. This note covers the types you need, why `target` and `currentTarget` differ, and how to type handlers and native listeners.
+> Typing React events in TypeScript: SyntheticEvent vs native Event, MouseEvent, ChangeEvent, FormEvent, KeyboardEvent, event target vs currentTarget, and custom event handlers.
 
-**Prerequisites:**
-- [Component props and children](./00-component-props-and-children.md)
-- [Callbacks](../02-functions/02-callbacks.md)
-- [Type narrowing](../03-unions-and-narrowing/03-type-narrowing.md) (`instanceof` on DOM elements)
+| Metadata | Details |
+| :--- | :--- |
+| **Category** | React and Frontend Typing |
+| **Difficulty** | Intermediate |
+| **Prerequisites** | [02-functions/00-function-types.md](../02-functions/00-function-types.md), [19-react-and-frontend/00-component-props-and-children.md](./00-component-props-and-children.md) |
+| **TypeScript Baseline** | TS 5.0+, React 19 / @types/react 19 |
+| **Tested tsconfig** | `"strict": true, "jsx": "react-jsx", "module": "NodeNext"` |
 
 ---
 
-## Inline handlers need no annotation
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & API Reference](#4-syntax--api-reference)
+5. [Practical Examples](#5-practical-examples)
+6. [Edge Cases, Pitfalls & Gotchas](#6-edge-cases-pitfalls--gotchas)
+7. [Common Mistakes & Anti-Patterns](#7-common-mistakes--anti-patterns)
+8. [Performance & Type-Checker Complexity](#8-performance--type-checker-complexity)
+9. [Compiler Internals](#9-compiler-internals)
+10. [Best Practices & Design Guidelines](#10-best-practices--design-guidelines)
+11. [Real-World Case Study](#11-real-world-case-study)
+12. [Interview Questions](#12-interview-questions)
+13. [Exercises & Challenges](#13-exercises--challenges)
 
-When you write the handler **inline**, TypeScript infers the event type from the element and the event name:
+---
 
-```tsx
-<button onClick={(e) => console.log(e.clientX)} />       // e: React.MouseEvent<HTMLButtonElement>
-<input onChange={(e) => console.log(e.target.value)} />  // e: React.ChangeEvent<HTMLInputElement>
-<form onSubmit={(e) => e.preventDefault()} />            // e: React.FormEvent<HTMLFormElement>
+## 1. What & Why
+
+In browser JavaScript, event handling differs across browsers and historical DOM specifications. React normalizes browser events through **Synthetic Events**—a cross-browser wrapper around the browser’s native event system.
+
+When using TypeScript with React event handlers, developers frequently encounter type friction:
+- Trying to access `e.target.value` on an `e: React.SyntheticEvent` results in compiler errors because `target` is typed as a generic `EventTarget` (which lacks a `.value` property).
+- Confusing `e.target` (the element that triggered the event) with `e.currentTarget` (the element that attaches the event listener).
+- Using untyped inline functions `(e: any) => ...`, which strips compiler safety.
+
+TypeScript provides specialized generic event types (`React.ChangeEvent<HTMLInputElement>`, `React.MouseEvent<HTMLButtonElement>`, `React.FormEvent<HTMLFormElement>`) that give accurate autocomplete and type safety over event properties.
+
+```
++-----------------------------------------------------------+
+|                   React SyntheticEvent<T>                 |
+|                                                           |
+|  nativeEvent: MouseEvent / KeyboardEvent                  |
+|  currentTarget: T (Guaranteed HTMLInputElement / Button)   |
+|  target: EventTarget (Can be child span, icon, etc.)      |
+|  preventDefault(): void                                   |
+|  stopPropagation(): void                                  |
++-----------------------------------------------------------+
 ```
 
-This is contextual typing: the expected type of the `onClick` prop supplies the parameter type ([type widening and inference](../14-type-system-internals/03-type-widening-and-inference.md)). Prefer inline handlers when they are short.
+---
 
-## Extracted handlers need an annotation
+## 2. Core Concepts
 
-If you define the handler separately, there is no context, so annotate the parameter:
+### 1. `currentTarget` vs `target`
+- **`e.currentTarget`**: The element to which the event handler is attached. In TypeScript, `currentTarget` is strictly typed to the generic parameter `T` in `React.SyntheticEvent<T>`. Accessing `e.currentTarget.value` on `ChangeEvent<HTMLInputElement>` is always safe!
+- **`e.target`**: The DOM node where the event originated (due to event bubbling). If you click an icon inside a button, `target` may be the `<svg>` or `<span>`, while `currentTarget` is the `<button>`. `target` is typed broadly as `EventTarget`.
 
-```tsx
-import type { ChangeEvent, FormEvent, MouseEvent, KeyboardEvent } from "react";
+### 2. Standard React Event Handlers
+| Event Type | Typical Elements | Common Handler Prop |
+| :--- | :--- | :--- |
+| `ChangeEvent<HTMLInputElement>` | `<input>`, `<textarea>`, `<select>` | `onChange` |
+| `MouseEvent<HTMLButtonElement>` | `<button>`, `<div>`, `<a>` | `onClick`, `onMouseEnter` |
+| `FormEvent<HTMLFormElement>` | `<form>` | `onSubmit` |
+| `KeyboardEvent<HTMLInputElement>` | Any focusable element | `onKeyDown`, `onKeyUp` |
+| `FocusEvent<HTMLInputElement>` | Inputs, buttons | `onFocus`, `onBlur` |
+| `DragEvent<HTMLDivElement>` | Draggable containers | `onDragStart`, `onDrop` |
 
-function handleChange(e: ChangeEvent<HTMLInputElement>) {
-  setName(e.target.value);
+---
+
+## 3. How It Works Internally
+
+The `@types/react` definitions model events as generic interfaces extending `SyntheticEvent`:
+```typescript
+interface ChangeEvent<T = Element> extends SyntheticEvent<T> {
+  target: EventTarget & T;
 }
+```
+When you supply `HTMLInputElement` as `T`:
+`e.target` is intersected with `HTMLInputElement`, giving access to `.value`, `.checked`, `.name`, and `.files`.
 
-function handleSubmit(e: FormEvent<HTMLFormElement>) {
-  e.preventDefault();
-  save();
-}
+---
 
-function handleClick(e: MouseEvent<HTMLButtonElement>) {
-  console.log(e.currentTarget.name);
-}
+## 4. Syntax & API Reference
 
-function handleKeyDown(e: KeyboardEvent<HTMLInputElement>) {
-  if (e.key === "Enter") submit();
+### Event Handler Prop Types
+```typescript
+import type { ChangeEventHandler, MouseEventHandler, FormEventHandler } from 'react';
+
+// Explicit Function Handler Types:
+type InputChangeHandler = ChangeEventHandler<HTMLInputElement>;
+type ButtonClickHandler = MouseEventHandler<HTMLButtonElement>;
+type FormSubmitHandler = FormEventHandler<HTMLFormElement>;
+```
+
+---
+
+## 5. Practical Examples
+
+### Example 1: Basic Input Change and Form Submit Handlers
+```typescript
+import { useState, type ChangeEvent, type FormEvent } from 'react';
+
+export function LoginForm(): React.JSX.Element {
+  const [email, setEmail] = useState('');
+
+  const handleEmailChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setEmail(e.target.value); // Strongly typed!
+  };
+
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    console.log('Submitting email:', email);
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input type="email" value={email} onChange={handleEmailChange} />
+      <button type="submit">Log In</button>
+    </form>
+  );
 }
 ```
 
-The type argument is the **element the handler is attached to**. Using the wrong element (say `HTMLInputElement` for a `<select>`) gives an error when you attach the handler.
+### Example 2: Real-World Keyboard Event Filtering (Enter / Escape)
+```typescript
+import type { KeyboardEvent } from 'react';
 
-Alternatively, annotate the **handler type** instead of the parameter, using the `*Handler` aliases, so the parameter is inferred:
+export interface SearchBarProps {
+  onSearch: (query: string) => void;
+  onCancel: () => void;
+}
 
-```tsx
-import type { ChangeEventHandler } from "react";
+export function SearchBar({ onSearch, onCancel }: SearchBarProps) {
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      onSearch(e.currentTarget.value);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      onCancel();
+    }
+  };
 
-const handleChange: ChangeEventHandler<HTMLInputElement> = (e) => {
-  setName(e.target.value);
+  return <input type="text" placeholder="Search..." onKeyDown={handleKeyDown} />;
+}
+```
+
+### Example 3: Edge Case - Delegated Mouse Click on Compound Element
+```typescript
+import type { MouseEvent } from 'react';
+
+export function ComplexCardList() {
+  const handleContainerClick = (e: MouseEvent<HTMLDivElement>) => {
+    // currentTarget is HTMLDivElement (the container)
+    console.log('Container clicked at:', e.currentTarget.id);
+
+    // target could be any clicked child node:
+    const clickedElement = e.target as HTMLElement;
+    if (clickedElement.tagName === 'BUTTON') {
+      console.log('Button clicked inside card!');
+    }
+  };
+
+  return (
+    <div id="card-container" onClick={handleContainerClick}>
+      <div className="card">
+        <h3>Card Title</h3>
+        <button type="button">Delete</button>
+      </div>
+    </div>
+  );
+}
+```
+
+### Example 4: Failure Case - Type Discrepancy on Element Generics
+```typescript
+import type { ChangeEvent } from 'react';
+
+function handleSelectChange(e: ChangeEvent<HTMLSelectElement>) {
+  console.log(e.target.value);
+}
+
+// @ts-expect-error TS2322: Type '(e: ChangeEvent<HTMLSelectElement>) => void' is not assignable to type 'ChangeEventHandler<HTMLInputElement>'.
+const input = <input type="text" onChange={handleSelectChange} />;
+```
+
+### Example 5: Idiomatic Custom Event Callback Props
+```typescript
+export interface SliderProps {
+  value: number;
+  min: number;
+  max: number;
+  // Idiomatic React pattern: pass parsed values in domain callbacks
+  onChange: (value: number) => void;
+}
+
+export function Slider({ value, min, max, onChange }: SliderProps) {
+  return (
+    <input
+      type="range"
+      min={min}
+      max={max}
+      value={value}
+      onChange={(e) => onChange(Number(e.target.value))}
+    />
+  );
+}
+```
+
+---
+
+## 6. Edge Cases, Pitfalls & Gotchas
+
+1. **`target` vs `currentTarget` with SVGs**:
+   If an icon inside a button is an SVG, clicking the icon makes `e.target` an `SVGElement`, not an `HTMLElement`. Accessing `(e.target as HTMLElement).innerText` will fail or return `undefined`. Always use `e.currentTarget` to inspect the button that owns the event listener.
+2. **File Input Typing**:
+   On `<input type="file" />`, `e.target.files` is typed as `FileList | null`. Always guard with `if (e.target.files?.[0])` before accessing uploaded files.
+3. **Event Pooling (Obsolete in React 17+)**:
+   In React 16, accessing synthetic events in asynchronous callbacks (`setTimeout`) required calling `e.persist()`. In React 17 and React 19, synthetic event pooling was completely removed, so synthetic event properties remain accessible asynchronously without `e.persist()`.
+4. **Custom Synthetic Events**:
+   React synthetic events are not native browser events. Passing a synthetic event to an external non-React library expecting a native DOM `Event` fails unless you pass `e.nativeEvent`.
+
+---
+
+## 7. Common Mistakes & Anti-Patterns
+
+| Anti-Pattern | Bad Code | Good Code | Compiler / Runtime Impact |
+| :--- | :--- | :--- | :--- |
+| **Using `any` for Event** | `(e: any) => e.target.value` | `(e: ChangeEvent<HTMLInputElement>) => ...` | Loss of autocomplete and compiler checking |
+| **Using DOM `MouseEvent` Instead of React's** | `import MouseEvent from 'global'` | `import type { MouseEvent } from 'react'` | Type collision between native and React events |
+| **Relying on `e.target` on Bubbled Events** | `e.target.id` on parent container | `e.currentTarget.id` | Returns child span ID instead of container ID |
+| **Missing `e.preventDefault()` on Submit** | Omitting preventDefault | `e.preventDefault()` | Triggers browser full-page reload |
+| **Un-guarded `files` Access** | `const file = e.target.files[0]` | `const file = e.target.files?.[0]` | Runtime `TypeError: Cannot read properties of null` |
+| **Leaking Synthetic Events to DOM** | Passing React event directly to 3rd party lib | Pass `e.nativeEvent` | 3rd party lib fails on missing native methods |
+
+---
+
+## 8. Performance & Type-Checker Complexity
+
+- **Inline vs Named Handlers**: Declaring inline arrow functions `onChange={(e) => setValue(e.target.value)}` allows TypeScript to contextually infer the event type automatically without manual type annotations! For 90% of handlers, contextual inference is preferred over manual type annotation.
+- **Compiler Speed**: React event types check instantly with zero compilation delay.
+
+---
+
+## 9. Compiler Internals
+
+When you attach an inline handler:
+```typescript
+<input onChange={(e) => console.log(e.target.value)} />
+```
+The compiler's `checkExpression` inspects the expected property type of `onChange` in `JSX.IntrinsicElements['input']`, which is `ChangeEventHandler<HTMLInputElement>`. TypeScript performs **Contextual Typing** on the parameter `e`, automatically inferring it as `React.ChangeEvent<HTMLInputElement>`.
+
+---
+
+## 10. Best Practices & Design Guidelines
+
+1. **Rely on Contextual Typing for Inline Handlers**: Write `onChange={(e) => ...}` and let TypeScript infer the event.
+2. **Use `e.currentTarget` for Listener Attributes**: Avoid bubbling discrepancies.
+3. **Wrap Primitive Values in Custom Component Props**: Custom components should expose `onChange: (val: string) => void` rather than raw DOM event objects.
+4. **Import Types Explicitly**: Use `import type { MouseEvent } from 'react'` to avoid shadowing global DOM events.
+
+---
+
+## 11. Real-World Case Study
+
+### File Drag-and-Drop Dropzone Component
+A production file uploader handling dragging, drag-leave, and drop events with strict file validation:
+
+```typescript
+import { useState, type DragEvent } from 'react';
+
+export interface FileDropzoneProps {
+  onFilesAccepted: (files: File[]) => void;
+  maxFiles?: number;
+}
+
+export function FileDropzone({ onFilesAccepted, maxFiles = 5 }: FileDropzoneProps): React.JSX.Element {
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault(); // Necessary to allow drop
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragOver(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const accepted = Array.from(e.dataTransfer.files).slice(0, maxFiles);
+      onFilesAccepted(accepted);
+    }
+  };
+
+  return (
+    <div
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className={`dropzone ${isDragOver ? 'active' : ''}`}
+    >
+      <p>Drag and drop files here</p>
+    </div>
+  );
+}
+```
+
+---
+
+## 12. Interview Questions
+
+<details>
+<summary>1. What is the difference between `React.ChangeEvent` and native DOM `Event`?</summary>
+
+`React.ChangeEvent` is a SyntheticEvent providing cross-browser normalization across different browser engines. In addition, `React.ChangeEvent` is generic over the target element (`ChangeEvent<HTMLInputElement>`), whereas the native DOM `Event` types `target` as generic `EventTarget`.
+</details>
+
+<details>
+<summary>2. What is the difference between `e.target` and `e.currentTarget` in React?</summary>
+
+`e.currentTarget` is always the element to which the event handler was attached. `e.target` is the actual element that triggered the event, which could be any nested child element due to event bubbling. In TypeScript, `e.currentTarget` is typed to the element specified in the synthetic event generic parameter.
+</details>
+
+<details>
+<summary>3. Why doesn't `e.target.value` compile on a generic `React.SyntheticEvent`?</summary>
+
+Because generic `SyntheticEvent` types `target` as `EventTarget`. Not all DOM event targets have a `.value` property (for example, `window`, `document`, or `div`). You must use `React.ChangeEvent<HTMLInputElement>` or inspect `e.currentTarget.value`.
+</details>
+
+<details>
+<summary>4. What was Event Pooling in React and does it still exist?</summary>
+
+Event pooling was a performance optimization in React 16 and earlier where synthetic event instances were reused across events for memory efficiency, requiring `e.persist()` to read properties asynchronously. It was completely removed in React 17+.
+</details>
+
+<details>
+<summary>5. How does Contextual Typing simplify event handler declarations in React?</summary>
+
+When an event handler is written inline (e.g. `<button onClick={(e) => ...} />`), TypeScript infers the type of `e` from the component's prop definition, eliminating the need to manually annotate `(e: React.MouseEvent<HTMLButtonElement>)`.
+</details>
+
+<details>
+<summary>6. How do you type a file input change handler?</summary>
+
+```typescript
+const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
 };
 ```
+</details>
 
-## Common event types
+<details>
+<summary>7. What is the return type of a React event handler?</summary>
 
-| Event | Type | Element generic examples |
-|---|---|---|
-| click, mouse down/up, move | `MouseEvent<T>` | `HTMLButtonElement`, `HTMLDivElement`, `HTMLAnchorElement` |
-| input, select, textarea change | `ChangeEvent<T>` | `HTMLInputElement`, `HTMLSelectElement`, `HTMLTextAreaElement` |
-| form submit | `FormEvent<T>` | `HTMLFormElement` |
-| key down/up | `KeyboardEvent<T>` | `HTMLInputElement`, `HTMLDivElement` |
-| focus / blur | `FocusEvent<T>` | `HTMLInputElement` |
-| drag and drop | `DragEvent<T>` | `HTMLDivElement` |
-| clipboard | `ClipboardEvent<T>` | `HTMLInputElement` |
-| pointer | `PointerEvent<T>` | `HTMLCanvasElement` |
-| touch | `TouchEvent<T>` | `HTMLDivElement` |
-| wheel | `WheelEvent<T>` | `HTMLDivElement` |
-| generic fallback | `SyntheticEvent<T>` | any |
+Event handlers in React typically return `void`. Returning a boolean (like `return false` in old jQuery) does NOT prevent default behavior in React; you must explicitly call `e.preventDefault()`.
+</details>
 
-Each has a matching `*EventHandler<T>` alias (`MouseEventHandler`, `ChangeEventHandler`, ...) for typing handler props and variables.
+<details>
+<summary>8. How do you pass the native browser event to an external library?</summary>
 
-## `target` vs `currentTarget`
+By reading `e.nativeEvent`, which contains the underlying browser DOM event.
+</details>
 
-This is the most common source of confusion.
+---
 
-- **`e.currentTarget`** is the element **the handler is attached to**. React types it as the generic argument you provided, so it is precisely typed (`HTMLButtonElement`, `HTMLFormElement`).
-- **`e.target`** is the element that **originally triggered** the event. With bubbling it can be a descendant (a `<span>` inside a button), so TypeScript types it as the broad `EventTarget`.
+## 13. Exercises & Challenges
 
-```tsx
-function handleClick(e: MouseEvent<HTMLButtonElement>) {
-  e.currentTarget.disabled = true;     // ok: HTMLButtonElement
-  e.target.disabled = true;            // error: 'disabled' does not exist on type 'EventTarget'
+<details>
+<summary>Exercise 1 (Easy): Typed Checkbox Toggle Handler</summary>
+
+**Problem:** Type a toggle handler for a checkbox `<input type="checkbox" />` that reads `.checked`.
+
+**Solution:**
+```typescript
+import type { ChangeEvent } from 'react';
+
+export function handleToggle(e: ChangeEvent<HTMLInputElement>): void {
+  console.log('Checked status:', e.target.checked);
 }
 ```
+</details>
 
-For `ChangeEvent`, React narrows `target` for you, because for an input's own change event the target is the input:
+<details>
+<summary>Exercise 2 (Easy): Typed Mouse Coordinate Logger</summary>
 
-```tsx
-function handleChange(e: ChangeEvent<HTMLInputElement>) {
-  e.target.value;           // ok: string
-  e.currentTarget.value;    // also fine
+**Problem:** Write a click handler on a `<div>` that logs `clientX` and `clientY`.
+
+**Solution:**
+```typescript
+import type { MouseEvent } from 'react';
+
+export function logCoordinates(e: MouseEvent<HTMLDivElement>): void {
+  console.log(`Clicked at ${e.clientX}, ${e.clientY}`);
 }
 ```
+</details>
 
-When you do need to inspect `target` on another event (event delegation), **narrow it** rather than asserting:
+<details>
+<summary>Exercise 3 (Medium): Generic Input Handler Factory</summary>
 
-```tsx
-function handleClick(e: MouseEvent<HTMLUListElement>) {
-  const target = e.target;
-  if (target instanceof HTMLElement && target.dataset.id) {
-    select(target.dataset.id);          // runtime check, then typed access
-  }
+**Problem:** Write a higher-order function that generates a change handler for a state setter function.
+
+**Solution:**
+```typescript
+import type { ChangeEvent } from 'react';
+
+export function createInputBinder<T extends string>(setter: (val: T) => void) {
+  return (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setter(e.target.value as T);
+  };
 }
 ```
+</details>
 
-A cast (`e.target as HTMLInputElement`) works but is unchecked ([soundness and escape hatches](../14-type-system-internals/04-soundness-and-escape-hatches.md)).
+<details>
+<summary>Exercise 4 (Medium): Number Input Clamping Handler</summary>
 
-## Reading values from form controls
+**Problem:** Create a change handler for `<input type="number" />` that parses the value and clamps it between a min and max.
 
-All DOM values are strings, so convert deliberately:
+**Solution:**
+```typescript
+import type { ChangeEvent } from 'react';
 
-```tsx
-// text
-<input onChange={(e) => setName(e.target.value)} />
-
-// number: use valueAsNumber (NaN when empty or invalid), not Number(value) blindly
-<input type="number" onChange={(e) => setAge(e.target.valueAsNumber)} />
-
-// checkbox: use checked, not value
-<input type="checkbox" onChange={(e) => setAccepted(e.target.checked)} />
-
-// select: the value is a string, so narrow it if your state is a union
-<select onChange={(e) => setSize(e.target.value as Size)}>
-
-// file input: files is FileList | null
-<input type="file" onChange={(e) => {
-  const file = e.target.files?.[0];
-  if (file) upload(file);
-}} />
-```
-
-The `as Size` on a select value is the one assertion that is hard to avoid, since a DOM value is just `string`. If the options come from your own list, wrap it in a small guard (`isSize(value)`) to validate it ([type erasure and runtime](../14-type-system-internals/00-type-erasure-and-runtime.md)).
-
-## Typing event props on your own components
-
-Choose what your component's callback receives:
-
-```tsx
-interface SearchBoxProps {
-  onChange: (value: string) => void;                       // value callback: simplest for callers
-  onKeyDown?: (e: KeyboardEvent<HTMLInputElement>) => void; // raw event when callers need it
-}
-
-function SearchBox({ onChange, onKeyDown }: SearchBoxProps) {
-  return <input onChange={(e) => onChange(e.target.value)} onKeyDown={onKeyDown} />;
+export function createClampedHandler(min: number, max: number, onValid: (val: number) => void) {
+  return (e: ChangeEvent<HTMLInputElement>) => {
+    const num = e.target.valueAsNumber;
+    if (!isNaN(num)) {
+      onValid(Math.max(min, Math.min(max, num)));
+    }
+  };
 }
 ```
+</details>
 
-If the component is a thin wrapper around a native element, extend that element's props instead of declaring handlers by hand ([component props](./00-component-props-and-children.md)):
+<details>
+<summary>Exercise 5 (Hard): Type-Safe Multi-Field Form Binder</summary>
 
-```tsx
-interface ButtonProps extends ComponentPropsWithoutRef<"button"> {}
-// onClick is already typed as MouseEventHandler<HTMLButtonElement>
+**Problem:** Implement a generic `useFormFields<T>` helper that returns a change handler that extracts the input's `name` attribute and updates the corresponding property in state.
+
+**Solution:**
+```typescript
+import { useState, type ChangeEvent } from 'react';
+
+export function useFormFields<T extends Record<string, string>>(initial: T) {
+  const [fields, setFields] = useState<T>(initial);
+
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFields((prev) => ({ ...prev, [name]: value }));
+  };
+
+  return [fields, handleChange] as const;
+}
 ```
+</details>
 
-## Native DOM events (outside JSX)
+<details>
+<summary>Exercise 6 (Hard): Custom Window Event Listener Hook</summary>
 
-Listeners added with `addEventListener` (in `useEffect`) use the **native** DOM event types, not React's:
+**Problem:** Write a type-safe `useEventListener` hook that accepts any native window event name from `WindowEventMap` and accurately types the callback.
 
-```tsx
-useEffect(() => {
-  function onResize(e: UIEvent) {
-    setWidth(window.innerWidth);
-  }
-  window.addEventListener("resize", onResize);
-  return () => window.removeEventListener("resize", onResize);
-}, []);
+**Solution:**
+```typescript
+import { useEffect } from 'react';
 
-useEffect(() => {
-  function onKey(e: KeyboardEvent) {            // DOM KeyboardEvent, not React's
-    if (e.key === "Escape") close();
-  }
-  document.addEventListener("keydown", onKey);
-  return () => document.removeEventListener("keydown", onKey);
-}, [close]);
+export function useWindowListener<K extends keyof WindowEventMap>(
+  event: K,
+  handler: (e: WindowEventMap[K]) => void
+): void {
+  useEffect(() => {
+    window.addEventListener(event, handler);
+    return () => window.removeEventListener(event, handler);
+  }, [event, handler]);
+}
 ```
-
-Name collision to watch for: `KeyboardEvent` and `MouseEvent` exist both as **global DOM types** and as **React types** (`React.KeyboardEvent`). If you import the React ones by name (`import type { KeyboardEvent } from "react"`), the DOM global is shadowed in that file. Use `React.KeyboardEvent` (via `import type React from "react"`) or alias imports to keep both clear.
-
-`addEventListener` is overloaded by event name, so `"keydown"` gives a `KeyboardEvent` and `"resize"` gives a `UIEvent` automatically when you write the handler inline. Always remove listeners in the effect cleanup. For custom events and typed emitters, see [typed event emitter](../17-design-patterns/07-typed-event-emitter.md).
-
-## Behavior worth knowing
-
-- **Synthetic events:** React wraps native events for cross-browser consistency. Since React 17, events are no longer pooled, so you can read properties asynchronously. The underlying native event is `e.nativeEvent`.
-- **Propagation:** `e.stopPropagation()` and `e.preventDefault()` work as expected. Forms need `e.preventDefault()` in `onSubmit` to avoid a page reload.
-- **Capture handlers:** `onClickCapture` fires during the capture phase.
-- **Passive listeners:** touch and wheel handlers may be passive, in which case `preventDefault()` has no effect. Use native listeners with `{ passive: false }` when needed.
-- **Async handlers:** `onClick={async () => { ... }}` is allowed (the returned promise is ignored). Handle errors inside it, because an unhandled rejection will not be caught by React ([async/await](../12-async-and-iteration/02-async-await.md)).
-
-## Common mistakes
-
-- Annotating the event with the wrong element (`ChangeEvent<HTMLInputElement>` on a `<select>`).
-- Accessing `e.target.value` on a non-change event, where `target` is `EventTarget`.
-- Casting `e.target as HTMLInputElement` everywhere instead of using `currentTarget` or narrowing.
-- Using `any` for events.
-- Mixing up React and DOM event types in `useEffect` listeners, or shadowing the global type by importing by name.
-- Using `Number(e.target.value)` for number inputs and getting `0` from empty strings (use `valueAsNumber` and handle `NaN`).
-- Using `value` instead of `checked` for checkboxes.
-- Forgetting `e.preventDefault()` in submit handlers.
-- Forgetting to remove native listeners in effect cleanup.
-- Passing `() => handler(e)` patterns that create stale closures when the handler depends on changing state.
-
-## Debugging
-
-- Hover the event parameter in an inline handler to see the inferred type, then copy it when extracting the handler.
-- If a property "does not exist on type EventTarget", you are on `e.target`. Switch to `e.currentTarget` or narrow with `instanceof`.
-- If an extracted handler will not attach ("not assignable to type MouseEventHandler"), compare its element generic with the element it is attached to.
-- Log `e.nativeEvent` to inspect the browser's own event.
-- If a handler never fires, check for an overlay element capturing clicks, a missing `type="button"` that is submitting a form, or a listener attached to the wrong element.
-
-## Quick summary
-
-- Use inline handlers and let TypeScript infer the event type. Annotate extracted handlers with `*Event<Element>` or `*EventHandler<Element>`.
-- The generic argument is the element the handler is attached to. `currentTarget` is typed to it, while `target` is a broad `EventTarget` unless React narrows it (`ChangeEvent`).
-- Narrow `target` with `instanceof` for event delegation rather than casting.
-- Convert form values deliberately: `valueAsNumber`, `checked`, `files?.[0]`, and validate select values against your union.
-- Native `addEventListener` uses DOM event types. Watch for name collisions with React's types, and always clean up listeners.
-
-**Next:** [Hooks](./02-hooks.md)
+</details>

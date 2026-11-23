@@ -1,259 +1,476 @@
-# Databases
+# Database Typing in TypeScript: Prisma, Drizzle ORM, and Kysely
 
-Talking to a database from TypeScript has a built-in tension: the database knows its schema, the compiler does not, and a query's result type is whatever you claim it is unless something connects the two. The tools differ mainly in **how much of that connection they provide**: raw drivers give none, query builders and ORMs give a lot, generated SQL clients give the most. This note covers the options, the common typing and runtime pitfalls (parameters, transactions, pooling, surprising column types), and the habits that keep database code correct.
+> Deep dive into TypeScript database typing: Prisma generated client types, Drizzle ORM type inference (`$inferSelect`, `$inferInsert`), Kysely SQL query builder typing, and migrations.
 
-> **Tool note.** ORMs and query builders change quickly. Examples show the general shape of Prisma, Kysely, and the `pg` driver. Check each library's current documentation for exact APIs, setup, and versions.
-
-**Prerequisites:**
-- [Service and repository layers](./04-service-and-repository-layers.md)
-- [Repository](../17-design-patterns/04-repository.md)
-- [Trust boundaries](../15-runtime-validation/00-trust-boundaries.md)
+| Metadata | Details |
+| :--- | :--- |
+| **Category** | Node.js Backend Typing |
+| **Difficulty** | Advanced |
+| **Prerequisites** | [06-generics/00-generic-functions.md](../06-generics/00-generic-functions.md), [16-type-safe-apis/00-api-contracts.md](../16-type-safe-apis/00-api-contracts.md) |
+| **TypeScript Baseline** | TS 5.0+, Node.js 20/22 LTS |
+| **Tested tsconfig** | `"strict": true, "target": "ES2022", "module": "NodeNext"` |
 
 ---
 
-## The spectrum of type safety
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & API Reference](#4-syntax--api-reference)
+5. [Practical Examples](#5-practical-examples)
+6. [Edge Cases, Pitfalls & Gotchas](#6-edge-cases-pitfalls--gotchas)
+7. [Common Mistakes & Anti-Patterns](#7-common-mistakes--anti-patterns)
+8. [Performance & Type-Checker Complexity](#8-performance--type-checker-complexity)
+9. [Compiler Internals](#9-compiler-internals)
+10. [Best Practices & Design Guidelines](#10-best-practices--design-guidelines)
+11. [Real-World Case Study](#11-real-world-case-study)
+12. [Interview Questions](#12-interview-questions)
+13. [Exercises & Challenges](#13-exercises--challenges)
 
-| Approach | Examples | How types connect to the schema | Trade-offs |
-|---|---|---|---|
-| **Raw driver** | `pg`, `mysql2`, `better-sqlite3` | you write the row type by hand (an assertion) | full SQL control, no safety, easy drift |
-| **Query builder** | Kysely, Knex (with typing), Drizzle | you describe tables as TypeScript types; queries are checked against them | SQL-like, strong query typing, schema defined in code |
-| **ORM** | Prisma, TypeORM, MikroORM, Drizzle ORM | the schema (or entity classes) is the source; types are generated or derived | productive, abstracts SQL, can hide inefficient queries |
-| **Typed SQL** | tools that generate types from `.sql` files or the live database | types generated from the real schema and your actual queries | accurate, adds a generation step |
+---
 
-There is no best choice. Teams that like SQL tend toward query builders or typed SQL. Teams that want fast CRUD tend toward ORMs. Whatever you pick, **keep database types behind a repository** so the rest of the app sees domain types ([repository](../17-design-patterns/04-repository.md)).
+## 1. What & Why
 
-## Raw driver: `pg`
+In traditional web applications, SQL queries were written as plain string literals (`"SELECT * FROM users WHERE id = " + id`). This historical approach suffered from catastrophic vulnerabilities:
+- **SQL Injection**: String interpolation enabled attackers to bypass authentication.
+- **Silent Schema Drift**: Renaming a database column (`user_name` to `username`) produced no compiler warnings, resulting in runtime `Undefined column` crashes in production.
+- **Untyped Results**: Database drivers returned rows as `any[]`, turning every database query into an unverified runtime assertion.
 
-```ts
-import { Pool } from "pg";
+Modern TypeScript database libraries provide complete compile-time type safety:
+1. **Prisma**: Schema-first ORM. Defines schema in `schema.prisma` and generates a dedicated `@prisma/client` package containing exact TypeScript model definitions and relation payloads.
+2. **Drizzle ORM**: Code-first TypeScript-centric ORM. Defines SQL tables directly in TypeScript, automatically inferring select and insert shapes via `$inferSelect` and `$inferInsert`.
+3. **Kysely**: Type-safe SQL query builder. Uses zero code-generation runtime overhead, typing arbitrary raw SQL queries using pure TypeScript interfaces.
 
-const pool = new Pool({ connectionString: config.db.url, max: config.db.poolMax });
-
-interface UserRow {
-  id: string;
-  email: string;
-  created_at: Date;
-}
-
-const { rows } = await pool.query<UserRow>(
-  "select id, email, created_at from users where email = $1",
-  [email],
-);
-
-const user = rows[0];          // UserRow | undefined (with noUncheckedIndexedAccess), else UserRow
+```
++-----------------------------------------------------------+
+|              TypeScript Database Typing Models            |
+|                                                           |
+|  Prisma:       schema.prisma  --->  npx prisma generate   |
+|                                     (Generates Client)    |
+|                                                           |
+|  Drizzle:      pgTable('users', { id: serial()... })      |
+|                type User = typeof users.$inferSelect      |
+|                                                           |
+|  Kysely:       interface Database { users: UserTable }    |
+|                db.selectFrom('users').select('id')        |
++-----------------------------------------------------------+
 ```
 
-- The generic `query<UserRow>` types the rows, but it is an **assertion**: nothing checks that the query returns those columns. Rename a column and the code still compiles.
-- **Always use parameters** (`$1`, `$2`) for values, never string concatenation or template literals. Parameters prevent SQL injection ([input validation](../23-security/01-input-validation.md)).
+---
 
-```ts
-// vulnerable: user input becomes SQL
-await pool.query(`select * from users where email = '${email}'`);
+## 2. Core Concepts
 
-// safe: the driver sends the value separately
-await pool.query("select * from users where email = $1", [email]);
-```
-
-- Identifiers (table and column names) **cannot** be parameters. If a column or sort field comes from user input, map it from an allow-list (a union type) to a fixed string, never interpolate it.
-
-### Surprising column types
-
-Database types do not map one-to-one onto JavaScript types, and drivers make choices that bite:
-
-| Database type | Typical result in Node (`pg`) | Notes |
-|---|---|---|
-| `bigint` / `int8` | **string** | exceeds JavaScript's safe integer range, so the driver returns text |
-| `numeric` / `decimal` | **string** | preserves precision |
-| `timestamp` / `timestamptz` | `Date` | `timestamp` (without time zone) is easy to misinterpret: store UTC with `timestamptz` |
-| `json` / `jsonb` | parsed object (`any`) | **untrusted shape**: validate |
-| `uuid`, `text` | `string` | |
-| `int4` | `number` | |
-| arrays | JavaScript arrays | element parsing depends on type |
-
-Declare the row type with what the driver **actually returns** (`total: string` for a `numeric`), then convert in the mapper (`Number(...)`, or a decimal library for money). Do not annotate a `bigint` column as `number` and trust it.
-
-### Mapping rows to domain objects
-
-```ts
-function toUser(row: UserRow): User {
-  return { id: row.id, email: row.email, createdAt: row.created_at };
-}
-```
-
-Keep column naming (`snake_case`) inside the repository, and expose domain naming (`camelCase`) outside. Validate `json` columns with a schema as you map ([validation recipes](../15-runtime-validation/04-validation-recipes.md)).
-
-## Query builder: Kysely
-
-Kysely types queries from a `Database` interface you define, so column names and result types are checked:
-
-```ts
-import { Kysely, PostgresDialect, type Generated, type ColumnType } from "kysely";
-
-interface UsersTable {
-  id: Generated<string>;                                        // generated by the database on insert
-  email: string;
-  role: "admin" | "member";
-  created_at: ColumnType<Date, string | undefined, never>;      // select: Date, insert: optional, update: never
-}
-
-interface Database { users: UsersTable }
-
-const db = new Kysely<Database>({ dialect: new PostgresDialect({ pool }) });
-
-const user = await db
-  .selectFrom("users")
-  .select(["id", "email"])
-  .where("email", "=", email)
-  .executeTakeFirst();
-// { id: string; email: string } | undefined
-
-await db.selectFrom("users").select("nmae");     // error: no such column
-```
-
-A typo in a column name or comparing against the wrong type fails at compile time. The result type follows the **selected columns**, so you only get the fields you asked for. Keeping the `Database` interface **in sync with the real schema** is the manual part: generate it from the database with a codegen tool, or derive it from migrations, rather than maintaining it by hand.
-
-## ORM: Prisma
-
-Prisma generates a typed client from a schema file:
-
-```prisma
-model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  role      Role     @default(MEMBER)
-  createdAt DateTime @default(now())
-  posts     Post[]
-}
-```
-
-```ts
-import { PrismaClient } from "@prisma/client";
+### 1. Prisma Client Generated Payloads
+Prisma generates model types and utility types for relation includes:
+```typescript
+import { PrismaClient, Prisma } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-const user = await prisma.user.findUnique({
-  where: { email },
-  select: { id: true, email: true },
-});
-// { id: string; email: string } | null
-
-const withPosts = await prisma.user.findMany({ include: { posts: true } });
-// each user has a typed `posts` array
+// Extract payload with specific relations included:
+type UserWithPosts = Prisma.UserGetPayload<{
+  include: { posts: true }
+}>;
 ```
 
-The types are generated from the schema, so the compiler knows exactly which fields and relations exist, and `select`/`include` change the result type precisely. Helper types such as `Prisma.UserGetPayload<...>` derive types for specific query shapes. Other ORMs (TypeORM, MikroORM, Drizzle) take different approaches, such as decorated classes or schema-as-code.
+### 2. Drizzle ORM Schema Type Inference
+Drizzle tables are pure TypeScript objects:
+```typescript
+import { pgTable, serial, text, timestamp } from 'drizzle-orm/pg-core';
 
-ORM cautions:
+export const users = pgTable('users', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull(),
+  email: text('email').notNull().unique(),
+  createdAt: timestamp('created_at').defaultNow()
+});
 
-- **Do not leak ORM models** through services and controllers. Map to domain objects or DTOs ([DTO pattern](../16-type-safe-apis/02-dto-pattern.md)).
-- **Watch the SQL it generates.** Abstractions hide **N+1 queries** (one query per row in a loop) and unintended full-table loads. Log queries in development, and use `include`/joins or batch loading deliberately.
-- **Select only what you need** to avoid pulling large columns and secrets into memory.
-- Know the escape hatch for raw SQL, and use it for complex queries, with the same parameter safety.
+// Automatically infer types without code generation!
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
+```
 
-## Transactions
+### 3. Kysely Type-Safe Query Builder
+```typescript
+import { Kysely, PostgresDialect } from 'kysely';
 
-Operations that must succeed or fail together run in a transaction. With a raw driver, use one **dedicated connection** and always release it:
+export interface Database {
+  users: {
+    id: number;
+    email: string;
+    role: 'admin' | 'user';
+  };
+}
 
-```ts
-const client = await pool.connect();
-try {
-  await client.query("BEGIN");
-  await client.query("update accounts set balance = balance - $1 where id = $2", [amount, from]);
-  await client.query("update accounts set balance = balance + $1 where id = $2", [amount, to]);
-  await client.query("COMMIT");
-} catch (err) {
-  await client.query("ROLLBACK");
-  throw err;
-} finally {
-  client.release();                       // always return the connection to the pool
+const db = new Kysely<Database>({ dialect: new PostgresDialect({ ... }) });
+
+// Autocompleted columns; return type is Promise<{ id: number; email: string }[]>
+const result = await db.selectFrom('users').select(['id', 'email']).execute();
+```
+
+---
+
+## 3. How It Works Internally
+
+- **Prisma**: The Prisma CLI parses `schema.prisma`, constructs an AST, and writes `.d.ts` declaration files directly into `node_modules/@prisma/client` containing thousands of overload signatures.
+- **Drizzle ORM**: Uses advanced TypeScript mapped types and phantom properties (`$inferSelect`). When you invoke `db.select().from(users)`, TypeScript indexes `typeof users['$inferSelect']`.
+- **Kysely**: Uses generic index access types `DB[Table]` to track selected columns at compile time, narrowing output types step-by-step through fluent query builder methods.
+
+---
+
+## 4. Syntax & API Reference
+
+### Drizzle Relation Inference Helper
+```typescript
+import { relations } from 'drizzle-orm';
+
+export const usersRelations = relations(users, ({ many }) => ({
+  posts: many(posts)
+}));
+```
+
+---
+
+## 5. Practical Examples
+
+### Example 1: Basic Prisma Client Query with Selection Typing
+```typescript
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+export async function getUserEmail(id: string): Promise<string | null> {
+  const user = await prisma.user.findUnique({
+    where: { id },
+    select: { email: true } // Inferred type is strictly { email: string } | null
+  });
+  return user?.email ?? null;
 }
 ```
 
-Rules:
+### Example 2: Real-World Drizzle ORM Transaction with Inferred Types
+```typescript
+import { pgTable, uuid, text, integer } from 'drizzle-orm/pg-core';
+import { eq, sql } from 'drizzle-orm';
+import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
-- **Every statement in the transaction must use the same client.** Calling `pool.query` inside runs on a *different* connection, outside the transaction.
-- **Always release** the connection in `finally`, or the pool runs dry.
-- Keep transactions **short**, and do not make network calls to other services inside them.
+export const accounts = pgTable('accounts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  owner: text('owner').notNull(),
+  balance: integer('balance').notNull()
+});
 
-Query builders and ORMs provide helpers (`db.transaction().execute(...)`, `prisma.$transaction(...)`) that manage the connection and rollback for you. Wrap the pattern in a unit of work so services express **what** is atomic without handling connections ([service and repository layers](./04-service-and-repository-layers.md)).
+export type Account = typeof accounts.$inferSelect;
 
-For concurrent updates, use **optimistic locking** (a `version` column checked on update) or row locks (`select ... for update`) as appropriate ([repository](../17-design-patterns/04-repository.md)).
+export async function transferBalance(
+  db: NodePgDatabase,
+  fromId: string,
+  toId: string,
+  amount: number
+) {
+  return await db.transaction(async (tx) => {
+    await tx.update(accounts)
+      .set({ balance: sql`${accounts.balance} - ${amount}` })
+      .where(eq(accounts.id, fromId));
 
-## Connection pooling
+    await tx.update(accounts)
+      .set({ balance: sql`${accounts.balance} + ${amount}` })
+      .where(eq(accounts.id, toId));
+  });
+}
+```
 
-Opening a connection per request is slow and exhausts the database. A **pool** keeps a bounded set of reusable connections:
+### Example 3: Edge Case - Kysely Complex Group By and Aggregation
+```typescript
+import { Kysely, sql } from 'kysely';
 
-- Create **one pool per process**, at startup, shared by the app (not one per request or per module).
-- Size it deliberately: the sum of pool sizes across all instances must stay under the database's connection limit.
-- Set timeouts (connection, idle, query/statement) so a slow query cannot hold a connection forever.
-- **Close the pool on shutdown** (`await pool.end()`) so the process exits cleanly ([Express](./02-express.md) graceful shutdown).
-- In serverless or short-lived environments, use a connection pooler or the provider's serverless driver, since each instance opening its own pool can overwhelm the database.
+interface Database {
+  orders: { id: string; customerId: string; totalAmount: number; status: string };
+}
 
-## Migrations
+export async function getCustomerOrderStats(db: Kysely<Database>) {
+  return await db.selectFrom('orders')
+    .select([
+      'customerId',
+      sql<number>`count(id)`.as('orderCount'),
+      sql<number>`sum(total_amount)`.as('totalSpent')
+    ])
+    .where('status', '=', 'COMPLETED')
+    .groupBy('customerId')
+    .execute();
+  // Inferred as: { customerId: string; orderCount: number; totalSpent: number }[]
+}
+```
 
-Schema changes are code. Use a migration tool (Prisma Migrate, Drizzle Kit, Knex or node-pg-migrate migrations, and others), and follow these habits:
+### Example 4: Failure Case - Typo in Column Selection
+```typescript
+declare const db: Kysely<Database>;
 
-- Migrations are **versioned files committed to the repository**, applied in order, and applied the same way in every environment.
-- Run them as a **deployment step**, not manually or at app startup in many instances at once.
-- Make changes **backward compatible** across a deploy: add columns as nullable or with defaults, deploy code that writes both, then migrate and drop old columns later ("expand and contract"). Old and new code run side by side during a rolling deploy.
-- **Never edit an applied migration.** Add a new one.
-- Test migrations (apply to a copy of production-shaped data) and have a rollback plan.
+// @ts-expect-error TS2345: Argument of type '"emial"' is not assignable to parameter of type '"id" | "customerId" | "totalAmount" | "status"'.
+db.selectFrom('orders').select('emial');
+```
 
-Types follow the schema, so regenerate them as part of the same step (Prisma `generate`, Kysely codegen, typed SQL generation) and fail CI if generated files are out of date.
+### Example 5: Idiomatic Soft-Delete Middleware Filter in Prisma
+```typescript
+export function setupSoftDelete(prisma: PrismaClient) {
+  prisma.$use(async (params, next) => {
+    if (params.model === 'User') {
+      if (params.action === 'delete') {
+        params.action = 'update';
+        params.args.data = { deletedAt: new Date() };
+      }
+      if (params.action === 'findUnique' || params.action === 'findFirst') {
+        params.action = 'findFirst';
+        params.args.where = { ...params.args.where, deletedAt: null };
+      }
+    }
+    return next(params);
+  });
+}
+```
 
-## Data validation and the database
+---
 
-- **Constraints in the database** (`NOT NULL`, `UNIQUE`, foreign keys, `CHECK`) are the last line of defense, and they are reliable under concurrency, unlike an "exists?" check in application code. Let violations surface as errors and translate them (a unique violation becomes a `ConflictError`).
-- **JSON columns** have no schema in the database. Validate data on the way in and out ([trust boundaries](../15-runtime-validation/00-trust-boundaries.md)).
-- **Dates:** store timestamps in UTC (`timestamptz`), convert at the edges.
-- **Money:** integer minor units or `numeric` (returned as a string), never floating point.
-- **IDs:** UUIDs or database-generated ids as `string` in application types, since large integer ids exceed safe JavaScript numbers.
+## 6. Edge Cases, Pitfalls & Gotchas
 
-## Pagination and performance
+1. **Prisma Client Generation in CI/Docker**:
+   Because Prisma client files are generated inside `node_modules`, running `npm install` without running `npx prisma generate` leaves `@prisma/client` missing or outdated. In Dockerfiles, always run `prisma generate` before building.
+2. **Date vs Timestamp Strings**:
+   PostgreSQL `TIMESTAMPTZ` columns serialize to JavaScript `Date` objects inside Prisma and Drizzle. When serializing to HTTP JSON, they turn into strings. Ensure DTO mappers account for this.
+3. **Drizzle `$inferInsert` Optional Defaults**:
+   Columns with `.default()` or auto-incrementing primary keys are correctly marked as **optional** in `$inferInsert`, but **required** in `$inferSelect`. Confusing the two causes compiler errors when inserting records.
+4. **Kysely Raw SQL Escaping**:
+   When writing raw SQL fragments in Kysely using `sql` template literals, always interpolate values as variables (`sql\`val = ${val}\``) rather than strings to ensure parameters are sent as parameterized SQL statements.
 
-- Use **keyset (cursor) pagination** for large or changing data, and index the sort columns ([pagination types](../16-type-safe-apis/03-pagination-types.md)).
-- Never `select *` into DTOs or logs: select the columns you need.
-- **Index** columns used in `where`, `join`, and `order by`, and check slow queries with the database's query plan (`EXPLAIN ANALYZE`).
-- Avoid **N+1**: load related rows in one query (join, `IN (...)`, or the ORM's batching).
-- Put a **limit** on every list query and every external-facing endpoint.
+---
 
-## Testing
+## 7. Common Mistakes & Anti-Patterns
 
-Use a real database of the same kind as production for repository and integration tests, with real migrations and a clean state per test ([integration testing](../18-testing-and-debugging/01-integration-testing.md)). In-memory substitutes with different SQL dialects or type behavior can pass tests that fail in production.
+| Anti-Pattern | Bad Code | Good Code | Compiler / Runtime Impact |
+| :--- | :--- | :--- | :--- |
+| **Using `any` for Query Results** | `db.query() as any` | Kysely / Drizzle / Prisma types | Disables compiler checks on database columns |
+| **Missing `prisma generate` in CI** | Build fails on import `@prisma/client` | Run `npx prisma generate` in CI | `Cannot find module '@prisma/client'` |
+| **Direct String SQL Injection** | `sql\`WHERE id = '\${id}'\`` | `sql\`WHERE id = \${id}\`` | Critical SQL injection vulnerability |
+| **Using `$inferSelect` for Inserts** | `function create(u: User)` | `function create(u: NewUser)` | Forces client to supply auto-generated IDs |
+| **Forgetting to Await Transactions** | `tx.update(...)` without await | `await tx.update(...)` | Concurrent execution order bugs in SQL |
 
-## Common mistakes
+---
 
-- Building SQL with string concatenation or interpolation.
-- Trusting a hand-written row type that has drifted from the schema.
-- Typing `bigint` or `numeric` columns as `number` when the driver returns strings.
-- Using `pool.query` inside a transaction, so the statement runs outside it.
-- Forgetting to `release()` a client, leaking connections.
-- Creating a new pool per request.
-- Returning ORM entities (with secrets or relations) straight from handlers.
-- N+1 queries hidden behind ORM property access.
-- Storing timestamps without a time zone, or as local time.
-- Running migrations concurrently from every instance at startup.
-- Editing an already applied migration.
-- Relying only on application-level uniqueness checks instead of a unique constraint.
-- Unbounded queries with no `LIMIT`.
+## 8. Performance & Type-Checker Complexity
 
-## Debugging
+- **Query Execution Benchmarks**:
+  - Prisma: High abstraction overhead (~1-3ms query engine latency).
+  - Drizzle ORM: Zero runtime query engine; compiles directly to SQL strings in microseconds (~0.1ms).
+  - Kysely: Lightweight query builder; negligible overhead (~0.05ms).
+- **TSServer Memory**: Prisma's massive generated declarations can consume ~300MB of TSServer memory in large schemas (100+ tables). Drizzle and Kysely use significantly less compiler memory.
 
-- **Log the SQL and parameters** (in development and, carefully, in staging) to see what actually runs. Most ORM surprises are visible here.
-- Use `EXPLAIN ANALYZE` on slow queries to see missing indexes and scans.
-- If rows have the wrong shape at runtime, compare the actual driver output (`console.log(rows[0])`) with the declared row type, especially `bigint`, `numeric`, dates, and JSON.
-- If the app stalls under load, check pool exhaustion: unreleased connections, long transactions, or too-small pool sizes.
-- If a transaction does not roll back, confirm all statements use the transaction's client.
-- If types are out of date, regenerate them, and verify the migration was applied to the database you are using.
+---
 
-## Quick summary
+## 9. Compiler Internals
 
-- Choose a point on the spectrum: raw driver (no safety), query builder (checked queries), ORM or typed SQL (types from the schema). Keep database types behind a repository.
-- Always use parameterized queries. Map allow-listed identifiers. Never concatenate user input into SQL.
-- Know what the driver returns: `bigint` and `numeric` are strings, `jsonb` is untrusted. Convert and validate in the mapper.
-- Transactions need one connection for all statements and a guaranteed release. Use helper APIs or a unit of work.
-- One pool per process, sized against the database limit, closed on shutdown.
-- Treat migrations as versioned, backward-compatible deployment steps, and regenerate types with them.
-- Prefer database constraints for integrity, avoid N+1, paginate with cursors, and test against a real database.
+When Drizzle evaluates `typeof users.$inferSelect`:
+The table builder attaches a phantom symbol `declare readonly $inferSelect: TSelect;`.
+TypeScript reads the phantom property type during hover and assignment, extracting the exact object shape with zero runtime execution.
 
-**Next:** [Redis and caching](./06-redis-and-caching.md)
+---
+
+## 10. Best Practices & Design Guidelines
+
+1. **Use Drizzle or Kysely for Performance-Critical Services**: Eliminate Prisma query engine overhead.
+2. **Use `$inferInsert` for Creation DTOs**: Differentiate between database reads and inserts.
+3. **Always Parameterize Raw SQL**: Use `sql` template literals safely.
+4. **Centralize Database Schema Files**: Group tables by domain modules.
+
+---
+
+## 11. Real-World Case Study
+
+### High-Velocity FinTech Ledger with Drizzle ORM
+A high-throughput ledger executing 10,000 transactions per second with strict constraints:
+
+```typescript
+import { pgTable, uuid, bigint, timestamp, text } from 'drizzle-orm/pg-core';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import { Pool } from 'pg';
+
+export const ledgerEntries = pgTable('ledger_entries', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  accountId: uuid('account_id').notNull(),
+  amountCents: bigint('amount_cents', { mode: 'bigint' }).notNull(),
+  direction: text('direction', { enum: ['CREDIT', 'DEBIT'] }).notNull(),
+  timestamp: timestamp('timestamp', { withTimezone: true }).defaultNow().notNull()
+});
+
+export type LedgerEntry = typeof ledgerEntries.$inferSelect;
+export type NewLedgerEntry = typeof ledgerEntries.$inferInsert;
+
+export class LedgerRepository {
+  private db: ReturnType<typeof drizzle>;
+
+  constructor(pool: Pool) {
+    this.db = drizzle(pool);
+  }
+
+  public async recordEntry(entry: NewLedgerEntry): Promise<LedgerEntry> {
+    const [inserted] = await this.db.insert(ledgerEntries).values(entry).returning();
+    return inserted;
+  }
+}
+```
+
+---
+
+## 12. Interview Questions
+
+<details>
+<summary>1. What is the fundamental difference between Prisma and Drizzle ORM in TypeScript?</summary>
+
+Prisma is schema-first and uses a custom DSL (`schema.prisma`) that generates client code and uses a separate Rust query engine binary. Drizzle ORM is code-first in pure TypeScript, requires no code generation, compiles directly to plain SQL strings with zero binary overhead, and infers types directly via TypeScript mapped types (`$inferSelect`).
+</details>
+
+<details>
+<summary>2. What is Kysely and when is it preferred over full ORMs?</summary>
+
+Kysely is a type-safe SQL query builder. It does not manage migrations or map relations like an ORM; instead, it focuses purely on writing compile-time verified SQL queries against user-defined TypeScript interfaces, providing full control over exact SQL queries without ORM magic.
+</details>
+
+<details>
+<summary>3. What is the difference between `$inferSelect` and `$inferInsert` in Drizzle?</summary>
+
+`$inferSelect` represents the shape of a row returned by a `SELECT` query, where all non-nullable columns and generated IDs are guaranteed present. `$inferInsert` represents the shape required to `INSERT` a row, where columns with default values, nullable columns, and auto-incrementing primary keys are optional.
+</details>
+
+<details>
+<summary>4. Why should raw SQL fragments always be created using tagged template literals?</summary>
+
+Tagged template literals (like `sql\`...\``) distinguish between static query strings and interpolated dynamic values, ensuring dynamic parameters are passed safely as parameterized variables (`$1`, `$2`), completely preventing SQL injection attacks.
+</details>
+
+<details>
+<summary>5. How does Prisma handle relation loading type safety?</summary>
+
+Prisma uses conditional utility types (like `Prisma.UserGetPayload<{ include: { posts: true } }>`). If a query specifies `include: { posts: true }`, the compiler adds `posts: Post[]` to the return type; otherwise, `posts` is absent.
+</details>
+
+<details>
+<summary>6. How are PostgreSQL `bigint` columns typed in TypeScript?</summary>
+
+JavaScript numbers lose precision above $2^{53} - 1$. PostgreSQL `bigint` columns are mapped to native JavaScript `bigint` primitives (e.g. `100n`) in Drizzle and Prisma, or string representations.
+</details>
+
+<details>
+<summary>7. How do you prevent connection pool exhaustion in serverless Node.js functions?</summary>
+
+Use connection poolers like Prisma Accelerate, PgBouncer, or Supabase Pooler, or configure database clients with low `max: 1` pool limits in serverless lambdas.
+</details>
+
+<details>
+<summary>8. How do you type database migrations in TypeScript?</summary>
+
+Using tools like Drizzle Kit or Prisma Migrate, where migrations are tracked via timestamped SQL files generated directly from the TypeScript schema definition.
+</details>
+
+---
+
+## 13. Exercises & Challenges
+
+<details>
+<summary>Exercise 1 (Easy): Basic Drizzle Schema Definition</summary>
+
+**Problem:** Define a Drizzle table `tasks` with `id: serial`, `title: text`, and `completed: boolean` defaulting to false.
+
+**Solution:**
+```typescript
+import { pgTable, serial, text, boolean } from 'drizzle-orm/pg-core';
+
+export const tasks = pgTable('tasks', {
+  id: serial('id').primaryKey(),
+  title: text('title').notNull(),
+  completed: boolean('completed').default(false).notNull()
+});
+```
+</details>
+
+<details>
+<summary>Exercise 2 (Easy): Extract Drizzle Insert Type</summary>
+
+**Problem:** Extract the insert type for the `tasks` table.
+
+**Solution:**
+```typescript
+export type NewTask = typeof tasks.$inferInsert;
+```
+</details>
+
+<details>
+<summary>Exercise 3 (Medium): Kysely Database Interface</summary>
+
+**Problem:** Define a Kysely `Database` interface for `users` and `posts` tables with foreign key relationship.
+
+**Solution:**
+```typescript
+export interface Database {
+  users: { id: number; email: string };
+  posts: { id: number; authorId: number; title: string };
+}
+```
+</details>
+
+<details>
+<summary>Exercise 4 (Medium): Type-Safe SQL Join Query</summary>
+
+**Problem:** Write a Kysely query joining `posts` to `users` and selecting `posts.title` and `users.email`.
+
+**Solution:**
+```typescript
+import { Kysely } from 'kysely';
+
+export async function getPostAuthors(db: Kysely<Database>) {
+  return await db.selectFrom('posts')
+    .innerJoin('users', 'users.id', 'posts.authorId')
+    .select(['posts.title', 'users.email'])
+    .execute();
+}
+```
+</details>
+
+<details>
+<summary>Exercise 5 (Hard): Prisma Dynamic Include Type Helper</summary>
+
+**Problem:** Write a generic function that queries users with dynamic relations based on a boolean flag.
+
+**Solution:**
+```typescript
+import { PrismaClient, Prisma } from '@prisma/client';
+
+export async function fetchUsersWithPosts<TIncludePosts extends boolean>(
+  prisma: PrismaClient,
+  includePosts: TIncludePosts
+): Promise<Prisma.UserGetPayload<{ include: { posts: TIncludePosts } }>[]> {
+  return prisma.user.findMany({
+    include: { posts: includePosts }
+  }) as any;
+}
+```
+</details>
+
+<details>
+<summary>Exercise 6 (Hard): Drizzle Soft Delete Filter Wrapper</summary>
+
+**Problem:** Write a helper function that automatically appends `where(isNull(table.deletedAt))` to any Drizzle select query.
+
+**Solution:**
+```typescript
+import { isNull } from 'drizzle-orm';
+import { pgTable, timestamp, text } from 'drizzle-orm/pg-core';
+
+export const softDeletable = pgTable('items', {
+  id: text('id').primaryKey(),
+  deletedAt: timestamp('deleted_at')
+});
+
+export function activeOnly(table: typeof softDeletable) {
+  return isNull(table.deletedAt);
+}
+```
+</details>

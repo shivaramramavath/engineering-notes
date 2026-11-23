@@ -1,288 +1,503 @@
-# Redis and Caching
+# Redis Client Typing and Type-Safe Caching Patterns in TypeScript
 
-A **cache** stores the result of expensive work so you can reuse it: a slow query, a remote API call, a computed page. **Redis** is an in-memory data store commonly used as that cache, and also for sessions, rate limiting, pub/sub, and queues. Caching is easy to add and hard to get right: the difficulty is not storing values, it is deciding when they are stale, what happens when the cache is down, and how not to serve one user another user's data. This note covers the common patterns, typing a cache so it does not become an untyped `any` store, and the failure modes to design for.
+> Typing Redis in TypeScript: ioredis vs node-redis, JSON serialization/deserialization, TTL helpers, tagged cache invalidation, and distributed locks with Redlock.
 
-> **Tool note.** Two popular Node clients are `ioredis` and the official `redis` package (node-redis). Their APIs differ in details (option shapes, promise behavior). Examples use a small interface so the application code does not depend on either. Check the current documentation of the client you choose.
-
-**Prerequisites:**
-- [Service and repository layers](./04-service-and-repository-layers.md)
-- [Databases](./05-databases.md)
-- [Concurrency patterns](../12-async-and-iteration/05-concurrency-patterns.md) (in-flight deduplication)
-- [Zod](../15-runtime-validation/02-zod.md)
+| Metadata | Details |
+| :--- | :--- |
+| **Category** | Node.js Backend Typing |
+| **Difficulty** | Intermediate to Advanced |
+| **Prerequisites** | [12-async-and-iteration/01-promises.md](../12-async-and-iteration/01-promises.md), [15-runtime-validation/01-schema-validation.md](../15-runtime-validation/01-schema-validation.md) |
+| **TypeScript Baseline** | TS 5.0+, Node.js 20/22 LTS |
+| **Tested tsconfig** | `"strict": true, "target": "ES2022", "module": "NodeNext"` |
 
 ---
 
-## When to cache
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & API Reference](#4-syntax--api-reference)
+5. [Practical Examples](#5-practical-examples)
+6. [Edge Cases, Pitfalls & Gotchas](#6-edge-cases-pitfalls--gotchas)
+7. [Common Mistakes & Anti-Patterns](#7-common-mistakes--anti-patterns)
+8. [Performance & Type-Checker Complexity](#8-performance--type-checker-complexity)
+9. [Compiler Internals](#9-compiler-internals)
+10. [Best Practices & Design Guidelines](#10-best-practices--design-guidelines)
+11. [Real-World Case Study](#11-real-world-case-study)
+12. [Interview Questions](#12-interview-questions)
+13. [Exercises & Challenges](#13-exercises--challenges)
 
-Cache when:
+---
 
-- The same expensive result is requested **repeatedly** (a popular product page, a computed report, an external API response).
-- The data is **allowed to be a little stale**.
-- Recomputing is **costly** (slow queries, rate-limited or paid APIs).
+## 1. What & Why
 
-Do not cache when the data must always be current (account balances at checkout), is rarely reused, or when the underlying operation is already cheap. A cache adds a second copy of the truth, and every copy has to be kept acceptably consistent. The first fix for a slow query is usually an index, not a cache.
+Redis is an in-memory key-value data structure store used for caching, session management, rate limiting, and pub/sub messaging.
 
-## The cache-aside pattern
+By default, Redis drivers (`ioredis` or `node-redis`) store and return raw strings or buffers:
+```typescript
+const raw = await redis.get('user:123'); // raw is string | null
+```
+When caching complex domain models or DTOs:
+1. **JSON Deserialization**: Deserializing `JSON.parse(raw)` produces `any`. A typo like `user.emial` goes undetected during compilation.
+2. **Schema Drift in Cache**: When your database model changes, stale cached objects in Redis still reflect the old shape, causing runtime crashes when read.
+3. **Cache Invalidation Chaos**: Without structured cache key factories, invalidating related cache entries (e.g. invalidating all user sessions when a password changes) relies on brittle wildcards (`KEYS user:*`), which blocks the single-threaded Redis engine.
 
-The most common approach: the application checks the cache, falls back to the source on a miss, and fills the cache.
+A type-safe caching layer encapsulates Redis operations with **generics**, **runtime schema validation**, and **key factories**.
 
-```text
-read(key):
-  value = cache.get(key)
-  if value exists:        return value        # hit
-  value = source.load(key)                    # miss: go to the database or API
-  cache.set(key, value, ttl)
-  return value
+```
++-----------------------------------------------------------+
+|               Type-Safe Redis Caching Pipeline            |
+|                                                           |
+|  cache.getOrSet(key, fetcher, schema, ttlSeconds)         |
+|                       |                                   |
+|         +-------------+-------------+                     |
+|         |                           |                     |
+|    (Cache Hit)                 (Cache Miss)               |
+|         v                           v                     |
+|  redis.get(key)              fetcher() -> DB Query        |
+|         v                           v                     |
+|  schema.parse(JSON)          redis.set(key, JSON, 'EX')   |
+|         v                           v                     |
+|  Return Strongly Typed T     Return Strongly Typed T      |
++-----------------------------------------------------------+
 ```
 
-```ts
-async function getProduct(id: string): Promise<Product> {
-  const key = `product:${id}`;
+---
 
-  const cached = await cache.get(key, ProductSchema);
-  if (cached) return cached;
+## 2. Core Concepts
 
-  const product = await products.getById(id);          // source of truth
-  await cache.set(key, product, 300);                  // 5 minutes
-  return product;
-}
-```
+### 1. `ioredis` vs `node-redis` Typing
+- **`ioredis`**: Industry favorite for robust cluster support, sentinel failover, and predictable promise-based APIs.
+- **`node-redis`**: Official client with native support for Redis Stack, RedisJSON, and search modules.
 
-Writes go to the **source of truth first**, then invalidate or update the cache entry.
-
-## A typed cache interface
-
-A raw Redis client returns `string | null`. If you `JSON.parse` it and cast, the cache becomes an untyped back door: old entries in an outdated shape, or corrupted data, flow into your code as if they were correct. Wrap the client in a small interface that **validates on read** ([trust boundaries](../15-runtime-validation/00-trust-boundaries.md)):
-
-```ts
-import { z } from "zod";
-
-export interface Cache {
-  get<S extends z.ZodType>(key: string, schema: S): Promise<z.output<S> | undefined>;
-  set(key: string, value: unknown, ttlSeconds: number): Promise<void>;
-  del(key: string): Promise<void>;
-}
-
-export class RedisCache implements Cache {
-  constructor(private readonly redis: RedisLike) {}
-
-  async get<S extends z.ZodType>(key: string, schema: S): Promise<z.output<S> | undefined> {
-    const raw = await this.redis.get(key);               // string | null
-    if (raw === null) return undefined;
-    try {
-      return schema.parse(JSON.parse(raw));              // validated, typed
-    } catch {
-      await this.redis.del(key);                         // corrupt or outdated entry: drop it
-      return undefined;                                  // treat as a miss
-    }
-  }
-
-  async set(key: string, value: unknown, ttlSeconds: number): Promise<void> {
-    await this.redis.set(key, JSON.stringify(value), "EX", ttlSeconds);   // ioredis form; node-redis uses { EX: ... }
-  }
-
-  async del(key: string): Promise<void> {
-    await this.redis.del(key);
-  }
-}
-```
-
-Why this shape:
-
-- **The schema makes the return type accurate.** A shape change (you deploy a new version with a different `Product`) becomes a cache miss instead of a runtime crash, because old entries fail validation.
-- **The application depends on `Cache`,** not on a specific client. Swap Redis for an in-memory implementation in tests ([dependency injection](../17-design-patterns/05-dependency-injection.md)).
-- **Failure to parse is a miss,** not an error.
-
-A reusable "get or load" helper removes the boilerplate:
-
-```ts
-export async function cached<S extends z.ZodType>(
-  cache: Cache,
-  key: string,
-  schema: S,
-  ttlSeconds: number,
-  load: () => Promise<z.output<S>>,
-): Promise<z.output<S>> {
-  const hit = await cache.get(key, schema);
-  if (hit !== undefined) return hit;
-
-  const value = await load();
-  await cache.set(key, value, ttlSeconds);
-  return value;
-}
-
-const product = await cached(cache, `product:${id}`, ProductSchema, 300, () => products.getById(id));
-```
-
-### Serialization pitfalls
-
-Redis stores strings (or bytes), so your values go through JSON:
-
-- `Date` becomes an ISO string. A schema with `z.coerce.date()` (or a transform) converts it back.
-- `undefined` properties disappear, `Map`/`Set` become `{}`, `bigint` throws, and class instances lose their methods ([request and response types](../16-type-safe-apis/01-request-response-types.md)).
-- Cache **DTOs or plain data**, not class instances or ORM entities.
-
-## Keys, TTLs, and invalidation
-
-### Key design
-
-- **Namespace and version keys:** `app:v2:product:42`. Changing the version invalidates everything when you change the cached shape.
-- **Include everything the value depends on:** the id, the locale, the filters, the page. A key that omits a dependency serves the wrong data (the cached French page to an English user).
-- Keep keys predictable and bounded. Do not put unbounded user input in keys without validation (it can fill memory).
-
-```ts
-const keys = {
-  product: (id: string) => `app:v1:product:${id}`,
-  productList: (q: ProductQuery) => `app:v1:products:${hash(q)}`,
+### 2. Type-Safe Cache Key Factories
+Keys should be structured as branded tuples to prevent string typo errors:
+```typescript
+export const cacheKeys = {
+  user: (id: string) => `users:${id}` as const,
+  session: (token: string) => `sessions:${token}` as const,
+  rateLimit: (ip: string) => `ratelimit:${ip}` as const
 };
 ```
 
-### Expiration
+### 3. Generic Get-Or-Set Pattern (Cache-Aside)
+Encapsulating cache lookup, miss handling, and storage into a single typed utility:
+```typescript
+export async function getOrSet<T>(
+  redis: Redis,
+  key: string,
+  ttlSeconds: number,
+  fetcher: () => Promise<T>,
+  schema?: z.ZodType<T>
+): Promise<T> { ... }
+```
 
-- **Always set a TTL** on cache entries, so mistakes are bounded and memory is reclaimed.
-- Choose TTLs by how stale the data may be: seconds for volatile data, minutes or hours for stable data.
-- Add a little **jitter** (randomness) to TTLs for many similar keys so they do not all expire at the same instant.
+---
 
-### Invalidation
+## 3. How It Works Internally
 
-"There are only two hard things in computer science: cache invalidation and naming things." The usual strategies:
+1. `redis.get(key)` executes the RESP (REdis Serialization Protocol) command over a TCP socket.
+2. If the key exists, the JSON string is parsed.
+3. If a validation schema (Zod) is provided, it validates the cached payload. If the cached payload fails validation (due to schema drift), the cache entry is treated as a miss, evicted, and re-fetched from the database.
 
-| Strategy | How | Trade-off |
-|---|---|---|
-| **TTL only** | let entries expire | simple, data may be stale until expiry |
-| **Delete on write** | after updating the source, `del` the key | fresh, but you must find every key that depends on the changed data |
-| **Write-through** | update the source and the cache together | fresh and simple reads, but writes are slower and both can fail |
-| **Versioned keys** | include a version or "updated at" token in the key | no deletes needed, old keys expire by TTL |
+---
 
-Invalidate **after** the source write succeeds, and accept a short window of staleness. Prefer designs where being slightly stale is acceptable, because perfect consistency across a cache and a database is expensive.
+## 4. Syntax & API Reference
 
-## Cache stampede
-
-When a popular entry expires, many concurrent requests miss at once and all hit the database together. Prevent it by **sharing one in-flight load** per key within a process:
-
-```ts
-const inflight = new Map<string, Promise<unknown>>();
-
-async function singleFlight<T>(key: string, load: () => Promise<T>): Promise<T> {
-  const existing = inflight.get(key);
-  if (existing) return existing as Promise<T>;
-
-  const promise = load().finally(() => inflight.delete(key));
-  inflight.set(key, promise);
-  return promise;
+### Type-Safe Cache Manager Class Interface
+```typescript
+export interface TypedCacheManager {
+  get<T>(key: string, schema?: z.ZodType<T>): Promise<T | null>;
+  set<T>(key: string, value: T, ttlSeconds?: number): Promise<void>;
+  del(key: string): Promise<boolean>;
 }
 ```
 
-Combine it with `cached(...)` so concurrent misses for the same key share one load ([concurrency patterns](../12-async-and-iteration/05-concurrency-patterns.md)). Across **multiple instances**, a stampede can still happen. Mitigations include a short lock in Redis, serving stale data while one worker refreshes, and TTL jitter.
+---
 
-## Failure handling: the cache must not take you down
+## 5. Practical Examples
 
-A cache is an optimization, not a dependency of correctness. When Redis is slow or unreachable:
+### Example 1: Basic Type-Safe Redis Wrapper
+```typescript
+import Redis from 'ioredis';
 
-- **Degrade to the source.** Treat a cache error as a miss, log it, and continue.
-- **Set short timeouts** on cache calls, so a hanging Redis does not hang every request.
-- **Do not let a cache write failure fail the request.** Catch and log.
+const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
 
-```ts
-async function safeGet<S extends z.ZodType>(key: string, schema: S) {
+export async function setJson<T>(key: string, data: T, ttlSeconds: number): Promise<void> {
+  const serialized = JSON.stringify(data);
+  await redis.set(key, serialized, 'EX', ttlSeconds);
+}
+
+export async function getJson<T>(key: string): Promise<T | null> {
+  const raw = await redis.get(key);
+  if (!raw) return null;
+  return JSON.parse(raw) as T;
+}
+```
+
+### Example 2: Real-World Safe Cache-Aside with Schema Verification
+```typescript
+import Redis from 'ioredis';
+import { z } from 'zod';
+
+export const UserCacheSchema = z.object({
+  id: string(),
+  email: z.string().email(),
+  role: z.enum(['admin', 'user'])
+});
+
+export type CachedUser = z.infer<typeof UserCacheSchema>;
+
+export async function getCachedUser(
+  redis: Redis,
+  userId: string,
+  dbFallback: (id: string) => Promise<CachedUser>
+): Promise<CachedUser> {
+  const key = `user:${userId}`;
+  const cached = await redis.get(key);
+
+  if (cached) {
+    const parsed = UserCacheSchema.safeParse(JSON.parse(cached));
+    if (parsed.success) {
+      return parsed.data;
+    }
+    // Stale schema drift! Evict and re-fetch:
+    await redis.del(key);
+  }
+
+  const fresh = await dbFallback(userId);
+  await redis.set(key, JSON.stringify(fresh), 'EX', 3600);
+  return fresh;
+}
+```
+
+### Example 3: Edge Case - Distributed Locking with Expiration (Redlock Pattern)
+```typescript
+export async function withLock<T>(
+  redis: Redis,
+  resourceKey: string,
+  ttlMs: number,
+  task: () => Promise<T>
+): Promise<T> {
+  const lockKey = `locks:${resourceKey}`;
+  const lockToken = crypto.randomUUID();
+
+  // SET lockKey token NX PX ttlMs (Atomic lock acquisition)
+  const acquired = await redis.set(lockKey, lockToken, 'PX', ttlMs, 'NX');
+  if (!acquired) {
+    throw new Error(`Failed to acquire lock for ${resourceKey}`);
+  }
+
   try {
-    return await cache.get(key, schema);
-  } catch (err) {
-    logger.warn({ err, key }, "cache read failed");
-    return undefined;                      // behave as a miss
+    return await task();
+  } finally {
+    // Atomic release using Lua script to verify token ownership:
+    const releaseScript = `
+      if redis.call("get", KEYS[1]) == ARGV[1] then
+        return redis.call("del", KEYS[1])
+      else
+        return 0
+      end
+    `;
+    await redis.eval(releaseScript, 1, lockKey, lockToken);
   }
 }
 ```
 
-Be careful with the opposite failure too: if every request falls through to the database at once because the cache is cold or down, the database can be overwhelmed. Rate limit, and warm critical entries.
+### Example 4: Failure Case - Type Discrepancy on Stored Generic
+```typescript
+interface ProductDTO { sku: string; priceCents: number; }
 
-## Security
+declare function getJsonTyped<T>(key: string): Promise<T | null>;
 
-- **Never cache per-user data under a shared key.** Include the user (or tenant) in the key, or do not cache it. Serving user A's private data to user B is a classic caching vulnerability.
-- Do not cache **sensitive data** (tokens, personal data) unless necessary, and give it short TTLs.
-- Treat cached data as **untrusted input** on read (the validation above), since the cache can be written by other services or contain older formats.
-- Secure Redis itself: require authentication, use TLS across networks, and never expose it to the public internet.
-
-## Other uses of Redis
-
-| Use | How |
-|---|---|
-| **Sessions** | store a session by id with a TTL, set an HttpOnly cookie with the id ([authentication](./07-authentication-and-authorization.md)) |
-| **Rate limiting** | increment a counter per key with an expiry (`INCR` + `EXPIRE`), or use a library |
-| **Pub/sub** | broadcast events between instances (fire-and-forget: subscribers miss messages sent while disconnected) |
-| **Queues and jobs** | libraries such as BullMQ build reliable job queues on Redis |
-| **Distributed locks** | possible, but subtle: use a vetted library and keep locks short, with timeouts |
-| **Leaderboards, counters** | sorted sets and atomic increments |
-
-Atomicity: single Redis commands are atomic, so `INCR` is safe under concurrency. Read-modify-write sequences across several commands are not, unless you use a transaction (`MULTI`) or a Lua script.
-
-## In-process caches
-
-For data that is small, hot, and per-instance, an **in-memory cache** (a `Map` with TTL, or an LRU library such as `lru-cache`) is faster than Redis and has no network failure mode:
-
-```ts
-import { LRUCache } from "lru-cache";
-
-const configCache = new LRUCache<string, FeatureFlags>({ max: 100, ttl: 30_000 });
+async function test() {
+  const p = await getJsonTyped<ProductDTO>('prod:1');
+  // @ts-expect-error TS2339: Property 'title' does not exist on type 'ProductDTO'.
+  console.log(p?.title);
+}
 ```
 
-Caveats: each instance has its own copy (so they may disagree briefly), memory is bounded by your process, and entries vanish on restart. Use an LRU or a size limit so it cannot grow without bound. Many systems use both: a small in-process cache in front of Redis in front of the database.
+### Example 5: Idiomatic Tagged Invalidation via Sets
+```typescript
+export class TaggedCache {
+  constructor(private redis: Redis) {}
 
-## HTTP caching
+  public async setWithTags<T>(key: string, data: T, tags: string[], ttlSeconds = 3600) {
+    await this.redis.set(key, JSON.stringify(data), 'EX', ttlSeconds);
+    for (const tag of tags) {
+      await this.redis.sadd(`tag:${tag}`, key);
+    }
+  }
 
-Not all caching needs Redis. HTTP has built-in mechanisms that move caching to browsers, proxies, and CDNs:
+  public async invalidateTag(tag: string) {
+    const tagKey = `tag:${tag}`;
+    const keys = await this.redis.smembers(tagKey);
+    if (keys.length > 0) {
+      await this.redis.del(...keys);
+      await this.redis.del(tagKey);
+    }
+  }
+}
+```
 
-- **`Cache-Control`** (`max-age`, `public`, `private`, `no-store`) says who may cache a response and for how long.
-- **`ETag` / `If-None-Match`** lets clients revalidate cheaply and receive `304 Not Modified`.
+---
 
-Use `private` or `no-store` for user-specific responses. Set `Vary` when responses depend on request headers. HTTP caching often removes load before it reaches your code.
+## 6. Edge Cases, Pitfalls & Gotchas
 
-## Testing
+1. **Blocking the Redis Event Loop with `KEYS *`**:
+   Never execute `redis.keys('pattern*')` in production! Redis is single-threaded; `KEYS` inspects every key in memory synchronously, freezing all database traffic for seconds. Use `SCAN` or Tagged Sets instead.
+2. **Cache Stampede (Thundering Herd)**:
+   When a popular cache key expires, thousands of concurrent requests miss simultaneously, hammering the underlying PostgreSQL database. Mitigate with distributed locks or probabilistic early expiration (XFetch).
+3. **Serialization of `Date` and `bigint`**:
+   `JSON.stringify` drops `Date` prototypes (turning them into strings) and crashes on `bigint`. Ensure you parse date strings back to `Date` objects if consumer code expects dates.
+4. **Memory Leaks in Redis**:
+   Always set a TTL (`EX` or `PX`) on cached keys. Keys without TTLs remain in Redis RAM permanently until evicted by the maxmemory policy.
 
-- Unit-test services with an **in-memory `Cache` implementation**, and test the "miss, load, store" and "hit" paths.
-- Test the **failure paths**: a throwing cache must not break the request.
-- Test that **old or corrupt entries** are treated as misses.
-- For the Redis implementation, use a real Redis (a container) in integration tests rather than assuming a mock behaves identically ([integration testing](../18-testing-and-debugging/01-integration-testing.md)).
+---
 
-## Important rules and misconceptions
+## 7. Common Mistakes & Anti-Patterns
 
-- **A cache is not a source of truth.** Anything in it can disappear, expire, or be stale.
-- **Casting `JSON.parse` output defeats typing.** Validate on read.
-- **Redis is single-threaded for commands,** so a slow command (or a huge key scan) blocks every other client. Avoid `KEYS` on large datasets, and use `SCAN`.
-- **Caching does not fix a missing index.**
-- **`undefined` is not storable.** Decide how to represent "known missing" (a negative cache entry with a short TTL) versus "not cached".
-- **TTL is a ceiling on staleness only if every write sets it.** Some commands overwrite and drop the TTL.
+| Anti-Pattern | Bad Code | Good Code | Compiler / Runtime Impact |
+| :--- | :--- | :--- | :--- |
+| **Using `KEYS *` in Production** | `redis.keys('users:*')` | Tagged Sets or `SCAN` cursor | Freezes Redis process for all users |
+| **Untyped JSON Parse** | `const user = JSON.parse(await redis.get(k))` | Parse with Zod schema | Returns `any`; runtime crashes on schema drift |
+| **Missing Expiration TTL** | `redis.set(key, val)` without 'EX' | `redis.set(key, val, 'EX', 3600)` | Redis out of memory (OOM) |
+| **Unsafe Distributed Lock Release** | `await redis.del(lockKey)` | Lua script checking lock token | Releases someone else's expired lock |
+| **Hardcoding Raw String Keys** | `redis.get('user_' + id)` | Centralized `cacheKeys.user(id)` | Inconsistent key naming across services |
 
-## Common mistakes
+---
 
-- No TTL, so stale data lives forever and memory grows.
-- Casting cached JSON to a type without validation.
-- Keys that omit a dependency (user, locale, filters), serving the wrong data.
-- Caching per-user data under a shared key.
-- Letting a cache outage fail requests.
-- A stampede on popular keys with no single-flight or jitter.
-- Invalidating **before** the source write succeeds, then re-caching the old value.
-- Caching class instances or ORM entities and getting broken objects back.
-- Using `KEYS *` in production.
-- Treating Redis as durable storage without configuring persistence or accepting data loss.
-- Caching errors or empty results unintentionally for long periods.
+## 8. Performance & Type-Checker Complexity
 
-## Debugging
+- **Throughput**: A single Redis instance processes 100,000+ operations/sec. JSON serialization and Zod validation take ~2-5 microseconds in Node.js.
+- **Type Checking**: Key factory templates and generic wrappers check in sub-milliseconds.
 
-- Log hits, misses, and load durations (or expose counters), so you can see the hit rate. A low hit rate means the cache is not helping.
-- Inspect values and TTLs with `redis-cli` (`GET`, `TTL`, `SCAN`) to confirm what is stored.
-- If users see stale data, check the TTL, whether invalidation runs after writes, and whether a key is missing a dependency.
-- If a deploy causes errors from the cache, check for shape changes: version your keys or rely on validation to treat old entries as misses.
-- If the database spikes when the cache expires or restarts, look for stampedes and add single-flight, jitter, or warming.
-- Check connection settings (timeouts, retry behavior) if Redis problems cause request latency.
+---
 
-## Quick summary
+## 9. Compiler Internals
 
-- Cache expensive, reusable, tolerably stale data with **cache-aside**: check the cache, load on a miss, store with a TTL.
-- Wrap Redis in a typed `Cache` interface that **validates on read**, so shape changes become misses. Cache plain data, not class instances.
-- Namespace and version keys, include every dependency in the key, always set TTLs (with jitter), and invalidate after the source write.
-- Prevent stampedes with single-flight and jitter, and make cache failures degrade to the source instead of failing requests.
-- Never share per-user data under one key, secure Redis, and treat cached data as untrusted input.
-- Redis also serves sessions, rate limiting, pub/sub, and queues. In-process LRU caches and HTTP caching are often simpler and sufficient.
+When using template literal types for keys:
+```typescript
+type CacheKey = `user:${string}` | `session:${string}`;
+```
+The compiler verifies that string arguments match the prefix patterns, rejecting arbitrary strings.
 
-**Next:** [Authentication and authorization](./07-authentication-and-authorization.md)
+---
+
+## 10. Best Practices & Design Guidelines
+
+1. **Always Set a TTL on Cache Keys**: Prevent memory bloat.
+2. **Validate Cached Data on Read**: Detect schema drift automatically.
+3. **Use Tagged Invalidation Instead of Wildcard Scans**: Protect Redis single-threaded performance.
+4. **Use Atomic Lua Scripts for Lock Releases**: Prevent race conditions.
+
+---
+
+## 11. Real-World Case Study
+
+### Distributed API Rate Limiter
+Sliding window rate limiter using Redis sorted sets (ZSET):
+
+```typescript
+import Redis from 'ioredis';
+
+export class SlidingWindowRateLimiter {
+  constructor(private redis: Redis) {}
+
+  public async isAllowed(identifier: string, limit: number, windowSeconds: number): Promise<boolean> {
+    const key = `ratelimit:${identifier}`;
+    const now = Date.now();
+    const clearBefore = now - windowSeconds * 1000;
+
+    const pipeline = this.redis.pipeline();
+    pipeline.zremrangebyscore(key, 0, clearBefore);
+    pipeline.zadd(key, now, `${now}-${Math.random()}`);
+    pipeline.zcard(key);
+    pipeline.expire(key, windowSeconds);
+
+    const results = await pipeline.exec();
+    const count = results?.[2]?.[1] as number;
+
+    return count <= limit;
+  }
+}
+```
+
+---
+
+## 12. Interview Questions
+
+<details>
+<summary>1. What is the Cache-Aside pattern and how is it implemented in TypeScript?</summary>
+
+In Cache-Aside, the application first inspects the cache. On a hit, it returns the cached data. On a miss, it queries the primary database, populates the cache with a TTL, and returns the result. A generic function `getOrSet<T>(key, fetcher, ttl)` encapsulates this workflow with strong typing.
+</details>
+
+<details>
+<summary>2. Why is `redis.keys('*')` dangerous in production systems?</summary>
+
+Redis is single-threaded. The `KEYS` command performs a blocking $O(N)$ scan across all keys in the database. In a database with millions of keys, this blocks the entire Redis engine for seconds, causing timeouts and cascading failures across all backend microservices.
+</details>
+
+<details>
+<summary>3. What is the Cache Stampede (Thundering Herd) problem and how do you prevent it?</summary>
+
+Cache Stampede occurs when a high-traffic cache key expires. Multiple concurrent requests miss simultaneously and all attempt to query the database and recompute the cache, causing a sudden spike in database CPU load. Solutions include distributed locks (Redlock) or probabilistic early expiration (XFetch algorithm).
+</details>
+
+<details>
+<summary>4. Why should distributed lock releases always use a Lua script?</summary>
+
+If a process acquires a lock with a 5-second TTL, but its operation takes 6 seconds, the lock expires automatically. Another process acquires the lock. When the first process finishes and blindly calls `DEL lockKey`, it deletes the *second* process's lock! A Lua script checks whether the token in Redis matches the process's token before deleting, ensuring atomic, safe releases.
+</details>
+
+<details>
+<summary>5. How do you handle schema drift in cached Redis JSON objects?</summary>
+
+Parse cached JSON through a runtime schema parser (e.g. Zod). If the cached data fails schema validation (e.g. missing a newly required field), catch the error, evict the stale cache key, and re-fetch fresh data from the database.
+</details>
+
+<details>
+<summary>6. How does Redis pipeline improve network performance?</summary>
+
+Instead of sending commands one-by-one and waiting for a round-trip network response for each command ($N \times \text{RTT}$), pipelining packages multiple commands into a single TCP packet, executing them all in a single round-trip.
+</details>
+
+<details>
+<summary>7. What are Tagged Sets for cache invalidation?</summary>
+
+Rather than scanning for keys using patterns, whenever a key is written, its key name is added to a Redis Set representing a tag (e.g. `tag:user:123`). When invalidating that tag, the application reads the set members and deletes them directly.
+</details>
+
+<details>
+<summary>8. How do you type Redis Pub/Sub channels in TypeScript?</summary>
+
+By defining a mapped channel interface where keys are channel names and values are payload shapes, wrapping `publish` and `subscribe` in typed methods.
+</details>
+
+---
+
+## 13. Exercises & Challenges
+
+<details>
+<summary>Exercise 1 (Easy): Basic Redis Key Formatter</summary>
+
+**Problem:** Write a function `makeSessionKey(userId: string): string` using template literals.
+
+**Solution:**
+```typescript
+export function makeSessionKey(userId: string): `session:${string}` {
+  return `session:${userId}`;
+}
+```
+</details>
+
+<details>
+<summary>Exercise 2 (Easy): TTL Expiration Wrapper</summary>
+
+**Problem:** Write a function `cacheString(redis: any, key: string, value: string, ttlSeconds: number)` that sets a string with expiration.
+
+**Solution:**
+```typescript
+export async function cacheString(redis: any, key: string, value: string, ttlSeconds: number): Promise<void> {
+  await redis.set(key, value, 'EX', ttlSeconds);
+}
+```
+</details>
+
+<details>
+<summary>Exercise 3 (Medium): Generic Get-Or-Set Function</summary>
+
+**Problem:** Implement `getOrSet<T>(redis, key, ttl, fetcher)` that caches and retrieves JSON objects.
+
+**Solution:**
+```typescript
+export async function getOrSet<T>(
+  redis: any,
+  key: string,
+  ttl: number,
+  fetcher: () => Promise<T>
+): Promise<T> {
+  const cached = await redis.get(key);
+  if (cached) return JSON.parse(cached) as T;
+  const fresh = await fetcher();
+  await redis.set(key, JSON.stringify(fresh), 'EX', ttl);
+  return fresh;
+}
+```
+</details>
+
+<details>
+<summary>Exercise 4 (Medium): Redis Counter with Expiration</summary>
+
+**Problem:** Implement an atomic increment function `incrementCounter(redis, key, ttlSeconds): Promise<number>`.
+
+**Solution:**
+```typescript
+export async function incrementCounter(redis: any, key: string, ttlSeconds: number): Promise<number> {
+  const count = await redis.incr(key);
+  if (count === 1) {
+    await redis.expire(key, ttlSeconds);
+  }
+  return count;
+}
+```
+</details>
+
+<details>
+<summary>Exercise 5 (Hard): Type-Safe Redis PubSub Channel Manager</summary>
+
+**Problem:** Build a typed Pub/Sub wrapper where publishing and subscribing to channels enforces matching payload types.
+
+**Solution:**
+```typescript
+export interface ChannelMap {
+  'user:signup': { userId: string; email: string };
+  'order:paid': { orderId: string; totalCents: number };
+}
+
+export class TypedPubSub {
+  constructor(private publisher: any, private subscriber: any) {}
+
+  public async publish<C extends keyof ChannelMap>(channel: C, payload: ChannelMap[C]): Promise<void> {
+    await this.publisher.publish(channel, JSON.stringify(payload));
+  }
+
+  public subscribe<C extends keyof ChannelMap>(channel: C, handler: (payload: ChannelMap[C]) => void): void {
+    this.subscriber.subscribe(channel);
+    this.subscriber.on('message', (ch: string, message: string) => {
+      if (ch === channel) handler(JSON.parse(message));
+    });
+  }
+}
+```
+</details>
+
+<details>
+<summary>Exercise 6 (Hard): Cache Invalidator with Tag Sets</summary>
+
+**Problem:** Implement a tag-based cache store where `invalidate(tag)` reads members from a Redis set and deletes all associated keys.
+
+**Solution:**
+```typescript
+export class TaggedStore {
+  constructor(private redis: any) {}
+
+  public async set(key: string, data: any, tags: string[], ttl = 3600) {
+    await this.redis.set(key, JSON.stringify(data), 'EX', ttl);
+    for (const tag of tags) {
+      await this.redis.sadd(`tag:${tag}`, key);
+    }
+  }
+
+  public async invalidate(tag: string) {
+    const setKey = `tag:${tag}`;
+    const keys = await this.redis.smembers(setKey);
+    if (keys.length > 0) {
+      await this.redis.del(...keys);
+      await this.redis.del(setKey);
+    }
+  }
+}
+```
+</details>

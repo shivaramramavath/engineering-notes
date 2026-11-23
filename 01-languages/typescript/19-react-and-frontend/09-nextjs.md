@@ -1,316 +1,518 @@
-# Next.js
+# Next.js App Router, Server Components, and Metadata Typing in TypeScript
 
-Next.js is the most widely used React framework, and its **App Router** changes how you think about components: by default they run on the **server**, and you opt into the browser with `"use client"`. That split has real TypeScript consequences: which props can cross the boundary, how page and route handler parameters are typed, how environment variables and server actions are typed, and where validation must live. This note focuses on typing and on the mistakes that the server/client boundary makes easy.
+> Typing Next.js 14/15 App Router in TypeScript: Server Components (RSC) vs Client Components ('use client'), PageProps, LayoutProps, Route Handlers, generateMetadata, and Server Actions.
 
-> **Version note.** Next.js evolves quickly, and details differ between versions. Notably, in Next.js 15 the `params` and `searchParams` page props are **promises** (they were plain objects in 14), and caching defaults for `fetch` changed. Check the documentation for your installed version before copying signatures. The examples use the App Router.
-
-**Prerequisites:**
-- [Component props and children](./00-component-props-and-children.md)
-- [Hooks](./02-hooks.md) and [context](./03-context.md)
-- [Schema validation](../15-runtime-validation/01-schema-validation.md)
-- [Compiler and tsconfig recipes](../13-compiler-and-tsconfig/05-tsconfig-recipes.md)
+| Metadata | Details |
+| :--- | :--- |
+| **Category** | React and Frontend Typing |
+| **Difficulty** | Advanced |
+| **Prerequisites** | [19-react-and-frontend/00-component-props-and-children.md](./00-component-props-and-children.md), [19-react-and-frontend/05-forms.md](./05-forms.md) |
+| **TypeScript Baseline** | TS 5.0+, Next.js 14/15 / React 19 |
+| **Tested tsconfig** | `"strict": true, "jsx": "preserve", "moduleResolution": "bundler"` |
 
 ---
 
-## Server and client components
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & API Reference](#4-syntax--api-reference)
+5. [Practical Examples](#5-practical-examples)
+6. [Edge Cases, Pitfalls & Gotchas](#6-edge-cases-pitfalls--gotchas)
+7. [Common Mistakes & Anti-Patterns](#7-common-mistakes--anti-patterns)
+8. [Performance & Type-Checker Complexity](#8-performance--type-checker-complexity)
+9. [Compiler Internals](#9-compiler-internals)
+10. [Best Practices & Design Guidelines](#10-best-practices--design-guidelines)
+11. [Real-World Case Study](#11-real-world-case-study)
+12. [Interview Questions](#12-interview-questions)
+13. [Exercises & Challenges](#13-exercises--challenges)
 
-| | Server component (default) | Client component (`"use client"`) |
-|---|---|---|
-| Runs | on the server (at build or request time) | on the server for first render, then hydrates in the browser |
-| Can be `async` and `await` data | **yes** | no |
-| Can use state, effects, refs, context, event handlers, browser APIs | **no** | yes |
-| Can read server-only resources (database, secrets) | **yes** | no, never |
-| Adds to the JavaScript bundle | no | yes |
+---
 
-```tsx
-// app/users/page.tsx  (a server component)
-import { UserList } from "./user-list";
+## 1. What & Why
 
-export default async function UsersPage() {
-  const users = await db.users.findMany();           // direct data access, runs on the server
-  return <UserList users={users.map(toUserDto)} />;
-}
+Next.js introduces a hybrid architecture combining **React Server Components (RSC)** with interactive Client Components. In the App Router (`app/` directory), components execute on the server by default, enabling direct database queries, zero client bundle weight, and streaming SSR.
+
+In TypeScript, the App Router introduces several unique type rules:
+- **Async Server Components**: Server components can be `async` functions returning `Promise<React.JSX.Element>`, which client components strictly disallow.
+- **Route Parameters**: In Next.js 15, dynamic route parameters (`params` and `searchParams`) in `page.tsx` are asynchronous promises: `params: Promise<{ id: string }>`.
+- **Serialization Boundaries**: Passing non-serializable objects (Functions, Dates, Classes) across the `'use client'` boundary produces runtime serialization exceptions.
+- **`generateMetadata`**: Dynamic SEO metadata generation must conform to Next.js's strict `Metadata` and `ResolvingMetadata` interfaces.
+
+```
++-----------------------------------------------------------+
+|                   Next.js App Router Pipeline             |
+|                                                           |
+|  Server Component (app/users/[id]/page.tsx)               |
+|  - Reads DB directly: const user = await db.user.find()   |
+|  - Generates HTML & React Server Component payload        |
+|                            |                              |
+|                            | (Serializable Props)         |
+|                            v                              |
+|  Client Component ('use client')                          |
+|  - Interactive state: useState, onClick, useEffect        |
++-----------------------------------------------------------+
 ```
 
-```tsx
-// app/users/user-list.tsx
-"use client";                                         // marks the client boundary
+---
 
-import { useState } from "react";
+## 2. Core Concepts
 
-export function UserList({ users }: { users: UserDto[] }) {
-  const [filter, setFilter] = useState("");
-  return (
-    <>
-      <input value={filter} onChange={(e) => setFilter(e.target.value)} />
-      <ul>{users.filter((u) => u.name.includes(filter)).map((u) => <li key={u.id}>{u.name}</li>)}</ul>
-    </>
-  );
-}
-```
-
-`"use client"` marks a **boundary**: that file and everything it imports become client code. Keep client components small and near the leaves, and keep data fetching in server components.
-
-### Props that cross the boundary
-
-A server component passes props to a client component. Those props are **serialized** and sent to the browser, so they must be serializable values: strings, numbers, booleans, `null`, plain objects and arrays, and certain built-ins that React supports. They **cannot** be:
-
-- **Functions** (event handlers, callbacks), except server actions.
-- **Class instances** with methods, `Map`/`Set` in some cases, or anything with non-serializable references.
-- **Secrets or server-only data** you do not want the client to see. Everything you pass is visible in the page.
-
-TypeScript does not check serializability for you. A function-typed prop on a client component compiles, and the error appears when you render from a server component ("Functions cannot be passed directly to Client Components"). Pass **DTOs** (plain data), and use ISO strings for dates to avoid surprises ([DTO pattern](../16-type-safe-apis/02-dto-pattern.md), [request and response types](../16-type-safe-apis/01-request-response-types.md)).
-
-Server components **can** be passed as `children` to client components, which is how a client layout can wrap server-rendered content.
-
-### Keep server-only code out of the client
-
-```ts
-// lib/db.ts
-import "server-only";            // build error if a client component imports this module
-export const db = createClient(process.env.DATABASE_URL!);
-```
-
-The `server-only` package makes the build fail if client code imports the module, a safety net against leaking secrets and database code.
-
-## Typing pages and layouts
-
-```tsx
+### 1. Page and Layout Props (Next.js 15 Baseline)
+In Next.js 15, route parameters are asynchronous promises:
+```typescript
 // app/blog/[slug]/page.tsx
-interface PageProps {
-  params: Promise<{ slug: string }>;                                  // Next 15: a promise
+export interface PageProps {
+  params: Promise<{ slug: string }>;
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-export default async function BlogPost({ params, searchParams }: PageProps) {
+export default async function BlogPostPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
-  const { page } = await searchParams;
-  const post = await getPost(slug);
-  if (!post) notFound();                                              // from "next/navigation"
-  return <article>{post.title}</article>;
+  const { ref } = await searchParams;
+  return <h1>Post: {slug}</h1>;
 }
 ```
 
-- **Dynamic segments** (`[slug]`) arrive in `params` as **strings** (or `string[]` for catch-all `[...slug]`). They come from the URL, so they are untrusted.
-- **`searchParams`** values are `string | string[] | undefined`. Validate and convert them with a schema, as in any query string ([validation recipes](../15-runtime-validation/04-validation-recipes.md)):
+### 2. Typing Dynamic Metadata (`generateMetadata`)
+```typescript
+import type { Metadata, ResolvingMetadata } from 'next';
 
-```tsx
-const SearchSchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  q: z.string().optional(),
-});
-
-const { page, q } = SearchSchema.parse(await searchParams);
-```
-
-- In Next.js 14 and earlier, `params` and `searchParams` are plain objects (no `await`). Some newer versions also offer generated helper types for page props, and typed routes, so check what your version provides.
-- Layouts take `children: React.ReactNode` (and `params` for dynamic layouts).
-
-### Metadata
-
-```tsx
-import type { Metadata } from "next";
-
-export const metadata: Metadata = { title: "Blog", description: "Posts" };
-
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata(
+  { params }: PageProps,
+  parent: ResolvingMetadata
+): Promise<Metadata> {
   const { slug } = await params;
-  const post = await getPost(slug);
-  return { title: post?.title ?? "Not found" };
+  return {
+    title: `Post: ${slug}`,
+    description: `Read post about ${slug}`
+  };
 }
 ```
 
-`Metadata` is a typed object, so a misspelled field is a compile error.
-
-## Route handlers
-
-```ts
-// app/api/users/[id]/route.ts
-import { NextRequest, NextResponse } from "next/server";
+### 3. Route Handlers (`app/api/.../route.ts`)
+Typing API endpoints in the App Router:
+```typescript
+import { NextResponse, type NextRequest } from 'next/server';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
   const { id } = await params;
-  const user = await users.find(id);
-  if (!user) {
-    return NextResponse.json({ error: { code: "NOT_FOUND", message: "User not found" } }, { status: 404 });
-  }
-  return NextResponse.json(toUserDto(user));
-}
-
-export async function POST(request: NextRequest) {
-  const parsed = CreateUserSchema.safeParse(await request.json());
-  if (!parsed.success) {
-    return NextResponse.json({ error: { code: "VALIDATION", issues: toIssues(parsed.error) } }, { status: 400 });
-  }
-  const user = await users.create(parsed.data);
-  return NextResponse.json(toUserDto(user), { status: 201 });
+  return NextResponse.json({ id });
 }
 ```
 
-Export one function per HTTP method. The request body is **untrusted**, so validate it before use, and return a consistent error shape ([error response types](../16-type-safe-apis/04-error-response-types.md)). `NextResponse.json` is not generic over the body, so the response type is not checked against your DTO: use your mapper function's return type, and share the contract types with the client ([API contracts](../16-type-safe-apis/00-api-contracts.md)).
+---
 
-## Server actions
+## 3. How It Works Internally
 
-A **server action** is an async function that runs on the server, callable from client code (often from a form):
+When Next.js builds a project:
+1. It runs the Next.js compiler type generator, generating `.next/types/app/**/*.ts`.
+2. These generated types validate that default exports of `page.tsx` and `layout.tsx` conform to expected Next.js entrypoint signatures.
+3. If you export a non-component from `page.tsx` or mis-type `params`, `next build` halts with an informative diagnostic.
 
-```tsx
-// app/signup/actions.ts
-"use server";
+---
 
-import { z } from "zod";
+## 4. Syntax & API Reference
 
-const SignupSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8),
-});
+### Layout Props Interface
+```typescript
+import type { ReactNode } from 'react';
 
-export type SignupState = { ok: boolean; errors?: Partial<Record<"email" | "password", string>> };
-
-export async function signup(prev: SignupState, formData: FormData): Promise<SignupState> {
-  const parsed = SignupSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) {
-    const errors: SignupState["errors"] = {};
-    for (const issue of parsed.error.issues) {
-      const key = issue.path[0];
-      if (key === "email" || key === "password") errors[key] ??= issue.message;
-    }
-    return { ok: false, errors };
-  }
-  await createUser(parsed.data);
-  return { ok: true };
+export interface LayoutProps {
+  children: ReactNode;
+  params: Promise<Record<string, string>>;
 }
 ```
 
-```tsx
-// app/signup/form.tsx
-"use client";
+---
 
-import { useActionState } from "react";
-import { signup, type SignupState } from "./actions";
+## 5. Practical Examples
 
-const initial: SignupState = { ok: false };
+### Example 1: Basic Async Server Component with Database Access
+```typescript
+interface UserProfileProps {
+  userId: string;
+}
 
-export function SignupForm() {
-  const [state, formAction, pending] = useActionState(signup, initial);
+async function getUser(id: string) {
+  // Direct DB or fetch query on the server!
+  return { id, name: 'Alice', role: 'Engineer' };
+}
+
+export default async function UserProfile({ userId }: UserProfileProps): Promise<React.JSX.Element> {
+  const user = await getUser(userId);
   return (
-    <form action={formAction}>
-      <input name="email" />
-      {state.errors?.email && <p>{state.errors.email}</p>}
-      <input name="password" type="password" />
-      <button disabled={pending}>Sign up</button>
-    </form>
+    <div>
+      <h2>{user.name}</h2>
+      <p>Role: {user.role}</p>
+    </div>
   );
 }
 ```
 
-Important points:
+### Example 2: Real-World Next.js 15 Dynamic Page with Search Params
+```typescript
+interface SearchPageProps {
+  params: Promise<{ category: string }>;
+  searchParams: Promise<{ q?: string; page?: string }>;
+}
 
-- A server action is a **public HTTP endpoint** in effect. **Validate its input and check authorization inside it**, exactly as you would for an API route. Types do not protect it, since the arguments arrive from the network ([trust boundaries](../15-runtime-validation/00-trust-boundaries.md)).
-- Arguments and return values must be **serializable**, like props across the boundary.
-- Return a typed result (a state object, a discriminated union) instead of throwing for expected failures, so the form can display errors ([the Result pattern](../11-error-handling/02-result-pattern.md)).
-- Types shared between the action file and the client form are fine to import as `type` imports.
+export default async function CategorySearchPage({ params, searchParams }: SearchPageProps) {
+  const { category } = await params;
+  const { q = '', page = '1' } = await searchParams;
 
-See [forms](./05-forms.md) for the client side of this pattern.
+  return (
+    <div>
+      <h1>Category: {category}</h1>
+      <p>Searching for: "{q}" on Page {page}</p>
+    </div>
+  );
+}
+```
 
-## Environment variables
+### Example 3: Edge Case - Server Action with Form Revalidation
+```typescript
+'use server';
 
-`process.env.X` is `string | undefined` in the types. Validate once, and use the validated object:
+import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
 
-```ts
-// lib/env.ts
-import "server-only";
-import { z } from "zod";
-
-const EnvSchema = z.object({
-  DATABASE_URL: z.string().url(),
-  SESSION_SECRET: z.string().min(32),
+const UpdateNameSchema = z.object({
+  name: z.string().min(2)
 });
 
-export const env = EnvSchema.parse(process.env);
+export async function updateUserNameAction(formData: FormData): Promise<{ success: boolean; error?: string }> {
+  const parsed = UpdateNameSchema.safeParse({
+    name: formData.get('name')
+  });
+
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0].message };
+  }
+
+  // Update in DB
+  revalidatePath('/dashboard');
+  return { success: true };
+}
 ```
 
-- Variables prefixed with **`NEXT_PUBLIC_`** are inlined into the **browser bundle**. Never put secrets in them.
-- Everything without the prefix is available only on the server.
-- Do not import a server-only env module from client code (the `server-only` import makes that a build error).
+### Example 4: Failure Case - Passing Functions Across Client Boundaries
+```typescript
+// Server Component:
+// function ServerParent() {
+//   const handleSave = () => { console.log('Saving'); };
+//   // @ts-expect-error TS2322: Functions cannot be passed directly to Client Components unless marked with 'use server'!
+//   return <ClientChild onSave={handleSave} />;
+// }
+```
 
-See [config and environment](../20-nodejs-backend/01-config-and-environment.md).
+### Example 5: Idiomatic Route Handler with Validation
+```typescript
+import { NextResponse, type NextRequest } from 'next/server';
+import { z } from 'zod';
 
-## Configuration and tsconfig
+const CreateItemSchema = z.object({
+  title: z.string().min(1)
+});
 
-Next.js generates and updates a `tsconfig.json` and a `next-env.d.ts` file. Do not edit `next-env.d.ts`. Recent versions support a typed config file:
+export async function POST(req: NextRequest): Promise<NextResponse> {
+  const body = await req.json();
+  const parsed = CreateItemSchema.safeParse(body);
 
-```ts
-// next.config.ts
-import type { NextConfig } from "next";
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
+  }
 
-const config: NextConfig = {
-  reactStrictMode: true,
+  return NextResponse.json({ message: 'Item created', item: parsed.data }, { status: 201 });
+}
+```
+
+---
+
+## 6. Edge Cases, Pitfalls & Gotchas
+
+1. **Next.js 15 Async `params`**:
+   In Next.js 14, `params` was synchronous `{ slug: string }`. In Next.js 15, `params` and `searchParams` are Promises (`Promise<{ slug: string }>`). Accessing `params.slug` without `await` throws a runtime warning and causes type errors in Next.js 15.
+2. **Server/Client Component Boundaries**:
+   Props passed from a Server Component to a Client Component must be **serializable** (strings, numbers, booleans, plain objects, arrays). Passing class instances, `Date` objects, or functions triggers serialization errors.
+3. **`'use client'` Does Not Mean Client-Only**:
+   Client components are still pre-rendered to HTML on the server during SSR! Code inside Client components cannot assume `window` or `localStorage` exists during initial render without checking `typeof window !== 'undefined'`.
+4. **Environment Variables**:
+   Variables prefixed with `NEXT_PUBLIC_` are inlined into the client JavaScript bundle. Variables without this prefix remain server-only. Accidental usage of server env vars in Client components evaluates to `undefined`.
+
+---
+
+## 7. Common Mistakes & Anti-Patterns
+
+| Anti-Pattern | Bad Code | Good Code | Compiler / Runtime Impact |
+| :--- | :--- | :--- | :--- |
+| **Sync `params` in Next.js 15** | `const slug = params.slug` | `const { slug } = await params` | Runtime warning / type mismatch |
+| **Passing Dates across RSC Boundary** | `<ClientComp date={new Date()} />` | `<ClientComp date={date.toISOString()} />` | Server-Client serialization warning |
+| **`'use client'` at the Very Top of File Missing** | Component using `useState` without `'use client'` | Prepend `'use client'` at line 1 | `Error: useState can only be used in Client Component` |
+| **Using `window` in Client Component Body** | `const w = window.innerWidth;` | Access inside `useEffect` | Server crash: `window is not defined` |
+| **Fetching via HTTP to Self in RSC** | `fetch('http://localhost/api/user')` | Call DB / service function directly | Wasteful loopback HTTP overhead |
+| **Exporting Helper from `route.ts`** | Exporting non-HTTP method functions | Keep helpers private or in `lib/` | Next.js interprets exports as HTTP verbs |
+
+---
+
+## 8. Performance & Type-Checker Complexity
+
+- **Zero Bundle Weight for Server Components**: Dependencies imported exclusively in Server Components (e.g. `markdown-it`, `bcrypt`, `pg`) never reach the client bundle, drastically reducing JS bundle sizes.
+- **Next.js Plugin Type Checking**: `next.config.js` with TypeScript generates route types in `.next/types`, providing strict route validation with minimal TSServer overhead.
+
+---
+
+## 9. Compiler Internals
+
+When Next.js builds:
+The custom Next.js TypeScript plugin checks `app/**/page.tsx`. It verifies that the default export conforms to `(props: PageProps) => ReactNode | Promise<ReactNode>`. If an invalid prop is declared or the component returns an illegal type, Next.js compiler diagnostics halt compilation.
+
+---
+
+## 10. Best Practices & Design Guidelines
+
+1. **Default to Server Components**: Add `'use client'` only when components need user interaction (`onClick`, `useState`, `useEffect`).
+2. **Serialize Props at Boundaries**: Pass ISO date strings instead of raw `Date` objects.
+3. **Await `params` in Next.js 15**: Use `const { slug } = await params`.
+4. **Use Direct Database Access in RSC**: Avoid calling your own API route handlers from Server Components.
+
+---
+
+## 11. Real-World Case Study
+
+### High-Performance Blog with Dynamic SEO Metadata
+A blog platform generating dynamic OpenGraph tags and caching database reads:
+
+```typescript
+import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
+
+interface PostPageProps {
+  params: Promise<{ slug: string }>;
+}
+
+async function getPostFromDb(slug: string) {
+  // Simulated database lookup
+  if (slug === 'missing') return null;
+  return { title: 'Understanding TypeScript', content: 'Comprehensive guide...' };
+}
+
+export async function generateMetadata({ params }: PostPageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const post = await getPostFromDb(slug);
+  if (!post) return { title: 'Post Not Found' };
+
+  return {
+    title: `${post.title} | Engineering Notes`,
+    description: post.content.slice(0, 160),
+    openGraph: {
+      title: post.title,
+      type: 'article'
+    }
+  };
+}
+
+export default async function BlogPostPage({ params }: PostPageProps) {
+  const { slug } = await params;
+  const post = await getPostFromDb(slug);
+  if (!post) notFound();
+
+  return (
+    <article>
+      <h1>{post.title}</h1>
+      <p>{post.content}</p>
+    </article>
+  );
+}
+```
+
+---
+
+## 12. Interview Questions
+
+<details>
+<summary>1. What are React Server Components (RSC) and how do they differ from Client Components?</summary>
+
+React Server Components execute exclusively on the server and never ship JavaScript to the browser. They can be asynchronous, can query databases directly, and have zero client bundle size impact. Client Components (`'use client'`) ship JavaScript to the browser to enable client-side interactivity, state (`useState`), and event handlers.
+</details>
+
+<details>
+<summary>2. Why are `params` and `searchParams` asynchronous in Next.js 15?</summary>
+
+Next.js 15 made `params` and `searchParams` asynchronous Promises (`Promise<{ slug: string }>`) to support partial prerendering (PPR) and streaming optimizations where route segments can be rendered before all parameters or search parameters are settled.
+</details>
+
+<details>
+<summary>3. Why can't functions or class instances be passed from a Server Component to a Client Component?</summary>
+
+Props passed across the server/client boundary must be serialized into a React Server Component (RSC) JSON stream. Functions and complex prototypes cannot be serialized to JSON, producing a runtime serialization error.
+</details>
+
+<details>
+<summary>4. How do you type dynamic metadata in Next.js?</summary>
+
+By exporting `async function generateMetadata(props: PageProps, parent: ResolvingMetadata): Promise<Metadata>`.
+</details>
+
+<details>
+<summary>5. What is the difference between `NextRequest` / `NextResponse` and native `Request` / `Response`?</summary>
+
+`NextRequest` and `NextResponse` extend the standard Web Fetch API `Request` and `Response` with helper methods for reading/writing cookies, extracting URL parameters, managing geolocation, and returning typed JSON.
+</details>
+
+<details>
+<summary>6. How do you trigger an intentional 404 page in an App Router page?</summary>
+
+By calling `notFound()` from `next/navigation`. It throws an internal Next.js error caught by the closest `not-found.tsx` boundary.
+</details>
+
+<details>
+<summary>7. What does the `'use server'` directive do?</summary>
+
+`'use server'` marks an asynchronous function as a **Server Action**, allowing it to be invoked from client components or HTML form actions. Next.js creates an internal RPC endpoint for the action automatically.
+</details>
+
+<details>
+<summary>8. How do you type route segment parameters in Route Handlers?</summary>
+
+```typescript
+export async function GET(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) { ... }
+```
+</details>
+
+---
+
+## 13. Exercises & Challenges
+
+<details>
+<summary>Exercise 1 (Easy): Basic Layout Props Typing</summary>
+
+**Problem:** Type an App Router `RootLayout` component accepting `children`.
+
+**Solution:**
+```typescript
+import type { ReactNode } from 'react';
+
+export default function RootLayout({ children }: { children: ReactNode }) {
+  return (
+    <html lang="en">
+      <body>{children}</body>
+    </html>
+  );
+}
+```
+</details>
+
+<details>
+<summary>Exercise 2 (Easy): Static Metadata Export</summary>
+
+**Problem:** Type a static `metadata` export with title and description for an about page.
+
+**Solution:**
+```typescript
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'About Us',
+  description: 'Learn more about our team and mission'
 };
-
-export default config;
 ```
+</details>
 
-The typical tsconfig (see [tsconfig recipes](../13-compiler-and-tsconfig/05-tsconfig-recipes.md)) uses `moduleResolution: "bundler"`, `noEmit: true`, `isolatedModules: true`, and a `next` plugin for editor support. Add `strict` and consider `noUncheckedIndexedAccess`. `next build` runs the type check, so type errors fail the build.
+<details>
+<summary>Exercise 3 (Medium): Route Handler with Status Code</summary>
 
-## Data fetching and caching
+**Problem:** Implement a typed `GET` route handler returning `{ status: 'ok', timestamp: number }`.
 
-Server components fetch directly with `await`. How results are cached and revalidated is configured through `fetch` options, route segment settings, and cache APIs, and **the defaults changed between Next.js versions**. Read the documentation for yours, and do not assume that a `fetch` call is cached (or not). For client-side interactivity (mutations, polling, optimistic UI), TanStack Query works in client components, with data prefetched on the server and handed over as dehydrated state ([server state](./07-server-state-tanstack-query.md)). Create the `QueryClient` per request on the server so cached data is never shared between users.
+**Solution:**
+```typescript
+import { NextResponse } from 'next/server';
 
-## Using client-only libraries
-
-State libraries, context providers, and browser-only code must live in client components. A common pattern is a small client `Providers` component that wraps `children`, rendered from a server layout:
-
-```tsx
-// app/providers.tsx
-"use client";
-
-export function Providers({ children }: { children: React.ReactNode }) {
-  const [queryClient] = useState(() => new QueryClient());      // one per browser session, not a module singleton
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
-}
-
-// app/layout.tsx  (server component)
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return <html lang="en"><body><Providers>{children}</Providers></body></html>;
+export async function GET(): Promise<NextResponse> {
+  return NextResponse.json({
+    status: 'ok',
+    timestamp: Date.now()
+  });
 }
 ```
+</details>
 
-For stores like Zustand, avoid module-level singletons holding per-user data on the server ([client state](./08-client-state-zustand.md), [context](./03-context.md)).
+<details>
+<summary>Exercise 4 (Medium): Next.js 15 Async Dynamic Page</summary>
 
-## Common mistakes
+**Problem:** Type a `UserPage` component in Next.js 15 that awaits dynamic parameter `id`.
 
-- Using `useState`, `useEffect`, or event handlers in a server component (add `"use client"` to the component that needs them, and keep it small).
-- Passing functions, class instances, or non-serializable values from server to client components.
-- Marking a large part of the tree `"use client"` and losing the benefits of server rendering.
-- Treating `params` and `searchParams` as validated and typed numbers (they are strings from the URL).
-- Forgetting to `await` `params` in Next.js 15, or writing 14-style code against 15.
-- Skipping validation and authorization in server actions and route handlers.
-- Putting secrets in `NEXT_PUBLIC_` variables or importing server modules into client files.
-- Reading `localStorage`, `window`, or `document` during server rendering.
-- Using a module-level store or `QueryClient` that is shared across requests.
-- Assuming `fetch` caching behavior without checking the version.
-- Hydration mismatches from values that differ between server and client (dates, random ids, persisted state).
+**Solution:**
+```typescript
+interface UserPageProps {
+  params: Promise<{ id: string }>;
+}
 
-## Debugging
+export default async function UserPage({ params }: UserPageProps) {
+  const { id } = await params;
+  return <h1>User ID: {id}</h1>;
+}
+```
+</details>
 
-- **"Functions cannot be passed directly to Client Components":** a server component is passing a function prop. Move the handler into the client component, or use a server action.
-- **"You're importing a component that needs `useState`..."**: add `"use client"` to the file that uses the client-only API, or to the nearest appropriate parent.
-- **Hydration errors:** compare server HTML with the client's first render. Look for browser-only APIs, dates, `Math.random`, or persisted state read during render.
-- **Type errors only at build:** run `npx tsc --noEmit` and `next build` locally.
-- **Stale data:** check caching and revalidation settings for the segment and the `fetch` call.
-- **A variable is `undefined` in the browser:** it lacks the `NEXT_PUBLIC_` prefix, or the build did not see it.
-- Inspect server logs for server component errors, and the browser console for client ones.
+<details>
+<summary>Exercise 5 (Hard): Dynamic OpenGraph Metadata Generator</summary>
 
-## Quick summary
+**Problem:** Implement a `generateMetadata` function that merges parent metadata with dynamic post title and custom OpenGraph images.
 
-- Components are **server by default**. Add `"use client"` only where you need state, effects, events, or browser APIs, and keep client components small.
-- Props crossing the boundary must be serializable: pass plain DTOs, never functions or secrets.
-- Type pages with `params` (a promise in Next 15) and `searchParams`, treat both as untrusted strings, and validate with a schema.
-- Route handlers and server actions are network endpoints: validate input, check authorization, and return typed results.
-- Validate environment variables once, keep secrets server-only (`server-only`), and remember `NEXT_PUBLIC_` ships to the browser.
-- Provide client-side libraries through small client components, and avoid shared singletons for per-request state. Check the docs for your Next.js version, since APIs and caching defaults change.
+**Solution:**
+```typescript
+import type { Metadata, ResolvingMetadata } from 'next';
 
-**Next:** [20 Node.js Backend](../20-nodejs-backend/README.md)
+interface Props { params: Promise<{ id: string }>; }
+
+export async function generateMetadata(
+  { params }: Props,
+  parent: ResolvingMetadata
+): Promise<Metadata> {
+  const { id } = await params;
+  const previousImages = (await parent).openGraph?.images || [];
+
+  return {
+    title: `Item ${id}`,
+    openGraph: {
+      images: [`/api/og?id=${id}`, ...previousImages]
+    }
+  };
+}
+```
+</details>
+
+<details>
+<summary>Exercise 6 (Hard): Type-Safe Server Action Form Handler</summary>
+
+**Problem:** Write a server action that parses `FormData` with Zod, returning typed error messages on failure and revalidating cache on success.
+
+**Solution:**
+```typescript
+'use server';
+
+import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
+
+const Schema = z.object({ comment: z.string().min(5) });
+
+export async function submitComment(
+  prevState: { error?: string; success?: boolean },
+  formData: FormData
+) {
+  const parsed = Schema.safeParse({ comment: formData.get('comment') });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message };
+  }
+  revalidatePath('/comments');
+  return { success: true };
+}
+```
+</details>

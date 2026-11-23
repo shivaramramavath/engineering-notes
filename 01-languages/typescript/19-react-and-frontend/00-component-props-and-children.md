@@ -1,274 +1,547 @@
-# Component Props and Children
+# React Component Props, Children, and React 19 Typing in TypeScript
 
-A React component is a function from **props** to UI, so typing a component is mostly typing its props. Done well, the compiler tells callers exactly what a component accepts, rejects invalid combinations, and gives autocomplete for every option. This note covers the standard ways to type props, `children`, HTML-element wrappers, and the union patterns that make invalid prop combinations impossible.
+> Typing React components in TypeScript: React.FC vs plain functions, ReactNode vs ReactElement vs JSX.Element, PropsWithChildren pitfalls, Discriminated Union props, and React 19 compiler-first typing.
 
-> **Version note.** Examples assume React 18 or 19 with the matching `@types/react`. Where the two differ, it is called out. In React 19 types, the global `JSX` namespace is gone: use `React.JSX.Element` if you need it, and prefer not to annotate component return types at all.
-
-**Prerequisites:**
-- [Interfaces](../04-objects-and-interfaces/00-interfaces.md) and [type aliases](../01-fundamentals/04-type-aliases.md)
-- [Discriminated unions](../03-unions-and-narrowing/04-discriminated-unions.md)
-- [Utility types](../07-utility-types/README.md)
+| Metadata | Details |
+| :--- | :--- |
+| **Category** | React and Frontend Typing |
+| **Difficulty** | Intermediate |
+| **Prerequisites** | [04-objects-and-interfaces/00-interfaces.md](../04-objects-and-interfaces/00-interfaces.md), [04-objects-and-interfaces/02-discriminated-unions.md](../04-objects-and-interfaces/02-discriminated-unions.md) |
+| **TypeScript Baseline** | TS 5.0+, React 19 / @types/react 19 |
+| **Tested tsconfig** | `"strict": true, "jsx": "react-jsx", "module": "NodeNext"` |
 
 ---
 
-## The basic shape
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & API Reference](#4-syntax--api-reference)
+5. [Practical Examples](#5-practical-examples)
+6. [Edge Cases, Pitfalls & Gotchas](#6-edge-cases-pitfalls--gotchas)
+7. [Common Mistakes & Anti-Patterns](#7-common-mistakes--anti-patterns)
+8. [Performance & Type-Checker Complexity](#8-performance--type-checker-complexity)
+9. [Compiler Internals](#9-compiler-internals)
+10. [Best Practices & Design Guidelines](#10-best-practices--design-guidelines)
+11. [Real-World Case Study](#11-real-world-case-study)
+12. [Interview Questions](#12-interview-questions)
+13. [Exercises & Challenges](#13-exercises--challenges)
 
-```tsx
-interface GreetingProps {
-  name: string;
-  excited?: boolean;
-}
+---
 
-function Greeting({ name, excited = false }: GreetingProps) {
-  return <p>Hello, {name}{excited ? "!" : "."}</p>;
-}
+## 1. What & Why
 
-<Greeting name="Asha" />           // ok
-<Greeting name="Asha" excited />   // ok
-<Greeting />                       // error: Property 'name' is missing
-<Greeting name={42} />             // error: number is not assignable to string
+In frontend engineering with React, passing invalid props between parent and child components has historically been a leading cause of runtime crashes (`Cannot read properties of undefined`). React introduced runtime `PropTypes` in early versions, but runtime validation requires executing the component in the browser, adds bundle size, and does not provide IDE autocompletion.
+
+TypeScript transforms React development by validating prop shapes at compile time:
+- **Zero-Cost Typing**: Types are stripped completely during compilation; zero runtime bundle overhead.
+- **Autocompletion & Refactoring**: Renaming a prop instantly updates all usages across thousands of component files.
+- **Impossible States**: Using discriminated union props to make conflicting prop combinations (e.g. `variant="icon"` without providing `icon`) impossible to author.
+
+With the release of **React 19** and `@types/react@19`:
+1. `React.FC` is deprecated for modern function components.
+2. `ref` is passed as a standard prop (eliminating the need for `forwardRef`).
+3. Return types are simplified with `React.JSX.Element` and native `Promise<ReactNode>` for React Server Components (RSC).
+
+```
++-----------------------------------------------------------+
+|                   React 19 Component Model                |
+|                                                           |
+|   interface ButtonProps {                                 |
+|     label: string;                                        |
+|     ref?: React.Ref<HTMLButtonElement>; // Native in R19  |
+|   }                                                       |
+|                                                           |
+|   export function Button({ label, ref }: ButtonProps) {   |
+|     return <button ref={ref}>{label}</button>;            |
+|   }                                                       |
++-----------------------------------------------------------+
 ```
 
-Annotate the **props parameter**. The component's return type is inferred, and there is no need to write `: JSX.Element` or `: ReactElement`. Default values go in the destructuring (`excited = false`), which also makes TypeScript treat the prop as optional for callers.
+---
 
-### Do I need `React.FC`?
+## 2. Core Concepts
 
-No. `React.FC<Props>` used to add an implicit `children` prop (removed in React 18's types) and does not support generics well. Plain functions with an annotated props parameter are simpler, work with generics ([generic components](./06-generic-and-polymorphic-components.md)), and are the common convention.
+### 1. `ReactNode` vs `ReactElement` vs `JSX.Element`
+Understanding React's hierarchy of return and child types:
+- **`ReactNode`**: The broadest type. Anything renderable by React: `string`, `number`, `boolean`, `null`, `undefined`, `ReactElement`, or array of `ReactNode`. Use this for `children` props!
+- **`ReactElement`**: An instantiated React virtual DOM object (`{ type, props, key }`). Does NOT include primitives like `string` or `number`.
+- **`React.JSX.Element`**: Global JSX namespace alias for a `ReactElement` with `any` props and `any` type.
 
-## `children`
+```
+                  +--------------------------------+
+                  |           ReactNode            |
+                  | (Primitives, Elements, Arrays) |
+                  +--------------------------------+
+                                  ^
+                                  | includes
+                  +--------------------------------+
+                  |          ReactElement          |
+                  | (Object with type & props)     |
+                  +--------------------------------+
+                                  ^
+                                  | alias
+                  +--------------------------------+
+                  |        React.JSX.Element       |
+                  +--------------------------------+
+```
 
-`children` is just a prop. Type it explicitly:
+### 2. Why Plain Functions Beat `React.FC`
+In older TypeScript React code, `React.FC` (or `React.FunctionComponent`) was common:
+```typescript
+// Legacy Anti-Pattern:
+const MyComponent: React.FC<Props> = (props) => { ... };
+```
+Problems with `React.FC`:
+1. In React 17 and earlier, it automatically injected an implicit `children?: ReactNode` into every component, even components that should never accept children.
+2. It breaks TypeScript generics: generic parameters on `React.FC<T>` are clumsy compared to plain generic functions `function MyComponent<T>(props: Props<T>)`.
+3. It creates unneeded type indirection in error stack traces.
 
-```tsx
-import type { ReactNode } from "react";
+Modern idiom:
+```typescript
+export function MyComponent(props: Props): React.JSX.Element { ... }
+```
 
-interface CardProps {
-  title: string;
+### 3. Discriminated Union Props
+Components that switch layouts based on a mode prop should strictly enforce mode-specific props:
+```typescript
+export type ModalProps =
+  | { variant: 'alert'; message: string; onConfirm: () => void }
+  | { variant: 'prompt'; message: string; defaultValue: string; onSubmit: (val: string) => void };
+```
+
+---
+
+## 3. How It Works Internally
+
+When you author JSX:
+```typescript
+<Card title="Hello" />
+```
+The TypeScript compiler's JSX transformer (`"jsx": "react-jsx"`) converts this syntax to:
+```javascript
+import { jsx as _jsx } from "react/jsx-runtime";
+_jsx(Card, { title: "Hello" });
+```
+During type checking, TypeScript checks `_jsx(Component, props)`. It evaluates whether the object literal `{ title: "Hello" }` is assignable to the parameter type of `Component`. Excess Property Checks (EPC) run immediately, rejecting unknown props.
+
+---
+
+## 4. Syntax & API Reference
+
+### Component Prop Type Utilities
+```typescript
+import type { ComponentProps, ComponentPropsWithoutRef, ComponentPropsWithRef, ReactNode } from 'react';
+
+// Extract props of an HTML element
+export type ButtonHtmlProps = ComponentPropsWithoutRef<'button'>;
+
+// Explicit Children Props
+export interface ContainerProps {
   children: ReactNode;
+  className?: string;
+}
+```
+
+---
+
+## 5. Practical Examples
+
+### Example 1: Basic Modern Function Component with Strict Props
+```typescript
+import type { ReactNode } from 'react';
+
+export interface CardProps {
+  title: string;
+  subtitle?: string;
+  children: ReactNode;
+  footer?: ReactNode;
 }
 
-function Card({ title, children }: CardProps) {
+export function Card({ title, subtitle, children, footer }: CardProps): React.JSX.Element {
   return (
-    <section>
-      <h2>{title}</h2>
-      {children}
-    </section>
+    <div className="card">
+      <h3>{title}</h3>
+      {subtitle && <h4>{subtitle}</h4>}
+      <div className="card-body">{children}</div>
+      {footer && <div className="card-footer">{footer}</div>}
+    </div>
   );
 }
 ```
 
-`ReactNode` is the right default: it accepts anything React can render (elements, strings, numbers, `null`, `undefined`, booleans, arrays, fragments). Related types:
+### Example 2: Real-World Discriminated Union Button Component
+```typescript
+import type { ComponentPropsWithoutRef } from 'react';
 
-| Type | Accepts | Use for |
-|---|---|---|
-| `ReactNode` | anything renderable | `children`, slots (the usual choice) |
-| `ReactElement` | an element created with JSX (`<div />`), not strings or numbers | when you must receive an element, to clone it or inspect its props |
-| `JSX.Element` (`React.JSX.Element`) | the result of a JSX expression | return types (rarely needed) |
-| `string` | text only | when only text makes sense |
+type BaseProps = ComponentPropsWithoutRef<'button'> & {
+  size?: 'sm' | 'md' | 'lg';
+};
 
-`PropsWithChildren<P>` is a helper that adds `children?: ReactNode` to `P`. It is fine, but writing `children: ReactNode` yourself is explicit about whether children are required.
+export type ButtonProps =
+  | (BaseProps & {
+      variant: 'text' | 'solid';
+      children: React.ReactNode;
+      icon?: never;
+    })
+  | (BaseProps & {
+      variant: 'icon-only';
+      icon: React.ReactElement;
+      'aria-label': string; // Mandatory for accessibility!
+      children?: never;
+    });
 
-### Slots and render props
+export function ActionButton(props: ButtonProps): React.JSX.Element {
+  if (props.variant === 'icon-only') {
+    return <button {...props} className="btn-icon">{props.icon}</button>;
+  }
+  return <button {...props} className={`btn-${props.variant}`}>{props.children}</button>;
+}
+```
 
-Pass multiple regions as props, and functions as children when the component owns some state:
+### Example 3: Edge Case - Extending Native HTML Attributes without Conflicting Props
+```typescript
+import type { ComponentPropsWithoutRef } from 'react';
 
-```tsx
-interface LayoutProps {
-  header: ReactNode;
-  sidebar?: ReactNode;
+export type CustomInputProps = Omit<ComponentPropsWithoutRef<'input'>, 'size'> & {
+  size?: 'small' | 'medium' | 'large'; // Overriding native HTML 'size' (which is a number)
+  label: string;
+  errorMessage?: string;
+};
+
+export function CustomInput({ size = 'medium', label, errorMessage, ...rest }: CustomInputProps) {
+  return (
+    <label>
+      <span>{label}</span>
+      <input {...rest} className={`input-${size}`} />
+      {errorMessage && <span className="error">{errorMessage}</span>}
+    </label>
+  );
+}
+```
+
+### Example 4: Failure Case - Missing Mandatory Accessibility Prop on Icon Button
+```typescript
+// @ts-expect-error TS2322: Type '{ variant: "icon-only"; icon: Element; }' is not assignable to type 'ButtonProps'. Property 'aria-label' is missing.
+const btn = <ActionButton variant="icon-only" icon={<svg />} />;
+```
+
+### Example 5: Idiomatic React 19 Native Ref Passing
+```typescript
+import type { Ref } from 'react';
+
+export interface TextInputProps {
+  label: string;
+  ref?: Ref<HTMLInputElement>; // In React 19, ref is a regular prop!
+}
+
+export function TextInput({ label, ref }: TextInputProps): React.JSX.Element {
+  return (
+    <label>
+      {label}
+      <input ref={ref} type="text" />
+    </label>
+  );
+}
+```
+
+---
+
+## 6. Edge Cases, Pitfalls & Gotchas
+
+1. **`PropsWithChildren` Gotcha**:
+   Using `PropsWithChildren<T>` makes `children` **optional** (`children?: ReactNode`). If your component *requires* children (e.g. an Accordion or Layout provider), `PropsWithChildren` will not enforce it! Always explicitly define `{ children: ReactNode }` when children are mandatory.
+2. **Boolean Trap in JSX Children**:
+   In React, `{false}`, `{null}`, and `{undefined}` render nothing, but `{0}` renders the text `"0"` on screen. Typing props as `boolean | undefined` prevents accidental `0` renders: `{count > 0 && <Badge />}` (renders `0` when `count === 0`!). Type count checks as boolean: `{Boolean(count) && <Badge />}`.
+3. **`ComponentPropsWithoutRef` vs `ComponentProps`**:
+   In React 18, `ComponentProps<'button'>` includes `ref: RefObject<HTMLButtonElement>`, which causes type mismatches when passing to components not wrapped in `forwardRef`. Always prefer `ComponentPropsWithoutRef<'element'>` in React 18.
+4. **React Server Components (RSC) Async Return Types**:
+   In Next.js App Router / React Server Components, server components can be `async` functions returning `Promise<ReactNode>`. React 18 client components will fail type checking if declared `async` because client components must return `ReactNode` synchronously.
+
+---
+
+## 7. Common Mistakes & Anti-Patterns
+
+| Anti-Pattern | Bad Code | Good Code | Compiler / Runtime Impact |
+| :--- | :--- | :--- | :--- |
+| **Using Deprecated `React.FC`** | `const App: React.FC<P> = ...` | `export function App(props: P)` | Complicates generics and error traces |
+| **Implicit Optional Children** | `PropsWithChildren<{}>` | `{ children: ReactNode }` | Allows empty `<Layout />` without children |
+| **`JSX.Element` as Children Type** | `children: JSX.Element` | `children: ReactNode` | Rejects plain strings, numbers, and fragments |
+| **Overriding Native Prop Without Omit** | `type P = ButtonHTMLAttributes & { size: string }` | `type P = Omit<ButtonHTMLAttributes, 'size'> & { size: string }` | Conflicting type error: `string` not assignable to `number` |
+| **Untyped Rest Spread** | `function Box(props: any)` | `ComponentPropsWithoutRef<'div'>` | Disables compiler checks on HTML attributes |
+| **Using `any` for Event Handlers** | `onClick: (e: any) => void` | `onClick: (e: React.MouseEvent<HTMLButtonElement>) => void` | Unsafe property access (`e.target.val`) |
+
+---
+
+## 8. Performance & Type-Checker Complexity
+
+- **Deep HTML Attribute Expansion**: `ComponentPropsWithoutRef<'div'>` includes over 250 standard HTML attributes, event handlers, and ARIA properties. In massive component libraries, avoid deeply nested mapped types over HTML attributes, as this can slow down TSServer autocomplete response times.
+- **Type Erasure**: Component prop types are completely erased at compile time, adding zero runtime bytes to production bundles.
+
+---
+
+## 9. Compiler Internals
+
+When TypeScript encounters a JSX opening tag `<MyComp />`:
+1. It queries `JSX.IntrinsicElements` to see if the tag name is a known HTML element (e.g. `'div'`, `'button'`).
+2. If the tag starts with a capital letter, the compiler treats it as a value identifier and looks up its function signature.
+3. It checks `JSX.Element` as the valid return type constraint.
+4. It resolves the first parameter of the component function and applies Excess Property Checks against the JSX attributes provided.
+
+---
+
+## 10. Best Practices & Design Guidelines
+
+1. **Use Plain Functions**: Write `export function Component(props: Props)`.
+2. **Require Children Explicitly**: Define `children: ReactNode` rather than using `PropsWithChildren`.
+3. **Use Discriminated Unions for Mutually Exclusive Props**: Never use independent booleans (`isIconOnly`, `hasText`).
+4. **Use `ComponentPropsWithoutRef` for HTML Wrappers**: Preserve standard HTML attributes like `aria-*`, `id`, `onClick`.
+
+---
+
+## 11. Real-World Case Study
+
+### Enterprise Design System Alert Banner
+A reusable Alert component supporting four distinct visual states with strictly typed action triggers:
+
+```typescript
+import type { ReactNode } from 'react';
+
+type AlertSeverity = 'info' | 'success' | 'warning' | 'error';
+
+export interface AlertBannerProps {
+  severity: AlertSeverity;
+  title: string;
+  children: ReactNode;
+  dismissible?: boolean;
+  onDismiss?: () => void;
+  action?: {
+    label: string;
+    onClick: () => void;
+  };
+}
+
+export function AlertBanner({
+  severity,
+  title,
+  children,
+  dismissible,
+  onDismiss,
+  action
+}: AlertBannerProps): React.JSX.Element {
+  return (
+    <div role="alert" className={`alert-banner alert-${severity}`}>
+      <div className="alert-header">
+        <strong>{title}</strong>
+        {dismissible && (
+          <button aria-label="Close" onClick={onDismiss} className="btn-close">×</button>
+        )}
+      </div>
+      <div className="alert-body">{children}</div>
+      {action && (
+        <button onClick={action.onClick} className="alert-action">{action.label}</button>
+      )}
+    </div>
+  );
+}
+```
+
+---
+
+## 12. Interview Questions
+
+<details>
+<summary>1. What is the difference between `ReactNode`, `ReactElement`, and `JSX.Element`?</summary>
+
+- `ReactNode`: The union of all values that can be rendered in JSX (`string | number | boolean | null | undefined | ReactElement | Iterable<ReactNode>`).
+- `ReactElement`: A concrete React virtual DOM object with `type` and `props`, created via `createElement` or JSX transpilation. It does not include primitives.
+- `JSX.Element`: A TypeScript global interface representing a `ReactElement` with `any` props and component types.
+</details>
+
+<details>
+<summary>2. Why has the React and TypeScript community moved away from `React.FC`?</summary>
+
+`React.FC` historically provided an implicit optional `children` prop on every component, made generic component syntax verbose, prevented proper prop type hover diagnostics, and added unnecessary abstraction over plain JavaScript functions.
+</details>
+
+<details>
+<summary>3. How does React 19 simplify `ref` handling compared to React 18?</summary>
+
+In React 19, `ref` is passed as a standard prop to function components (`function MyInput({ ref, ...props }: Props)`). The `forwardRef` wrapper function is no longer required for simple ref forwarding.
+</details>
+
+<details>
+<summary>4. Why should you avoid `PropsWithChildren<T>` when children are mandatory?</summary>
+
+`PropsWithChildren<T>` defines `children?: ReactNode` as optional. If your component relies on children to function (such as an Accordion or Provider), the compiler will not warn consumers if they render `<Accordion />` with no children.
+</details>
+
+<details>
+<summary>5. How do you override an existing HTML attribute type (e.g. changing `size` from number to union)?</summary>
+
+By using `Omit`:
+```typescript
+type InputProps = Omit<ComponentPropsWithoutRef<'input'>, 'size'> & {
+  size: 'sm' | 'md' | 'lg';
+};
+```
+Without `Omit`, TypeScript creates an intersection `number & ('sm' | 'md' | 'lg')`, which evaluates to `never`.
+</details>
+
+<details>
+<summary>6. How do you type a component that accepts a component as a prop (render prop or icon)?</summary>
+
+- If it accepts an already instantiated JSX element: `icon: React.ReactElement`.
+- If it accepts a component type to be rendered by the child: `component: React.ComponentType<P>`.
+</details>
+
+<details>
+<summary>7. What is the difference between `ComponentPropsWithRef` and `ComponentPropsWithoutRef`?</summary>
+
+`ComponentPropsWithRef` includes the `ref` prop corresponding to the underlying element, whereas `ComponentPropsWithoutRef` strips the `ref` prop.
+</details>
+
+<details>
+<summary>8. How do you write a generic component in TypeScript React?</summary>
+
+By declaring generic type parameters before the parameter list:
+```typescript
+export function List<T>({ items, renderItem }: { items: T[]; renderItem: (item: T) => ReactNode }) {
+  return <ul>{items.map(renderItem)}</ul>;
+}
+```
+</details>
+
+---
+
+## 13. Exercises & Challenges
+
+<details>
+<summary>Exercise 1 (Easy): Basic Card Component</summary>
+
+**Problem:** Type a `Badge` component that accepts a mandatory `label: string` and optional `color: 'red' | 'green' | 'blue'`.
+
+**Solution:**
+```typescript
+interface BadgeProps {
+  label: string;
+  color?: 'red' | 'green' | 'blue';
+}
+
+export function Badge({ label, color = 'blue' }: BadgeProps): React.JSX.Element {
+  return <span className={`badge badge-${color}`}>{label}</span>;
+}
+```
+</details>
+
+<details>
+<summary>Exercise 2 (Easy): Mandatory Children Wrapper</summary>
+
+**Problem:** Create a `StrictContainerProps` interface where `children` is mandatory and cannot be undefined.
+
+**Solution:**
+```typescript
+import type { ReactNode } from 'react';
+
+export interface StrictContainerProps {
   children: ReactNode;
 }
-
-interface ToggleProps {
-  children: (state: { on: boolean; toggle: () => void }) => ReactNode;
-}
-
-function Toggle({ children }: ToggleProps) {
-  const [on, setOn] = useState(false);
-  return <>{children({ on, toggle: () => setOn((v) => !v) })}</>;
-}
-
-<Toggle>{({ on, toggle }) => <button onClick={toggle}>{on ? "On" : "Off"}</button>}</Toggle>
 ```
+</details>
 
-The callback parameters are contextually typed from `ToggleProps`, so you do not annotate them at the call site.
+<details>
+<summary>Exercise 3 (Medium): HTML Button Wrapper with Loading Spinner</summary>
 
-## Callback props
+**Problem:** Create a `LoadingButton` component that extends all native `<button>` attributes, adding an `isLoading?: boolean` prop that disables the button and renders a spinner.
 
-Type callbacks with the arguments the component will pass:
+**Solution:**
+```typescript
+import type { ComponentPropsWithoutRef } from 'react';
 
-```tsx
-interface SearchBoxProps {
-  value: string;
-  onChange: (value: string) => void;          // the child passes the string, not the event
-  onSubmit?: () => void;
-}
-```
-
-Prefer callbacks that receive **values** (`(value: string) => void`) over raw events when the parent does not need the event. That keeps parents free of DOM details. For event-typed props, see [event types](./01-event-types.md).
-
-## Wrapping HTML elements
-
-To build a component that behaves like a native element, reuse the element's own props instead of redeclaring them:
-
-```tsx
-import type { ComponentPropsWithoutRef } from "react";
-
-interface ButtonProps extends ComponentPropsWithoutRef<"button"> {
-  variant?: "primary" | "secondary";
+export interface LoadingButtonProps extends ComponentPropsWithoutRef<'button'> {
+  isLoading?: boolean;
 }
 
-function Button({ variant = "primary", className, ...rest }: ButtonProps) {
-  return <button className={`btn btn-${variant} ${className ?? ""}`} {...rest} />;
-}
-
-<Button variant="secondary" disabled onClick={() => save()} aria-label="Save" />
-```
-
-`ComponentPropsWithoutRef<"button">` is every prop a `<button>` accepts (`onClick`, `disabled`, `type`, `aria-*`, ...). Spread `...rest` onto the element so all of them still work. Related helpers:
-
-| Helper | Gives |
-|---|---|
-| `ComponentProps<"input">` | all props of an element **including** `ref` |
-| `ComponentPropsWithoutRef<"input">` | props without `ref` (use when you handle refs separately) |
-| `ComponentProps<typeof MyComponent>` | the props of another component |
-| `HTMLAttributes<HTMLDivElement>` | the shared attributes (no element-specific ones) |
-
-To get the props of any component you do not own: `ComponentProps<typeof ThirdPartyButton>`.
-
-### Overriding a native prop
-
-If your prop has the same name as a native one but a different type, `extends` conflicts. Omit the native one first:
-
-```tsx
-interface InputProps extends Omit<ComponentPropsWithoutRef<"input">, "size"> {
-  size?: "sm" | "md" | "lg";       // the native `size` is a number
-}
-```
-
-### Style and class names
-
-```tsx
-import type { CSSProperties } from "react";
-
-interface BoxProps {
-  className?: string;
-  style?: CSSProperties;
-}
-```
-
-## Prop combinations that cannot be invalid
-
-A component whose props depend on each other is a **discriminated union** waiting to happen:
-
-```tsx
-type ActionProps =
-  | { variant: "button"; onClick: () => void; href?: never }
-  | { variant: "link"; href: string; onClick?: never };
-
-function Action(props: ActionProps) {
-  if (props.variant === "link") {
-    return <a href={props.href}>Go</a>;       // href is string here
-  }
-  return <button onClick={props.onClick}>Go</button>;
-}
-
-<Action variant="link" href="/home" />          // ok
-<Action variant="button" onClick={go} />        // ok
-<Action variant="link" onClick={go} />          // error: onClick is not allowed with "link"
-<Action variant="button" />                     // error: onClick is required
-```
-
-`?: never` on the other branch's props makes mixed use an error. The `variant` literal narrows the whole props object, which is the same technique as in [discriminated unions](../03-unions-and-narrowing/04-discriminated-unions.md).
-
-Another common case is "either this prop or that one, never both" (for example `value` or `defaultValue`), which you can express with the same `?: never` trick.
-
-## Components and elements as props
-
-```tsx
-import type { ComponentType, ElementType } from "react";
-
-interface IconButtonProps {
-  icon: ComponentType<{ className?: string }>;   // a component, e.g. <props.icon />
-  label: string;
-}
-
-function IconButton({ icon: Icon, label }: IconButtonProps) {
+export function LoadingButton({ isLoading, disabled, children, ...rest }: LoadingButtonProps) {
   return (
-    <button aria-label={label}>
-      <Icon className="icon" />
+    <button disabled={disabled || isLoading} {...rest}>
+      {isLoading ? <span className="spinner">Loading...</span> : children}
     </button>
   );
 }
 ```
+</details>
 
-- `ComponentType<P>` accepts function and class components that take props `P`.
-- `ElementType` accepts a component **or** an intrinsic tag name (`"div"`, `"a"`), used for polymorphic components ([generic and polymorphic components](./06-generic-and-polymorphic-components.md)).
-- If you need to pass an already-rendered element, use `ReactElement` or `ReactNode`.
+<details>
+<summary>Exercise 4 (Medium): Mutually Exclusive Tab Props</summary>
 
-## Optional vs `undefined`
+**Problem:** Create a `Tab` component that requires either an `href` (renders an `<a>`) OR an `onClick` (renders a `<button>`), but never both.
 
-```tsx
-interface Props { label?: string }          // may be omitted, or passed as undefined
-interface Props2 { label: string | undefined }   // must be passed, even if undefined
+**Solution:**
+```typescript
+type LinkTab = { href: string; onClick?: never; children: React.ReactNode };
+type ButtonTab = { onClick: () => void; href?: never; children: React.ReactNode };
+export type TabProps = LinkTab | ButtonTab;
+
+export function Tab(props: TabProps) {
+  if (props.href) return <a href={props.href}>{props.children}</a>;
+  return <button onClick={props.onClick}>{props.children}</button>;
+}
 ```
+</details>
 
-Use `?` for "may be omitted". With `exactOptionalPropertyTypes` enabled, `label?: string` means omitted only, and explicitly passing `undefined` becomes an error unless you add `| undefined` ([strict mode](../13-compiler-and-tsconfig/01-strict-mode.md)).
+<details>
+<summary>Exercise 5 (Hard): Generic Table Component with Column Extractors</summary>
 
-## Constant option sets
+**Problem:** Write a fully type-safe generic `Table<T>` component where columns are typed strictly against keys of `T`.
 
-Derive prop types from a runtime list so the options and the type cannot drift:
+**Solution:**
+```typescript
+export interface Column<T> {
+  key: keyof T;
+  header: string;
+}
 
-```tsx
-const SIZES = ["sm", "md", "lg"] as const;
-type Size = (typeof SIZES)[number];          // "sm" | "md" | "lg"
+export interface TableProps<T> {
+  data: readonly T[];
+  columns: readonly Column<T>[];
+}
 
-function SizePicker({ value, onChange }: { value: Size; onChange: (s: Size) => void }) {
+export function Table<T extends { id: string | number }>({ data, columns }: TableProps<T>) {
   return (
-    <select value={value} onChange={(e) => onChange(e.target.value as Size)}>
-      {SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
-    </select>
+    <table>
+      <thead>
+        <tr>{columns.map((c) => <th key={String(c.key)}>{c.header}</th>)}</tr>
+      </thead>
+      <tbody>
+        {data.map((row) => (
+          <tr key={row.id}>
+            {columns.map((c) => <td key={String(c.key)}>{String(row[c.key])}</td>)}
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 ```
+</details>
 
-The `as Size` cast on `e.target.value` is the one unavoidable assertion, since a DOM value is always `string`. See [event types](./01-event-types.md).
+<details>
+<summary>Exercise 6 (Hard): Polymorphic Component with Dynamic Element Tag</summary>
 
-## Props are read-only
+**Problem:** Create a polymorphic `Box` component that accepts an `as?: React.ElementType` prop and correctly types its props and ref based on the specified element.
 
-Props are immutable inputs. You do not need `Readonly<Props>`, but never mutate `props.items` or any object you receive. Copy before sorting or changing: `[...items].sort(...)`. Declaring array props as `readonly T[]` makes the compiler enforce this and lets callers pass readonly arrays ([variance](../14-type-system-internals/02-variance.md)):
+**Solution:**
+```typescript
+import type { ElementType, ComponentPropsWithRef, ReactElement } from 'react';
 
-```tsx
-interface ListProps { items: readonly string[] }
+type BoxProps<E extends ElementType> = {
+  as?: E;
+} & ComponentPropsWithRef<E>;
+
+export function Box<E extends ElementType = 'div'>({ as, ...rest }: BoxProps<E>): ReactElement {
+  const Component = as || 'div';
+  return <Component {...rest} />;
+}
 ```
-
-## Common mistakes
-
-- Typing props as `any` or leaving them untyped, which silently disables checking inside the component.
-- Using `React.FC` and expecting implicit `children`.
-- Typing `children` as `JSX.Element`, which rejects strings, numbers, and arrays. Use `ReactNode`.
-- Redeclaring every HTML attribute instead of extending `ComponentPropsWithoutRef<"element">`.
-- Extending a native props type and conflicting on a prop name without `Omit`.
-- Several optional props that are really a discriminated union, so invalid combinations compile.
-- Forgetting to spread `...rest` onto the element, silently dropping `onClick`, `aria-*`, and `data-*` attributes.
-- Using `{}` or `object` as a props type.
-- Mutating props.
-- Passing an `Event` type where a `value` callback would be simpler.
-
-## Debugging
-
-- Hover the component in JSX to see the props type it resolved to.
-- To see another component's props, use `ComponentProps<typeof X>` and hover the alias.
-- Errors on JSX often read "Type '{...}' is not assignable to type 'IntrinsicAttributes & Props'". Read the **last** line for the real mismatch ([reading type errors](../18-testing-and-debugging/06-reading-type-errors.md)).
-- If a prop you passed does not appear to reach the element, check that `...rest` is spread and that you did not destructure it away.
-- If a union of props does not narrow, check that the discriminant is a literal type (`"link"`), not `string`.
-
-## Quick summary
-
-- Type the props parameter with an interface or type alias. Skip `React.FC`.
-- `children: ReactNode` for anything renderable. Use function children and named slots for flexible composition.
-- Wrap native elements by extending `ComponentPropsWithoutRef<"tag">`, `Omit` conflicting props, and spread `...rest`.
-- Express dependent props as a discriminated union, with `?: never` to forbid mixing.
-- Use `ComponentType`, `ElementType`, and `ReactElement` for components and elements passed as props, and `as const` lists to derive option types.
-
-**Next:** [Event types](./01-event-types.md)
+</details>

@@ -1,223 +1,548 @@
-# Context
+# React Context API Typing and Custom Provider Patterns in TypeScript
 
-React context lets a value (the current user, a theme, an API client) be read by any component below a provider, without passing props through every level. Typing it well is mostly about one question: **what is the context's value when no provider exists?** The pattern in this note makes that question disappear, so consumers always get a defined, correctly typed value, and misuse fails loudly instead of silently.
+> Typing React Context in TypeScript: createContext defaults, nullable contexts vs custom hook guards, Context as a Provider in React 19, modular providers, and selector optimization.
 
-> **Version note.** React 19 lets you render the context object directly as a provider (`<ThemeContext value={...}>`) and read it with `use(ThemeContext)`. React 18 uses `<ThemeContext.Provider value={...}>` and `useContext(ThemeContext)`. Both are shown where they differ.
-
-**Prerequisites:**
-- [Hooks](./02-hooks.md)
-- [Component props and children](./00-component-props-and-children.md)
-- [Dependency injection](../17-design-patterns/05-dependency-injection.md) (context is DI for components)
+| Metadata | Details |
+| :--- | :--- |
+| **Category** | React and Frontend Typing |
+| **Difficulty** | Intermediate |
+| **Prerequisites** | [04-objects-and-interfaces/00-interfaces.md](../04-objects-and-interfaces/00-interfaces.md), [19-react-and-frontend/02-hooks.md](./02-hooks.md) |
+| **TypeScript Baseline** | TS 5.0+, React 19 / @types/react 19 |
+| **Tested tsconfig** | `"strict": true, "jsx": "react-jsx", "module": "NodeNext"` |
 
 ---
 
-## The problem: the default value
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & API Reference](#4-syntax--api-reference)
+5. [Practical Examples](#5-practical-examples)
+6. [Edge Cases, Pitfalls & Gotchas](#6-edge-cases-pitfalls--gotchas)
+7. [Common Mistakes & Anti-Patterns](#7-common-mistakes--anti-patterns)
+8. [Performance & Type-Checker Complexity](#8-performance--type-checker-complexity)
+9. [Compiler Internals](#9-compiler-internals)
+10. [Best Practices & Design Guidelines](#10-best-practices--design-guidelines)
+11. [Real-World Case Study](#11-real-world-case-study)
+12. [Interview Questions](#12-interview-questions)
+13. [Exercises & Challenges](#13-exercises--challenges)
 
-`createContext` requires a default value, used only when there is **no provider above** the consumer:
+---
 
-```tsx
-interface Theme { mode: "light" | "dark"; toggle: () => void }
+## 1. What & Why
 
-const ThemeContext = createContext<Theme>({
-  mode: "light",
-  toggle: () => {},          // a do-nothing fake, just to satisfy the type
-});
+The React **Context API** provides a way to pass data through the component tree without having to pass props down manually at every level ("prop drilling"). Common use cases include current authenticated user, theme settings, preferred language, and UI notification queues.
+
+When typing React Context in TypeScript, developers face a core dilemma regarding **Initial Default Values**:
+```typescript
+const AuthContext = createContext<AuthContextValue>(???);
+```
+What default value should be passed to `createContext`?
+1. **Passing a dummy mock object**: Faking dummy methods (`login: () => {}`) masks the real error if a consumer accidentally renders outside the Provider.
+2. **Passing `null` or `undefined`**: Forces every consuming component to defensively check `if (!auth)` or write `auth?.user?.name` across dozens of files.
+
+The industry-standard solution is the **Guarded Custom Hook Pattern**: initialize context with `null`, but encapsulate consumption inside a custom hook `useAuth()` that checks for `null` and throws a descriptive runtime error if outside the Provider. This narrows the returned type to `AuthContextValue` (non-null) automatically!
+
+```
++-----------------------------------------------------------+
+|              Guarded Context Architecture                 |
+|                                                           |
+|  createContext<AuthValue | null>(null)                    |
+|                         ^                                 |
+|                         |                                 |
+|  export function useAuth(): AuthValue {                   |
+|    const ctx = useContext(AuthContext);                  |
+|    if (!ctx) throw new Error("useAuth outside Provider"); |
+|    return ctx; // Inferred as non-null AuthValue!         |
+|  }                                                        |
++-----------------------------------------------------------+
 ```
 
-This compiles, but it hides bugs: a component rendered outside the provider silently gets a fake theme whose `toggle` does nothing. A realistic context value (an authenticated user, an API client) often has no sensible default at all.
+---
 
-## The standard pattern: `undefined` default plus a checking hook
+## 2. Core Concepts
 
-Make the context value possibly `undefined`, and expose a hook that **throws** if it is missing:
-
-```tsx
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
-
-interface ThemeContextValue {
-  mode: "light" | "dark";
-  toggle: () => void;
-}
-
-const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
+### 1. React 19: `<Context>` Instead of `<Context.Provider>`
+In React 19, you can render `<Context value={...}>` directly instead of `<Context.Provider value={...}>`:
+```typescript
+const ThemeContext = createContext<Theme>('light');
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [mode, setMode] = useState<"light" | "dark">("light");
-
-  const value = useMemo<ThemeContextValue>(
-    () => ({ mode, toggle: () => setMode((m) => (m === "light" ? "dark" : "light")) }),
-    [mode],
-  );
-
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
-}
-
-export function useTheme(): ThemeContextValue {
-  const ctx = useContext(ThemeContext);
-  if (ctx === undefined) {
-    throw new Error("useTheme must be used within a ThemeProvider");
-  }
-  return ctx;                // narrowed: ThemeContextValue, never undefined
+  return <ThemeContext value="dark">{children}</ThemeContext>;
 }
 ```
 
-Why this works well:
-
-- The **hook's return type is non-nullable**. Consumers never write `ctx?.mode` or `ctx!`.
-- A missing provider is a **clear error at the point of misuse**, not a mysterious wrong behavior later.
-- The context object itself is **not exported**, so everyone goes through the hook and the checking cannot be bypassed.
-
-Usage:
-
-```tsx
-function ThemeButton() {
-  const { mode, toggle } = useTheme();         // fully typed
-  return <button onClick={toggle}>Current: {mode}</button>;
-}
+### 2. Context Separation (State vs Dispatch)
+When state changes in a context, every component calling `useContext` re-renders. To prevent unnecessary re-renders, separate frequently changing state from stable dispatch functions into two distinct contexts:
+```typescript
+const StateContext = createContext<State | null>(null);
+const DispatchContext = createContext<Dispatch | null>(null);
 ```
 
-In React 19, the provider and hook can be written as:
+---
 
-```tsx
-return <ThemeContext value={value}>{children}</ThemeContext>;
+## 3. How It Works Internally
 
-const ctx = use(ThemeContext);       // also usable inside conditionals, unlike useContext
-```
+TypeScript's control flow analysis handles the guard:
+1. `useContext(MyContext)` returns `T | null`.
+2. The `if (!context)` branch throws an exception.
+3. Flow analysis eliminates `null` from the return type in subsequent lines, yielding pure `T`.
 
-## A reusable strict-context factory
+---
 
-If you have several contexts, the pattern is mechanical, so write it once:
+## 4. Syntax & API Reference
 
-```tsx
-export function createStrictContext<T>(name: string) {
-  const Context = createContext<T | undefined>(undefined);
+### Idiomatic Type-Safe Context Creation Template
+```typescript
+import { createContext, useContext, type ReactNode } from 'react';
 
-  function useStrictContext(): T {
+export function createSafeContext<T>(name: string) {
+  const Context = createContext<T | null>(null);
+
+  function useSafeContext(): T {
     const value = useContext(Context);
-    if (value === undefined) {
-      throw new Error(`${name} provider is missing`);
+    if (value === null) {
+      throw new Error(`use${name} must be used within a ${name}Provider`);
     }
     return value;
   }
 
-  return [Context.Provider, useStrictContext] as const;
+  return [Context, useSafeContext] as const;
+}
+```
+
+---
+
+## 5. Practical Examples
+
+### Example 1: Basic Theme Context with Safe Hook
+```typescript
+import { createContext, useContext, useState, useMemo, type ReactNode } from 'react';
+
+type Theme = 'light' | 'dark';
+
+interface ThemeContextValue {
+  theme: Theme;
+  toggleTheme: () => void;
 }
 
-const [AuthProvider, useAuth] = createStrictContext<AuthState>("Auth");
+const ThemeContext = createContext<ThemeContextValue | null>(null);
+
+export function ThemeProvider({ children }: { children: ReactNode }) {
+  const [theme, setTheme] = useState<Theme>('light');
+
+  const value = useMemo(
+    () => ({
+      theme,
+      toggleTheme: () => setTheme((t) => (t === 'light' ? 'dark' : 'light'))
+    }),
+    [theme]
+  );
+
+  return <ThemeContext value={value}>{children}</ThemeContext>;
+}
+
+export function useTheme(): ThemeContextValue {
+  const ctx = useContext(ThemeContext);
+  if (!ctx) throw new Error('useTheme must be used within ThemeProvider');
+  return ctx;
+}
 ```
 
-`as const` keeps the tuple's element types. One limitation: if a **valid** context value can itself be `undefined`, this cannot tell "no provider" from "provider with `undefined`". Wrap such values in an object, or use a unique sentinel instead of `undefined` as the default.
+### Example 2: Real-World Authenticated User Context with Loading States
+```typescript
+interface User { id: string; email: string; role: 'admin' | 'member'; }
 
-## Memoize the provider value
+interface AuthContextValue {
+  user: User | null;
+  isLoading: boolean;
+  login: (token: string) => Promise<void>;
+  logout: () => void;
+}
 
-Every consumer re-renders when the provider's `value` changes **by reference**. An object literal created inline changes every render:
+const AuthContext = createContext<AuthContextValue | null>(null);
 
-```tsx
-// re-renders all consumers on every render of Provider's parent
-<ThemeContext.Provider value={{ mode, toggle }}>
-
-// stable between renders unless `mode` changes
-const value = useMemo(() => ({ mode, toggle }), [mode, toggle]);
-<ThemeContext.Provider value={value}>
+export function useAuth(): AuthContextValue {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  return ctx;
+}
 ```
 
-Functions inside the value should be stable too (`useCallback`, or state setters, which are already stable).
+### Example 3: Edge Case - Split State and Dispatch Contexts
+```typescript
+import { createContext, useContext, useReducer, type Dispatch, type ReactNode } from 'react';
 
-## Split state from actions
+type Todo = { id: string; text: string };
+type Action = { type: 'ADD'; text: string } | { type: 'REMOVE'; id: string };
 
-When some consumers only dispatch actions and never read state, putting both in one context re-renders them needlessly on every state change. Two contexts avoid that:
+const TodoStateContext = createContext<Todo[] | null>(null);
+const TodoDispatchContext = createContext<Dispatch<Action> | null>(null);
 
-```tsx
-const StateContext = createContext<State | undefined>(undefined);
-const DispatchContext = createContext<Dispatch<Action> | undefined>(undefined);
+function todoReducer(state: Todo[], action: Action): Todo[] {
+  switch (action.type) {
+    case 'ADD': return [...state, { id: crypto.randomUUID(), text: action.text }];
+    case 'REMOVE': return state.filter((t) => t.id !== action.id);
+  }
+}
 
-function CartProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(cartReducer, initialState);
+export function TodoProvider({ children }: { children: ReactNode }) {
+  const [state, dispatch] = useReducer(todoReducer, []);
   return (
-    <DispatchContext.Provider value={dispatch}>
-      <StateContext.Provider value={state}>{children}</StateContext.Provider>
-    </DispatchContext.Provider>
+    <TodoStateContext value={state}>
+      <TodoDispatchContext value={dispatch}>{children}</TodoDispatchContext>
+    </TodoStateContext>
+  );
+}
+
+export function useTodoState(): Todo[] {
+  const ctx = useContext(TodoStateContext);
+  if (!ctx) throw new Error('useTodoState outside TodoProvider');
+  return ctx;
+}
+
+export function useTodoDispatch(): Dispatch<Action> {
+  const ctx = useContext(TodoDispatchContext);
+  if (!ctx) throw new Error('useTodoDispatch outside TodoProvider');
+  return ctx;
+}
+```
+
+### Example 4: Failure Case - Using Context Outside Provider at Runtime
+```typescript
+function StrayButton() {
+  // Throws informative Error: "useTheme must be used within ThemeProvider"!
+  const { theme } = useTheme();
+  return <button className={theme}>Click</button>;
+}
+```
+
+### Example 5: Idiomatic Reading Context Conditionally with React 19 `use()`
+```typescript
+import { use } from 'react';
+
+export function DynamicBanner({ showTheme }: { showTheme: boolean }) {
+  if (!showTheme) {
+    return <div>Standard Banner</div>;
+  }
+
+  // React 19 'use()' can be called inside conditionals!
+  const theme = use(ThemeContext);
+  return <div className={`banner-${theme?.theme}`}>Themed Banner</div>;
+}
+```
+
+---
+
+## 6. Edge Cases, Pitfalls & Gotchas
+
+1. **Unmemoized Value Prop**:
+   Passing an unmemoized object literal directly to `value={{ user, login }}` creates a new object reference on every parent render. This triggers re-renders across all consumer components down the tree, even if `user` has not changed! Always wrap context value objects in `useMemo`.
+2. **Context vs State Management (Redux/Zustand)**:
+   Context is a dependency injection mechanism, not a high-frequency state management tool. Updating a context value re-renders every component subscribed to that context. For values updating multiple times per second (e.g. mouse positions, audio streams, real-time gaming), use Zustand or external state stores.
+3. **Circular Dependencies between Context Providers**:
+   Provider A needing Provider B while Provider B needs Provider A causes initialization deadlocks. Break dependencies into shared sub-contexts.
+4. **Mock Values in Unit Tests**:
+   Unit testing a component that uses `useAuth()` requires either wrapping the component in `<AuthProvider>` or overriding the custom hook in tests.
+
+---
+
+## 7. Common Mistakes & Anti-Patterns
+
+| Anti-Pattern | Bad Code | Good Code | Compiler / Runtime Impact |
+| :--- | :--- | :--- | :--- |
+| **Fake Default Dummy Object** | `createContext({ login: () => {} })` | `createContext(null)` + guarded hook | Silent bugs when rendered outside provider |
+| **Unmemoized Context Value** | `<Context.Provider value={{ a, b }}>` | `value={useMemo(() => ({ a, b }), [a, b])}` | Unnecessary re-renders across the entire tree |
+| **Exporting Raw Context Object** | `export const AuthContext = ...` | Export only `AuthProvider` and `useAuth()` | Consumers bypass guard and deal with `null` |
+| **Mega Global Context** | Single context with 40 unrelated states | Cohesive, focused domain contexts | Any state update re-renders entire application |
+| **Missing Generic Type Parameter** | `createContext(null)` | `createContext<ContextValue \| null>(null)` | Inferred as `null`, cannot pass real value |
+| **Prop Drilling Instead of Context** | Passing user prop through 8 levels | Context Provider at root | Brittle components tightly coupled to hierarchy |
+
+---
+
+## 8. Performance & Type-Checker Complexity
+
+- **Re-render Propagation**: Any update to a context's `value` reference triggers a render pass for every consumer component. Splitting contexts into State and Dispatch avoids re-rendering buttons that only dispatch actions.
+- **Type Checking**: Context generic types evaluate instantly without compiler friction.
+
+---
+
+## 9. Compiler Internals
+
+When calling `createContext<T>(defaultValue: T)`:
+The compiler records `T` as the internal type of the `React.Context<T>` object. The JSX checker verifies that `<Context.Provider value={val}>` accepts a `value` assignable to `T`.
+
+---
+
+## 10. Best Practices & Design Guidelines
+
+1. **Keep Raw Context Objects Private**: Export only the `Provider` component and the `useX()` custom hook.
+2. **Always Use Guarded Hooks**: Eliminate `null` checks for consumers.
+3. **Memoize Context Values**: Use `useMemo` for the object passed to `value`.
+4. **Separate State and Dispatch Contexts**: Optimize render performance.
+
+---
+
+## 11. Real-World Case Study
+
+### Notification Toast Manager Context
+A notification system providing an imperative `notify(message, type)` trigger to any component in the application:
+
+```typescript
+import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from 'react';
+
+export interface Toast {
+  id: string;
+  message: string;
+  type: 'info' | 'success' | 'error';
+}
+
+interface ToastContextValue {
+  toasts: readonly Toast[];
+  addToast: (message: string, type?: Toast['type']) => void;
+  removeToast: (id: string) => void;
+}
+
+const ToastContext = createContext<ToastContextValue | null>(null);
+
+export function ToastProvider({ children }: { children: ReactNode }) {
+  const [toasts, setToasts] = useState<Toast[]>([]);
+
+  const removeToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  const addToast = useCallback((message: string, type: Toast['type'] = 'info') => {
+    const id = crypto.randomUUID();
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => removeToast(id), 5000);
+  }, [removeToast]);
+
+  const value = useMemo(
+    () => ({ toasts, addToast, removeToast }),
+    [toasts, addToast, removeToast]
+  );
+
+  return (
+    <ToastContext value={value}>
+      {children}
+      <aside className="toast-container">
+        {toasts.map((t) => (
+          <div key={t.id} className={`toast toast-${t.type}`}>{t.message}</div>
+        ))}
+      </aside>
+    </ToastContext>
+  );
+}
+
+export function useToast(): ToastContextValue {
+  const ctx = useContext(ToastContext);
+  if (!ctx) throw new Error('useToast must be used within ToastProvider');
+  return ctx;
+}
+```
+
+---
+
+## 12. Interview Questions
+
+<details>
+<summary>1. What is the recommended strategy for handling initial default values in TypeScript React Context?</summary>
+
+Initialize the context with `null`: `createContext<T | null>(null)`. Then wrap `useContext` in a custom hook `useMyContext()` that checks if the context value is `null`. If `null`, it throws an error explaining that the component must be wrapped in the Provider. This eliminates `null` from the hook's return type for all consumers.
+</details>
+
+<details>
+<summary>2. Why does React 19 allow `<Context value={...}>` without `.Provider`?</summary>
+
+In React 19, the context object itself acts as the Provider component (`<MyContext value={value}>`), simplifying JSX and deprecating the redundant `.Provider` property.
+</details>
+
+<details>
+<summary>3. Why should context value objects always be wrapped in `useMemo`?</summary>
+
+If an object literal is passed to `value` without `useMemo`, a new object reference is created on every render of the provider component. This forces every consuming component that calls `useContext` to re-render, even if individual property values did not change.
+</details>
+
+<details>
+<summary>4. How does splitting Context into State and Dispatch optimize performance?</summary>
+
+Components that only dispatch actions (like a submit button) only subscribe to `DispatchContext`. Because dispatch functions (like `setCount` or `dispatch` from `useReducer`) have stable references and never change, dispatch-only components never re-render when state changes.
+</details>
+
+<details>
+<summary>5. How does the React 19 `use()` hook differ from `useContext()`?</summary>
+
+`useContext()` must adhere to the standard Rules of Hooks (must be called unconditionally at the top level of a component). `use(Context)` can be called conditionally inside `if` statements and loops.
+</details>
+
+<details>
+<summary>6. When should you choose an external state management library (Zustand) over React Context?</summary>
+
+Use React Context for low-frequency global updates (theme, user, locale). Use external state management libraries like Zustand or Redux Toolkit for high-frequency updates, state with fine-grained selector subscriptions, or complex state logic outside React components.
+</details>
+
+<details>
+<summary>7. How do you test a component that consumes a context?</summary>
+
+Wrap the component under test in the corresponding Provider inside the test:
+```typescript
+render(<MyComponent />, { wrapper: AuthProvider });
+```
+</details>
+
+<details>
+<summary>8. How do you prevent circular dependencies when two providers need each other?</summary>
+
+Extract the shared state into a third independent provider that is rendered higher up in the component tree.
+</details>
+
+---
+
+## 13. Exercises & Challenges
+
+<details>
+<summary>Exercise 1 (Easy): Basic Counter Context</summary>
+
+**Problem:** Create a minimal CounterContext with `count: number` and `increment: () => void`.
+
+**Solution:**
+```typescript
+import { createContext, useContext } from 'react';
+
+interface CounterContextValue { count: number; increment: () => void; }
+export const CounterContext = createContext<CounterContextValue | null>(null);
+
+export function useCounter(): CounterContextValue {
+  const ctx = useContext(CounterContext);
+  if (!ctx) throw new Error('useCounter outside provider');
+  return ctx;
+}
+```
+</details>
+
+<details>
+<summary>Exercise 2 (Easy): Generic Safe Context Generator</summary>
+
+**Problem:** Implement a generic function `createSafeContext<T>(name: string)` that returns `[Context, useHook]`.
+
+**Solution:**
+```typescript
+import { createContext, useContext } from 'react';
+
+export function createSafeContext<T>(displayName: string) {
+  const ctx = createContext<T | null>(null);
+  const useCtx = () => {
+    const val = useContext(ctx);
+    if (!val) throw new Error(`use${displayName} must be inside ${displayName}Provider`);
+    return val;
+  };
+  return [ctx, useCtx] as const;
+}
+```
+</details>
+
+<details>
+<summary>Exercise 3 (Medium): Typed Modal Registry Context</summary>
+
+**Problem:** Create a ModalContext that allows opening a modal by name with typed arguments.
+
+**Solution:**
+```typescript
+import { createContext, useContext, useState, type ReactNode } from 'react';
+
+type ModalState = { name: string; props?: Record<string, unknown> } | null;
+
+interface ModalContextValue {
+  activeModal: ModalState;
+  openModal: (name: string, props?: Record<string, unknown>) => void;
+  closeModal: () => void;
+}
+
+const ModalContext = createContext<ModalContextValue | null>(null);
+
+export function ModalProvider({ children }: { children: ReactNode }) {
+  const [activeModal, setActiveModal] = useState<ModalState>(null);
+  return (
+    <ModalContext value={{
+      activeModal,
+      openModal: (name, props) => setActiveModal({ name, props }),
+      closeModal: () => setActiveModal(null)
+    }}>
+      {children}
+    </ModalContext>
+  );
+}
+
+export function useModal() {
+  const ctx = useContext(ModalContext);
+  if (!ctx) throw new Error('useModal outside ModalProvider');
+  return ctx;
+}
+```
+</details>
+
+<details>
+<summary>Exercise 4 (Medium): Compose Providers Helper</summary>
+
+**Problem:** Write a helper component `ComposeProviders` that takes an array of Provider components and nests them without pyramid-of-doom JSX.
+
+**Solution:**
+```typescript
+import type { ComponentType, ReactNode } from 'react';
+
+interface ComposeProps {
+  providers: ComponentType<{ children: ReactNode }>[];
+  children: ReactNode;
+}
+
+export function ComposeProviders({ providers, children }: ComposeProps) {
+  return providers.reduceRight(
+    (acc, Provider) => <Provider>{acc}</Provider>,
+    children
   );
 }
 ```
+</details>
 
-`dispatch` from `useReducer` is stable for the lifetime of the component, so consumers of `DispatchContext` never re-render because of state changes. Type `dispatch` as `Dispatch<Action>` (from `react`), and write two small hooks, one per context. The reducer and its discriminated-union actions are in [hooks](./02-hooks.md).
+<details>
+<summary>Exercise 5 (Hard): Selective Context Consumer</summary>
 
-## Context as dependency injection
+**Problem:** Create a custom selector hook `useContextSelector<T, S>(ctx: Context<T | null>, selector: (val: T) => S): S` that derives a selected slice.
 
-Context is a convenient way to give a subtree a service, and to swap it in tests:
+**Solution:**
+```typescript
+import { useContext, type Context } from 'react';
 
-```tsx
-const [ApiProvider, useApi] = createStrictContext<ApiClient>("Api");
-
-function UserList() {
-  const api = useApi();
-  const { data } = useQuery({ queryKey: ["users"], queryFn: () => api.listUsers() });
-  // ...
-}
-
-// production
-<ApiProvider value={realClient}><App /></ApiProvider>
-
-// test
-<ApiProvider value={fakeClient}><UserList /></ApiProvider>
-```
-
-The component depends on the `ApiClient` **interface**, not on a concrete client or a global ([dependency injection](../17-design-patterns/05-dependency-injection.md), [typed fetch and API client](../16-type-safe-apis/05-typed-fetch-and-api-client.md)).
-
-## Testing components that use context
-
-Wrap the component under test in the provider, using a helper:
-
-```tsx
-function renderWithTheme(ui: ReactElement, mode: "light" | "dark" = "light") {
-  return render(<ThemeContext.Provider value={{ mode, toggle: vi.fn() }}>{ui}</ThemeContext.Provider>);
+export function useContextSelector<T, S>(
+  context: Context<T | null>,
+  selector: (val: T) => S
+): S {
+  const val = useContext(context);
+  if (!val) throw new Error('useContextSelector outside Provider');
+  return selector(val);
 }
 ```
+</details>
 
-This is one reason to export the provider (and, for tests, optionally the raw context) from the module that defines it, while still hiding the context from application code. See [mocking](../18-testing-and-debugging/02-mocking.md).
+<details>
+<summary>Exercise 6 (Hard): Type-Safe Multi-Theme Switcher Context</summary>
 
-## When context is the wrong tool
+**Problem:** Build a theme context supporting customizable nested design tokens (colors, typography, spacing) with compile-time type safety.
 
-Context is for values that change **rarely** and are needed in **many places**: theme, locale, current user, an API client, feature flags.
+**Solution:**
+```typescript
+export interface ThemeTokens {
+  colors: { primary: string; background: string; text: string };
+  spacing: { sm: number; md: number; lg: number };
+}
 
-It is a poor fit for frequently changing state (form input, mouse position, a large store). Every consumer re-renders when the value changes, and there is no built-in selector to subscribe to part of the value. For that, use a state library with selectors ([client state with Zustand](./08-client-state-zustand.md)), or lift state and pass props. For server data, use a query library rather than hand-rolling fetch state in a provider ([server state](./07-server-state-tanstack-query.md)).
+const DefaultThemeContext = createContext<ThemeTokens | null>(null);
 
-## Server components
-
-In frameworks with React Server Components (such as the Next.js App Router), context only works in **client components**. A provider must be in a file marked `"use client"`, and server components can render it and pass `children` through. See [Next.js](./09-nextjs.md).
-
-## Important rules and misconceptions
-
-- **The default value is used only when no provider exists above.** A provider with value `undefined` overrides it.
-- **Context does not "update" selectively.** All consumers of a context re-render when its value changes by reference.
-- **Splitting a value into several properties does not help** if they live in one context object. Split the contexts.
-- **Context is not global state management.** It is a transport for a value. The state still lives in a component (`useState`, `useReducer`).
-- **A provider can appear multiple times,** and the nearest one wins. This is useful for scoped overrides.
-
-## Common mistakes
-
-- Giving a fake default value so the context "works" without a provider, hiding missing-provider bugs.
-- Using `useContext(Ctx)!` or `ctx?.` instead of a throwing hook.
-- Passing an inline object as `value`, causing re-renders of every consumer.
-- Putting fast-changing state in context and wondering why the app is slow.
-- Exporting the raw context and having components call `useContext` directly, bypassing the check.
-- Making one giant context for everything.
-- Providers placed too low in the tree, so some consumers are outside.
-- Using context in a server component.
-
-## Debugging
-
-- If a hook throws "must be used within a provider", the consumer is rendered outside it. Check the tree in React DevTools, and portals or separate roots (modals, tooltips) that may sit outside the provider.
-- If many components re-render on every change, check whether the `value` is memoized and whether the context mixes frequently changing data with stable data.
-- Use React DevTools' "Components" tab to inspect each provider's current value.
-- If a consumer sees a stale value, check for a nested provider that overrides it.
-
-## Quick summary
-
-- Create the context with `T | undefined` and a hook that throws when the value is missing, so consumers get a non-nullable `T`.
-- Do not export the raw context. Export the provider and the hook. A small factory removes the boilerplate for many contexts.
-- Memoize the provider value, and split state and dispatch into separate contexts to limit re-renders.
-- Use context for rarely changing, widely needed values and as dependency injection for services. For fast-changing state, use a store with selectors.
-- React 19 adds `<Context value>` and `use(Context)`. In server component frameworks, context lives in client components.
-
-**Next:** [Refs](./04-refs.md)
+export function useThemeTokens(): ThemeTokens {
+  const ctx = useContext(DefaultThemeContext);
+  if (!ctx) throw new Error('Missing ThemeTokensProvider');
+  return ctx;
+}
+```
+</details>
