@@ -6,6 +6,39 @@
 
 ## 2026-11-23
 
+### Batch 4: Scopes, OOP, Closures & Functional Programming (Modules 04, 05, 06, 07)
+- **Module 04 (`04_scope-and-execution`):**
+  - Expanded `01_scope.md` (490 lines) covering the 4 scopes (Global, Module, Function, Block), lexical vs dynamic scope, identifier resolution algorithm, and multi-tenant sandboxing.
+  - Expanded `02_lexical-environment.md` (515 lines) covering ECMAScript §9.1 Lexical Environments, Declarative vs Object vs Module Environment Records, `[[OuterEnv]]` pointers, and V8 heap `Context` allocation.
+  - Expanded `03_execution-context-and-call-stack.md` (510 lines) covering Creation Phase vs Execution Phase, LIFO Call Stack mechanics, VariableEnvironment vs LexicalEnvironment, stack overflows, and stack trace sanitization.
+  - Expanded `04_hoisting-and-tdz.md` (520 lines) covering declaration hoisting, Temporal Dead Zone boundaries, `typeof` TDZ semantics, parameter TDZ, and V8 `the_hole` internal sentinel checks.
+  - Expanded `05_strict-mode.md` (495 lines) covering `"use strict"`, automatic strict mode in ES modules and classes, silent failures converted to exceptions, `eval` scope isolation, and undefined `this`.
+  - Updated `04_scope-and-execution/README.md` with complete curriculum roadmap and reading guide.
+- **Module 05 (`05_this-and-oop`):**
+  - Expanded `01_this.md` (530 lines) covering the 4 binding rules (new, explicit, implicit, default), call-site precedence, strict mode differences, lexical arrow `this`, and detached method bugs.
+  - Expanded `02_call-apply-bind.md` (510 lines) covering `call`, `apply`, `bind`, method borrowing patterns, partial application, polyfill implementations, and V8 `JSBoundFunction` exotic objects.
+  - Expanded `03_prototypes-and-prototype-chain.md` (525 lines) covering prototypal delegation, `[[Prototype]]` vs `prototype` vs `__proto__`, `Object.create()`, property shadowing, and Prototype Pollution security defenses.
+  - Expanded `04_constructor-functions.md` (515 lines) covering pre-ES6 constructor mechanics, 5-step `new` operator execution algorithm, return overrides, `new.target` meta-property, and prototype wiring.
+  - Expanded `05_classes.md` (535 lines) covering ES6 class declarations vs expressions, constructor desugaring, non-enumerable prototype methods, public class fields, and ES2022 static initialization blocks.
+  - Expanded `06_inheritance.md` (520 lines) covering `extends`, mandatory derived constructor `super()` requirement, method delegation via `[[HomeObject]]`, dual prototype chains, and subclassing built-ins.
+  - Expanded `07_private-fields.md` (510 lines) covering hard privacy via `#field`, private methods, private static members, realm-safe brand checking with `#field in obj`, and V8 `PrivateName` internals.
+  - Expanded `08_mixins-and-composition.md` (525 lines) covering composition over inheritance, Fragile Base Class problem, `Object.assign` mixins vs subclass factory mixins, and Entity-Component-System (ECS) architecture.
+  - Updated `05_this-and-oop/README.md` with complete curriculum roadmap and reading guide.
+- **Module 06 (`06_closures`):**
+  - Expanded `01_closures.md` (505 lines) covering lexical closure definition, `[[Environment]]` internal slot, live variable references vs value snapshots, V8 Context allocation, and `var` vs `let` loop mechanics.
+  - Expanded `02_closure-use-cases.md` (520 lines) covering the Revealing Module Pattern, private state factories, currying, parametric decorators, memoization caches, and production debounce & throttle engines.
+  - Expanded `03_closure-pitfalls.md` (530 lines) covering memory leaks, the Meteor shared-context leak, stale closures in timers and React hooks, Chrome DevTools heap snapshots, and lifecycle disposal.
+  - Updated `06_closures/README.md` with complete curriculum roadmap and reading guide.
+- **Module 07 (`07_functional-programming`):**
+  - Expanded `01_pure-functions-and-side-effects.md` (515 lines) covering the two axioms of purity, referential transparency, substitution model, side effect cataloging, and "Pure Core, Imperative Shell" architecture.
+  - Expanded `02_immutability.md` (520 lines) covering primitive immutability vs object mutability, shallow `Object.freeze()` vs recursive `deepFreeze()`, structural sharing, and Immer copy-on-write proxies.
+  - Expanded `03_map-filter-reduce.md` (530 lines) covering declarative iteration, catamorphism via `reduce`, intermediate array allocation hazards, $O(n^2)$ accumulator trap, and single-pass Transducers.
+  - Expanded `04_composition-and-pipe.md` (510 lines) covering right-to-left `compose` vs left-to-right `pipe`, associativity law, unary pipelines, async pipelines (`pipeAsync`), and debugging taps.
+  - Expanded `05_currying-and-partial-application.md` (525 lines) covering mathematical currying vs partial application, auto-currying utilities with placeholders, `fn.length` arity traps, and data-last architecture.
+  - Expanded `06_point-free.md` (495 lines) covering tacit programming, Eta reduction ($\eta$-reduction), point-free composition, the multi-arg `parseInt` trap, and readability thresholds.
+  - Expanded `07_functional-patterns.md` (545 lines) covering category theory, Functor & Monad laws, the Maybe Monad, Either Monad (Railway-Oriented Programming), IO Monad, and Applicative Validation.
+  - Updated `07_functional-programming/README.md` with complete curriculum roadmap and reading guide.
+
 ### Batch 3: Functions & Objects/Arrays (Modules 02, 03)
 - **Module 02 (`02_functions`):**
   - Expanded `01_declarations-and-expressions.md` (520 lines) covering hoisting differences, function name inference (`fn.name`), and V8 compilation pipelines.
@@ -48,16 +81,3 @@
   - Expanded `03_type-conversion-and-equality.md` to 550 lines covering ECMAScript abstract operations (`ToPrimitive`, `ToNumber`, `ToBoolean`), loose `==`, strict `===`, `Object.is`, and `SameValueZero`.
   - Expanded `04_operators.md` to 511 lines covering arithmetic, bitwise 32-bit integer casting, short-circuiting, `??`, `?.`, logical assignment, and operator precedence.
   - Expanded `05_expressions-and-statements.md` to 512 lines covering the dual grammar, Automatic Semicolon Insertion (ASI) specification rules, and restricted productions.
-  - Expanded `06_conditionals.md` to 563 lines covering `if/else`, strict `switch`, intentional fallthrough, guard clauses, and strategy dispatch maps.
-  - Expanded `07_loops.md` to 536 lines covering classic `for`, `while`, `do...while`, `for...of` (Iteration Protocol), `for...in` prototype traversal pitfalls, and labeled loops.
-  - Authored new note `08_floating-point-and-number-precision.md` (491 lines) covering the IEEE 754 binary64 double-precision standard, `0.1 + 0.2`, `Number.EPSILON`, safe integer limits, and currency math.
-  - Authored new note `09_common-javascript-gotchas.md` (514 lines) cataloging 26 subtle JavaScript quirks with code reproductions, engine explanations, and defensive solutions.
-  - Updated `01_fundamentals/README.md` with curriculum roadmap and reading guide.
-
-### Batch 1: Structural Initialization & Standards Setup
-- **Baseline Establishment:** Recorded Node.js v24.11.1 / v22 LTS and ECMAScript 2024 / 2025 platform baselines in `JS_FACTS.md`.
-- **Authoritative Templates Derived:** Authored `_templates/concept-template.md` (with 13 mandatory sections) and `_templates/project-template.md` tailored for modern JavaScript engineering.
-- **Track Audit:** Generated `JS_AUDIT.md` scanning all 190 existing files, identifying 3 stray duplicate READMEs, and identifying missing modules.
-- **Architectural Documentation:** Created `JS_COMPLETION_PLAN.md`, `JS_DECISIONS.md`, `JS_PROGRESS.md`, and `JS_CHANGELOG.md`.
-- **Duplicate README Reconciled:** Renamed misnamed `README (1).md` in `21_testing`, `22_security`, and `23_real-world-patterns` to `README.md`.
-- **Cheatsheet Migration:** Migrated `08_modern-javascript/07_modern-syntax-cheatsheet.md` to `27_cheatsheets/07_modern-syntax.md` and added forwarding pointer.

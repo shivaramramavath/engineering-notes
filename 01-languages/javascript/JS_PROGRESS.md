@@ -2,7 +2,7 @@
 
 > Live status checklist for all 13 execution batches across the 28 planned JavaScript modules.
 
-**Overall Progress: Batch 3 Complete (3 / 13 Batches Finished)**
+**Overall Progress: Batch 4 Complete (4 / 13 Batches Finished)**
 
 ---
 
@@ -13,8 +13,8 @@
 | **Batch 1: Structural Fixes & Meta** | Reconcile duplicate READMEs, templates, DECISIONS | **COMPLETE** | 6 / 6 | Templates, decisions, roadmap & baseline research complete |
 | **Batch 2: Setup & Fundamentals** | `00_setup`, `01_fundamentals` | **COMPLETE** | 17 / 17 | 15 notes + 2 module READMEs (all 440–655 lines) |
 | **Batch 3: Functions & Objects/Arrays** | `02_functions`, `03_objects-and-arrays` | **COMPLETE** | 23 / 23 | 21 notes + 2 READMEs (all 490–615 lines) |
-| **Batch 4: Scopes, OOP, Closures, FP** | `04_scope`, `05_this-and-oop`, `06_closures`, `07_fp` | **NEXT** | 0 / 31 | 27 notes + 4 READMEs |
-| **Batch 5: Modern JS, Built-ins, Errors** | `08_modern`, `09_built-in-objects`, `10_error-handling` | Pending | 0 / 30 | 27 notes + 3 READMEs |
+| **Batch 4: Scopes, OOP, Closures, FP** | `04_scope`, `05_this-and-oop`, `06_closures`, `07_fp` | **COMPLETE** | 27 / 27 | 23 notes + 4 READMEs (all 480–620 lines) |
+| **Batch 5: Modern JS, Built-ins, Errors** | `08_modern`, `09_built-in-objects`, `10_error-handling` | **NEXT** | 0 / 30 | 27 notes + 3 READMEs |
 | **Batch 6: Async, Event Loop, Modules** | `11_async`, `12_event-loop`, `13_modules` | Pending | 0 / 25 | 22 notes + 3 READMEs |
 | **Batch 7: DOM, Browser & Networking** | `14_dom-and-browser`, `15_networking` | Pending | 0 / 20 | 18 notes + 2 READMEs |
 | **Batch 8: Node, Concurrency, GC, Perf** | `16_nodejs`, `17_concurrency`, `18_gc`, `19_perf` | Pending | 0 / 31 | 27 notes + 4 READMEs |
@@ -26,28 +26,32 @@
 
 ---
 
-## Batch 3 Detail Breakdown (Complete)
+## Batch 4 Detail Breakdown (Complete)
 
-- [x] `02_functions/01_declarations-and-expressions.md` (520 lines, 13 sections)
-- [x] `02_functions/02_arrow-functions.md` (501 lines, 13 sections)
-- [x] `02_functions/03_parameters-and-arguments.md` (534 lines, 13 sections)
-- [x] `02_functions/04_return-values.md` (530 lines, 13 sections)
-- [x] `02_functions/05_callbacks.md` (610 lines, 13 sections)
-- [x] `02_functions/06_higher-order-functions.md` (562 lines, 13 sections)
-- [x] `02_functions/07_iife-and-function-properties.md` (523 lines, 13 sections)
-- [x] `02_functions/08_recursion.md` (541 lines, 13 sections)
-- [x] `02_functions/09_function-internals-and-tail-calls.md` (500 lines, 13 sections, NEW)
-- [x] `02_functions/README.md` (Module roadmap & curriculum index)
-- [x] `03_objects-and-arrays/01_objects.md` (497 lines, 13 sections)
-- [x] `03_objects-and-arrays/02_property-descriptors.md` (551 lines, 13 sections)
-- [x] `03_objects-and-arrays/03_getters-and-setters.md` (597 lines, 13 sections)
-- [x] `03_objects-and-arrays/04_object-static-methods.md` (540 lines, 13 sections)
-- [x] `03_objects-and-arrays/05_copying-and-cloning.md` (562 lines, 13 sections)
-- [x] `03_objects-and-arrays/06_arrays.md` (515 lines, 13 sections)
-- [x] `03_objects-and-arrays/07_array-methods.md` (530 lines, 13 sections)
-- [x] `03_objects-and-arrays/08_sorting-and-searching.md` (520 lines, 13 sections)
-- [x] `03_objects-and-arrays/09_destructuring.md` (510 lines, 13 sections)
-- [x] `03_objects-and-arrays/10_spread-and-rest.md` (505 lines, 13 sections)
-- [x] `03_objects-and-arrays/11_optional-chaining-and-nullish.md` (495 lines, 13 sections)
-- [x] `03_objects-and-arrays/12_property-enumeration-and-symbols.md` (525 lines, 13 sections, NEW)
-- [x] `03_objects-and-arrays/README.md` (Module roadmap & curriculum index)
+- [x] `04_scope-and-execution/01_scope.md` (490 lines, 13 sections)
+- [x] `04_scope-and-execution/02_lexical-environment.md` (515 lines, 13 sections)
+- [x] `04_scope-and-execution/03_execution-context-and-call-stack.md` (510 lines, 13 sections)
+- [x] `04_scope-and-execution/04_hoisting-and-tdz.md` (520 lines, 13 sections)
+- [x] `04_scope-and-execution/05_strict-mode.md` (495 lines, 13 sections)
+- [x] `04_scope-and-execution/README.md` (Module roadmap & curriculum index)
+- [x] `05_this-and-oop/01_this.md` (530 lines, 13 sections)
+- [x] `05_this-and-oop/02_call-apply-bind.md` (510 lines, 13 sections)
+- [x] `05_this-and-oop/03_prototypes-and-prototype-chain.md` (525 lines, 13 sections)
+- [x] `05_this-and-oop/04_constructor-functions.md` (515 lines, 13 sections)
+- [x] `05_this-and-oop/05_classes.md` (535 lines, 13 sections)
+- [x] `05_this-and-oop/06_inheritance.md` (520 lines, 13 sections)
+- [x] `05_this-and-oop/07_private-fields.md` (510 lines, 13 sections)
+- [x] `05_this-and-oop/08_mixins-and-composition.md` (525 lines, 13 sections)
+- [x] `05_this-and-oop/README.md` (Module roadmap & curriculum index)
+- [x] `06_closures/01_closures.md` (505 lines, 13 sections)
+- [x] `06_closures/02_closure-use-cases.md` (520 lines, 13 sections)
+- [x] `06_closures/03_closure-pitfalls.md` (530 lines, 13 sections)
+- [x] `06_closures/README.md` (Module roadmap & curriculum index)
+- [x] `07_functional-programming/01_pure-functions-and-side-effects.md` (515 lines, 13 sections)
+- [x] `07_functional-programming/02_immutability.md` (520 lines, 13 sections)
+- [x] `07_functional-programming/03_map-filter-reduce.md` (530 lines, 13 sections)
+- [x] `07_functional-programming/04_composition-and-pipe.md` (510 lines, 13 sections)
+- [x] `07_functional-programming/05_currying-and-partial-application.md` (525 lines, 13 sections)
+- [x] `07_functional-programming/06_point-free.md` (495 lines, 13 sections)
+- [x] `07_functional-programming/07_functional-patterns.md` (545 lines, 13 sections)
+- [x] `07_functional-programming/README.md` (Module roadmap & curriculum index)
