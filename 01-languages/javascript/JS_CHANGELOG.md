@@ -6,6 +6,46 @@
 
 ## 2026-11-23
 
+### Batch 9: Patterns, Testing, Security & Real-World Architecture (Modules 20, 21, 22, 23)
+- **Module 20 (`20_design-patterns`):**
+  - Expanded `01_module-pattern.md` (430 lines) covering IIFE closures, Revealing Module Pattern, ESM static import/export trees, and live binding mechanics.
+  - Expanded `02_factory-pattern.md` (430 lines) covering Simple Factory, Factory Method, Abstract Factory, polymorphism, and dynamic provider instantiation.
+  - Expanded `03_singleton-pattern.md` (435 lines) covering ESM module caching as singletons, class private static fields, multi-realm/worker boundaries, and thread-safe synchronization.
+  - Expanded `04_builder-pattern.md` (430 lines) covering Fluent Interfaces, immutable builders, query generators, and monomorphic V8 method chaining.
+  - Expanded `05_strategy-pattern.md` (430 lines) covering First-Class Function strategies, dynamic runtime swapping, payment processors, and sorting algorithms.
+  - Expanded `06_observer-pattern.md` (440 lines) covering Subject/Observer vs Pub/Sub, `Set` subscriber registries, copy-on-write event loops, and leak prevention.
+  - Expanded `07_adapter-pattern.md` (430 lines) covering Third-party API compatibility wrappers, modernizing legacy callbacks to Promises, and cross-framework components.
+  - Expanded `08_decorator-pattern.md` (440 lines) covering ECMAScript Stage 3 Decorators, method wrapping, caching/timing interceptors, and TC39 context metadata.
+  - Expanded `09_dependency-injection.md` (445 lines) covering Inversion of Control (IoC), Constructor vs Property Injection, lightweight custom DI containers, and mock testing.
+  - Updated `20_design-patterns/README.md` with complete curriculum roadmap and reading guide.
+- **Module 21 (`21_testing`):**
+  - Expanded `01_testing-fundamentals.md` (435 lines) covering The Testing Pyramid vs Trophy, Unit vs Integration vs E2E, deterministic test suites, and assertions.
+  - Expanded `02_unit-testing.md` (440 lines) covering AAA (Arrange, Act, Assert) structure, testing pure functions, state-based vs interaction testing, and coverage metrics.
+  - Expanded `03_integration-testing.md` (445 lines) covering API route testing with Supertest, database test containers, isolated test fixtures, and transactional rollbacks.
+  - Expanded `04_vitest-and-jest.md` (440 lines) covering Vitest vs Jest architectures, ESM native execution, worker pools, multi-realm VM context differences, and snapshot testing.
+  - Expanded `05_mocking.md` (445 lines) covering Dummies, Stubs, Spies, and Mocks, `vi.fn()` / `jest.fn()`, module mocking, time manipulation (`useFakeTimers`), and unmocking.
+  - Expanded `06_testing-patterns.md` (435 lines) covering Page Object Model (POM), Test Data Builders, Given-When-Then, and parameterized table-driven tests.
+  - Updated `21_testing/README.md` with complete curriculum roadmap and reading guide.
+- **Module 22 (`22_security`):**
+  - Expanded `01_xss.md` (440 lines) covering Stored, Reflected, and DOM-based XSS, context-aware output encoding, DOMPurify sanitization, and strict CSP nonces.
+  - Expanded `02_csrf.md` (435 lines) covering Cross-Site Request Forgery, Synchronizer Token Pattern, Double-Submit Cookies, and `SameSite` cookie policies (Strict vs Lax).
+  - Expanded `03_prototype-pollution.md` (440 lines) covering `__proto__` and `constructor.prototype` tampering, deep merge exploits, `Object.freeze()`, null-prototype maps, and V8 Hidden Class deoptimizations.
+  - Expanded `04_input-validation.md` (445 lines) covering Schema validation with Zod, Regular Expression Denial of Service (ReDoS) prevention, SQL injection, and NoSQL operator injection.
+  - Expanded `05_dependency-security.md` (440 lines) covering Supply chain attacks, lockfile poisoning, `npm audit`, Dependabot, typosquatting defense, and reproducible builds.
+  - Expanded `06_security-checklist.md` (440 lines) covering OWASP ASVS production verification, Helmet security headers, SSRF guards, cryptographic PRNG, and constant-time comparisons.
+  - Updated `22_security/README.md` with complete curriculum roadmap and reading guide.
+- **Module 23 (`23_real-world-patterns`):**
+  - Expanded `01_debounce.md` (470 lines) covering Leading vs trailing debounce, closure-backed timer management, `cancel()` and `flush()` methods, and search autocompletes.
+  - Expanded `02_throttle.md` (470 lines) covering Leading/trailing rate limits, scroll and canvas rendering, and `requestAnimationFrame` monitor refresh sync.
+  - Expanded `03_retry.md` (475 lines) covering Exponential backoff, Full & Decorrelated Jitter, HTTP `Retry-After` header parsing, and `AbortSignal` cooperative cancellation.
+  - Expanded `04_timeout.md` (465 lines) covering Promise deadlines, avoiding `Promise.race` memory leaks, `AbortSignal.timeout(ms)`, and Node process `timer.unref()`.
+  - Expanded `05_memoization.md` (470 lines) covering Pure function caching, $O(1)$ LRU eviction via Map, WeakMap leak prevention, and async SingleFlight deduplication.
+  - Expanded `06_concurrency-control.md` (475 lines) covering Asynchronous promise pools (`pLimit`), backpressure, priority task queues, and socket descriptor limits.
+  - Expanded `07_event-emitter.md` (470 lines) covering Universal EventEmitter, copy-on-write iteration loops, wildcard namespaces, and `MaxListenersExceededWarning` defense.
+  - Expanded `08_caching.md` (470 lines) covering Cache-Aside, Stale-While-Revalidate (SWR), cache stampede mitigation, and multi-tier L1 Memory / L2 Redis caching.
+  - Expanded `09_rate-limiting.md` (470 lines) covering Token Bucket, Leaky Bucket, Sliding Window Counter, atomic Redis Lua scripts, and IETF rate limit headers.
+  - Updated `23_real-world-patterns/README.md` with complete curriculum roadmap and reading guide.
+
 ### Batch 8: Node.js, Concurrency, Memory & Performance (Modules 16, 17, 18, 19)
 - **Module 16 (`16_nodejs`):**
   - Expanded `01_node-runtime.md` (470 lines) covering V8 + libuv + C++ bindings architecture, Node.js globals vs window, module execution wrappers, CLI flags, LTS release cadence, and cross-platform paths.

@@ -1,287 +1,498 @@
-# Testing Patterns
+# Advanced Testing Patterns in JavaScript
 
-Recurring techniques that keep test suites readable, reliable, and cheap to maintain. Most of them are about reducing noise so a failing test tells you something immediately.
+> Test-Driven Development (TDD), Property-Based Testing (fast-check), Mutation Testing (Stryker), table-driven tests, and CI test pipelines.
 
-## Prerequisites
-
-- [Unit testing](./02_unit-testing.md), [Integration testing](./03_integration-testing.md), [Mocking](./05_mocking.md)
-
----
-
-## 1. Design for Testability
-
-The biggest "pattern" happens in the production code, not the test. Make dependencies explicit and keep logic separate from I/O.
-
-```js
-// Hard to test: hidden clock and network
-export async function isTokenExpired() {
-  const token = await fetch('/token').then(r => r.json());
-  return Date.now() > token.expiresAt;
-}
-
-// Easy to test: pure core, injected boundaries
-export const isExpired = (expiresAt, now) => now > expiresAt;
-
-export async function isTokenExpired({ fetchToken, now = Date.now } = {}) {
-  const token = await fetchToken();
-  return isExpired(token.expiresAt, now());
-}
-```
-
-Now `isExpired` is a trivial unit test, and the wrapper needs no module mocks. See [Dependency injection](../20_design-patterns/09_dependency-injection.md) and [Pure functions](../07_functional-programming/01_pure-functions-and-side-effects.md).
+| Metadata | Details |
+| :--- | :--- |
+| **Level** | Advanced |
+| **Prerequisites** | [Testing Fundamentals](file:///e:/Learning/engineering-notes/01-languages/javascript/21_testing/01_testing-fundamentals.md), [Unit Testing](file:///e:/Learning/engineering-notes/01-languages/javascript/21_testing/02_unit-testing.md) |
+| **Time to read** | 25 minutes |
+| **Status** | Complete |
+| **Standard / Runtime** | ECMAScript 2015+, Node.js `node:test` / Vitest |
 
 ---
 
-## 2. Test Data Factories and Builders
-
-Inline giant object literals bury what matters. A factory supplies valid defaults; each test overrides only the field it cares about.
-
-```js
-let seq = 0;
-export const makeOrder = (overrides = {}) => ({
-  id: `order-${++seq}`,
-  status: 'pending',
-  items: [{ sku: 'A1', qty: 1, price: 10 }],
-  ...overrides,
-});
-
-it('does not ship cancelled orders', () => {
-  const order = makeOrder({ status: 'cancelled' });   // the relevant detail is obvious
-  expect(canShip(order)).toBe(false);
-});
-```
-
-For nested structures, a builder with chainable methods (`anOrder().withItem(...).cancelled().build()`) reads well, but a plain factory with overrides covers most needs.
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & API Reference](#4-syntax--api-reference)
+5. [Practical Examples](#5-practical-examples)
+6. [Edge Cases, Pitfalls & Gotchas](#6-edge-cases-pitfalls--gotchas)
+7. [Common Mistakes & Anti-Patterns](#7-common-mistakes--anti-patterns)
+8. [Performance Characteristics](#8-performance-characteristics)
+9. [Engine Internals](#9-engine-internals)
+10. [Best Practices & Design Guidelines](#10-best-practices--design-guidelines)
+11. [Real-World Case Study](#11-real-world-case-study)
+12. [Interview Questions](#12-interview-questions)
+13. [Exercises & Challenges](#13-exercises--challenges)
 
 ---
 
-## 3. Table-Driven Tests
+## 1. What & Why
 
-When many inputs go through the same logic, list them as data:
+Writing basic assertion tests against known sample inputs (example-based testing) is the entry point to automated verification. However, example-based tests suffer from human bias: developers write tests for the scenarios they anticipated when designing the algorithm. Unanticipated edge cases—Unicode surrogate pairs, negative zeros, array index boundary overflows, or unexpected null inputs—frequently escape into production.
 
-```js
-it.each([
-  { input: '',          expected: false },
-  { input: 'a@b.co',    expected: true  },
-  { input: 'a@b',       expected: false },
-  { input: ' a@b.co ',  expected: false },
-])('isEmail($input) → $expected', ({ input, expected }) => {
-  expect(isEmail(input)).toBe(expected);
-});
-```
-
-Adding a case is one line, and the failure message names the failing input.
+Advanced testing patterns elevate software quality beyond basic happy-path assertions:
+- **Test-Driven Development (TDD)** guides architectural modularity and eliminates speculative code.
+- **Table-Driven Testing** eliminates assertion boilerplate across dozens of boundary permutations.
+- **Property-Based Testing** generates thousands of pseudo-random inputs to discover boundary bugs automatically.
+- **Mutation Testing** validates the effectiveness of your test suite by purposefully injecting mutant bugs into your production code to see if tests catch them.
 
 ---
 
-## 4. Testing Time-Based Utilities
+## 2. Core Concepts
 
-Debounce, throttle, retry, and timeout logic can be tested instantly with fake timers; no real waiting.
+### The Red-Green-Refactor Cycle (TDD)
+1. **Red**: Write a failing automated test that defines a single desired behavior or interface contract before writing any production code.
+2. **Green**: Write the minimal amount of code necessary to make the test pass (even if hardcoded or unoptimized).
+3. **Refactor**: Clean up the design, remove duplication, and optimize performance while keeping the test suite green.
 
-```js
-import { vi, it, expect, beforeEach, afterEach } from 'vitest';
-import { debounce } from './debounce.js';
+### Property-Based Testing (Hypothesis / Invariant Verification)
+Instead of testing specific examples (`add(2, 3) === 5`), property-based testing defines mathematical or business **invariants** that must hold true for *any* valid input:
+- *Commutativity*: `add(a, b) === add(b, a)` for all numbers $a, b$.
+- *Idempotence*: `sort(sort(list)) === sort(list)`.
+- *Round-Trip Serialization*: `JSON.parse(JSON.stringify(obj)) === obj`.
+Libraries like `fast-check` generate thousands of arbitrary inputs (random strings, negative numbers, deeply nested arrays) and automatically **shrink** failing inputs to the minimal reproduction case.
 
-beforeEach(() => vi.useFakeTimers());
-afterEach(() => vi.useRealTimers());
+### Mutation Testing (Testing the Tests)
+Traditional code coverage (e.g. 95% line coverage) is deceptive: code can be executed by a test without asserting on anything meaningful. Mutation testing tools (like **Stryker**) parse your source code, inject subtle bugs ("mutants"—e.g. changing `>` to `<`, or deleting a function call), and execute your test suite:
+- **Killed Mutant**: A test failed when the mutant was injected (Good: the test suite caught the bug!).
+- **Survived Mutant**: All tests passed despite the bug (Bad: your test suite has a blind spot!).
 
-it('fires once after the quiet period', () => {
-  const fn = vi.fn();
-  const debounced = debounce(fn, 300);
+---
 
-  debounced('a'); debounced('b'); debounced('c');
-  expect(fn).not.toHaveBeenCalled();
+## 3. How It Works Internally
 
-  vi.advanceTimersByTime(300);
-  expect(fn).toHaveBeenCalledOnce();
-  expect(fn).toHaveBeenCalledWith('c');
-});
 ```
+PROPERTY-BASED TESTING PIPELINE (fast-check):
+[ Invariant Assertion ] <--- e.g. reverse(reverse(arr)) === arr
+           ^
+           | Evaluates
++--------------------------------------------------------------------------+
+| FAST-CHECK RUNNER                                                        |
+| 1. Generates 1,000 pseudo-random inputs:                                  |
+|    [], [1], [-42, 999], [0, NaN], ['\u0000', '🔥']                      |
+| 2. Executes assertion against every generated case                       |
+| 3. On failure: SHRINKS input to minimal failing case (e.g. [NaN])        |
++--------------------------------------------------------------------------+
 
-Related implementations: [Debounce](../23_real-world-patterns/01_debounce.md), [Throttle](../23_real-world-patterns/02_throttle.md), [Retry](../23_real-world-patterns/03_retry.md), [Timeout](../23_real-world-patterns/04_timeout.md).
-
-Retry logic: use a stub that fails N times and then succeeds, and assert both the final result and the number of attempts.
-
-```js
-it('retries until success', async () => {
-  const op = vi.fn()
-    .mockRejectedValueOnce(new Error('fail'))
-    .mockRejectedValueOnce(new Error('fail'))
-    .mockResolvedValue('ok');
-
-  await expect(retry(op, { retries: 3, delay: 0 })).resolves.toBe('ok');
-  expect(op).toHaveBeenCalledTimes(3);
-});
+MUTATION TESTING PIPELINE (Stryker):
+Source Code: if (user.age >= 18) { grantAccess(); }
+                  |
+                  | Stryker Mutator modifies AST
+                  v
+Mutant #1:   if (user.age > 18)  { grantAccess(); } // Boundary mutation
+Mutant #2:   if (false)          { grantAccess(); } // Block elimination
+                  |
+                  v
+[ Run Test Suite against each Mutant ]
+  - Did any test fail? -> KILLED (Score +1)
+  - Did all tests pass? -> SURVIVED (Coverage Gap Detected!)
 ```
 
 ---
 
-## 5. Testing Events and Callbacks
+## 4. Syntax & API Reference
 
-Use a mock function as the listener and assert on the calls:
+### Table-Driven Tests with `test.each`
+```javascript
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
 
-```js
-import { EventEmitter } from 'node:events';
+// Parameterized Test Matrix
+const cases = [
+  { input: 'hello', expected: 'olleh' },
+  { input: 'racecar', expected: 'racecar' },
+  { input: '', expected: '' },
+  { input: 'a', expected: 'a' },
+];
 
-it('emits "done" with the result', () => {
-  const emitter = new EventEmitter();
-  const onDone = vi.fn();
-  emitter.on('done', onDone);
-
-  runJob(emitter);
-
-  expect(onDone).toHaveBeenCalledWith({ ok: true });
+describe('reverseString Table-Driven Tests', () => {
+  for (const { input, expected } of cases) {
+    it(`correctly reverses "${input}" -> "${expected}"`, () => {
+      assert.strictEqual(reverseString(input), expected);
+    });
+  }
 });
 ```
 
-For something that emits asynchronously, wrap it in a promise:
-
-```js
-import { once } from 'node:events';
-
-const [payload] = await once(emitter, 'done');   // resolves on the first 'done'
-expect(payload).toEqual({ ok: true });
-```
-
-See [Events](../16_nodejs/05_events.md).
-
----
-
-## 6. Testing Errors Precisely
-
-Assert on the **type or code**, not only the message text (messages change; error classes are contracts).
-
-```js
-class ValidationError extends Error {
-  constructor(field) { super(`${field} is invalid`); this.name = 'ValidationError'; this.field = field; }
-}
-
-expect(() => validate({})).toThrow(ValidationError);
-
-await expect(save({})).rejects.toMatchObject({ name: 'ValidationError', field: 'email' });
-```
-
-Also confirm that the function does **not** swallow errors it shouldn't and that cleanup (`finally`) still runs. See [Custom errors](../10_error-handling/03_custom-errors.md).
-
----
-
-## 7. Fixtures and Shared Setup
-
-Keep setup close to the test that needs it.
-
-- Use `beforeEach` for **reset**, not for hiding the important arrangement.
-- Reach for a helper function (`setupCart({ items: 2 })`) over a deep `describe` nest of `beforeEach` hooks.
-- Share fixtures only when they are **immutable**; never mutate a shared object across tests.
-
-```js
-function setup(overrides = {}) {
-  const repo = createMemoryRepo();
-  const mailer = { send: vi.fn() };
-  const service = createUserService({ repo, mailer, ...overrides });
-  return { service, repo, mailer };
-}
-
-it('sends a welcome email', async () => {
-  const { service, mailer } = setup();
-  await service.register({ email: 'a@x.com' });
-  expect(mailer.send).toHaveBeenCalledOnce();
-});
-```
-
----
-
-## 8. Custom Matchers
-
-If you repeat the same multi-line assertion, give it a name:
-
-```js
-import { expect } from 'vitest';
-
-expect.extend({
-  toBeValidId(received) {
-    const pass = typeof received === 'string' && /^[a-f0-9]{24}$/.test(received);
-    return {
-      pass,
-      message: () => `expected ${received} ${pass ? 'not ' : ''}to be a valid id`,
-    };
-  },
-});
-
-expect(user.id).toBeValidId();
-```
-
-Register matchers in a setup file; add type declarations if you use TypeScript.
-
----
-
-## 9. Snapshots, Used Sparingly
-
-Good fits: small serialized outputs that you review in diffs (error messages, generated config). Poor fits: large objects, data containing timestamps/IDs (unstable), or anything nobody reads. A snapshot you update blindly is not a test.
-
-Prefer explicit assertions when you know what matters; they document intent where a snapshot only records current output.
-
----
-
-## 10. Property-Based Testing (Advanced)
-
-Instead of hand-picked examples, state a property that must hold for *any* input and let a library generate cases. The `fast-check` library does this for JavaScript.
-
-```js
+### Property-Based Testing with `fast-check`
+```javascript
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
 import fc from 'fast-check';
 
-it('reverse twice returns the original', () => {
-  fc.assert(fc.property(fc.array(fc.integer()), (arr) => {
-    expect([...arr].reverse().reverse()).toEqual(arr);
-  }));
+describe('Property-Based String Sorting Invariants', () => {
+  it('guarantees sort is idempotent across arbitrary integer arrays', () => {
+    fc.assert(
+      fc.property(fc.array(fc.integer()), (arr) => {
+        const sortedOnce = [...arr].sort((a, b) => a - b);
+        const sortedTwice = [...sortedOnce].sort((a, b) => a - b);
+        assert.deepStrictEqual(sortedOnce, sortedTwice);
+      }),
+      { numRuns: 500 } // Execute 500 generated random test iterations
+    );
+  });
 });
 ```
 
-It's very effective for parsers, serializers, sorting, and round-trip logic (`decode(encode(x)) === x`). When a property fails, the library shrinks the input to a minimal counterexample.
+---
+
+## 5. Practical Examples
+
+### Example 1: Property-Based Testing Round-Trip Compression
+```javascript
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import fc from 'fast-check';
+import zlib from 'node:zlib';
+
+function compress(str) {
+  return zlib.gzipSync(Buffer.from(str, 'utf8'));
+}
+
+function decompress(buffer) {
+  return zlib.gunzipSync(buffer).toString('utf8');
+}
+
+describe('Gzip Compression Property Tests', () => {
+  it('guarantees lossless round-trip compression for arbitrary Unicode strings', () => {
+    fc.assert(
+      fc.property(fc.fullUnicodeString(), (original) => {
+        const compressed = compress(original);
+        const restored = decompress(compressed);
+        assert.strictEqual(restored, original);
+      }),
+      { numRuns: 200 }
+    );
+  });
+});
+```
+
+### Example 2: Table-Driven Testing for Email Validation Matrix
+```javascript
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+
+function isValidEmail(email) {
+  if (typeof email !== 'string') return false;
+  return /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email);
+}
+
+const emailTestMatrix = [
+  // Valid cases
+  { email: 'user@example.com', valid: true, reason: 'standard domain' },
+  { email: 'user.name+tag@sub.domain.co', valid: true, reason: 'subdomain and plus tag' },
+  { email: '12345@numbers.org', valid: true, reason: 'numeric username' },
+
+  // Invalid cases
+  { email: '', valid: false, reason: 'empty string' },
+  { email: 'missing-at-sign.com', valid: false, reason: 'no at symbol' },
+  { email: '@missing-username.com', valid: false, reason: 'no username' },
+  { email: 'user@missing-tld', valid: false, reason: 'no top level domain' },
+  { email: 'user@domain..com', valid: false, reason: 'consecutive dots' },
+];
+
+describe('isValidEmail Test Matrix', () => {
+  for (const { email, valid, reason } of emailTestMatrix) {
+    it(`evaluates "${email}" as ${valid} (${reason})`, () => {
+      assert.strictEqual(isValidEmail(email), valid);
+    });
+  }
+});
+```
+
+### Example 3: Property-Based Math Invariant: Addition Commutativity and Identity
+```javascript
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import fc from 'fast-check';
+
+describe('Arithmetic Property Invariants', () => {
+  it('verifies commutative property of addition: a + b === b + a', () => {
+    fc.assert(
+      fc.property(fc.integer(), fc.integer(), (a, b) => {
+        assert.strictEqual(a + b, b + a);
+      })
+    );
+  });
+
+  it('verifies identity property: a + 0 === a', () => {
+    fc.assert(
+      fc.property(fc.integer(), (a) => {
+        assert.strictEqual(a + 0, a);
+      })
+    );
+  });
+});
+```
+
+### Example 4: Testing State Invariants with Fuzz Testing
+```javascript
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import fc from 'fast-check';
+
+class BoundedQueue {
+  constructor(capacity = 5) {
+    this.capacity = capacity;
+    this.items = [];
+  }
+  push(item) {
+    if (this.items.length >= this.capacity) return false;
+    this.items.push(item);
+    return true;
+  }
+  pop() {
+    return this.items.shift();
+  }
+  get size() {
+    return this.items.length;
+  }
+}
+
+describe('BoundedQueue Property Invariants', () => {
+  it('guarantees size never exceeds capacity regardless of operation sequence', () => {
+    fc.assert(
+      fc.property(
+        fc.array(fc.record({ op: fc.constantFrom('push', 'pop'), val: fc.integer() })),
+        (operations) => {
+          const queue = new BoundedQueue(5);
+
+          for (const { op, val } of operations) {
+            if (op === 'push') queue.push(val);
+            if (op === 'pop') queue.pop();
+
+            // Invariant must hold true after EVERY operation:
+            assert.ok(queue.size >= 0 && queue.size <= 5);
+          }
+        }
+      )
+    );
+  });
+});
+```
+
+### Example 5: Mutation Testing Setup (Stryker Configuration)
+```javascript
+// stryker.config.json
+{
+  "$schema": "https://raw.githubusercontent.com/stryker-mutator/stryker-js/master/packages/api/schema/stryker-core.json",
+  "packageManager": "npm",
+  "testRunner": "vitest",
+  "reporters": ["html", "clear-text", "progress"],
+  "coverageAnalysis": "perTest",
+  "mutate": ["src/**/*.js", "!src/**/*.test.js"]
+}
+// Run via: npx stryker run
+// Output reports: Mutation Score % (Killed Mutants / Total Mutants)
+```
 
 ---
 
-## 11. Regression Tests for Bugs
+## 6. Edge Cases, Pitfalls & Gotchas
 
-When a bug is reported:
-
-1. Write a test that **fails** and reproduces it.
-2. Fix the code until it passes.
-3. Keep the test, named after the behavior (`'does not double-charge on retry'`), not the ticket number.
-
-This is the cheapest way a suite grows in value over time.
+1. **Floating Point Round-Off in Property Tests**: In JavaScript, IEEE-754 arithmetic does not obey strict algebraic associativity: `(0.1 + 0.2) + 0.3 !== 0.1 + (0.2 + 0.3)`. Writing property-based tests for floating point numbers without epsilon tolerances (`Math.abs(a - b) < Number.EPSILON`) causes false failures.
+2. **Mutation Testing Execution Duration**: Mutation testing runs your entire test suite dozens or hundreds of times (once per generated mutant). On large codebases, this can take hours. Mitigate this by restricting mutation testing to critical business packages or running differential mutation on pull request diffs.
+3. **Flaky Input Shrinking**: When `fast-check` discovers a failure, it runs a shrinking heuristic to find the smallest reproduction case. If your function possesses non-deterministic state or external dependencies, shrinking may fail to stabilize.
 
 ---
 
-## Common Anti-Patterns
+## 7. Common Mistakes & Anti-Patterns
 
-| Anti-pattern | Problem | Instead |
-|---|---|---|
-| Logic (`if`/loops) in tests | Tests need their own tests | Use table-driven cases |
-| Giant "does everything" test | Failure location unclear | One behavior each |
-| Tests that depend on each other | Order-sensitive, flaky | Independent setup |
-| Real `setTimeout` waits | Slow, flaky | Fake timers |
-| Excessive `beforeEach` nesting | Reader must chase context | Local `setup()` helper |
-| Asserting on mock call internals | Brittle | Assert on results |
-| Commented-out or skipped tests left forever | Hidden rot | Fix or delete |
-| Testing the framework/library | Wasted effort | Test your own behavior |
+| Anti-Pattern | Why It Breaks | Correct Pattern |
+| :--- | :--- | :--- |
+| Writing 50 duplicate test cases with copy-paste code | High maintenance overhead; hard to read | Use Table-Driven parameterized test arrays |
+| Relying solely on line coverage metrics | 100% coverage can exist with zero assertions | Use Mutation Testing (Stryker) to verify assertion quality |
+| Testing floating point equality with `strictEqual` | Floating point drift causes false assertion failures | Assert with epsilon tolerance: `Math.abs(a - b) < 1e-6` |
+| Over-constraining Property Test inputs | Fails to test real boundary edge cases | Let `fast-check` generate full Unicode and extreme integers |
+| Practicing TDD without the Refactor step | Results in messy, unmaintainable code | Complete the full Red -> Green -> Refactor cycle |
 
 ---
 
-## Organizing Tests
+## 8. Performance Characteristics
 
-- **Colocate** unit tests next to the source (`pricing.js`, `pricing.test.js`) or mirror the tree in a `tests/` folder; choose one convention and keep it.
-- Keep integration tests in their own directory or with a naming suffix (`*.int.test.js`) so you can run the fast suite separately.
-- Run unit tests on every save, the full suite in CI, and E2E on merge/release.
+- **Table-Driven Test Speed**: Executing 100 table-driven test iterations within a single suite runs in $< 2\text{ms}$ in V8.
+- **fast-check Generation Speed**: Generating and evaluating 1,000 property-based random cases typically completes in $< 50\text{ms}$.
 
 ---
 
-## Quick Summary
+## 9. Engine Internals
 
-- The best testing pattern is **testable design**: inject boundaries, separate pure logic.
-- Use **factories** with overrides, **table-driven** tests, and a local `setup()` helper to keep tests short.
-- Control **time** with fake timers; control **async** by awaiting everything.
-- Assert on **error types**, not message strings.
-- Use snapshots and property-based tests where they fit, not everywhere.
-- Every fixed bug gets a **regression test**.
+1. **Shrinking Algorithms in Property-Based Testing**:
+   - When a test fails on an array of 500 items, `fast-check` bisects the array, tests smaller chunks, and simplifies values (e.g. shrinking `987654` $\to$ `0`, or `"hello world"` $\to$ `""`) until it finds the absolute minimal input that triggers the failure.
 
-**Next:** Back to the [Testing README](./README.md), or continue to [Security](../22_security/README.md).
+---
+
+## 10. Best Practices & Design Guidelines
+
+- **Use Table-Driven Tests for Input Mapping**: Whenever a function maps multiple inputs to predictable outputs (parsers, formatters, validators), organize tests into a clean table matrix.
+- **Use Property-Based Testing for Parsers and Algorithms**: Property tests excel at finding bugs in data serialization, cryptographic hashing, compression, sorting, and math kernels.
+- **Maintain a Mutation Score Target**: In safety-critical financial or medical software, enforce a minimum Stryker mutation score (e.g. $\ge 80\%$) in CI pipelines.
+
+---
+
+## 11. Real-World Case Study
+
+### Uncovering a Critical Tokenizer Crash with Property-Based Testing
+```javascript
+// THE SCENARIO: A markdown parser passed 100% of its 80 handwritten unit tests.
+// Running property-based testing with fast-check generated an unexpected Unicode string:
+// Input: "\uD800\uDC00" (Surrogate pair emoji) followed by a null byte "\u0000".
+
+// RESULT: The legacy parser used `str.charCodeAt()` which split the surrogate pair in half,
+// causing a fatal infinite loop in the tokenizer.
+
+// THE PROPERTY TEST THAT CAUGHT IT:
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import fc from 'fast-check';
+
+function parseMarkdownTokens(text) {
+  // Parser must NEVER throw an unhandled RangeError or enter infinite loop
+  const tokens = [];
+  let i = 0;
+  while (i < text.length) {
+    const codePoint = text.codePointAt(i);
+    tokens.push(codePoint);
+    i += codePoint > 0xffff ? 2 : 1; // Correctly handles surrogate pairs!
+  }
+  return tokens;
+}
+
+describe('Markdown Tokenizer Property Test', () => {
+  it('successfully parses any arbitrary Unicode input without hanging or crashing', () => {
+    fc.assert(
+      fc.property(fc.fullUnicodeString(), (rawText) => {
+        const tokens = parseMarkdownTokens(rawText);
+        assert.ok(Array.isArray(tokens));
+      }),
+      { numRuns: 1000 }
+    );
+  });
+});
+```
+
+---
+
+## 12. Interview Questions
+
+<details>
+<summary>1. What are the three phases of Test-Driven Development (TDD)?</summary>
+1. <b>Red</b>: Write a failing unit test that describes the desired behavior before writing the production code.
+2. <b>Green</b>: Write the simplest possible code to make the failing test pass.
+3. <b>Refactor</b>: Clean up, optimize, and restructure the code while ensuring that all tests continue to pass.
+</details>
+
+<details>
+<summary>2. How does Property-Based Testing differ from Example-Based Testing?</summary>
+Example-based testing asserts on specific predetermined input-output pairs (e.g. <code>add(2, 3) === 5</code>). Property-based testing defines general invariants that must always hold true (e.g. <code>add(a, b) === add(b, a)</code>) and generates hundreds of pseudo-random inputs to discover edge cases automatically.
+</details>
+
+<details>
+<summary>3. What is "Shrinking" in property-based testing?</summary>
+When a property-based test fails on a complex generated input (such as an array of 200 random strings), the runner runs shrinking algorithms to reduce and simplify the input to the smallest possible reproduction case (e.g., an array containing a single empty string), making debugging effortless.
+</details>
+
+<details>
+<summary>4. What is Mutation Testing and what problem does it solve?</summary>
+Mutation testing evaluates the quality of your test suite. It automatically introduces subtle bugs ("mutants") into your production code and runs your tests. If tests fail, the mutant is "killed"; if tests pass, the mutant "survived". This solves the problem of misleading code coverage metrics, proving whether your assertions actually detect bugs.
+</details>
+
+<details>
+<summary>5. What are Table-Driven Tests and why are they advantageous?</summary>
+Table-driven tests store test cases (inputs, expectations, descriptive labels) as an array of objects and iterate over them in a single test block. They eliminate repetitive boilerplate code, make adding new boundary cases trivial, and clearly document all tested variations in a unified table.
+</details>
+
+<details>
+<summary>6. What is a "Survived Mutant" in mutation testing?</summary>
+A survived mutant occurs when a mutation tool introduces a defect into the production code, but all automated tests still pass. This indicates a gap in the test suite: either code was executed without assertions, or the assertions were too loose to detect the behavioral change.
+</details>
+
+<details>
+<summary>7. How do you test for idempotence?</summary>
+An operation is idempotent if applying it multiple times produces the exact same result as applying it once: $f(f(x)) = f(x)$. You test this by asserting <code>assert.deepStrictEqual(fn(fn(input)), fn(input))</code> (e.g. formatting, sorting, or deduplication algorithms).
+</details>
+
+<details>
+<summary>8. Why is testing floating-point math with exact equality dangerous?</summary>
+Due to binary IEEE-754 representation limits, fractional floating point arithmetic suffers from rounding drift ($0.1 + 0.2 = 0.30000000000000004$). Tests must compare numbers using an epsilon tolerance (such as <code>Math.abs(a - b) < 1e-6</code> or <code>expect(a).toBeCloseTo(b)</code>).
+</details>
+
+---
+
+## 13. Exercises & Challenges
+
+### Exercise 1: Property-Based Base64 Encoder/Decoder Invariant
+Write a property-based test using `fast-check` that proves encoding an arbitrary UTF-8 string to Base64 and decoding it back always yields the exact original string without data loss.
+
+<details>
+<summary>View Solution</summary>
+
+```javascript
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import fc from 'fast-check';
+
+function encodeBase64(str) {
+  return Buffer.from(str, 'utf8').toString('base64');
+}
+
+function decodeBase64(base64Str) {
+  return Buffer.from(base64Str, 'base64').toString('utf8');
+}
+
+describe('Base64 Round-Trip Invariant', () => {
+  it('guarantees round-trip equality for arbitrary strings', () => {
+    fc.assert(
+      fc.property(fc.fullUnicodeString(), (original) => {
+        const encoded = encodeBase64(original);
+        const decoded = decodeBase64(encoded);
+        assert.strictEqual(decoded, original);
+      }),
+      { numRuns: 500 }
+    );
+  });
+});
+```
+</details>
+
+### Exercise 2: Table-Driven Slug Generator
+Write a parameterized table-driven test suite validating a `slugify(text)` function across 6 different edge cases (spaces, punctuation, uppercase characters, multiple consecutive dashes, accents, and empty inputs).
+
+<details>
+<summary>View Solution</summary>
+
+```javascript
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+
+function slugify(text) {
+  return text
+    .normalize('NFD') // Split accents from letters
+    .replace(/[\u0300-\u036f]/g, '') // Strip accents
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '') // Strip invalid chars
+    .replace(/[\s-]+/g, '-'); // Collapse spaces/dashes
+}
+
+const slugTestCases = [
+  { input: 'Hello World', expected: 'hello-world' },
+  { input: '  Leading & Trailing  ', expected: 'leading-trailing' },
+  { input: 'Crème Brûlée', expected: 'creme-brulee' },
+  { input: 'Special! @#$ Characters', expected: 'special-characters' },
+  { input: 'Multiple---Dashes   Spaces', expected: 'multiple-dashes-spaces' },
+  { input: '', expected: '' },
+];
+
+describe('slugify Table-Driven Suite', () => {
+  for (const { input, expected } of slugTestCases) {
+    it(`transforms "${input}" -> "${expected}"`, () => {
+      assert.strictEqual(slugify(input), expected);
+    });
+  }
+});
+```
+</details>

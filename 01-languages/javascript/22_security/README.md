@@ -1,43 +1,27 @@
-# 22 · Security
+# Module 22: JavaScript & Node.js Application Security
 
-Security fundamentals for JavaScript applications, in the browser and on Node. The focus is on understanding **why** each vulnerability exists so you can spot it in code review, not memorizing payloads.
+> A production-grade curriculum covering client-side and server-side web security, common exploit vectors, defensive programming techniques, and security engineering standards for modern JavaScript runtimes.
 
-## Learning Order
+---
 
-| # | Note | What you'll learn |
-|---|---|---|
-| 01 | [XSS](./01_xss.md) | How untrusted data becomes script in the browser; output encoding, sanitizing, CSP |
-| 02 | [CSRF](./02_csrf.md) | Forged requests via automatic cookies; SameSite, tokens, Origin checks |
-| 03 | [Prototype Pollution](./03_prototype-pollution.md) | Poisoning `Object.prototype` through unsafe merges; safe patterns |
-| 04 | [Input Validation](./04_input-validation.md) | Schema validation, injection defenses, limits, config validation |
-| 05 | [Dependency Security](./05_dependency-security.md) | Lockfiles, `npm audit`, supply-chain risks, automated updates |
-| 06 | [Security Checklist](./06_security-checklist.md) | A review checklist tying everything together |
+## Curriculum Overview
 
-## Prerequisites
+This module provides an exhaustive, practical breakdown of modern JavaScript and Node.js security vulnerabilities, their underlying runtime causes, and concrete mitigations aligned with OWASP Top 10, ASVS, and CWE benchmarks.
 
-- [Prototypes and the prototype chain](../05_this-and-oop/03_prototypes-and-prototype-chain.md): needed for prototype pollution
-- [DOM and browser](../14_dom-and-browser/README.md): needed for XSS and CSRF
-- [Networking](../15_networking/README.md): HTTP, headers, and CORS
-- [Node.js](../16_nodejs/README.md): servers, env, filesystem, child processes
-- [Testing](../21_testing/README.md): to lock in security fixes with regression tests
+| # | Note | Focus Areas | Level |
+| :- | :--- | :--- | :--- |
+| **01** | [Cross-Site Scripting (XSS)](file:///e:/Learning/engineering-notes/01-languages/javascript/22_security/01_xss.md) | Stored, Reflected, DOM-based XSS; sanitization, DOMPurify, CSP nonces, context encoding. | Intermediate / Advanced |
+| **02** | [Cross-Site Request Forgery (CSRF)](file:///e:/Learning/engineering-notes/01-languages/javascript/22_security/02_csrf.md) | Synchronizer token pattern, Double Submit Cookie, SameSite attributes, Lax GET risks. | Intermediate / Advanced |
+| **03** | [Prototype Pollution](file:///e:/Learning/engineering-notes/01-languages/javascript/22_security/03_prototype-pollution.md) | `__proto__`, `constructor.prototype` tampering; object freezing, null prototypes, V8 hidden class deopt. | Advanced |
+| **04** | [Input Validation & Sanitization](file:///e:/Learning/engineering-notes/01-languages/javascript/22_security/04_input-validation.md) | Schema validation (Zod/Valibot), ReDoS defense, SQL injection, NoSQL injection prevention. | Intermediate |
+| **05** | [Dependency & Supply Chain Security](file:///e:/Learning/engineering-notes/01-languages/javascript/22_security/05_dependency-security.md) | Lockfile integrity, `npm audit`, Dependabot, typosquatting, build pipeline sandboxing. | Intermediate / Advanced |
+| **06** | [Production Security Checklist](file:///e:/Learning/engineering-notes/01-languages/javascript/22_security/06_security-checklist.md) | OWASP ASVS verification, Helmet headers, SSRF guards, crypto PRNG, constant-time checks. | Advanced / Production |
 
-## Suggested Paths
+---
 
-- **Frontend developer:** 01 → 02 → 04 → 06
-- **Backend/Node developer:** 04 → 02 → 03 → 05 → 06
-- **Interview prep:** XSS types and defenses, CSRF vs CORS, prototype pollution mechanics, parameterized queries, "how do you secure an Express app?" (06)
+## Prerequisites & Cross-References
 
-## Core Principles
-
-1. **Never trust input**: validate on the server, at the boundary, with an allowlist.
-2. **Encode for the output context**: validation is not a substitute for escaping.
-3. **Defense in depth**: combine controls (e.g. SameSite + token + Origin check; encoding + CSP).
-4. **Least privilege**: for users, tokens, database accounts, and processes.
-5. **Fail safely**: default deny, generic error messages, no secrets in logs.
-6. **Automate**: audits, lint rules, and security-focused tests in CI.
-
-## Related Topics
-
-- [Error handling in production](../10_error-handling/05_production-error-handling.md)
-- [Rate limiting](../23_real-world-patterns/09_rate-limiting.md)
-- [Browser storage](../14_dom-and-browser/08_browser-storage.md): what is safe to store client-side
+- **Language Core**: [04_scope-and-execution](file:///e:/Learning/engineering-notes/01-languages/javascript/04_scope-and-execution/README.md), [05_this-and-oop](file:///e:/Learning/engineering-notes/01-languages/javascript/05_this-and-oop/README.md)
+- **Node.js Runtime**: [16_nodejs](file:///e:/Learning/engineering-notes/01-languages/javascript/16_nodejs/README.md)
+- **Real-World Patterns**: [23_real-world-patterns](file:///e:/Learning/engineering-notes/01-languages/javascript/23_real-world-patterns/README.md)
+- **Backend Architecture**: [03-backend/nodejs](file:///e:/Learning/engineering-notes/03-backend/nodejs/README.md), [06-project-patterns/auth](file:///e:/Learning/engineering-notes/06-project-patterns/auth/README.md)

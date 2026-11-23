@@ -58,43 +58,61 @@
 
 ---
 
-## Batch 9: Patterns, Testing, Security & Real-World Architecture (Next Up)
+## Batch 9: Patterns, Testing, Security & Real-World Architecture (COMPLETED)
 
-- [ ] `20_design-patterns/01_singleton.md`
-- [ ] `20_design-patterns/02_factory.md`
-- [ ] `20_design-patterns/03_builder.md`
-- [ ] `20_design-patterns/04_observer.md`
-- [ ] `20_design-patterns/05_pub-sub.md`
-- [ ] `20_design-patterns/06_strategy.md`
-- [ ] `20_design-patterns/07_decorator.md`
-- [ ] `20_design-patterns/08_adapter.md`
-- [ ] `20_design-patterns/09_proxy.md`
-- [ ] `20_design-patterns/10_composite.md`
-- [ ] `20_design-patterns/README.md`
-- [ ] `21_testing/01_testing-fundamentals.md`
-- [ ] `21_testing/02_unit-testing.md`
-- [ ] `21_testing/03_integration-testing.md`
-- [ ] `21_testing/04_e2e-testing.md`
-- [ ] `21_testing/05_mocking-and-spying.md`
-- [ ] `21_testing/06_test-driven-development.md`
-- [ ] `21_testing/07_performance-testing.md`
-- [ ] `21_testing/README.md`
-- [ ] `22_security/01_security-fundamentals.md`
-- [ ] `22_security/02_xss.md`
-- [ ] `22_security/03_csrf.md`
-- [ ] `22_security/04_prototype-pollution.md`
-- [ ] `22_security/05_injection-attacks.md`
-- [ ] `22_security/06_authentication-and-sessions.md`
-- [ ] `22_security/07_cryptography.md`
-- [ ] `22_security/08_content-security-policy.md`
-- [ ] `22_security/09_dependency-security.md`
-- [ ] `22_security/README.md`
-- [ ] `23_real-world-patterns/01_state-management.md`
-- [ ] `23_real-world-patterns/02_routing.md`
-- [ ] `23_real-world-patterns/03_virtual-dom.md`
-- [ ] `23_real-world-patterns/04_event-driven-architecture.md`
-- [ ] `23_real-world-patterns/05_micro-frontends.md`
-- [ ] `23_real-world-patterns/06_plugin-architecture.md`
-- [ ] `23_real-world-patterns/07_resilience-patterns.md`
-- [ ] `23_real-world-patterns/08_logging-and-telemetry.md`
-- [ ] `23_real-world-patterns/README.md`
+- [x] `20_design-patterns/01_module-pattern.md`
+- [x] `20_design-patterns/02_factory-pattern.md`
+- [x] `20_design-patterns/03_singleton-pattern.md`
+- [x] `20_design-patterns/04_builder-pattern.md`
+- [x] `20_design-patterns/05_strategy-pattern.md`
+- [x] `20_design-patterns/06_observer-pattern.md`
+- [x] `20_design-patterns/07_adapter-pattern.md`
+- [x] `20_design-patterns/08_decorator-pattern.md`
+- [x] `20_design-patterns/09_dependency-injection.md`
+- [x] `20_design-patterns/README.md`
+- [x] `21_testing/01_testing-fundamentals.md`
+- [x] `21_testing/02_unit-testing.md`
+- [x] `21_testing/03_integration-testing.md`
+- [x] `21_testing/04_vitest-and-jest.md`
+- [x] `21_testing/05_mocking.md`
+- [x] `21_testing/06_testing-patterns.md`
+- [x] `21_testing/README.md`
+- [x] `22_security/01_xss.md`
+- [x] `22_security/02_csrf.md`
+- [x] `22_security/03_prototype-pollution.md`
+- [x] `22_security/04_input-validation.md`
+- [x] `22_security/05_dependency-security.md`
+- [x] `22_security/06_security-checklist.md`
+- [x] `22_security/README.md`
+- [x] `23_real-world-patterns/01_debounce.md`
+- [x] `23_real-world-patterns/02_throttle.md`
+- [x] `23_real-world-patterns/03_retry.md`
+- [x] `23_real-world-patterns/04_timeout.md`
+- [x] `23_real-world-patterns/05_memoization.md`
+- [x] `23_real-world-patterns/06_concurrency-control.md`
+- [x] `23_real-world-patterns/07_event-emitter.md`
+- [x] `23_real-world-patterns/08_caching.md`
+- [x] `23_real-world-patterns/09_rate-limiting.md`
+- [x] `23_real-world-patterns/README.md`
+
+## Batch 10: DSA in JavaScript (Next Up)
+
+- [ ] `24_dsa-in-javascript/01_complexity-and-big-o.md`
+- [ ] `24_dsa-in-javascript/02_arrays-and-strings.md`
+- [ ] `24_dsa-in-javascript/03_hash-tables.md`
+- [ ] `24_dsa-in-javascript/04_linked-lists.md`
+- [ ] `24_dsa-in-javascript/05_stacks-and-queues.md`
+- [ ] `24_dsa-in-javascript/06_trees-and-binary-trees.md`
+- [ ] `24_dsa-in-javascript/07_binary-search-trees.md`
+- [ ] `24_dsa-in-javascript/08_heaps-and-priority-queues.md`
+- [ ] `24_dsa-in-javascript/09_graphs-and-graph-algorithms.md`
+- [ ] `24_dsa-in-javascript/10_sorting-algorithms.md`
+- [ ] `24_dsa-in-javascript/11_searching-algorithms.md`
+- [ ] `24_dsa-in-javascript/12_recursion-and-backtracking.md`
+- [ ] `24_dsa-in-javascript/13_dynamic-programming.md`
+- [ ] `24_dsa-in-javascript/14_greedy-algorithms.md`
+- [ ] `24_dsa-in-javascript/15_bitwise-algorithms.md`
+- [ ] `24_dsa-in-javascript/16_trie.md`
+- [ ] `24_dsa-in-javascript/17_disjoint-set-union.md`
+- [ ] `24_dsa-in-javascript/18_algorithmic-patterns.md`
+- [ ] `24_dsa-in-javascript/README.md`
