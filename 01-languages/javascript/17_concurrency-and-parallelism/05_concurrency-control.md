@@ -1,415 +1,577 @@
-# Concurrency Control
+# Concurrency Control in JavaScript
 
-Starting everything at once is easy: `Promise.all(items.map(fn))`. It is also how you exhaust sockets, hit API rate limits, run out of memory, and take down your own database. **Concurrency control** limits how much work is in flight and keeps the rest waiting in an orderly way.
+> Synchronization patterns, asynchronous mutexes and semaphores, check-then-act race conditions, actor architectures, and rate limiting.
 
-Related patterns: [Concurrency Control (real-world)](../23_real-world-patterns/06_concurrency-control.md) and [Async Patterns](../11_asynchronous-javascript/09_async-patterns.md).
+| Metadata | Details |
+| :--- | :--- |
+| **Level** | Advanced |
+| **Prerequisites** | [Asynchronous Model](file:///e:/Learning/engineering-notes/01-languages/javascript/11_asynchronous-javascript/01_asynchronous-model.md), [Concurrency vs Parallelism](file:///e:/Learning/engineering-notes/01-languages/javascript/17_concurrency-and-parallelism/01_concurrency-vs-parallelism.md) |
+| **Time to read** | 25 minutes |
+| **Status** | Complete |
+| **Standard / Runtime** | ECMAScript 2015+, Node.js, Evergreen Browsers |
 
-## The problem
+---
 
-```js
-// 10,000 simultaneous requests
-const results = await Promise.all(urls.map((u) => fetch(u)));
-```
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & API Reference](#4-syntax--api-reference)
+5. [Practical Examples](#5-practical-examples)
+6. [Edge Cases, Pitfalls & Gotchas](#6-edge-cases-pitfalls--gotchas)
+7. [Common Mistakes & Anti-Patterns](#7-common-mistakes--anti-patterns)
+8. [Performance Characteristics](#8-performance-characteristics)
+9. [Engine Internals](#9-engine-internals)
+10. [Best Practices & Design Guidelines](#10-best-practices--design-guidelines)
+11. [Real-World Case Study](#11-real-world-case-study)
+12. [Interview Questions](#12-interview-questions)
+13. [Exercises & Challenges](#13-exercises--challenges)
 
-Possible outcomes: `ECONNRESET`, `EMFILE` (too many open files), `429 Too Many Requests`, memory spikes, or a slow down for everyone sharing the service.
+---
 
-Sequential is safe but slow:
+## 1. What & Why
 
-```js
-for (const u of urls) await fetch(u);       // one at a time
-```
+A widespread misconception among JavaScript developers is that because JavaScript is "single-threaded," race conditions and data corruption cannot occur. While it is true that two instructions cannot execute simultaneously on the same physical thread, **asynchronous operations interleave at every `await` or callback boundary**.
 
-The target is **bounded concurrency**: at most *N* tasks running at once.
+Whenever a program reads a shared resource (a database row, a file on disk, an in-memory token, or an object property), awaits an asynchronous operation, and then updates that resource based on the earlier read, a **Time-of-Check to Time-of-Use (TOCTOU)** race condition exists. Other concurrent requests can interleave and mutate that state during the wait period.
 
-## Batching (simple but wasteful)
+Concurrency control provides mechanisms—such as Asynchronous Mutexes, Counting Semaphores, Read-Write Locks, Token Buckets, and the Actor Model—to coordinate access to shared state across concurrent asynchronous tasks and parallel threads.
 
-```js
-async function inBatches(items, size, fn) {
-  const results = [];
-  for (let i = 0; i < items.length; i += size) {
-    const batch = items.slice(i, i + size);
-    results.push(...(await Promise.all(batch.map(fn))));
+---
+
+## 2. Core Concepts
+
+### Single-Threaded Asynchronous Race Conditions
+Consider a bank account balance deduction:
+```javascript
+// DANGEROUS: Classic Check-Then-Act Race Condition
+async function withdraw(userId, amount) {
+  const balance = await db.getBalance(userId); // 1. Read
+  if (balance >= amount) {                      // 2. Check
+    await db.saveBalance(userId, balance - amount); // 3. Act
+    return true;
   }
-  return results;
+  return false;
 }
 ```
+If two simultaneous withdrawal requests of $100 arrive for an account with $100 balance, both check the balance before either updates it. Both pass the check, deducting $100 twice and resulting in a -$100 balance.
 
-The weakness: each batch waits for its **slowest** item before the next starts, leaving capacity idle.
+### Asynchronous Mutex (Mutual Exclusion)
+An asynchronous mutex guarantees that only one promise-returning asynchronous operation can execute a critical section at any given moment. Subsequent callers queue in a FIFO promise chain.
 
-## A worker-style limiter (sliding window)
+### Counting Semaphore
+A semaphore generalizes the mutex by permitting up to $N$ concurrent callers to access a limited pool of resources (such as database connections or external API rate limits).
 
-Start `limit` loops that each pull the next item until none remain. A slot is reused the moment a task finishes.
+### The Actor Model
+In the actor model, shared mutable state is completely eliminated. Instead, an "Actor" is an isolated entity that encapsulates its own private state and processes incoming messages sequentially from an internal message mailbox queue.
 
-```js
-async function mapLimit(items, limit, fn) {
-  const results = new Array(items.length);
-  let next = 0;
+---
 
-  async function runner() {
-    while (true) {
-      const i = next++;                       // safe: single-threaded, no await between read and increment
-      if (i >= items.length) return;
-      results[i] = await fn(items[i], i);
-    }
-  }
+## 3. How It Works Internally
 
-  const runners = Array.from({ length: Math.min(limit, items.length) }, runner);
-  await Promise.all(runners);
-  return results;                             // same order as the input
-}
+```
+ASYNC MUTEX EXECUTION TIMELINE
 
-const pages = await mapLimit(urls, 5, (u) => fetch(u).then((r) => r.text()));
+Request 1: [ Lock Acquired ]----(await async I/O)----[ Release ]
+                                                          |
+Request 2:              [ Queued in Promise Chain ]------>[ Lock Acquired ]----(await I/O)
+                                                                                  |
+Request 3:                           [ Queued ]---------------------------------->[ Lock Acquired ]
+
+PROMISE QUEUE MECHANICS:
++-------------------------------------------------------------------------+
+| Mutex.prototype.dispatch                                                |
+|   let currentChain = Promise.resolve();                                 |
+|                                                                         |
+|   function runExclusive(task) {                                         |
+|     const result = currentChain.then(() => task());                     |
+|     currentChain = result.catch(() => {}); // Maintain unbroken chain  |
+|     return result;                                                      |
+|   }                                                                     |
++-------------------------------------------------------------------------+
 ```
 
-If one task rejects, `Promise.all` rejects immediately, but the other runners **keep going** until they finish their current task and drain the list. To stop them, check an `aborted` flag:
+---
 
-```js
-async function mapLimitSafe(items, limit, fn) {
-  const results = new Array(items.length);
-  let next = 0;
-  let failed = false;
+## 4. Syntax & API Reference
 
-  async function runner() {
-    while (!failed) {
-      const i = next++;
-      if (i >= items.length) return;
-      try {
-        results[i] = await fn(items[i], i);
-      } catch (err) {
-        failed = true;
-        throw err;
-      }
-    }
-  }
+### Comparison of Concurrency Control Primitives
 
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, runner));
-  return results;
-}
-```
+| Primitive | Allowed Concurrency | Typical Use Case |
+| :--- | :--- | :--- |
+| **Mutex** | Exactly 1 | Protecting in-memory cache updates, write locks |
+| **Semaphore** | Fixed $N$ | Throttling database connection pools, file descriptor usage |
+| **Read-Write Lock** | Multiple Readers OR 1 Writer | Read-heavy caches with infrequent mutations |
+| **Token Bucket** | Sustained rate $R$ + Burst $B$ | API rate limiting |
+| **Actor Mailbox** | 1 message at a time per Actor | Entity state machines, chat rooms, game sessions |
 
-### Collecting successes and failures
+---
 
-```js
-async function mapLimitSettled(items, limit, fn) {
-  return mapLimit(items, limit, async (item, i) => {
-    try {
-      return { status: 'fulfilled', value: await fn(item, i) };
-    } catch (reason) {
-      return { status: 'rejected', reason };
-    }
-  });
-}
-```
+## 5. Practical Examples
 
-## Semaphore
-
-A **semaphore** holds a number of permits. `acquire()` takes one (waiting if none are free); `release()` returns it. A limiter is just a semaphore around a function.
-
-```js
-class Semaphore {
-  #permits;
-  #waiters = [];
-
-  constructor(permits) {
-    this.#permits = permits;
+### Example 1: Robust Asynchronous Mutex Implementation
+```javascript
+export class AsyncMutex {
+  constructor() {
+    this._queue = [];
+    this._locked = false;
   }
 
   acquire() {
-    if (this.#permits > 0) {
-      this.#permits--;
-      return Promise.resolve();
-    }
-    return new Promise((resolve) => this.#waiters.push(resolve));
-  }
-
-  release() {
-    const next = this.#waiters.shift();
-    if (next) next();                         // hand the permit directly to the next waiter
-    else this.#permits++;
-  }
-
-  async run(fn) {
-    await this.acquire();
-    try {
-      return await fn();
-    } finally {
-      this.release();                         // always release, even when fn throws
-    }
-  }
-}
-
-const sem = new Semaphore(3);
-const results = await Promise.all(urls.map((u) => sem.run(() => fetch(u))));
-```
-
-`Promise.all` still creates all the promises up front, but only 3 `fetch` calls are active at a time.
-
-## Mutex
-
-A mutex is a semaphore with one permit: only one task in a critical section. It fixes **async race conditions** (read, `await`, write):
-
-```js
-const mutex = new Semaphore(1);
-let balance = 100;
-
-async function withdraw(amount) {
-  await mutex.run(async () => {
-    const current = balance;
-    await checkFraud();                       // other withdrawals wait
-    if (current < amount) throw new Error('insufficient funds');
-    balance = current - amount;
-  });
-}
-```
-
-Per-key locks (one mutex per user id, file name, and so on) allow unrelated work to run in parallel:
-
-```js
-const locks = new Map();
-
-function withLock(key, fn) {
-  const prev = locks.get(key) ?? Promise.resolve();
-  const next = prev.catch(() => {}).then(fn);
-  locks.set(key, next);
-  next.finally(() => {
-    if (locks.get(key) === next) locks.delete(key);     // avoid unbounded growth
-  }).catch(() => {});
-  return next;
-}
-
-await withLock(`user:${id}`, () => updateUser(id));
-```
-
-## Task queue with concurrency
-
-A queue accepts tasks over time (unlike `mapLimit`, which takes a fixed array).
-
-```js
-class TaskQueue {
-  #concurrency;
-  #running = 0;
-  #queue = [];
-  #idleResolvers = [];
-
-  constructor(concurrency = 4) {
-    this.#concurrency = concurrency;
-  }
-
-  add(task) {
-    return new Promise((resolve, reject) => {
-      this.#queue.push({ task, resolve, reject });
-      this.#drain();
+    return new Promise((resolve) => {
+      if (!this._locked) {
+        this._locked = true;
+        resolve(this._release.bind(this));
+      } else {
+        this._queue.push(resolve);
+      }
     });
   }
 
-  #drain() {
-    while (this.#running < this.#concurrency && this.#queue.length) {
-      const { task, resolve, reject } = this.#queue.shift();
-      this.#running++;
-      Promise.resolve()
-        .then(task)
-        .then(resolve, reject)
-        .finally(() => {
-          this.#running--;
-          this.#drain();
-          if (this.#running === 0 && this.#queue.length === 0) {
-            this.#idleResolvers.splice(0).forEach((r) => r());
-          }
-        });
+  _release() {
+    if (this._queue.length > 0) {
+      const next = this._queue.shift();
+      next(this._release.bind(this));
+    } else {
+      this._locked = false;
     }
   }
 
-  onIdle() {
-    if (this.#running === 0 && this.#queue.length === 0) return Promise.resolve();
-    return new Promise((r) => this.#idleResolvers.push(r));
-  }
-
-  get size() { return this.#queue.length; }       // waiting
-  get pending() { return this.#running; }         // active
-}
-
-const queue = new TaskQueue(3);
-queue.add(() => fetch('/a'));
-queue.add(() => fetch('/b'));
-await queue.onIdle();
-```
-
-Production libraries: **p-limit**, **p-queue**, **async** (`mapLimit`, `queue`), and Piscina for worker threads. See also [Task Queue project](../24_projects/04_task-queue/).
-
-## Priorities
-
-Insert higher-priority tasks earlier in the waiting list:
-
-```js
-add(task, priority = 0) {
-  return new Promise((resolve, reject) => {
-    const entry = { task, priority, resolve, reject };
-    const i = this.#queue.findIndex((e) => e.priority < priority);   // after equals: FIFO among equals
-    if (i === -1) this.#queue.push(entry);
-    else this.#queue.splice(i, 0, entry);
-    this.#drain();
-  });
-}
-```
-
-## Backpressure
-
-Concurrency limits control **execution**. **Backpressure** controls the **producer**: if work arrives faster than it is processed, the waiting queue grows without bound.
-
-Strategies:
-
-| Strategy | Idea |
-|----------|------|
-| **Bounded queue, make the producer wait** | `await queue.add(...)` only resolves when there is room |
-| **Reject** | Return an error (HTTP `429` / `503`) when the queue is full |
-| **Drop** | Discard the newest or oldest items (metrics, telemetry) |
-| **Pull instead of push** | The consumer asks for more when ready (streams, async iterators) |
-
-```js
-class BoundedQueue {
-  #items = [];
-  #max;
-  #spaceWaiters = [];
-  #itemWaiters = [];
-
-  constructor(max) { this.#max = max; }
-
-  async push(item) {
-    while (this.#items.length >= this.#max) {
-      await new Promise((r) => this.#spaceWaiters.push(r));       // producer blocks when full
+  async runExclusive(task) {
+    const release = await this.acquire();
+    try {
+      return await task();
+    } finally {
+      release();
     }
-    this.#items.push(item);
-    this.#itemWaiters.shift()?.();
-  }
-
-  async shift() {
-    while (this.#items.length === 0) {
-      await new Promise((r) => this.#itemWaiters.push(r));        // consumer blocks when empty
-    }
-    const item = this.#items.shift();
-    this.#spaceWaiters.shift()?.();
-    return item;
   }
 }
+
+// Usage:
+const mutex = new AsyncMutex();
+const result = await mutex.runExclusive(async () => {
+  const balance = await getBalance(userId);
+  await saveBalance(userId, balance - amount);
+});
 ```
 
-Node streams implement backpressure for you through `write()` returning `false` and `'drain'`; see [Streams](../16_nodejs/06_streams.md). Async iterators and generators give pull-based flow naturally:
+### Example 2: Counting Semaphore for Connection Limiting
+```javascript
+export class AsyncSemaphore {
+  constructor(maxConcurrency) {
+    this.maxConcurrency = maxConcurrency;
+    this.current = 0;
+    this.queue = [];
+  }
 
-```js
-async function* readPages(urls) {
-  for (const u of urls) yield await fetch(u).then((r) => r.json());   // produce on demand
-}
-
-for await (const page of readPages(urls)) {
-  await save(page);                            // the producer cannot run ahead of the consumer
-}
-```
-
-## Timeouts and cancellation
-
-Bound the waiting and the running time. Pass an `AbortSignal` so cancelled tasks release their slots:
-
-```js
-async function withTimeout(fn, ms) {
-  const signal = AbortSignal.timeout(ms);
-  return fn(signal);
-}
-
-await sem.run(() => fetch(url, { signal: AbortSignal.timeout(5000) }));
-```
-
-A limiter that supports cancellation of **queued** (not yet started) tasks:
-
-```js
-add(task, { signal } = {}) {
-  return new Promise((resolve, reject) => {
-    if (signal?.aborted) return reject(signal.reason);
-
-    const entry = { task, resolve, reject };
-    this.#queue.push(entry);
-
-    signal?.addEventListener('abort', () => {
-      const i = this.#queue.indexOf(entry);
-      if (i !== -1) {                          // still waiting: remove it
-        this.#queue.splice(i, 1);
-        reject(signal.reason);
+  acquire() {
+    return new Promise((resolve) => {
+      if (this.current < this.maxConcurrency) {
+        this.current++;
+        resolve(this._release.bind(this));
+      } else {
+        this.queue.push(resolve);
       }
-    }, { once: true });
+    });
+  }
 
-    this.#drain();
-  });
-}
-```
+  _release() {
+    this.current--;
+    if (this.queue.length > 0) {
+      this.current++;
+      const nextResolve = this.queue.shift();
+      nextResolve(this._release.bind(this));
+    }
+  }
 
-See [Cancellation and Abort](../11_asynchronous-javascript/08_cancellation-and-abort.md) and [Timeout](../23_real-world-patterns/04_timeout.md).
-
-## Retries with limits
-
-Retrying amplifies load. Combine retries with the limiter, **exponential backoff**, and **jitter**, and cap attempts:
-
-```js
-async function retry(fn, { retries = 3, base = 200 } = {}) {
-  for (let attempt = 0; ; attempt++) {
+  async use(fn) {
+    const release = await this.acquire();
     try {
       return await fn();
-    } catch (err) {
-      if (attempt >= retries) throw err;
-      const delay = base * 2 ** attempt * (0.5 + Math.random() / 2);   // jitter
-      await new Promise((r) => setTimeout(r, delay));
+    } finally {
+      release();
     }
   }
 }
 
-await sem.run(() => retry(() => fetch(url)));
+// Usage: Limit scraping to max 3 concurrent HTTP sockets
+const semaphore = new AsyncSemaphore(3);
+const pages = await Promise.all(urls.map(url => semaphore.use(() => fetch(url))));
 ```
 
-Acquire the permit around each attempt (or around the whole retry, depending on whether waiting for the backoff should hold the slot). See [Retry](../23_real-world-patterns/03_retry.md).
+### Example 3: Read-Write Lock (RWLock)
+```javascript
+export class AsyncRWLock {
+  constructor() {
+    this.readers = 0;
+    this.writer = false;
+    this.waitingWriters = [];
+    this.waitingReaders = [];
+  }
 
-## Rate limiting vs concurrency limiting
+  async acquireRead() {
+    if (this.writer || this.waitingWriters.length > 0) {
+      await new Promise(resolve => this.waitingReaders.push(resolve));
+    }
+    this.readers++;
+    return () => this.releaseRead();
+  }
 
-| | Concurrency limit | Rate limit |
-|---|-------------------|------------|
-| Controls | Tasks **in flight** at once | Tasks **started per time window** |
-| Example | At most 5 open requests | At most 10 requests per second |
-| Protects against | Resource exhaustion, slow dependencies | Provider quotas, `429` errors |
-| Tool | Semaphore, queue | Token bucket, leaky bucket, sliding window |
+  releaseRead() {
+    this.readers--;
+    if (this.readers === 0 && this.waitingWriters.length > 0) {
+      const nextWriter = this.waitingWriters.shift();
+      this.writer = true;
+      nextWriter();
+    }
+  }
 
-Use both when a service has a quota and a connection limit. See [Rate Limiting](../23_real-world-patterns/09_rate-limiting.md).
+  async acquireWrite() {
+    if (this.writer || this.readers > 0) {
+      await new Promise(resolve => this.waitingWriters.push(resolve));
+    }
+    this.writer = true;
+    return () => this.releaseWrite();
+  }
 
-## Choosing a limit
+  releaseWrite() {
+    this.writer = false;
+    if (this.waitingReaders.length > 0) {
+      // Prioritize flushing all waiting readers
+      const readersToWake = this.waitingReaders.splice(0);
+      this.readers = readersToWake.length;
+      readersToWake.forEach(r => r());
+    } else if (this.waitingWriters.length > 0) {
+      const nextWriter = this.waitingWriters.shift();
+      this.writer = true;
+      nextWriter();
+    }
+  }
+}
+```
 
-- **Network calls to one host**: start at 5 to 20, then measure
-- **Database connections**: match your connection pool size
-- **CPU tasks in workers**: about the number of cores (`os.availableParallelism()`)
-- **File operations**: keep it modest (tens) to avoid `EMFILE`
-- Unknown downstreams: start low, raise gradually, watch latency and errors
+### Example 4: The Actor Model Pattern in JavaScript
+```javascript
+export class UserActor {
+  constructor(userId, initialBalance = 0) {
+    this.userId = userId;
+    this._balance = initialBalance;
+    this._mailbox = Promise.resolve(); // Sequential FIFO queue
+  }
 
-More concurrency helps until a bottleneck saturates; past that point throughput stays flat and latency rises.
+  send(action) {
+    // Enqueue message execution sequentially
+    this._mailbox = this._mailbox.then(async () => {
+      try {
+        await action(this);
+      } catch (err) {
+        console.error(`Actor ${this.userId} error:`, err);
+      }
+    });
+    return this._mailbox;
+  }
 
-## Pitfalls
+  withdraw(amount) {
+    return this.send(async (self) => {
+      if (self._balance >= amount) {
+        await new Promise(r => setTimeout(r, 50)); // Simulating remote I/O
+        self._balance -= amount;
+        console.log(`Withdrew ${amount}. Balance: ${self._balance}`);
+      } else {
+        console.log(`Declined withdrawal of ${amount}. Balance: ${self._balance}`);
+      }
+    });
+  }
+}
 
-| Pitfall | Why it hurts | Better |
-|---------|--------------|--------|
-| `Promise.all(items.map(fn))` over huge lists | Unbounded concurrency | `mapLimit`, semaphore, queue |
-| Batching with `Promise.all` per chunk | Idle slots while waiting for the slowest | Sliding-window limiter |
-| Not releasing the permit on errors | Permits leak, queue freezes | `try/finally` |
-| Unbounded queues | Memory growth when producers outpace consumers | Backpressure: bounded queue, reject, or drop |
-| Read-modify-write across an `await` without a lock | Lost updates | Mutex, or per-key lock |
-| One global lock for everything | Needless serialization | Lock per resource key |
-| Retrying without backoff or caps | Retry storms | Exponential backoff, jitter, max attempts |
-| Ignoring cancellation | Slots held by abandoned work | `AbortSignal` and timeouts |
-| Nested use of the same limiter (a task waits on tasks in the same limiter) | Deadlock | Separate limiters, or avoid nested waits |
-| Using `forEach(async ...)` | Not awaited, no control | `for...of` with `await`, or `mapLimit` |
-| Hard-coding a limit | Wrong for other environments | Make it configurable and measure |
+// Concurrent requests are automatically serialized safely!
+const account = new UserActor('user-100', 100);
+account.withdraw(100);
+account.withdraw(100); // Safely rejected!
+```
 
-## Key takeaways
+### Example 5: Token Bucket Rate Limiter
+```javascript
+export class TokenBucket {
+  constructor(capacity, refillRatePerSecond) {
+    this.capacity = capacity;
+    this.refillRate = refillRatePerSecond;
+    this.tokens = capacity;
+    this.lastRefill = Date.now();
+  }
 
-- Bound concurrency: never fire unlimited parallel work at a finite resource
-- A sliding-window runner or semaphore keeps exactly *N* tasks active and reuses slots immediately
-- A mutex (semaphore of 1) removes async race conditions; use per-key locks for finer granularity
-- Queues need backpressure: bound them, reject, drop, or pull instead of push
-- Always release permits in `finally`, and support timeouts and cancellation
-- Combine retries with backoff and jitter, and do not confuse concurrency limits with rate limits
-- Pick limits by measuring the bottleneck (network, database pool, cores)
+  _refill() {
+    const now = Date.now();
+    const elapsed = (now - this.lastRefill) / 1000;
+    this.tokens = Math.min(this.capacity, this.tokens + elapsed * this.refillRate);
+    this.lastRefill = now;
+  }
 
-**Next:** [Memory and Garbage Collection](../18_memory-and-garbage-collection/00_README.md)
+  tryConsume(tokens = 1) {
+    this._refill();
+    if (this.tokens >= tokens) {
+      this.tokens -= tokens;
+      return true;
+    }
+    return false;
+  }
+
+  async waitForToken(tokens = 1) {
+    while (!this.tryConsume(tokens)) {
+      await new Promise(r => setTimeout(r, 50));
+    }
+  }
+}
+```
+
+---
+
+## 6. Edge Cases, Pitfalls & Gotchas
+
+1. **Deadlocks via Nested Lock Acquisition**: If Task A acquires Lock 1 and awaits Lock 2, while Task B acquires Lock 2 and awaits Lock 1, both tasks permanently freeze execution. Always acquire locks in a globally consistent hierarchical order or use a single unified lock.
+2. **Missing `finally` Blocks**: If an asynchronous function acquires a lock and encounters an unhandled exception before calling `release()`, the lock is permanently leaked and all subsequent requests are blocked forever. Always wrap lock releases in `try ... finally`.
+3. **Promise Chain Unhandled Rejection Leaks**: When building FIFO promise queues, if a rejected promise is not caught inside the internal queue chain (`currentChain = result.catch(() => {})`), the queue breaks and Node.js emits an `UnhandledPromiseRejection`.
+4. **Keyed Locks for Multi-Tenant Systems**: A global mutex serializes *all* users, destroying backend throughput. Always use a keyed lock map (`Map<userId, AsyncMutex>`) so operations on User A do not block User B.
+
+---
+
+## 7. Common Mistakes & Anti-Patterns
+
+| Anti-Pattern | Why It Breaks | Correct Pattern |
+| :--- | :--- | :--- |
+| Checking balance then saving without locks | TOCTOU race condition allows double spending | Protect critical section with an Async Mutex |
+| Releasing locks outside `try ... finally` | Uncaught exceptions leak locks permanently | Always call `release()` in a `finally` block |
+| Global mutex across different entities | Serializes unrelated users, destroying server throughput | Use Keyed Mutexes partitioned by Entity ID |
+| Unbounded in-memory queue growth | Leaks memory if producer is faster than consumer | Enforce queue size limits and apply backpressure |
+| Spinning on a boolean flag `while (isLocked) await sleep()` | Inefficient, violates FIFO fairness, causes starvation | Use promise-based queues with `resolve` callbacks |
+| Storing distributed locks purely in local Node RAM | Fails across multiple server replicas or cluster workers | Use Redis Distributed Locks (Redlock) or DB row locks |
+
+---
+
+## 8. Performance Characteristics
+
+- **Promise Queue Overhead**: Creating and resolving microtask promises incurs $< 1$ microsecond of overhead.
+- **Keyed Lock Garbage Collection**: Keyed lock maps must prune idle mutex instances when their queue is empty to avoid leaking memory over millions of unique keys.
+- **Fairness Guarantee**: FIFO promise queues guarantee starvation-free execution for queued requests.
+
+---
+
+## 9. Engine Internals
+
+1. **Microtask Queue Serialization**:
+   - When `nextResolve()` is invoked in a release function, the pending promise moves into V8's microtask queue.
+   - Microtasks run immediately after the current synchronous stack frame unwinds, ensuring the next queued task begins execution without delay.
+2. **WeakRef and FinalizationRegistry for Keyed Mutexes**:
+   - Advanced keyed lock managers use `WeakRef` to hold lock references, allowing the V8 garbage collector to automatically reclaim memory when tasks finish and callers discard references.
+
+---
+
+## 10. Best Practices & Design Guidelines
+
+- **Keep Critical Sections Short**: Minimize the duration a lock is held. Never perform unnecessary network calls or slow disk operations while holding an exclusive lock.
+- **Apply Lock Timeouts**: Always equip lock acquisitions with an `AbortController` or timeout so that stuck I/O operations abort rather than indefinitely holding resources.
+- **Partition Granularity**: Lock at the finest possible granularity (e.g., individual order ID rather than entire product inventory).
+
+---
+
+## 11. Real-World Case Study
+
+### Keyed Mutex with Auto-Cleanup and Timeout Protection
+```javascript
+class KeyedMutexPool {
+  constructor(timeoutMs = 5000) {
+    this.timeoutMs = timeoutMs;
+    this.locks = new Map();
+  }
+
+  async runExclusive(key, task) {
+    let mutex = this.locks.get(key);
+    if (!mutex) {
+      mutex = { queue: Promise.resolve(), refCount: 0 };
+      this.locks.set(key, mutex);
+    }
+    mutex.refCount++;
+
+    const execution = mutex.queue.then(async () => {
+      let timer;
+      const timeoutPromise = new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`Lock timeout for ${key}`)), this.timeoutMs);
+      });
+
+      try {
+        return await Promise.race([task(), timeoutPromise]);
+      } finally {
+        clearTimeout(timer);
+      }
+    });
+
+    mutex.queue = execution.catch(() => {});
+
+    try {
+      return await execution;
+    } finally {
+      mutex.refCount--;
+      if (mutex.refCount === 0) {
+        this.locks.delete(key); // Free memory when queue empty
+      }
+    }
+  }
+}
+
+// Production usage:
+const orderLocker = new KeyedMutexPool(3000);
+await orderLocker.runExclusive(`order:${orderId}`, async () => {
+  await processPayment(orderId);
+  await markOrderPaid(orderId);
+});
+```
+
+---
+
+## 12. Interview Questions
+
+<details>
+<summary>1. Why can race conditions happen in single-threaded JavaScript?</summary>
+Because JavaScript's single thread can interleave asynchronous tasks across <code>await</code> or callback boundaries. If one task reads a value, awaits an asynchronous operation, and then updates the value based on that stale read, another concurrent task can interleave during the wait and mutate the state, causing data corruption (Check-then-Act / TOCTOU race condition).
+</details>
+
+<details>
+<summary>2. What is the purpose of an asynchronous Mutex?</summary>
+An asynchronous mutex ensures mutual exclusion for a block of asynchronous code, ensuring that only one task can execute the critical section at a time, queueing any additional concurrent requests in a FIFO promise chain.
+</details>
+
+<details>
+<summary>3. Why must lock releases always be placed inside a finally block?</summary>
+If an exception or promise rejection occurs within the critical section and the release call is not inside a <code>finally</code> block, the release will never be executed. The lock remains locked forever, permanently deadlocking all subsequent queued requests.
+</details>
+
+<details>
+<summary>4. What is the difference between a Mutex and a Semaphore?</summary>
+A Mutex allows only a single task (concurrency of 1) to access a resource at any given time. A Semaphore allows a configurable number $N$ ($N \ge 1$) of concurrent tasks to access a shared resource pool simultaneously.
+</details>
+
+<details>
+<summary>5. How does a Read-Write Lock improve performance over a standard Mutex?</summary>
+In read-heavy applications, multiple tasks can read shared data concurrently without causing data races. A Read-Write Lock allows an arbitrary number of concurrent readers to access the data simultaneously, while granting exclusive access to only one writer when mutations occur.
+</details>
+
+<details>
+<summary>6. How can you prevent deadlocks when acquiring multiple locks?</summary>
+Deadlocks can be prevented by establishing a strict global locking hierarchy (always acquiring Lock A before Lock B), using lock timeouts that abort acquisition if a lock cannot be obtained in time, or grouping resources into a single coarse-grained lock.
+</details>
+
+<details>
+<summary>7. What is the Actor model and how does it prevent race conditions?</summary>
+The Actor model avoids shared mutable state by encapsulating state inside isolated actors. Actors communicate exclusively by sending messages. Each actor maintains a FIFO mailbox queue, processing one message at a time sequentially, thereby eliminating concurrent mutation races by design.
+</details>
+
+<details>
+<summary>8. Why is a local in-memory Mutex insufficient in a clustered Node.js application?</summary>
+In clustered Node.js setups or multi-container Kubernetes deployments, each process runs in its own memory space. An in-memory Mutex only synchronizes tasks within that single OS process. To synchronize across processes and servers, a distributed lock manager (such as Redis Redlock or database row locks) is required.
+</details>
+
+---
+
+## 13. Exercises & Challenges
+
+### Exercise 1: Build a Fair Batching Queue
+Implement an asynchronous batcher `AsyncBatcher` that collects individual items into an array and flushes them to a database in batches of up to 10 items or after a 50ms timeout, returning the individual database results back to the original callers.
+
+<details>
+<summary>View Solution</summary>
+
+```javascript
+export class AsyncBatcher {
+  constructor(batchHandler, maxBatchSize = 10, maxWaitMs = 50) {
+    this.batchHandler = batchHandler;
+    this.maxBatchSize = maxBatchSize;
+    this.maxWaitMs = maxWaitMs;
+    this.queue = [];
+    this.timer = null;
+  }
+
+  add(item) {
+    return new Promise((resolve, reject) => {
+      this.queue.push({ item, resolve, reject });
+
+      if (this.queue.length >= this.maxBatchSize) {
+        this.flush();
+      } else if (!this.timer) {
+        this.timer = setTimeout(() => this.flush(), this.maxWaitMs);
+      }
+    });
+  }
+
+  async flush() {
+    clearTimeout(this.timer);
+    this.timer = null;
+
+    if (this.queue.length === 0) return;
+
+    const currentBatch = this.queue.splice(0, this.maxBatchSize);
+    const items = currentBatch.map(b => b.item);
+
+    try {
+      const results = await this.batchHandler(items);
+      currentBatch.forEach((b, idx) => b.resolve(results[idx]));
+    } catch (err) {
+      currentBatch.forEach(b => b.reject(err));
+    }
+  }
+}
+```
+</details>
+
+### Exercise 2: Implementing a Distributed Lock Interface (Redlock Pattern)
+Design an asynchronous distributed lock interface that implements acquire with TTL, heartbeats (lock renewal), and safe release using unique lock ownership tokens.
+
+<details>
+<summary>View Solution</summary>
+
+```javascript
+export class DistributedLock {
+  constructor(client, resourceKey, ttlMs = 5000) {
+    this.client = client;
+    this.resourceKey = `lock:${resourceKey}`;
+    this.ttlMs = ttlMs;
+    this.token = crypto.randomUUID();
+    this.heartbeat = null;
+  }
+
+  async acquire() {
+    // Redis SET resourceKey token NX PX ttlMs
+    const acquired = await this.client.set(this.resourceKey, this.token, 'PX', this.ttlMs, 'NX');
+    if (!acquired) {
+      return false;
+    }
+
+    // Start auto-renewal heartbeat
+    this.heartbeat = setInterval(async () => {
+      const renewScript = `
+        if redis.call("get", KEYS[1]) == ARGV[1] then
+          return redis.call("pexpire", KEYS[1], ARGV[2])
+        else
+          return 0
+        end
+      `;
+      await this.client.eval(renewScript, 1, this.resourceKey, this.token, this.ttlMs);
+    }, Math.floor(this.ttlMs / 2));
+
+    return true;
+  }
+
+  async release() {
+    clearInterval(this.heartbeat);
+    // Safe release: only delete if the token matches (avoid releasing someone else's expired lock)
+    const releaseScript = `
+      if redis.call("get", KEYS[1]) == ARGV[1] then
+        return redis.call("del", KEYS[1])
+      else
+        return 0
+      end
+    `;
+    return await this.client.eval(releaseScript, 1, this.resourceKey, this.token);
+  }
+}
+```
+</details>

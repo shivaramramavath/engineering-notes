@@ -1,287 +1,488 @@
-# SharedArrayBuffer and Atomics
+# SharedArrayBuffer and Atomics in JavaScript
 
-Normally threads share nothing and communicate by copying messages. A `SharedArrayBuffer` (SAB) is a block of memory that **several threads can read and write at the same time**, with no copying. That speed comes with the classic problems of shared-memory programming: **race conditions**. The `Atomics` object provides the tools to avoid them.
+> True zero-copy shared memory, atomic memory barriers, wait/notify primitives, and cross-origin isolation requirements.
 
-## SharedArrayBuffer
+| Metadata | Details |
+| :--- | :--- |
+| **Level** | Advanced |
+| **Prerequisites** | [Buffers and Typed Arrays](file:///e:/Learning/engineering-notes/01-languages/javascript/16_nodejs/07_buffers.md), [Worker Threads](file:///e:/Learning/engineering-notes/01-languages/javascript/17_concurrency-and-parallelism/03_worker-threads.md) |
+| **Time to read** | 25 minutes |
+| **Status** | Complete |
+| **Standard / Runtime** | ECMAScript 2017+, Node.js v12+, Cross-Origin Isolated Browsers |
 
-```js
-const sab = new SharedArrayBuffer(16);       // 16 bytes, zero-filled
-const view = new Int32Array(sab);            // typed array view over it (4 ints)
+---
 
-view[0] = 42;
-```
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & API Reference](#4-syntax--api-reference)
+5. [Practical Examples](#5-practical-examples)
+6. [Edge Cases, Pitfalls & Gotchas](#6-edge-cases-pitfalls--gotchas)
+7. [Common Mistakes & Anti-Patterns](#7-common-mistakes--anti-patterns)
+8. [Performance Characteristics](#8-performance-characteristics)
+9. [Engine Internals](#9-engine-internals)
+10. [Best Practices & Design Guidelines](#10-best-practices--design-guidelines)
+11. [Real-World Case Study](#11-real-world-case-study)
+12. [Interview Questions](#12-interview-questions)
+13. [Exercises & Challenges](#13-exercises--challenges)
 
-Pass it to a worker. The **same memory** is visible on both sides:
+---
 
-```js
-// main.mjs (Node)
-import { Worker } from 'node:worker_threads';
+## 1. What & Why
 
-const sab = new SharedArrayBuffer(4);
-const counter = new Int32Array(sab);
+In traditional JavaScript concurrency, threads communicate via message-passing (`postMessage`). While safe, passing massive datasets (such as 4K video frame buffers, 3D geometry meshes, or machine learning tensors) incurs significant latency from data cloning or the inconvenience of buffer detaching when using transferables.
 
-const worker = new Worker(new URL('./worker.mjs', import.meta.url), { workerData: { sab } });
-worker.on('exit', () => console.log('counter =', counter[0]));
-```
+**`SharedArrayBuffer`** allows multiple threads (Web Workers or Node.js Worker Threads) to share the exact same physical memory block simultaneously. However, concurrent, unsynchronized mutations by multiple threads introduce data races, torn reads, and undefined state.
 
-```js
-// worker.mjs
-import { workerData } from 'node:worker_threads';
-const counter = new Int32Array(workerData.sab);
-counter[0] = 123;
-```
+The **`Atomics`** namespace provides atomic operations and thread synchronization primitives. It guarantees that memory operations are completed indivisibly without interruption, introduces memory barriers (fences) to prevent CPU instruction reordering, and allows threads to sleep and wake up without burning CPU cycles.
 
-In browsers, `worker.postMessage({ sab })` shares it (do **not** list it in the transfer array: shared buffers are shared, not moved).
+---
 
-| | `ArrayBuffer` | `SharedArrayBuffer` |
-|---|---------------|---------------------|
-| Sent with `postMessage` | Copied, or transferred (moved) | **Shared** (same memory) |
-| Resizable | Yes (`resizable`) | Growable (`growable`, `maxByteLength`) |
-| Access from several threads | One at a time | Simultaneously |
-| Needs `Atomics` for safety | No | Yes |
+## 2. Core Concepts
 
-Only the raw bytes are shared. Typed arrays (`Int32Array`, `Float64Array`, ...) are per-thread views over it. Objects, strings, and functions cannot live in a SAB; you encode data as numbers and bytes.
+### Shared Memory Model
+A `SharedArrayBuffer` is an `ArrayBuffer` whose backing store can be mapped into multiple V8 isolates simultaneously:
+- It cannot be detached or transferred.
+- When passed via `postMessage()`, both the sender and receiver point to the **same physical RAM bytes**.
+- Changes made by Thread A are immediately visible to Thread B.
 
-### Browser requirement: cross-origin isolation
+### The Problem: Race Conditions & Torn Writes
+Without atomic guarantees, simple operations like `view[0]++` compile down to three separate CPU operations:
+1. **Read** value from RAM into CPU register.
+2. **Increment** register value.
+3. **Write** register value back to RAM.
+If two threads interleave these steps simultaneously, increments are lost. Furthermore, multi-byte integers can experience "torn writes" where one thread reads half-written bytes from another thread.
 
-Browsers expose `SharedArrayBuffer` only on **cross-origin isolated** pages (served with these headers):
+### The Solution: `Atomics`
+The `Atomics` global object provides static methods that execute read-modify-write sequences as a single, atomic CPU instruction (such as `LOCK CMPXCHG` on x86/x64 architectures).
 
-```
+### Browser Cross-Origin Isolation
+Due to the **Spectre** CPU hardware vulnerability, browsers disabled `SharedArrayBuffer` in 2018. It was re-enabled only under **Cross-Origin Isolation**, which requires the following HTTP headers on the hosting server:
+```http
 Cross-Origin-Opener-Policy: same-origin
 Cross-Origin-Embedder-Policy: require-corp
 ```
 
-Check at runtime: `self.crossOriginIsolated`. Node has no such restriction.
+---
 
-## Race conditions
-
-`counter[0]++` looks like one step but is **three**: read, add, write. Two threads can interleave:
+## 3. How It Works Internally
 
 ```
-Thread A reads 5
-Thread B reads 5
-Thread A writes 6
-Thread B writes 6     ← one increment lost; the result should be 7
++-------------------------------------------------------------------------+
+| PHYSICAL SYSTEM RAM (Heap BackingStore)                                 |
+| Address: 0x7FFF12340000 [ SharedArrayBuffer (4096 bytes) ]             |
++-------------------------------------------------------------------------+
+             ^                                           ^
+             | Memory Map (Pointer)                      | Memory Map (Pointer)
+             |                                           |
++---------------------------+               +---------------------------+
+| WORKER THREAD 1           |               | WORKER THREAD 2           |
+| TypedArray View (Int32)   |               | TypedArray View (Int32)   |
+| Atomics.add(view, 0, 1)   |               | Atomics.load(view, 0)     |
+|   - Hardware LOCK prefix  |               |   - Hardware Memory Fence |
++---------------------------+               +---------------------------+
 ```
 
-```js
-// worker.mjs: 4 workers each run this
-for (let i = 0; i < 100_000; i++) {
-  counter[0]++;              // NOT atomic: updates get lost
-}
-// Final counter is often well below 400000
+---
+
+## 4. Syntax & API Reference
+
+### Allocating Shared Memory
+```javascript
+// Allocate 1024 bytes of shared memory
+const sab = new SharedArrayBuffer(1024);
+
+// Create typed array view over the buffer
+const int32 = new Int32Array(sab);
 ```
 
-Fix with `Atomics`:
+### Core `Atomics` Operations
 
-```js
-for (let i = 0; i < 100_000; i++) {
-  Atomics.add(counter, 0, 1);       // atomic read-modify-write
-}
-// Final counter is exactly 400000
-```
+| Method | Description | Signature |
+| :--- | :--- | :--- |
+| `Atomics.load` | Reads value with memory barrier | `Atomics.load(typedArray, index)` |
+| `Atomics.store` | Writes value with memory barrier | `Atomics.store(typedArray, index, value)` |
+| `Atomics.add` | Adds and returns the *old* value | `Atomics.add(typedArray, index, value)` |
+| `Atomics.sub` | Subtracts and returns the *old* value | `Atomics.sub(typedArray, index, value)` |
+| `Atomics.exchange` | Stores value and returns *old* value | `Atomics.exchange(typedArray, index, value)` |
+| `Atomics.compareExchange` | Stores `replacement` if current equals `expected` | `Atomics.compareExchange(typedArray, index, expected, replacement)` |
+| `Atomics.wait` | Puts thread to sleep until notified | `Atomics.wait(typedArray, index, value, [timeout])` |
+| `Atomics.notify` | Wakes up sleeping threads | `Atomics.notify(typedArray, index, [count])` |
+| `Atomics.waitAsync` | Non-blocking wait returning a Promise | `Atomics.waitAsync(typedArray, index, value, [timeout])` |
 
-## The Atomics API
+*Note: `Atomics.wait()` works exclusively on `Int32Array` or `BigInt64Array` views.*
 
-`Atomics` works on integer typed arrays (`Int8Array`, `Uint8Array`, `Int16Array`, `Uint16Array`, `Int32Array`, `Uint32Array`, `BigInt64Array`, `BigUint64Array`) backed by a `SharedArrayBuffer` (some operations also accept non-shared arrays). All of them are indivisible: no other thread can observe a half-done operation.
+---
 
-| Function | Effect | Returns |
-|----------|--------|---------|
-| `Atomics.load(ta, i)` | Read | Value |
-| `Atomics.store(ta, i, v)` | Write | `v` |
-| `Atomics.add(ta, i, v)` | `ta[i] += v` | **Old** value |
-| `Atomics.sub(ta, i, v)` | `ta[i] -= v` | Old value |
-| `Atomics.and / or / xor(ta, i, v)` | Bitwise operation | Old value |
-| `Atomics.exchange(ta, i, v)` | Set, return the previous value | Old value |
-| `Atomics.compareExchange(ta, i, expected, v)` | Set to `v` only if `ta[i] === expected` | Old value |
-| `Atomics.wait(ta, i, expected, timeout?)` | Block while `ta[i] === expected` | `'ok'`, `'not-equal'`, `'timed-out'` |
-| `Atomics.waitAsync(ta, i, expected, timeout?)` | Non-blocking `wait` (returns a promise-like) | `{ async, value }` |
-| `Atomics.notify(ta, i, count?)` | Wake waiting threads | Number woken |
-| `Atomics.isLockFree(size)` | Whether operations of that byte size are lock-free | Boolean |
+## 5. Practical Examples
 
-```js
-const a = new Int32Array(new SharedArrayBuffer(8));
+### Example 1: Preventing Race Conditions with `Atomics.add`
+```javascript
+import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
 
-Atomics.store(a, 0, 10);
-Atomics.add(a, 0, 5);                        // returns 10, a[0] is now 15
-Atomics.compareExchange(a, 0, 15, 99);       // a[0] was 15 → set to 99, returns 15
-Atomics.compareExchange(a, 0, 15, 1);        // a[0] is 99, not 15 → unchanged, returns 99
-Atomics.load(a, 0);                          // 99
-```
+if (isMainThread) {
+  const sab = new SharedArrayBuffer(4);
+  const view = new Int32Array(sab);
 
-`compareExchange` (compare-and-swap, CAS) is the building block for locks and lock-free structures.
+  const NUM_WORKERS = 4;
+  const ITERATIONS = 100_000;
+  let finished = 0;
 
-### Memory ordering
+  for (let i = 0; i < NUM_WORKERS; i++) {
+    const worker = new Worker(new URL(import.meta.url), {
+      workerData: { sab, iterations: ITERATIONS },
+    });
 
-Atomics operations are **sequentially consistent**: they act as barriers, so ordinary reads and writes before an `Atomics` call are visible to other threads after they observe that call's effect. Plain (non-atomic) accesses to shared memory have no such guarantees and may be reordered or seen late.
+    worker.on('message', () => {
+      finished++;
+      if (finished === NUM_WORKERS) {
+        console.log(`Final Counter Value: ${view[0]}`);
+        console.log(`Expected Value: ${NUM_WORKERS * ITERATIONS}`);
+        // With Atomics.add: EXACT MATCH (400000)
+        // With standard view[0]++: CORRUPTED (~140000-250000)
+      }
+    });
+  }
+} else {
+  const { sab, iterations } = workerData;
+  const view = new Int32Array(sab);
 
-```js
-// Producer
-data[0] = 123;                               // plain write
-Atomics.store(flag, 0, 1);                   // publish: the data write is visible before the flag
+  for (let i = 0; i < iterations; i++) {
+    Atomics.add(view, 0, 1);
+  }
 
-// Consumer
-while (Atomics.load(flag, 0) === 0) {}       // spin (simple but wasteful: see wait/notify below)
-console.log(data[0]);                        // 123, guaranteed
-```
-
-## wait and notify: efficient blocking
-
-Spinning in a loop burns CPU. `Atomics.wait` puts the thread to **sleep** until another thread calls `Atomics.notify` on the same location.
-
-```js
-// worker: wait until the main thread sets index 0 to something other than 0
-const result = Atomics.wait(shared, 0, 0);          // sleeps while shared[0] === 0
-console.log(result);                                // 'ok' once woken
-
-// another thread
-Atomics.store(shared, 0, 1);
-Atomics.notify(shared, 0, 1);                       // wake up one waiter
-```
-
-**Important:** `Atomics.wait` blocks the thread, so it is **not allowed on the browser's main thread** (it throws). Use it in workers. Use `Atomics.waitAsync` where a non-blocking wait is needed (check availability).
-
-```js
-const { async, value } = Atomics.waitAsync(shared, 0, 0);
-if (async) {
-  value.then((r) => console.log('woken:', r));      // promise resolves with 'ok' or 'timed-out'
+  parentPort.postMessage('DONE');
 }
 ```
 
-In Node, the main thread may use `Atomics.wait`, but doing so blocks its event loop.
+### Example 2: Thread Synchronization via `Atomics.wait` and `Atomics.notify`
+```javascript
+import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
 
-## A mutex (lock)
+const INDEX_FLAG = 0;
+const STATE_IDLE = 0;
+const STATE_WORK_READY = 1;
 
-Use one `Int32Array` slot: `0` = unlocked, `1` = locked.
+if (isMainThread) {
+  const sab = new SharedArrayBuffer(16);
+  const int32 = new Int32Array(sab);
 
-```js
+  const worker = new Worker(new URL(import.meta.url), { workerData: { sab } });
+
+  setTimeout(() => {
+    console.log('Main thread: Preparing data and waking up worker...');
+    int32[1] = 42; // Data payload
+    Atomics.store(int32, INDEX_FLAG, STATE_WORK_READY);
+    Atomics.notify(int32, INDEX_FLAG, 1); // Wake up 1 waiting thread
+  }, 1000);
+} else {
+  const int32 = new Int32Array(workerData.sab);
+
+  console.log('Worker thread: Sleeping until work is ready...');
+  // Suspends worker execution until int32[0] is no longer STATE_IDLE
+  const status = Atomics.wait(int32, INDEX_FLAG, STATE_IDLE);
+
+  console.log(`Worker awakened (status: ${status})! Read payload:`, int32[1]);
+}
+```
+
+### Example 3: Spin-Free Mutex (Mutual Exclusion Lock)
+```javascript
 const UNLOCKED = 0;
 const LOCKED = 1;
 
-class Mutex {
-  constructor(sharedInt32Array, index = 0) {
-    this.a = sharedInt32Array;
-    this.i = index;
+export class AtomicMutex {
+  constructor(sharedArray, index = 0) {
+    this.view = sharedArray;
+    this.index = index;
   }
 
   lock() {
-    while (Atomics.compareExchange(this.a, this.i, UNLOCKED, LOCKED) !== UNLOCKED) {
-      Atomics.wait(this.a, this.i, LOCKED);        // sleep while locked
+    while (true) {
+      // Attempt to acquire lock if it was UNLOCKED
+      if (Atomics.compareExchange(this.view, this.index, UNLOCKED, LOCKED) === UNLOCKED) {
+        return; // Lock acquired!
+      }
+      // If already LOCKED, sleep until notified instead of burning CPU in a spin-loop
+      Atomics.wait(this.view, this.index, LOCKED);
     }
   }
 
   unlock() {
-    Atomics.store(this.a, this.i, UNLOCKED);
-    Atomics.notify(this.a, this.i, 1);             // wake one waiter
+    if (Atomics.exchange(this.view, this.index, UNLOCKED) !== LOCKED) {
+      throw new Error('Mutex was not locked by caller');
+    }
+    // Wake up one sleeping waiter
+    Atomics.notify(this.view, this.index, 1);
+  }
+}
+```
+
+### Example 4: Asynchronous Waiting on the Main Thread with `Atomics.waitAsync`
+```javascript
+// Browser Main Thread or UI thread
+const sab = new SharedArrayBuffer(4);
+const view = new Int32Array(sab);
+
+async function waitForWorkerReady() {
+  console.log('Main thread initiating async wait...');
+
+  // Does NOT block the main UI thread!
+  const result = Atomics.waitAsync(view, 0, 0);
+
+  if (result.async) {
+    // result.value is a Promise
+    const outcome = await result.value;
+    console.log('Main thread awakened asynchronously:', outcome); // 'ok' or 'timed-out'
+  } else {
+    console.log('Value changed immediately without waiting:', result.value);
   }
 }
 
-// Every thread builds its own Mutex over the same SharedArrayBuffer
-const lockMem = new Int32Array(sab, 0, 1);
-const mutex = new Mutex(lockMem);
+waitForWorkerReady();
+```
 
-mutex.lock();
-try {
-  // critical section: only one thread at a time
-  sharedData[0] += 1;                              // plain ops are safe inside the lock
-} finally {
-  mutex.unlock();
+### Example 5: High-Performance Shared Ring Buffer (SPSC Queue)
+```javascript
+// Single-Producer Single-Consumer lock-free ring buffer
+export class SharedRingBuffer {
+  constructor(sab, capacity = 256) {
+    this.capacity = capacity;
+    // Header: index 0 = writeHead, index 1 = readHead
+    this.header = new Int32Array(sab, 0, 2);
+    // Data buffer
+    this.data = new Uint8Array(sab, 8, capacity);
+  }
+
+  push(byte) {
+    const write = Atomics.load(this.header, 0);
+    const read = Atomics.load(this.header, 1);
+
+    if ((write + 1) % this.capacity === read) {
+      return false; // Buffer full
+    }
+
+    this.data[write] = byte;
+    Atomics.store(this.header, 0, (write + 1) % this.capacity);
+    return true;
+  }
+
+  pop() {
+    const write = Atomics.load(this.header, 0);
+    const read = Atomics.load(this.header, 1);
+
+    if (read === write) {
+      return null; // Buffer empty
+    }
+
+    const byte = this.data[read];
+    Atomics.store(this.header, 1, (read + 1) % this.capacity);
+    return byte;
+  }
 }
 ```
 
-Always unlock in `finally`. Forgetting to unlock deadlocks every other thread.
+---
 
-## Producer and consumer with a ring buffer (sketch)
+## 6. Edge Cases, Pitfalls & Gotchas
 
-A single-producer, single-consumer queue can avoid locks entirely: the producer owns the write index, the consumer owns the read index, and both are updated atomically.
+1. **`Atomics.wait` on Browser Main Thread**: Calling `Atomics.wait` on the main browser thread throws a `TypeError: Atomics.wait cannot be called in this context`. Browsers strictly forbid synchronous blocking of the UI thread. Use `Atomics.waitAsync` instead.
+2. **Type Constraints**: `Atomics` functions only accept integer TypedArrays (`Int8Array`, `Uint8Array`, `Int16Array`, `Uint16Array`, `Int32Array`, `Uint32Array`, `BigInt64Array`, `BigUint64Array`). Passing a `Float32Array` or `Float64Array` throws a `TypeError`.
+3. **Memory Reordering**: Modern CPUs and JIT compilers aggressively reorder read/write instructions for performance. Standard typed array writes (`view[0] = 5`) provide no memory barrier guarantees across cores. Always use `Atomics.store()` and `Atomics.load()` when publishing or reading synchronization flags.
+4. **Missing Isolation Headers in Browsers**: In evergreen browsers, `window.crossOriginIsolated` is `false` unless `COOP` and `COEP` HTTP response headers are set. Without them, `window.SharedArrayBuffer` is `undefined`.
 
-```js
-const CAPACITY = 1024;
-const sab = new SharedArrayBuffer(8 + CAPACITY * 4);
-const idx = new Int32Array(sab, 0, 2);               // [0] = readIndex, [1] = writeIndex
-const data = new Int32Array(sab, 8, CAPACITY);
+---
 
-function push(value) {                               // producer thread only
-  const w = Atomics.load(idx, 1);
-  const r = Atomics.load(idx, 0);
-  if ((w + 1) % CAPACITY === r) return false;        // full
-  data[w] = value;
-  Atomics.store(idx, 1, (w + 1) % CAPACITY);         // publish after writing the data
-  Atomics.notify(idx, 1);
-  return true;
-}
+## 7. Common Mistakes & Anti-Patterns
 
-function pop() {                                     // consumer thread only
-  const r = Atomics.load(idx, 0);
-  const w = Atomics.load(idx, 1);
-  if (r === w) return undefined;                     // empty
-  const value = data[r];
-  Atomics.store(idx, 0, (r + 1) % CAPACITY);
-  return value;
+| Anti-Pattern | Why It Breaks | Correct Pattern |
+| :--- | :--- | :--- |
+| `view[0]++` in concurrent workers | Non-atomic read-modify-write causes lost updates | Use `Atomics.add(view, 0, 1)` |
+| Spinning `while (view[0] !== 1) {}` | Saturates CPU core at 100%, starving other threads | Use `Atomics.wait()` and `Atomics.notify()` |
+| Calling `Atomics.wait` on `Float64Array` | Throws `TypeError`; floats cannot be atomically manipulated | Use `Int32Array` or `BigInt64Array` |
+| Forgetting to serve `COOP` / `COEP` headers | `SharedArrayBuffer` is undefined in browser | Configure server headers for Cross-Origin Isolation |
+| Assuming `Atomics.notify()` wakes up all waiters | Default waiter count is 1 if unspecified | Pass explicit count or `Infinity` to wake all |
+| Modifying shared memory without memory fences | CPU pipeline instruction reordering reads stale data | Use `Atomics.load()` and `Atomics.store()` |
+
+---
+
+## 8. Performance Characteristics
+
+- **Zero Serialization Latency**: $0.00$ms serialization cost. Both workers read directly from identical RAM addresses.
+- **Hardware Instruction Mapping**:
+  - `Atomics.add` maps directly to `LOCK XADD` on x86/x64 CPUs.
+  - `Atomics.compareExchange` maps to `LOCK CMPXCHG`.
+  - Latency of atomic operations is roughly 5–15 nanoseconds (CPU cache line invalidation cost).
+- **Wakeup Latency**: `Atomics.notify` wakes a sleeping thread via kernel futex calls in ~10–50 microseconds.
+
+---
+
+## 9. Engine Internals
+
+1. **Linux `futex` and Windows `WaitOnAddress`**:
+   - `Atomics.wait()` does not burn CPU cycles. V8 delegates to operating system kernel primitives: `futex` (Fast Userspace Mutex) on Linux, and `WaitOnAddress` on Windows.
+   - The thread puts itself to sleep in kernel space until the memory address value changes or a wake signal is issued.
+2. **Sequentially Consistent Memory Order**:
+   - ECMAScript mandates Sequential Consistency for all `Atomics` operations.
+   - V8 injects full memory barriers (such as `MFENCE` on x86 or `DMB ISH` on ARM64) to prevent CPU instruction pipelines from reordering loads and stores across the atomic operation boundary.
+
+---
+
+## 10. Best Practices & Design Guidelines
+
+- **Use Dedicated Indices for Synchronization**: Reserve the first few indices of your `SharedArrayBuffer` (e.g., indices 0–3) exclusively for lock flags and counters, leaving subsequent memory for payload bytes.
+- **Keep Critical Sections Minimal**: When holding a lock, execute as few instructions as possible and never perform I/O or sleep inside the locked region.
+- **Graceful Fallbacks**: Always verify `typeof SharedArrayBuffer !== 'undefined'` in browser applications to gracefully fall back to transferable `ArrayBuffer` message passing.
+
+---
+
+## 11. Real-World Case Study
+
+### High-Throughput Audio Worklet Ring Buffer
+```javascript
+// Audio DSP shared memory ring buffer between Web Worker and AudioWorklet
+class AudioSharedQueue {
+  constructor(sab) {
+    this.state = new Int32Array(sab, 0, 4); // [writePos, readPos, capacity, droppedFrames]
+    this.buffer = new Float32Array(sab, 16);
+    this.capacity = (sab.byteLength - 16) / 4;
+    Atomics.store(this.state, 2, this.capacity);
+  }
+
+  writeAudioFrames(frames) {
+    const write = Atomics.load(this.state, 0);
+    const read = Atomics.load(this.state, 1);
+
+    const available = (read - write - 1 + this.capacity) % this.capacity;
+    if (frames.length > available) {
+      Atomics.add(this.state, 3, 1); // Record dropped buffer frame
+      return false;
+    }
+
+    for (let i = 0; i < frames.length; i++) {
+      this.buffer[(write + i) % this.capacity] = frames[i];
+    }
+
+    Atomics.store(this.state, 0, (write + frames.length) % this.capacity);
+    return true;
+  }
 }
 ```
 
-This is a teaching sketch. For production, use a tested library.
+---
 
-## Typical uses
+## 12. Interview Questions
 
-| Use case | Pattern |
-|----------|---------|
-| Shared counters and statistics | `Atomics.add` |
-| Cancellation flag checked by a long task | `Atomics.load(flag, 0)` each iteration; main sets it with `store` |
-| Progress reporting without message overhead | Worker `store`s a progress number; UI reads with `load` |
-| Large datasets processed by several threads | Each thread works on its own slice of a shared typed array (no locking needed if slices do not overlap) |
-| Locks and semaphores between workers | `compareExchange` plus `wait` / `notify` |
-| WebAssembly threads | Wasm memory can be shared (`new WebAssembly.Memory({ shared: true, ... })`) |
+<details>
+<summary>1. Why was SharedArrayBuffer disabled in browsers and what is required to use it today?</summary>
+It was disabled in 2018 due to the Spectre side-channel attack, where high-resolution timers built using concurrent shared memory loops could deduce private CPU memory cache states across origins. To re-enable it, web applications must be Cross-Origin Isolated via <code>Cross-Origin-Opener-Policy: same-origin</code> and <code>Cross-Origin-Embedder-Policy: require-corp</code> headers.
+</details>
 
-### Splitting work without locks
+<details>
+<summary>2. What is the difference between Atomics.add() and standard typedArray[0] += 1?</summary>
+<code>typedArray[0] += 1</code> consists of separate read, add, and write operations. In a multi-threaded environment, another thread can interleave and mutate the value between the read and write, leading to lost updates. <code>Atomics.add()</code> executes as an atomic, indivisible hardware instruction with a memory barrier.
+</details>
 
-```js
-// main: 4 workers, each handles a disjoint slice
-const N = 4_000_000;
-const sab = new SharedArrayBuffer(N * Float64Array.BYTES_PER_ELEMENT);
-const data = new Float64Array(sab);
+<details>
+<summary>3. Why does Atomics.wait() throw an exception on the main thread in browsers?</summary>
+<code>Atomics.wait()</code> blocks the executing thread synchronously until awakened. Blocking the main thread would freeze the browser UI, stop user input handling, and halt screen paints, causing the page to become completely unresponsive.
+</details>
 
-const chunk = N / 4;
-for (let w = 0; w < 4; w++) {
-  new Worker(new URL('./slice.mjs', import.meta.url), {
-    workerData: { sab, start: w * chunk, end: (w + 1) * chunk },
-  });
+<details>
+<summary>4. How does Atomics.compareExchange work?</summary>
+It takes a typed array, index, expected value, and replacement value. If the current value at that index equals the expected value, it replaces it with the replacement value atomically. It always returns the <i>original</i> value that was at that index.
+</details>
+
+<details>
+<summary>5. What underlying OS primitives power Atomics.wait and Atomics.notify?</summary>
+On Linux, it uses the <code>futex</code> (Fast Userspace Mutex) system call. On Windows, it uses <code>WaitOnAddress</code> and <code>WakeByAddressSingle</code>. These primitives put threads to sleep in the kernel without burning CPU cycles.
+</details>
+
+<details>
+<summary>6. Can you use Atomics operations on Float32Array or Float64Array?</summary>
+No. The ECMAScript specification restricts <code>Atomics</code> operations strictly to integer TypedArrays (e.g., <code>Int32Array</code>, <code>BigInt64Array</code>). Attempting to use them on floating-point arrays throws a <code>TypeError</code>.
+</details>
+
+<details>
+<summary>7. What is Atomics.waitAsync and where is it useful?</summary>
+<code>Atomics.waitAsync()</code> is a non-blocking alternative to <code>Atomics.wait()</code>. It returns an object containing a Promise that resolves when another thread calls <code>Atomics.notify()</code> or when a timeout expires. It is allowed on the browser main thread.
+</details>
+
+<details>
+<summary>8. What is memory tearing and how does Atomics prevent it?</summary>
+Memory tearing occurs when a thread reads a multi-byte memory location while another thread is halfway through writing it, reading a corrupted mixture of old and new bytes. <code>Atomics.load()</code> and <code>Atomics.store()</code> guarantee indivisible 32-bit or 64-bit aligned reads and writes.
+</details>
+
+---
+
+## 13. Exercises & Challenges
+
+### Exercise 1: Build a Ticket Lock (FIFO Fair Mutex)
+Implement a fair ticket-lock using `Atomics.add` and `Atomics.wait` on a `SharedArrayBuffer` ensuring that threads acquire the lock in the exact order they requested it (no starvation).
+
+<details>
+<summary>View Solution</summary>
+
+```javascript
+export class FairTicketLock {
+  constructor(sab, offset = 0) {
+    // index 0: ticketCounter, index 1: nowServing
+    this.view = new Int32Array(sab, offset, 2);
+  }
+
+  acquire() {
+    // Take next ticket atomically
+    const myTicket = Atomics.add(this.view, 0, 1);
+
+    // Wait until it's our turn
+    while (true) {
+      const serving = Atomics.load(this.view, 1);
+      if (serving === myTicket) {
+        return; // Our turn!
+      }
+      Atomics.wait(this.view, 1, serving);
+    }
+  }
+
+  release() {
+    // Advance nowServing and wake all waiting threads
+    Atomics.add(this.view, 1, 1);
+    Atomics.notify(this.view, 1, Infinity);
+  }
 }
 ```
+</details>
 
-```js
-// slice.mjs: no locks needed because slices never overlap
-import { workerData } from 'node:worker_threads';
-const { sab, start, end } = workerData;
-const data = new Float64Array(sab);
-for (let i = start; i < end; i++) data[i] = Math.sqrt(i);
+### Exercise 2: Cross-Thread Atomic Countdown Latch
+Implement a `CountdownLatch` synchronization helper using `SharedArrayBuffer` that allows one or more threads to wait until a set of operations performed in other threads completes.
+
+<details>
+<summary>View Solution</summary>
+
+```javascript
+export class CountdownLatch {
+  constructor(sab, count, offset = 0) {
+    this.view = new Int32Array(sab, offset, 1);
+    Atomics.store(this.view, 0, count);
+  }
+
+  countDown() {
+    const remaining = Atomics.sub(this.view, 0, 1) - 1;
+    if (remaining <= 0) {
+      Atomics.notify(this.view, 0, Infinity);
+    }
+  }
+
+  await() {
+    while (true) {
+      const current = Atomics.load(this.view, 0);
+      if (current <= 0) {
+        return;
+      }
+      Atomics.wait(this.view, 0, current);
+    }
+  }
+}
 ```
-
-## Pitfalls
-
-| Pitfall | Why it hurts | Better |
-|---------|--------------|--------|
-| `shared[i]++` or `+=` on shared memory | Not atomic: lost updates | `Atomics.add` |
-| Plain reads of a flag another thread writes | May see stale values or reordering | `Atomics.load` / `store` |
-| `Atomics.wait` on the browser main thread | Throws (would freeze the page) | Use it in workers, or `waitAsync` |
-| Forgetting to `unlock` (no `finally`) | Deadlock | `try/finally` |
-| Spin loops waiting for a value | Wastes CPU | `Atomics.wait` / `notify` |
-| Storing objects or strings in a SAB | Not possible | Encode as numbers/bytes; send structured data by message |
-| Assuming float or non-integer atomics | Atomics support integer arrays only | Use integer representations or a lock |
-| Putting a `SharedArrayBuffer` in the transfer list | It is shared, not transferred | Just include it in the message or `workerData` |
-| Missing COOP/COEP headers in browsers | `SharedArrayBuffer` is undefined | Serve with isolation headers |
-| Overlapping slices without synchronization | Data races | Disjoint ranges, or locks |
-| Complex lock-free code without testing | Subtle, hard-to-reproduce bugs | Prefer messages; use proven libraries |
-
-## Key takeaways
-
-- A `SharedArrayBuffer` is memory visible to several threads at once; typed arrays are per-thread views of it
-- Non-atomic reads and writes on shared memory cause race conditions
-- `Atomics.add`, `compareExchange`, `load`, and `store` give indivisible operations and ordering guarantees
-- `Atomics.wait` / `notify` provide efficient sleeping and waking; `wait` is forbidden on the browser main thread
-- Build locks from `compareExchange` plus `wait` / `notify`, and always release in `finally`
-- Browsers need cross-origin isolation (COOP and COEP) for `SharedArrayBuffer`
-- Reach for messages first; use shared memory when copying is too slow
-
-**Next:** [Concurrency Control](./05_concurrency-control.md)
+</details>

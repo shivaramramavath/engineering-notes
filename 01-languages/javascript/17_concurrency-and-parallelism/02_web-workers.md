@@ -1,387 +1,522 @@
-# Web Workers
+# Web Workers in the Browser
 
-A **Web Worker** runs JavaScript on a separate thread in the browser, so heavy computation does not freeze the page. Workers have their own global scope and event loop, and they communicate with the main thread by **passing messages**.
+> Multi-threaded browser execution, Dedicated and Shared Workers, offscreen graphics rendering, structured cloning, and zero-copy transfers.
 
-## Kinds of workers
+| Metadata | Details |
+| :--- | :--- |
+| **Level** | Advanced |
+| **Prerequisites** | [Concurrency vs Parallelism](file:///e:/Learning/engineering-notes/01-languages/javascript/17_concurrency-and-parallelism/01_concurrency-vs-parallelism.md), [Event Loop](file:///e:/Learning/engineering-notes/01-languages/javascript/12_event-loop/01_event-loop.md) |
+| **Time to read** | 24 minutes |
+| **Status** | Complete |
+| **Standard / Runtime** | HTML5 Web Workers Living Standard, Evergreen Browsers |
 
-| Type | Scope | Lifetime | Purpose |
-|------|-------|----------|---------|
-| **Dedicated Worker** | One owner page or script | Until terminated or the owner goes away | Offload computation (this file's focus) |
-| **Shared Worker** | Several tabs or windows of the same origin | While any connected context exists | Shared state or one connection across tabs |
-| **Service Worker** | The origin (event-driven) | Started and stopped by the browser | Offline caching, network interception, push |
-| **Worklets** | Rendering/audio pipelines | Managed by the browser | Audio and paint customization |
+---
 
-## A dedicated worker
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & API Reference](#4-syntax--api-reference)
+5. [Practical Examples](#5-practical-examples)
+6. [Edge Cases, Pitfalls & Gotchas](#6-edge-cases-pitfalls--gotchas)
+7. [Common Mistakes & Anti-Patterns](#7-common-mistakes--anti-patterns)
+8. [Performance Characteristics](#8-performance-characteristics)
+9. [Engine Internals](#9-engine-internals)
+10. [Best Practices & Design Guidelines](#10-best-practices--design-guidelines)
+11. [Real-World Case Study](#11-real-world-case-study)
+12. [Interview Questions](#12-interview-questions)
+13. [Exercises & Challenges](#13-exercises--challenges)
 
-```js
-// main.js
-const worker = new Worker('worker.js');
+---
 
-worker.postMessage({ numbers: [1, 2, 3, 4, 5] });
+## 1. What & Why
 
+The browser's main execution thread is shared between JavaScript execution, layout calculation, style recalibration, and paint rendering (the 60 FPS / 120 FPS render pipeline). When a JavaScript task executes for longer than 16.6 milliseconds, frame budgets are violated, resulting in dropped frames, unresponsive user input, and sluggish user interfaces (jank).
+
+**Web Workers** provide true background OS thread execution inside modern browsers. By delegating computationally expensive tasks—such as image processing, audio DSP, CSV/JSON parsing, cryptography, and physical simulation—to background workers, the main thread remains exclusively dedicated to user interactions and high-performance UI rendering.
+
+---
+
+## 2. Core Concepts
+
+### Types of Web Workers
+1. **Dedicated Workers (`Worker`)**: Owned exclusively by the script instance that created them. Terminated when the parent page or tab is closed.
+2. **Shared Workers (`SharedWorker`)**: Accessible from multiple browsing contexts (multiple tabs, iframes, or windows belonging to the exact same origin). Ideal for cross-tab state synchronization, shared WebSockets, or background data stores.
+3. **Service Workers**: Event-driven network proxies that intercept HTTP requests, manage offline caches, and handle push notifications.
+
+### Execution Scope and Security Restrictions
+Web Workers run inside a `DedicatedWorkerGlobalScope` (accessible as `self` or `globalThis`), which strictly prohibits access to:
+- The DOM (`document`, `window`, direct element nodes).
+- Certain `window` APIs (`localStorage`, `sessionStorage`, `alert`, `prompt`).
+
+However, workers maintain full access to:
+- `fetch()` and `XMLHttpRequest`
+- `IndexedDB` and Cache Storage
+- `WebSockets` and `WebRTC`
+- WebAssembly (`WebAssembly.instantiate`)
+- `OffscreenCanvas` for off-thread GPU rendering
+- Timers (`setTimeout`, `setInterval`) and `crypto.subtle`
+
+---
+
+## 3. How It Works Internally
+
+```
++-------------------------------------------------------------------------+
+| MAIN BROWSER THREAD                                                     |
+| - DOM Tree, CSSOM, Style Calculation, Layout, Paint                     |
+| - Event Loop: User clicks, Keyboard, RAF                                |
+|                                                                         |
+| const worker = new Worker('worker.js', { type: 'module' });             |
+| worker.postMessage(data, [transferList]);                               |
++-------------------------------------------------------------------------+
+                                 |
+        Structured Clone         | Zero-Copy Transfer
+        (Deep copy in heap)      | (Detach & Move BackingStore pointer)
+                                 v
++-------------------------------------------------------------------------+
+| BACKGROUND WORKER THREAD                                                |
+| - DedicatedWorkerGlobalScope (self)                                     |
+| - Independent V8 Isolate & Heap                                         |
+| - Independent Event Loop & Microtask Queue                              |
+|                                                                         |
+| self.onmessage = (e) => {                                               |
+|   const result = executeHeavyTask(e.data);                              |
+|   self.postMessage(result);                                             |
+| };                                                                      |
++-------------------------------------------------------------------------+
+```
+
+---
+
+## 4. Syntax & API Reference
+
+### Instantiating a Dedicated Worker
+```javascript
+// Classic script vs ES Module worker
+const worker = new Worker('/workers/analyzer.js', {
+  type: 'module', // Enables import/export syntax inside the worker
+  name: 'data-analyzer', // Identifies worker in browser DevTools
+});
+
+// Outgoing communication
+worker.postMessage({ action: 'PROCESS', data: payload });
+
+// Incoming communication
 worker.onmessage = (event) => {
-  console.log('sum:', event.data);        // sum: 15
+  console.log('Result from worker:', event.data);
 };
 
-worker.onerror = (event) => {
-  console.error('worker error:', event.message);
+// Error handling
+worker.onerror = (errorEvent) => {
+  console.error('Worker error:', errorEvent.message, errorEvent.filename, errorEvent.lineno);
 };
+
+// Termination
+worker.terminate(); // Abruptly stops background thread
 ```
 
-```js
-// worker.js
+### Worker Global Scope (`self`)
+```javascript
+// Inside worker.js
 self.onmessage = (event) => {
-  const { numbers } = event.data;
-  const sum = numbers.reduce((a, b) => a + b, 0);
-  self.postMessage(sum);
-};
-```
-
-Inside a worker, `self` (or `globalThis`) is the `DedicatedWorkerGlobalScope`. There is no `window` and no DOM.
-
-## Module workers
-
-Use `import` inside a worker by creating it as a module:
-
-```js
-const worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
-```
-
-The `new URL(..., import.meta.url)` form is understood by bundlers (Vite, webpack, esbuild) so the worker file is bundled correctly.
-
-```js
-// worker.js (module)
-import { heavyCompute } from './compute.js';
-
-self.onmessage = ({ data }) => {
-  self.postMessage(heavyCompute(data));
-};
-```
-
-## What workers can and cannot access
-
-| Available in workers | Not available |
-|----------------------|---------------|
-| `fetch`, `XMLHttpRequest`, `WebSocket` | `window`, `document`, any DOM API |
-| `setTimeout`, `setInterval`, `queueMicrotask` | Direct access to main-thread variables |
-| `IndexedDB`, Cache API, `crypto` | `localStorage`, `sessionStorage` |
-| `importScripts()` (classic workers), `import` (module workers) | Direct access to the page's JS objects |
-| `OffscreenCanvas`, `WebAssembly`, `TextEncoder`, `URL` | Alerts and dialogs |
-| `navigator` (limited), `location` (read-only) | |
-
-To change the page, the worker must send a message and let the main thread update the DOM.
-
-## Messaging and structured clone
-
-`postMessage` copies data using the **structured clone algorithm**:
-
-| Supported | Not supported |
-|-----------|---------------|
-| Primitives, plain objects, arrays | Functions |
-| `Date`, `RegExp`, `Map`, `Set` | DOM nodes |
-| `ArrayBuffer`, typed arrays, `Blob`, `File` | Class instances keep their data but **lose methods and prototype** |
-| `Error` objects (basic), `BigInt` | Objects with getters/setters keep values, not accessors |
-| Circular references | Symbols as values |
-
-```js
-worker.postMessage({ id: 1, when: new Date(), tags: new Set(['a']) });    // works
-worker.postMessage({ fn: () => 1 });                                       // DataCloneError
-```
-
-Copying large data repeatedly is expensive. Two ways to avoid copying:
-
-### Transferable objects
-
-Ownership **moves** to the receiver; the sender can no longer use it. Transfer is near-instant regardless of size.
-
-```js
-const buffer = new ArrayBuffer(100 * 1024 * 1024);          // 100 MB
-console.log(buffer.byteLength);                              // 104857600
-
-worker.postMessage({ buffer }, [buffer]);                    // second argument lists transferables
-console.log(buffer.byteLength);                              // 0 (detached on this side)
-```
-
-Transferable types include `ArrayBuffer`, `MessagePort`, `ImageBitmap`, `OffscreenCanvas`, `ReadableStream`, `WritableStream`, and `TransformStream`.
-
-### SharedArrayBuffer
-
-Both sides see the **same memory**. See [SharedArrayBuffer and Atomics](./04_sharedarraybuffer-and-atomics.md).
-
-## Request and response pattern
-
-Because messaging is event-based, match responses to requests with an id and wrap it in a promise:
-
-```js
-function createWorkerClient(url) {
-  const worker = new Worker(url, { type: 'module' });
-  const pending = new Map();
-  let nextId = 0;
-
-  worker.onmessage = ({ data }) => {
-    const { id, result, error } = data;
-    const { resolve, reject } = pending.get(id);
-    pending.delete(id);
-    error ? reject(new Error(error)) : resolve(result);
-  };
-
-  worker.onerror = (e) => {
-    for (const { reject } of pending.values()) reject(e.error ?? new Error(e.message));
-    pending.clear();
-  };
-
-  return {
-    call(method, params) {
-      return new Promise((resolve, reject) => {
-        const id = nextId++;
-        pending.set(id, { resolve, reject });
-        worker.postMessage({ id, method, params });
-      });
-    },
-    terminate: () => worker.terminate(),
-  };
-}
-
-const client = createWorkerClient(new URL('./worker.js', import.meta.url));
-const result = await client.call('hash', { text: 'hello' });
-```
-
-```js
-// worker.js
-const methods = {
-  hash: async ({ text }) => {
-    const bytes = new TextEncoder().encode(text);
-    const digest = await crypto.subtle.digest('SHA-256', bytes);
-    return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
-  },
-};
-
-self.onmessage = async ({ data: { id, method, params } }) => {
-  try {
-    self.postMessage({ id, result: await methods[method](params) });
-  } catch (err) {
-    self.postMessage({ id, error: err.message });
+  const { action, data } = event.data;
+  if (action === 'PROCESS') {
+    const result = heavyCalculation(data);
+    self.postMessage(result);
   }
 };
+
+// Terminating from within
+self.close();
 ```
 
-Libraries such as **Comlink** automate this by turning a worker into an object with async methods.
+---
 
-## Error handling
+## 5. Practical Examples
 
-```js
-worker.addEventListener('error', (e) => {
-  console.error(`${e.filename}:${e.lineno} ${e.message}`);       // uncaught error inside the worker
-});
-
-worker.addEventListener('messageerror', (e) => {
-  console.error('message could not be deserialized');
-});
-```
-
-Inside the worker, catch errors in async code and send them back; unhandled rejections do not reach the main thread automatically (they fire `unhandledrejection` in the worker's scope).
-
-## Lifecycle
-
-```js
-worker.terminate();      // stops immediately from outside, no cleanup
-```
-
-```js
-// inside the worker
-self.close();            // the worker ends itself
-```
-
-Workers keep running (and holding memory) until terminated, so always clean up, for example when a component unmounts.
-
-## Progress reporting
-
-```js
+### Example 1: Offloading Heavy CSV/JSON Parsing
+```javascript
 // worker.js
-self.onmessage = ({ data: items }) => {
-  const results = [];
-  for (let i = 0; i < items.length; i++) {
-    results.push(process(items[i]));
-    if (i % 1000 === 0) self.postMessage({ type: 'progress', done: i, total: items.length });
-  }
-  self.postMessage({ type: 'done', results });
-};
-```
+self.onmessage = (e) => {
+  const rawCsv = e.data;
+  const lines = rawCsv.split('\n');
+  const headers = lines[0].split(',');
+  const records = [];
 
-```js
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    const values = line.split(',');
+    const record = {};
+    for (let j = 0; j < headers.length; j++) {
+      record[headers[j]] = values[j];
+    }
+    records.push(record);
+  }
+
+  self.postMessage({ count: records.length, records });
+};
+
 // main.js
-worker.onmessage = ({ data }) => {
-  if (data.type === 'progress') bar.value = data.done / data.total;
-  else if (data.type === 'done') show(data.results);
+const worker = new Worker(new URL('./csv-worker.js', import.meta.url), { type: 'module' });
+
+function parseLargeCsvAsync(csvText) {
+  return new Promise((resolve, reject) => {
+    worker.onmessage = (e) => resolve(e.data);
+    worker.onerror = reject;
+    worker.postMessage(csvText);
+  });
+}
+```
+
+### Example 2: Parallel Image Filtering with Transferable `ImageData`
+```javascript
+// main.js
+const canvas = document.getElementById('myCanvas');
+const ctx = canvas.getContext('2d');
+const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+const filterWorker = new Worker(new URL('./filter-worker.js', import.meta.url), { type: 'module' });
+
+// Transfer the underlying ArrayBuffer without copying
+filterWorker.postMessage(
+  { width: imgData.width, height: imgData.height, buffer: imgData.data.buffer },
+  [imgData.data.buffer] // Ownership transferred!
+);
+
+filterWorker.onmessage = (e) => {
+  const { width, height, buffer } = e.data;
+  const processedData = new ImageData(new Uint8ClampedArray(buffer), width, height);
+  ctx.putImageData(processedData, 0, 0);
+};
+
+// filter-worker.js
+self.onmessage = (e) => {
+  const { width, height, buffer } = e.data;
+  const pixels = new Uint8ClampedArray(buffer);
+
+  // Invert grayscale filter
+  for (let i = 0; i < pixels.length; i += 4) {
+    const avg = (pixels[i] + pixels[i + 1] + pixels[i + 2]) / 3;
+    pixels[i] = 255 - avg;     // Red
+    pixels[i + 1] = 255 - avg; // Green
+    pixels[i + 2] = 255 - avg; // Blue
+  }
+
+  // Transfer back to main thread
+  self.postMessage({ width, height, buffer }, [buffer]);
 };
 ```
 
-## Cancellation
-
-Workers process messages one at a time, so a long synchronous task cannot see a "cancel" message until it finishes. Options:
-
-- Check a flag in a `SharedArrayBuffer` periodically
-- Process in chunks and yield between them so `onmessage` can run
-- Call `worker.terminate()` and start a fresh worker
-
-## Shared Workers
-
-One worker instance serves multiple tabs on the same origin through **ports**.
-
-```js
-// in each tab
-const shared = new SharedWorker(new URL('./shared.js', import.meta.url), { type: 'module' });
-shared.port.onmessage = (e) => console.log(e.data);
-shared.port.postMessage('hello');
-```
-
-```js
-// shared.js
-const ports = new Set();
+### Example 3: Multi-Tab Communication with `SharedWorker`
+```javascript
+// shared-worker.js
+const connections = new Set();
+let sharedState = 0;
 
 self.onconnect = (event) => {
   const port = event.ports[0];
-  ports.add(port);
+  connections.add(port);
+
   port.onmessage = (e) => {
-    for (const p of ports) p.postMessage(e.data);       // broadcast to all tabs
+    if (e.data.type === 'INCREMENT') {
+      sharedState++;
+      // Broadcast new state to all connected tabs
+      for (const client of connections) {
+        client.postMessage({ type: 'UPDATE', value: sharedState });
+      }
+    }
   };
+
+  // Send current state upon new tab connection
+  port.postMessage({ type: 'UPDATE', value: sharedState });
 };
-```
 
-Browser support differs (notably on some mobile browsers), so check compatibility. `BroadcastChannel` is a simpler option when you only need to message between tabs.
+// tab.js (in any open browser tab on the same origin)
+const shared = new SharedWorker('/workers/counter-shared.js');
+shared.port.start();
 
-## Service Workers (overview)
+shared.port.onmessage = (e) => {
+  console.log('Shared state across tabs:', e.data.value);
+};
 
-Service workers sit between the page and the network. They are event-driven, can run when no page is open, and require HTTPS (except on `localhost`).
-
-```js
-// register from the page
-if ('serviceWorker' in navigator) {
-  await navigator.serviceWorker.register('/sw.js');
+function incrementAcrossAllTabs() {
+  shared.port.postMessage({ type: 'INCREMENT' });
 }
 ```
 
-```js
-// sw.js
-self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open('v1').then((c) => c.addAll(['/', '/app.js', '/style.css'])));
-});
+### Example 4: Rendering High-FPS Animations via `OffscreenCanvas`
+```javascript
+// main.js
+const canvas = document.querySelector('#renderTarget');
+const offscreen = canvas.transferControlToOffscreen();
 
-self.addEventListener('fetch', (e) => {
-  e.respondWith(caches.match(e.request).then((hit) => hit ?? fetch(e.request)));
-});
-```
+const renderWorker = new Worker(new URL('./canvas-worker.js', import.meta.url), { type: 'module' });
+renderWorker.postMessage({ canvas: offscreen }, [offscreen]);
 
-They are **not** for CPU offloading: they can be shut down at any time and have no persistent state. Use dedicated workers for computation.
+// canvas-worker.js
+self.onmessage = (e) => {
+  const { canvas } = e.data;
+  const ctx = canvas.getContext('2d');
+  let x = 0;
 
-## Worker pools
-
-Creating a worker is costly. For many tasks, keep a fixed number of workers (usually `navigator.hardwareConcurrency - 1`) and queue tasks:
-
-```js
-class WorkerPool {
-  #idle = [];
-  #queue = [];
-
-  constructor(url, size = Math.max(1, (navigator.hardwareConcurrency ?? 4) - 1)) {
-    for (let i = 0; i < size; i++) {
-      this.#idle.push(new Worker(url, { type: 'module' }));
-    }
+  function renderFrame() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#4f46e5';
+    ctx.fillRect(x % canvas.width, 50, 40, 40);
+    x += 2;
+    requestAnimationFrame(renderFrame); // Workers have their own RAF!
   }
 
-  run(message, transfer = []) {
+  renderFrame();
+};
+```
+
+### Example 5: Inline Web Worker via Blob URL (Zero-Build Setup)
+```javascript
+function createInlineWorker(workerFunction) {
+  const code = `(${workerFunction.toString()})();`;
+  const blob = new Blob([code], { type: 'application/javascript' });
+  const url = URL.createObjectURL(blob);
+  const worker = new Worker(url);
+
+  // Revoke object URL after worker starts to free memory
+  URL.revokeObjectURL(url);
+  return worker;
+}
+
+// Usage
+const inlineWorker = createInlineWorker(() => {
+  self.onmessage = (e) => {
+    const sum = e.data.reduce((acc, n) => acc + n, 0);
+    self.postMessage(sum);
+  };
+});
+
+inlineWorker.postMessage([10, 20, 30, 40]);
+inlineWorker.onmessage = (e) => console.log('Sum from inline worker:', e.data);
+```
+
+---
+
+## 6. Edge Cases, Pitfalls & Gotchas
+
+1. **Same-Origin Security Policy**: Loading a worker script from a Cross-Origin CDN (e.g., `https://cdn.example.com/worker.js`) throws a `SecurityError`. Workaround: Fetch the code via CORS, create a `Blob`, and pass `URL.createObjectURL(blob)`.
+2. **Accessing Transferred Buffers**: Attempting to read `imgData.data.buffer` after transferring it throws `TypeError: Cannot perform operation on a detached ArrayBuffer`.
+3. **Worker Memory Leaks**: Dedicated workers do not get garbage collected if references are kept on the main thread or if the worker is executing an infinite loop. Always call `worker.terminate()` or `self.close()` when tasks finish.
+4. **`SharedWorker` Port Starting**: In `SharedWorker`, if you use `port.addEventListener('message', ...)` instead of `port.onmessage = ...`, you **must** explicitly call `port.start()`, otherwise incoming messages are buffered silently and never delivered.
+
+---
+
+## 7. Common Mistakes & Anti-Patterns
+
+| Anti-Pattern | Why It Breaks | Correct Pattern |
+| :--- | :--- | :--- |
+| Passing functions or DOM elements via `postMessage` | Fails with `DOMException: could not be cloned` | Send pure serializable state or action identifiers |
+| Creating a worker per user keystroke | Creates hundreds of OS threads, crashing browser tab | Reuse a singleton worker or debounce inputs |
+| Forgetting `port.start()` with `addEventListener` | Messages are silently buffered and never received | Call `sharedWorker.port.start()` |
+| Polling workers with rapid `postMessage` calls | Floods the worker's message queue, introducing latency | Use batching or `SharedArrayBuffer` with Atomics |
+| Omitting `worker.onerror` | Unhandled exceptions in worker fail silently without logs | Always attach an `onerror` listener |
+| Expecting `localStorage` inside worker scope | `localStorage` is synchronous and prohibited in workers | Use asynchronous `IndexedDB` in worker scopes |
+
+---
+
+## 8. Performance Characteristics
+
+- **Worker Instantiation Cost**: Instantiating a Web Worker typically requires 10–30ms of thread creation time and 2–5MB of heap allocation.
+- **Transferable Objects Performance**: Transferring a 100MB `ArrayBuffer` takes $< 0.1$ms ($O(1)$ pointer transfer), whereas structured cloning requires $\approx 50$ms.
+- **Rendering Throughput with `OffscreenCanvas`**: Decouples GPU draw calls from main-thread layout thrashing, maintaining 60/120 FPS even when the UI thread experiences garbage collection pauses.
+
+---
+
+## 9. Engine Internals
+
+1. **V8 Isolate Separation**: Each Web Worker runs in its own native POSIX/Windows thread with its own independent V8 Isolate. They share no pointer addresses, eliminating thread data corruption without requiring global interpreter locks (GIL).
+2. **Structured Clone Implementation**: Handled by V8's `ValueSerializer` and `ValueDeserializer`. It traverses the object graph, identifies cyclic references via an internal identity hash map, and encodes data into a packed binary stream.
+
+---
+
+## 10. Best Practices & Design Guidelines
+
+- **RPC Pattern Abstraction**: Wrap raw `postMessage` calls in a promise-based RPC abstraction (e.g., matching request/response correlation IDs) to prevent callback spaghetti.
+- **Resource Cleanup**: Always ensure workers call `self.close()` or the main thread calls `worker.terminate()` upon unmounting single-page application (SPA) components.
+- **Modular Workers**: Use `{ type: 'module' }` to allow workers to use standard ES imports (`import { calculate } from './math.js'`).
+
+---
+
+## 11. Real-World Case Study
+
+### Promise-Based Worker RPC Client
+```javascript
+class WorkerRPC {
+  constructor(workerUrl) {
+    this.worker = new Worker(workerUrl, { type: 'module' });
+    this.pending = new Map();
+
+    this.worker.onmessage = (event) => {
+      const { id, result, error } = event.data;
+      const deferred = this.pending.get(id);
+      if (deferred) {
+        this.pending.delete(id);
+        if (error) deferred.reject(new Error(error));
+        else deferred.resolve(result);
+      }
+    };
+
+    this.worker.onerror = (err) => {
+      console.error('Fatal Worker Error:', err);
+    };
+  }
+
+  invoke(method, params = [], transferList = []) {
     return new Promise((resolve, reject) => {
-      this.#queue.push({ message, transfer, resolve, reject });
-      this.#next();
+      const id = crypto.randomUUID();
+      this.pending.set(id, { resolve, reject });
+      this.worker.postMessage({ id, method, params }, transferList);
     });
   }
 
-  #next() {
-    if (!this.#idle.length || !this.#queue.length) return;
-    const worker = this.#idle.pop();
-    const { message, transfer, resolve, reject } = this.#queue.shift();
+  destroy() {
+    this.worker.terminate();
+    this.pending.forEach(d => d.reject(new Error('Worker terminated')));
+    this.pending.clear();
+  }
+}
 
-    const done = () => {
-      worker.onmessage = worker.onerror = null;
-      this.#idle.push(worker);
-      this.#next();
+// Client usage
+const rpc = new WorkerRPC(new URL('./rpc-worker.js', import.meta.url));
+const result = await rpc.invoke('computeHash', ['hello world']);
+```
+
+---
+
+## 12. Interview Questions
+
+<details>
+<summary>1. What browser APIs are inaccessible inside a Web Worker and why?</summary>
+The DOM (<code>window</code>, <code>document</code>, elements) and UI storage mechanisms (<code>localStorage</code>) are inaccessible. This restriction prevents race conditions and eliminates the need for complex DOM concurrency locking mechanisms across multiple threads.
+</details>
+
+<details>
+<summary>2. What is the difference between structured cloning and transferring an object?</summary>
+Structured cloning creates an identical deep copy of an object in the destination thread's heap, consuming double the memory and serialization time. Transferring transfers memory ownership directly by detaching the memory pointer from the sender and attaching it to the receiver in $O(1)$ time with zero memory duplication.
+</details>
+
+<details>
+<summary>3. How does a SharedWorker differ from a Dedicated Worker?</summary>
+A Dedicated Worker is private to the single tab or script that created it. A <code>SharedWorker</code> can be accessed and shared simultaneously by multiple browser tabs, windows, or iframes running on the exact same origin, communicating via <code>MessagePort</code> objects.
+</details>
+
+<details>
+<summary>4. What is OffscreenCanvas and why is it important?</summary>
+<code>OffscreenCanvas</code> is a canvas interface that can be transferred to and controlled from inside a Web Worker. It enables complex graphics, WebGL rendering, and physics animations to run on a background thread without blocking the browser's UI thread.
+</details>
+
+<details>
+<summary>5. Can Web Workers communicate with each other directly?</summary>
+Yes, by creating a <code>MessageChannel</code> on the main thread and transferring <code>port1</code> to Worker A and <code>port2</code> to Worker B, the two workers can communicate directly via <code>postMessage</code> without routing through the main thread.
+</details>
+
+<details>
+<summary>6. How do you handle unhandled errors occurring inside a Web Worker?</summary>
+By attaching an <code>onerror</code> event listener to the worker instance on the main thread (inspecting <code>event.message</code>, <code>event.filename</code>, and <code>event.lineno</code>), or by wrapping worker task execution in a global <code>self.onerror</code> or <code>try/catch</code> block inside the worker.
+</details>
+
+<details>
+<summary>7. What is the Cross-Origin Worker restriction and how can it be bypassed?</summary>
+Browsers enforce that worker scripts must be hosted on the same origin as the parent page. To load a script from a CDN or different origin, you can fetch the script as text via CORS, create a Blob (<code>new Blob([code], { type: 'text/javascript' })</code>), and pass <code>URL.createObjectURL(blob)</code> to the Worker constructor.
+</details>
+
+<details>
+<summary>8. Does self.close() immediately abort synchronous execution in a worker?</summary>
+No. <code>self.close()</code> stops the worker from processing further events in its event queue, but synchronous JavaScript code currently executing in the active stack frame continues to run to completion.
+</details>
+
+---
+
+## 13. Exercises & Challenges
+
+### Exercise 1: Resilient Worker Watchdog (Heartbeat Monitor)
+Implement a client-side watchdog class that pings a Web Worker every 2 seconds. If the worker fails to reply within 4 seconds (e.g., due to an infinite loop or locked thread), automatically terminate the stuck worker and spawn a replacement.
+
+<details>
+<summary>View Solution</summary>
+
+```javascript
+class ResilientWorker {
+  constructor(workerUrl) {
+    this.workerUrl = workerUrl;
+    this.spawn();
+  }
+
+  spawn() {
+    this.worker = new Worker(this.workerUrl, { type: 'module' });
+    this.lastSeen = Date.now();
+
+    this.worker.onmessage = (e) => {
+      if (e.data?.type === 'PONG') {
+        this.lastSeen = Date.now();
+      }
     };
-    worker.onmessage = (e) => { done(); resolve(e.data); };
-    worker.onerror = (e) => { done(); reject(e.error ?? new Error(e.message)); };
-    worker.postMessage(message, transfer);
+
+    this.monitor = setInterval(() => {
+      if (Date.now() - this.lastSeen > 4000) {
+        console.warn('Worker unresponsive! Terminating and respawning...');
+        this.worker.terminate();
+        clearInterval(this.monitor);
+        this.spawn();
+        return;
+      }
+      this.worker.postMessage({ type: 'PING' });
+    }, 2000);
   }
 
   terminate() {
-    for (const w of this.#idle) w.terminate();
+    clearInterval(this.monitor);
+    this.worker.terminate();
   }
 }
 ```
+</details>
 
-## OffscreenCanvas
+### Exercise 2: Direct Peer-to-Peer Worker Channel
+Create two dedicated Web Workers (Worker A and Worker B) and establish a direct communication channel between them using `MessageChannel`, ensuring no message routing passes through the main thread.
 
-Render graphics in a worker so the UI thread stays free:
+<details>
+<summary>View Solution</summary>
 
-```js
-const canvas = document.querySelector('canvas');
-const offscreen = canvas.transferControlToOffscreen();
-worker.postMessage({ canvas: offscreen }, [offscreen]);
-```
+```javascript
+// main.js
+const workerA = new Worker('./workerA.js', { type: 'module' });
+const workerB = new Worker('./workerB.js', { type: 'module' });
 
-```js
-// worker.js
-self.onmessage = ({ data: { canvas } }) => {
-  const ctx = canvas.getContext('2d');
-  (function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    // ... draw ...
-    requestAnimationFrame(draw);
-  })();
+const channel = new MessageChannel();
+
+// Transfer port1 to Worker A, port2 to Worker B
+workerA.postMessage({ type: 'INIT_PORT', port: channel.port1 }, [channel.port1]);
+workerB.postMessage({ type: 'INIT_PORT', port: channel.port2 }, [channel.port2]);
+
+// workerA.js
+self.onmessage = (e) => {
+  if (e.data.type === 'INIT_PORT') {
+    const peerPort = e.data.port;
+    peerPort.onmessage = (msg) => {
+      console.log('Worker A received directly from Worker B:', msg.data);
+    };
+    peerPort.postMessage('Hello directly from Worker A!');
+  }
+};
+
+// workerB.js
+self.onmessage = (e) => {
+  if (e.data.type === 'INIT_PORT') {
+    const peerPort = e.data.port;
+    peerPort.onmessage = (msg) => {
+      console.log('Worker B received directly from Worker A:', msg.data);
+      peerPort.postMessage('Acknowledgment from Worker B');
+    };
+  }
 };
 ```
-
-## Cross-origin isolation
-
-`SharedArrayBuffer` (and some high-precision timers) require the page to be **cross-origin isolated**, enabled by two response headers:
-
-```
-Cross-Origin-Opener-Policy: same-origin
-Cross-Origin-Embedder-Policy: require-corp
-```
-
-Check with `self.crossOriginIsolated`. Isolation restricts embedding third-party resources unless they opt in.
-
-## When to use a worker
-
-| Good fit | Poor fit |
-|----------|----------|
-| Parsing or generating large files | Quick operations (a few milliseconds) |
-| Image or video processing | Anything that must touch the DOM |
-| Encryption and hashing of large data | Tasks dominated by network waiting |
-| Search indexing, diffing, compression | Small data with expensive transfer back and forth |
-| Running WebAssembly modules | |
-
-## Pitfalls
-
-| Pitfall | Why it hurts | Better |
-|---------|--------------|--------|
-| Trying to touch the DOM in a worker | `document is not defined` | Send results to the main thread |
-| Posting functions or class instances | `DataCloneError` or lost methods | Send plain data |
-| Cloning huge buffers every message | Slow, doubles memory | Transfer or share |
-| Using a buffer after transferring it | It is detached (length 0) | Treat as moved |
-| Creating a worker per task | Startup overhead | Worker pool |
-| Never terminating workers | Memory and CPU leaks | `terminate()` on cleanup |
-| No `error` handler | Failures vanish silently | Handle `error` and `messageerror` |
-| Relying on cancel messages during sync loops | They are not processed until the loop ends | Chunk, or use shared flag |
-| Using `SharedArrayBuffer` without isolation headers | `ReferenceError` or unavailable | Set COOP and COEP |
-| Using service workers for computation | Can be killed any time | Dedicated workers |
-
-## Key takeaways
-
-- Dedicated workers run code on another thread with their own global scope and no DOM
-- Communication is by `postMessage`; data is cloned unless transferred or shared
-- Use transferables (`ArrayBuffer`, `OffscreenCanvas`, ...) to avoid copying large data
-- Wrap messaging in promises with request ids, or use a library like Comlink
-- Pool workers instead of creating one per task, and terminate them when done
-- Service workers and shared workers solve different problems (network proxy, cross-tab sharing)
-
-**Next:** [Worker Threads](./03_worker-threads.md)
+</details>

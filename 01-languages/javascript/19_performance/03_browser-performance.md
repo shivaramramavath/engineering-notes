@@ -1,432 +1,461 @@
-# Browser Performance
+# Browser Performance and Core Web Vitals
 
-In the browser, performance comes down to three questions: how fast does the page **load**, how quickly does it **respond** to input, and how **smoothly** does it render and animate? This file covers Core Web Vitals, the loading path, the rendering pipeline, and the JavaScript habits that keep the main thread free.
+> The Critical Rendering Path, Layout Thrashing, GPU compositor layers, Core Web Vitals (LCP, INP, CLS), and Long Animation Frames.
 
-Related: [DOM](../14_dom-and-browser/01_dom.md), [Observers](../14_dom-and-browser/07_observers.md), [Web Workers](../17_concurrency-and-parallelism/02_web-workers.md), [Bundlers and Tree Shaking](../13_modules/04_bundlers-and-tree-shaking.md).
+| Metadata | Details |
+| :--- | :--- |
+| **Level** | Advanced |
+| **Prerequisites** | [DOM and Browser APIs](file:///e:/Learning/engineering-notes/01-languages/javascript/14_dom-and-browser/01_dom.md), [Performance Fundamentals](file:///e:/Learning/engineering-notes/01-languages/javascript/19_performance/01_performance-fundamentals.md) |
+| **Time to read** | 25 minutes |
+| **Status** | Complete |
+| **Standard / Runtime** | W3C Web Performance APIs, Core Web Vitals 2024+, Evergreen Browsers |
 
-## Core Web Vitals
+---
 
-Google's user-centric metrics. Thresholds apply to the **75th percentile** of real page loads, measured separately for mobile and desktop.
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & API Reference](#4-syntax--api-reference)
+5. [Practical Examples](#5-practical-examples)
+6. [Edge Cases, Pitfalls & Gotchas](#6-edge-cases-pitfalls--gotchas)
+7. [Common Mistakes & Anti-Patterns](#7-common-mistakes--anti-patterns)
+8. [Performance Characteristics](#8-performance-characteristics)
+9. [Engine Internals](#9-engine-internals)
+10. [Best Practices & Design Guidelines](#10-best-practices--design-guidelines)
+11. [Real-World Case Study](#11-real-world-case-study)
+12. [Interview Questions](#12-interview-questions)
+13. [Exercises & Challenges](#13-exercises--challenges)
 
-| Metric | Measures | Good | Needs improvement | Poor |
-|--------|----------|------|-------------------|------|
-| **LCP** (Largest Contentful Paint) | Loading: when the main content appears | ≤ 2.5 s | ≤ 4 s | > 4 s |
-| **INP** (Interaction to Next Paint) | Responsiveness: delay from input to the next paint, across the page's life | ≤ 200 ms | ≤ 500 ms | > 500 ms |
-| **CLS** (Cumulative Layout Shift) | Visual stability: unexpected layout movement | ≤ 0.1 | ≤ 0.25 | > 0.25 |
+---
 
-Other useful metrics:
+## 1. What & Why
 
-| Metric | Meaning |
-|--------|---------|
-| **TTFB** (Time to First Byte) | Server and network start-up time |
-| **FCP** (First Contentful Paint) | First text or image appears |
-| **TBT** (Total Blocking Time, lab) | Sum of long-task time between FCP and interactivity: a lab proxy for responsiveness |
-| **Long tasks** | Main-thread tasks over 50 ms |
+In client-side web applications, performance is experienced visually. Users do not perceive whether JavaScript executed in 2 microseconds or 10 microseconds; they perceive dropped frames, sluggish scrolling, layout jitter, and delays when clicking buttons.
 
-Thresholds and metrics evolve (INP replaced First Input Delay in 2024), so check https://web.dev/vitals for current definitions.
+Modern browsers strive to maintain a smooth 60 FPS (16.6ms per frame) or 120 FPS (8.3ms per frame) rendering budget. The main browser thread coordinates both JavaScript execution and visual pipeline tasks (style calculation, layout, and painting). Poorly written DOM mutations trigger **Layout Thrashing** (Forced Synchronous Layout), starving the compositor and violating Google's **Core Web Vitals**—the standardized metrics that govern user experience and search engine ranking.
 
-### Measuring in the field
+---
 
-```js
-import { onLCP, onINP, onCLS } from 'web-vitals';
+## 2. Core Concepts
 
-function send(metric) {
-  navigator.sendBeacon('/analytics', JSON.stringify({
-    name: metric.name, value: metric.value, id: metric.id, rating: metric.rating,
-  }));
-}
+### The Critical Rendering Path
+The sequence of steps a browser takes to convert HTML, CSS, and JavaScript into physical screen pixels:
+1. **DOM Construction**: HTML bytes $\to$ tokens $\to$ nodes $\to$ DOM Tree.
+2. **CSSOM Construction**: CSS rules $\to$ style sheet model.
+3. **Render Tree**: Combines visible DOM nodes with matched CSSOM rules (elements with `display: none` are excluded).
+4. **Layout (Reflow)**: Computes exact geometric coordinates and sizes for every render box.
+5. **Paint**: Fills pixels with colors, borders, shadows, and text onto bitmap surfaces.
+6. **Composite**: Uploads painted layer bitmaps to the GPU, which arranges them into the final screen buffer.
 
-onLCP(send);
-onINP(send);
-onCLS(send);
+### Layout Thrashing (Forced Synchronous Layout)
+Normally, browsers batch style mutations and calculate layout once per animation frame right before painting. However, if JavaScript **writes** a style property and then immediately **reads** a geometric layout property (such as `offsetWidth` or `scrollTop`) in the same turn, the browser is forced to flush pending styles and execute an immediate synchronous layout calculation. Doing this in a loop causes catastrophic frame drops.
+
+### Core Web Vitals (2024 Standard)
+- **LCP (Largest Contentful Paint)**: Measures perceived loading speed. Marks when the largest visual element (hero image, heading) is rendered. Target: $\le 2.5\text{s}$.
+- **INP (Interaction to Next Paint)**: Measures page responsiveness to user input (clicks, taps, keypresses), replacing the legacy First Input Delay (FID). Target: $\le 200\text{ms}$.
+- **CLS (Cumulative Layout Shift)**: Measures visual stability. Quantifies unexpected layout shifts of elements during viewing. Target: $\le 0.1$.
+
+---
+
+## 3. How It Works Internally
+
+```
++--------------------------------------------------------------------------+
+| MAIN BROWSER THREAD PIPELINE                                             |
+|                                                                          |
+|  [ JavaScript Task ] ---> [ Style Recalc ] ---> [ Layout ] ---> [ Paint ]|
+|          |                                                          |    |
+|          | Forced Synchronous Layout (Thrashing)                    |    |
+|          +--- read offsetHeight <--- force instant reflow ----------+    |
++--------------------------------------------------------------------------+
+                                    |
+                                    | Layer Bitmaps Uploaded
+                                    v
++--------------------------------------------------------------------------+
+| COMPOSITOR THREAD (Runs on GPU independent of Main Thread)               |
+|                                                                          |
+|  - Manages Composited Layers                                             |
+|  - Fast operations: transform, opacity, filter                           |
+|  - Smooth 60/120 FPS scrolling and GPU hardware transforms               |
++--------------------------------------------------------------------------+
 ```
 
-Or use the browser APIs directly:
+---
 
-```js
-new PerformanceObserver((list) => {
-  for (const entry of list.getEntries()) console.log('LCP candidate:', entry.startTime, entry.element);
-}).observe({ type: 'largest-contentful-paint', buffered: true });
+## 4. Syntax & API Reference
 
-new PerformanceObserver((list) => {
-  for (const entry of list.getEntries()) console.warn('Long task:', entry.duration, 'ms');
-}).observe({ type: 'longtask', buffered: true });
+### Observing Core Web Vitals via `PerformanceObserver`
+```javascript
+// 1. Observe Largest Contentful Paint (LCP)
+const lcpObserver = new PerformanceObserver((entryList) => {
+  const entries = entryList.getEntries();
+  const lastEntry = entries[entries.length - 1];
+  console.log(`LCP: ${lastEntry.startTime.toFixed(2)}ms`, lastEntry.element);
+});
+lcpObserver.observe({ type: 'largest-contentful-paint', buffered: true });
+
+// 2. Observe Cumulative Layout Shift (CLS)
+let clsScore = 0;
+const clsObserver = new PerformanceObserver((entryList) => {
+  for (const entry of entryList.getEntries()) {
+    if (!entry.hadRecentInput) {
+      clsScore += entry.value;
+      console.log(`Current CLS: ${clsScore.toFixed(3)}`);
+    }
+  }
+});
+clsObserver.observe({ type: 'layout-shift', buffered: true });
 ```
 
-## Loading performance
+### FastDOM Batching Pattern
+```javascript
+// Batching reads and writes to avoid Layout Thrashing
+requestAnimationFrame(() => {
+  // 1. Read Phase
+  const width = element.offsetWidth;
 
-### The critical path
-
-```
-DNS → TCP → TLS → request → TTFB → HTML parse → (CSS, blocking JS) → render → LCP element loads → paint
-```
-
-Everything that blocks rendering delays the user. Shorten the path and shrink what is on it.
-
-### Network
-
-| Technique | Effect |
-|-----------|--------|
-| **HTTP/2 or HTTP/3** | Multiplexing, header compression, faster connection setup |
-| **CDN** | Serve static assets near users |
-| **Compression** (Brotli, gzip) | 60 to 80% smaller text assets |
-| **Caching headers** | `Cache-Control: public, max-age=31536000, immutable` for fingerprinted assets (`app.3f9a1c.js`) |
-| **`ETag` / `Last-Modified`** | Cheap revalidation for HTML and API responses |
-| **Fewer requests and fewer origins** | Less connection overhead |
-| **Preconnect** to needed origins | `<link rel="preconnect" href="https://cdn.example.com" crossorigin>` |
-| **Modern image/font formats** | AVIF/WebP, WOFF2 |
-
-### Resource hints
-
-```html
-<link rel="preload" href="/hero.avif" as="image" fetchpriority="high">
-<link rel="preload" href="/fonts/inter.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preconnect" href="https://api.example.com">
-<link rel="dns-prefetch" href="https://analytics.example.com">
-<link rel="prefetch" href="/next-page.js">           <!-- low priority, for likely next navigation -->
-<link rel="modulepreload" href="/app.js">
-```
-
-Preload only what the **current** page needs immediately; overusing preload delays other resources.
-
-### Scripts: do not block the parser
-
-```html
-<script src="analytics.js" async></script>      <!-- download in parallel; run as soon as ready, any order -->
-<script src="app.js" defer></script>            <!-- download in parallel; run after parsing, in order -->
-<script type="module" src="main.js"></script>   <!-- deferred by default -->
-```
-
-A plain `<script src>` in the `<head>` blocks HTML parsing. Prefer `defer` or modules.
-
-### Reduce JavaScript
-
-JavaScript is the most expensive byte on the web: it must be downloaded, parsed, compiled, and executed.
-
-| Tactic | How |
-|--------|-----|
-| **Code splitting** | `import()` per route or feature so users download only what they need |
-| **Tree shaking** | ES modules plus a bundler remove unused exports (see [Bundlers and Tree Shaking](../13_modules/04_bundlers-and-tree-shaking.md)) |
-| **Minify and compress** | Terser/esbuild plus Brotli |
-| **Audit dependencies** | Replace heavy libraries (for example Moment.js) with lighter ones; use bundle analyzers (`source-map-explorer`, `rollup-plugin-visualizer`, `webpack-bundle-analyzer`) |
-| **Lazy-load below-the-fold or rarely used code** | Load on interaction, visibility, or idle |
-| **Defer third-party scripts** | Tag managers, chat widgets, and ads often dominate main-thread time |
-| **Target modern browsers** | Ship less transpiled and polyfilled code |
-
-```js
-// Load a heavy module only when needed
-button.addEventListener('click', async () => {
-  const { openEditor } = await import('./editor.js');
-  openEditor();
+  // 2. Write Phase
+  requestAnimationFrame(() => {
+    element.style.width = `${width + 10}px`;
+  });
 });
 ```
 
-### Images, video, fonts
+---
 
-```html
-<img
-  src="photo-800.avif"
-  srcset="photo-400.avif 400w, photo-800.avif 800w, photo-1600.avif 1600w"
-  sizes="(max-width: 600px) 100vw, 800px"
-  width="800" height="600"
-  loading="lazy" decoding="async"
-  alt="Description">
+## 5. Practical Examples
 
-<!-- The LCP image: do NOT lazy-load; raise its priority -->
-<img src="hero.avif" width="1200" height="600" fetchpriority="high" alt="Hero">
-```
+### Example 1: Demonstrating and Fixing Layout Thrashing
+```javascript
+const boxes = document.querySelectorAll('.box');
 
-| Tip | Why |
-|-----|-----|
-| Always set `width` and `height` (or `aspect-ratio`) | Reserves space; prevents layout shift |
-| `loading="lazy"` for offscreen images and iframes | Saves bandwidth and speeds up the initial load |
-| Responsive `srcset` and `sizes` | Do not send desktop images to phones |
-| Use AVIF/WebP and compress | Often 30 to 70% smaller than JPEG/PNG |
-| Fonts: `font-display: swap`, subset, preload critical files | Avoids invisible text and layout shift |
-| Prefer video over animated GIF | Much smaller |
-
-### CSS
-
-- Inline **critical CSS** for the first screen; load the rest asynchronously
-- Remove unused CSS (coverage panel, PurgeCSS)
-- Avoid very deep or complex selectors in huge stylesheets only when profiles show style recalculation cost
-
-### Rendering strategy
-
-| Approach | Strength | Weakness |
-|----------|----------|----------|
-| **Client-side rendering (CSR)** | Simple hosting, rich interactivity | Blank until JS runs; slower LCP |
-| **Server-side rendering (SSR)** | Fast first paint, SEO | Server cost; hydration cost |
-| **Static generation (SSG)** | Fastest, cacheable | Rebuilds for changes |
-| **Streaming SSR / partial hydration / islands** | Early content; less JS to hydrate | More architecture |
-
-Pick based on the page type; content pages benefit most from server-rendered HTML.
-
-### Caching with a service worker
-
-A service worker can serve repeat visits from cache and make the app load offline. Use stale-while-revalidate for assets and API data where staleness is acceptable (see [Web Workers](../17_concurrency-and-parallelism/02_web-workers.md)).
-
-## The rendering pipeline
-
-To show a frame the browser runs these steps, ideally within **16.7 ms** (60 fps; less on 120 Hz screens):
-
-```
-JavaScript → Style → Layout → Paint → Composite
-              │         │        │         │
-              │         │        │         └─ GPU combines layers (cheap)
-              │         │        └─ draw pixels into layers
-              │         └─ compute size and position of every box (expensive)
-              └─ which CSS rules apply to which elements
-```
-
-| Changing | Triggers |
-|----------|----------|
-| `width`, `height`, `margin`, `top`, `left`, `font-size`, adding or removing nodes | **Layout**, paint, composite |
-| `color`, `background`, `box-shadow`, `visibility` | Paint, composite |
-| `transform`, `opacity` | Composite only (cheapest; can run on the GPU/compositor thread) |
-
-Animate **`transform` and `opacity`**, not `top/left/width/height`:
-
-```css
-/* Cheap: composited */
-.card { transition: transform 200ms, opacity 200ms; }
-.card:hover { transform: translateY(-4px); }
-
-/* Expensive: triggers layout each frame */
-.card:hover { top: -4px; }
-```
-
-`will-change: transform` hints that an element will animate, but each promoted layer uses GPU memory; use it sparingly and remove it when done.
-
-### Layout thrashing
-
-Reading layout values (`offsetHeight`, `getBoundingClientRect()`, `scrollTop`, `getComputedStyle`) after writing styles forces the browser to recalculate layout **synchronously** ("forced reflow"). Alternating read and write in a loop makes it happen on every iteration.
-
-```js
-// Thrashing: write, read, write, read...
-for (const el of items) {
-  el.style.width = el.parentNode.offsetWidth / 2 + 'px';   // read forces layout after the previous write
-}
-
-// Batch: all reads, then all writes
-const widths = items.map((el) => el.parentNode.offsetWidth);   // reads
-items.forEach((el, i) => { el.style.width = widths[i] / 2 + 'px'; });   // writes
-```
-
-### Schedule visual work with `requestAnimationFrame`
-
-```js
-function animate(time) {
-  update(time);
-  draw();
-  requestAnimationFrame(animate);       // aligned with the browser's paint
-}
-requestAnimationFrame(animate);
-
-// Batch DOM writes for the next frame
-let scheduled = false;
-function scheduleUpdate() {
-  if (scheduled) return;
-  scheduled = true;
-  requestAnimationFrame(() => { scheduled = false; applyUpdates(); });
-}
-```
-
-Do not use `setInterval` for animation.
-
-### DOM efficiency
-
-```js
-// Slow: many separate DOM updates, each possibly triggering layout
-for (const text of items) {
-  const li = document.createElement('li');
-  li.textContent = text;
-  list.appendChild(li);
-}
-
-// Better: build off-DOM and attach once
-const frag = document.createDocumentFragment();
-for (const text of items) {
-  const li = document.createElement('li');
-  li.textContent = text;
-  frag.appendChild(li);
-}
-list.appendChild(frag);
-
-// Or replace children in one call
-list.replaceChildren(...items.map((t) => Object.assign(document.createElement('li'), { textContent: t })));
-```
-
-| Tip | Why |
-|-----|-----|
-| Keep the DOM small (aim for under a few thousand nodes) | Layout and style cost scale with node count |
-| **Virtualize** long lists (render only visible rows) | Constant DOM size for huge lists |
-| Use **event delegation** (see [Event Delegation](../14_dom-and-browser/05_event-delegation.md)) | Fewer listeners |
-| Use `textContent` over `innerHTML` for plain text | Faster and safer |
-| Use CSS `content-visibility: auto` for offscreen sections | Skips rendering work until near the viewport |
-| Use `contain: layout paint` on independent widgets | Limits the scope of layout recalculation |
-| Avoid `display: none` toggling of large subtrees in loops | Triggers layout; batch it |
-
-### Layout shift (CLS) fixes
-
-- Reserve space for images, ads, embeds, and iframes (`width`/`height`, `aspect-ratio`, `min-height`)
-- Do not insert content above existing content unless triggered by user input
-- Use `font-display: optional` or `swap` with size-adjusted fallback fonts
-- Animate with `transform` instead of properties that move other content
-
-## Responsiveness: keep the main thread free
-
-Input handlers run on the main thread. Anything long delays the next paint, hurting **INP**.
-
-### Break up long tasks
-
-```js
-// One long task blocks input for hundreds of ms
-function processAll(items) {
-  for (const item of items) heavy(item);
-}
-
-// Yield periodically so the browser can handle input and paint
-async function processChunked(items, chunk = 50) {
-  for (let i = 0; i < items.length; i++) {
-    heavy(items[i]);
-    if (i % chunk === 0) await yieldToMain();
+// BAD: Layout Thrashing (Forced Synchronous Layout inside loop)
+// Causes N style recalculations and N layout reflows!
+function badResize() {
+  for (let i = 0; i < boxes.length; i++) {
+    // READ triggers immediate reflow because previous iteration modified style!
+    const currentWidth = boxes[i].offsetWidth;
+    // WRITE invalidates layout
+    boxes[i].style.width = `${currentWidth + 10}px`;
   }
 }
 
-function yieldToMain() {
-  if (globalThis.scheduler?.yield) return scheduler.yield();   // prioritized continuation (where supported)
-  return new Promise((r) => setTimeout(r, 0));
+// GOOD: Batched Reads followed by Batched Writes
+// Exactly ONE style recalculation and ONE layout pass!
+function goodResize() {
+  // Phase 1: Batch all reads
+  const widths = new Array(boxes.length);
+  for (let i = 0; i < boxes.length; i++) {
+    widths[i] = boxes[i].offsetWidth;
+  }
+
+  // Phase 2: Batch all writes
+  for (let i = 0; i < boxes.length; i++) {
+    boxes[i].style.width = `${widths[i] + 10}px`;
+  }
 }
 ```
 
-Other scheduling tools: `requestIdleCallback` for low-priority work, `scheduler.postTask()` with priorities, and `isInputPending()` in some browsers.
-
-### Move heavy work off the main thread
-
-Use a **Web Worker** for parsing, compression, search indexing, image processing, and large computations ([Web Workers](../17_concurrency-and-parallelism/02_web-workers.md)). Use `OffscreenCanvas` for canvas rendering in a worker.
-
-### Handlers
-
-```js
-// Debounce: wait until the user stops (search boxes, resize end)
-function debounce(fn, ms) {
-  let t;
-  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
-}
-
-// Throttle: at most once per interval (scroll, mousemove)
-function throttle(fn, ms) {
-  let last = 0;
-  return (...args) => {
-    const now = performance.now();
-    if (now - last >= ms) { last = now; fn(...args); }
-  };
-}
-
-input.addEventListener('input', debounce(search, 250));
-```
-
-See [Debounce](../23_real-world-patterns/01_debounce.md) and [Throttle](../23_real-world-patterns/02_throttle.md).
-
-Mark scroll and touch listeners **passive** when they do not call `preventDefault()`:
-
-```js
-window.addEventListener('scroll', onScroll, { passive: true });
-```
-
-Prefer **IntersectionObserver** over scroll listeners for visibility checks (lazy loading, infinite scroll, analytics) and **ResizeObserver** over polling sizes ([Observers](../14_dom-and-browser/07_observers.md)).
-
-### Give immediate feedback
-
-Show a pressed state, spinner, or optimistic update right away, then do the heavy work after the next paint:
-
-```js
-button.addEventListener('click', () => {
-  button.classList.add('loading');                  // visible immediately
-  requestAnimationFrame(() => setTimeout(doHeavyWork, 0));
+### Example 2: Tracking Long Animation Frames (LoAF API)
+```javascript
+// Long Animation Frames API (Baseline 2024): Pinpoints scripts causing dropped frames
+const loafObserver = new PerformanceObserver((list) => {
+  for (const entry of list.getEntries()) {
+    if (entry.duration > 50) { // Frame blocked for > 50ms
+      console.warn(`[LoAF DETECTED] Frame duration: ${entry.duration.toFixed(2)}ms`);
+      for (const script of entry.scripts) {
+        console.log(`  Source: ${script.sourceURL}:${script.sourceCharPosition}`);
+        console.log(`  Execution duration: ${script.duration.toFixed(2)}ms`);
+      }
+    }
+  }
 });
+
+loafObserver.observe({ type: 'long-animation-frame', buffered: true });
 ```
 
-## Framework-level habits (React, Vue, and others)
+### Example 3: Eliminating Cumulative Layout Shift (CLS) for Dynamic Media
+```html
+<!-- BAD: Missing dimensions causes massive layout jump when image loads -->
+<img src="hero.jpg" alt="Hero banner" />
 
-| Habit | Why |
-|-------|-----|
-| Avoid unnecessary re-renders (memoization, stable props, state close to where it is used) | Less work per update |
-| Virtualize long lists (react-window, TanStack Virtual) | Constant rendering cost |
-| Code-split routes (`React.lazy`, dynamic imports) | Smaller initial bundle |
-| Keep expensive computation out of render (memo, workers) | Smooth interactions |
-| Use keys properly in lists | Correct, minimal DOM updates |
-| Measure with framework devtools profilers before adding memoization everywhere | Memoization has its own cost |
-
-## Memory in the browser
-
-Leaks and large heaps slow pages and crash tabs, especially on phones. Clean up listeners, observers, and timers; revoke object URLs; release large buffers. See [Memory Leaks](../18_memory-and-garbage-collection/03_memory-leaks.md).
-
-## Storage and network calls
-
-- Cache API responses (HTTP caching, service worker, in-memory with TTL)
-- Batch requests, avoid waterfalls (do independent requests in parallel with `Promise.all`)
-- Use `fetch` with `keepalive` or `navigator.sendBeacon` for analytics on unload
-- Prefer `IndexedDB` (async) over `localStorage` (synchronous, blocks the main thread) for large or frequent writes
-- Compress and paginate API payloads; request only needed fields
-- Use `AbortController` to cancel stale requests (type-ahead search)
-
-```js
-// Avoid request waterfalls
-const user = await getUser();
-const posts = await getPosts();          // waits for user first, though independent
-
-const [user2, posts2] = await Promise.all([getUser(), getPosts()]);
+<!-- GOOD: Explicit aspect-ratio or width/height attributes reserve space upfront -->
+<style>
+  .hero-img {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+  }
+</style>
+<img class="hero-img" src="hero.jpg" width="1600" height="900" alt="Hero banner" />
 ```
 
-## Testing on realistic conditions
+### Example 4: GPU Composited Animations with `transform`
+```javascript
+const box = document.getElementById('animatedBox');
 
-- Throttle **CPU** (4x to 6x) and **network** (Fast/Slow 4G) in DevTools
-- Test on real mid-range Android devices, not just a fast laptop
-- Run **Lighthouse** and **WebPageTest** for lab audits; track **CrUX**/RUM for field data
-- Check with a cold cache and a warm cache
-- Add performance budgets in CI (bundle size, Lighthouse CI)
+// POOR: Animating `left` or `top` triggers Layout and Paint on every frame!
+function animateSlow() {
+  let pos = 0;
+  function step() {
+    box.style.left = `${pos++}px`; // Triggers layout!
+    requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
 
-## Quick wins checklist
+// EXCELLENT: Animating `transform` runs entirely on the GPU Compositor thread!
+function animateFast() {
+  let pos = 0;
+  function step() {
+    box.style.transform = `translate3d(${pos++}px, 0, 0)`; // Zero layout, zero paint!
+    requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+```
 
-| Area | Check |
-|------|-------|
-| Server | Fast TTFB, HTTP/2+, CDN, Brotli |
-| HTML | Server-rendered or static for content pages; no render-blocking scripts |
-| JS | Code split, tree shaken, `defer`/modules, third-party scripts audited |
-| CSS | Critical CSS inline; unused CSS removed |
-| Images | AVIF/WebP, `srcset`, `width`/`height`, lazy loading except the LCP image |
-| Fonts | WOFF2, subset, `font-display`, preload critical fonts |
-| Caching | Long-lived immutable caching for fingerprinted assets |
-| Rendering | Animate `transform`/`opacity`; batch DOM reads and writes |
-| Responsiveness | No tasks over 50 ms; heavy work in workers; passive listeners |
-| Stability | Reserved space for media, ads, and embeds |
+### Example 5: Yielding to Maintain Low INP (Interaction to Next Paint)
+```javascript
+// Breaking a heavy user-click task to keep INP < 200ms
+async function handleClick(event) {
+  // Step 1: Provide immediate visual feedback (e.g. show loading spinner)
+  button.classList.add('loading');
 
-## Pitfalls
+  // Step 2: Yield control to the browser so the UI update can paint to the screen
+  if (globalThis.scheduler?.yield) {
+    await scheduler.yield();
+  } else {
+    await new Promise(resolve => setTimeout(resolve, 0));
+  }
 
-| Pitfall | Why it hurts | Better |
-|---------|--------------|--------|
-| Lazy-loading the LCP image | Delays the main content | `fetchpriority="high"`, no lazy |
-| Images without dimensions | Layout shift | `width`/`height` or `aspect-ratio` |
-| Large JS bundles | Slow parse and execute on phones | Split, shake, audit |
-| Render-blocking third-party scripts | Delays everything | `async`/`defer`, load late |
-| Animating layout properties | Layout and paint every frame | `transform` and `opacity` |
-| Reading layout in loops after writes | Forced reflow (thrashing) | Batch reads then writes |
-| `setInterval` animations | Not synced with paint | `requestAnimationFrame` or CSS |
-| Heavy work in input handlers | Poor INP | Yield, workers, debounce |
-| Synchronous `localStorage` in hot paths | Blocks the main thread | IndexedDB, or batch writes |
-| Preloading everything | Competes with critical resources | Preload only the critical few |
-| Testing only on fast hardware | Misses real-user pain | Throttle; use real devices and field data |
-| Memoizing everything in a framework | Overhead and complexity | Profile first |
+  // Step 3: Run the heavy data calculation
+  processHeavyData();
+  button.classList.remove('loading');
+}
+```
 
-## Key takeaways
+---
 
-- Track Core Web Vitals (LCP, INP, CLS) with field data, and debug with lab tools
-- Loading: shrink and prioritize the critical path (compression, CDN, caching, `defer`, code splitting, optimized images and fonts)
-- Rendering: animate `transform` and `opacity`, avoid layout thrashing, keep the DOM small, virtualize long lists
-- Responsiveness: keep main-thread tasks under 50 ms; yield, defer, or move work to Web Workers
-- Reserve space for anything that loads late to prevent layout shift
-- Test under throttled CPU and network, on real devices, and monitor real users
+## 6. Edge Cases, Pitfalls & Gotchas
 
-**Next:** [Node Performance](./04_node-performance.md)
+1. **Geometry-Reading Layout Triggers**: Any of the following properties force a synchronous layout reflow if styles are dirty: `offsetWidth`, `offsetHeight`, `offsetTop`, `offsetLeft`, `clientWidth`, `clientHeight`, `scrollTop`, `scrollHeight`, `getBoundingClientRect()`, and `getComputedStyle()`.
+2. **Overusing `will-change: transform`**: Declaring `will-change` on hundreds of elements forces the browser to create excessive GPU compositor layers, exhausting GPU VRAM and degrading mobile performance. Apply it sparingly and remove it when animations complete.
+3. **`display: none` vs `visibility: hidden`**: Modifying an element with `display: none` removes it from the Render Tree completely, triggering layout for siblings. `visibility: hidden` keeps its geometry intact, skipping layout and triggering only repaint.
+4. **Third-Party Script Layout Shifts**: Dynamic ad injections and cookie consent banners that inject content at the top of the page without reserved placeholder space cause severe CLS penalties.
+
+---
+
+## 7. Common Mistakes & Anti-Patterns
+
+| Anti-Pattern | Why It Breaks | Correct Pattern |
+| :--- | :--- | :--- |
+| Reading `offsetWidth` inside a DOM write loop | Forces repeated synchronous layout reflows (thrashing) | Batch all reads before writing styles |
+| Animating `top`, `left`, `width`, or `height` | Triggers expensive Layout and Paint cycles every frame | Animate `transform` and `opacity` only |
+| Inserting images without explicit dimensions | Causes page content to jump when image loads (high CLS) | Set explicit `width`/`height` or CSS `aspect-ratio` |
+| Monopolizing the main thread after a user click | Blocks the browser paint cycle, blowing INP targets | Yield execution via `scheduler.yield()` |
+| Injecting dynamic ad banners without placeholder space | Shifts page content downward, destroying CLS score | Reserve fixed-height skeleton placeholders |
+| Putting `will-change: transform` on everything | Consumes vast amounts of GPU VRAM | Apply only to actively animating elements |
+
+---
+
+## 8. Performance Characteristics
+
+- **Composited GPU Operations**: Transforming `translate3d()` or `opacity` bypasses Layout and Paint entirely, running at $< 1$ms per frame on the GPU compositor thread.
+- **Reflow Cost**: Modifying the geometry of an element high in the DOM tree (e.g., `<body>` or root container) triggers a recursive layout recalculation of all descendant and sibling nodes, taking 20–100ms.
+
+---
+
+## 9. Engine Internals
+
+1. **Dirty Bit Propagation in Layout Trees**:
+   - The browser's layout engine assigns a "needs-layout" dirty bit to nodes whose styles or content change.
+   - Reading geometry flags requires traversing up the tree to the nearest clean ancestor and executing a partial layout reflow before returning the coordinate value.
+2. **Compositor Layers (GraphicsLayers)**:
+   - Elements with 3D transforms, `<video>`, `<canvas>`, or `will-change` are promoted to independent Compositor Layers.
+   - The GPU rasterizes these layers into textures. During scrolling or animation, the GPU simply adjusts texture offsets without asking the main CPU thread to repaint.
+
+---
+
+## 10. Best Practices & Design Guidelines
+
+- **Adhere to the RAIL Model**: Response ($\le 100$ms), Animation (frame budget $\le 16$ms), Idle (utilize idle periods for deferred work), Load (interactive $\le 2.5$s).
+- **Reserve Layout Space**: Always define aspect-ratio containers for dynamic images, embeds, and ads.
+- **Audit via Chrome Lighthouse**: Regularly audit production pages using synthetic Lighthouse and real-user monitoring (RUM) data.
+
+---
+
+## 11. Real-World Case Study
+
+### Optimizing an Infinite Scroll Table from 15 FPS to 60 FPS
+```javascript
+// PROBLEM: An enterprise data grid of 500 rows experienced severe jank (12-15 FPS) during scroll.
+// Profiling revealed Layout Thrashing: each row component queried `row.offsetTop`
+// to calculate its sticky highlight position, followed by updating `row.style.background`.
+
+// SOLUTION: Decouple geometry calculations using IntersectionObserver and requestAnimationFrame
+class SmoothDataGrid {
+  constructor(container) {
+    this.container = container;
+    this.observer = new IntersectionObserver(this.onIntersect.bind(this), {
+      root: container,
+      threshold: 0.1,
+    });
+  }
+
+  observeRows(rows) {
+    rows.forEach(row => this.observer.observe(row));
+  }
+
+  onIntersect(entries) {
+    // Batch DOM class updates inside single requestAnimationFrame turn
+    requestAnimationFrame(() => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+        } else {
+          entry.target.classList.remove('visible');
+        }
+      }
+    });
+  }
+}
+
+// Result: Zero layout reflows during scroll; rendering locked at fluid 60 FPS.
+```
+
+---
+
+## 12. Interview Questions
+
+<details>
+<summary>1. What are the 6 stages of the Critical Rendering Path?</summary>
+1. DOM construction (parsing HTML tokens into the DOM tree).
+2. CSSOM construction (parsing CSS rules into the CSSOM tree).
+3. Render Tree generation (combining DOM and visible CSSOM nodes).
+4. Layout / Reflow (calculating geometric coordinates and dimensions).
+5. Paint (filling pixels with colors, borders, text, and shadows).
+6. Composite (uploading layer bitmaps to the GPU to produce the final screen display).
+</details>
+
+<details>
+<summary>2. What is Layout Thrashing (Forced Synchronous Layout) and how do you prevent it?</summary>
+Layout thrashing occurs when JavaScript writes to the DOM (invalidating layout styles) and then immediately reads a geometric property (like <code>offsetHeight</code> or <code>getBoundingClientRect</code>) within the same turn. The browser is forced to flush pending styles and synchronously compute layout immediately. It is prevented by batching all geometric reads before performing style writes.
+</details>
+
+<details>
+<summary>3. What is INP (Interaction to Next Paint) and how does it differ from FID?</summary>
+FID (First Input Delay) only measured the delay before the browser began processing the <i>first</i> interaction on a page. INP evaluates all user interactions (clicks, taps, keypresses) across the entire page lifecycle and reports the 98th percentile duration from user input to the moment the next frame is painted to the screen.
+</details>
+
+<details>
+<summary>4. Why are animations on transform and opacity faster than animating left and top?</summary>
+Modifying <code>left</code> and <code>top</code> triggers Layout, Paint, and Composite on the main browser thread. Modifying <code>transform</code> and <code>opacity</code> bypasses both Layout and Paint, allowing the animation to run directly on the GPU Compositor thread, which runs independently of main-thread JavaScript execution.
+</details>
+
+<details>
+<summary>5. How does Cumulative Layout Shift (CLS) measure visual instability?</summary>
+CLS measures the fraction of the viewport that shifts unexpectedly and the distance moved by unstable elements. An unexpected layout shift occurs when an element changes its starting position between frames without being prompted by direct user interaction (such as an image loading without defined dimensions).
+</details>
+
+<details>
+<summary>6. What is the Long Animation Frames (LoAF) API?</summary>
+LoAF is a modern browser performance API that captures animation frames exceeding 50ms in duration. It identifies the exact scripts, execution durations, and source code character positions responsible for blocking the rendering pipeline.
+</details>
+
+<details>
+<summary>7. What is the difference between requestAnimationFrame and requestIdleCallback?</summary>
+<code>requestAnimationFrame</code> schedules a callback to execute immediately before the next screen repaint, guaranteeing synchronization with the display refresh rate (e.g. 60Hz/120Hz). <code>requestIdleCallback</code> schedules low-priority background tasks to execute only when the browser has idle time between frame budgets.
+</details>
+
+<details>
+<summary>8. Why can overusing will-change: transform cause performance degradation?</summary>
+Every element with <code>will-change: transform</code> is promoted to an independent GPU compositor layer. Each layer allocates dedicated texture memory in GPU VRAM. Creating too many layers exhausts GPU memory, causing cache thrashing and slowing down page compositing.
+</details>
+
+---
+
+## 13. Exercises & Challenges
+
+### Exercise 1: Build a FastDOM Read/Write Batcher
+Implement a mini-library `BatchDOM` providing `read(fn)` and `write(fn)` methods that schedule callbacks into separate arrays and flushes them inside a single `requestAnimationFrame`, ensuring all reads complete before any writes run.
+
+<details>
+<summary>View Solution</summary>
+
+```javascript
+export class BatchDOM {
+  constructor() {
+    this.reads = [];
+    this.writes = [];
+    this.scheduled = false;
+  }
+
+  read(task) {
+    this.reads.push(task);
+    this._schedule();
+  }
+
+  write(task) {
+    this.writes.push(task);
+    this._schedule();
+  }
+
+  _schedule() {
+    if (this.scheduled) return;
+    this.scheduled = true;
+
+    requestAnimationFrame(() => {
+      // Phase 1: Flush all reads
+      const readsToRun = this.reads.splice(0);
+      readsToRun.forEach(fn => fn());
+
+      // Phase 2: Flush all writes
+      const writesToRun = this.writes.splice(0);
+      writesToRun.forEach(fn => fn());
+
+      this.scheduled = false;
+    });
+  }
+}
+```
+</details>
+
+### Exercise 2: Real-Time INP Monitor
+Write a script using `PerformanceObserver` that observes `event` entry types, captures the longest interaction duration on the page, and logs an alert if any user interaction takes longer than 200ms before paint.
+
+<details>
+<summary>View Solution</summary>
+
+```javascript
+class INPMonitor {
+  constructor() {
+    this.maxDuration = 0;
+
+    const observer = new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        if (entry.interactionId) {
+          const duration = entry.duration;
+          if (duration > this.maxDuration) {
+            this.maxDuration = duration;
+          }
+
+          if (duration > 200) {
+            console.warn(`[POOR INP] Interaction on <${entry.target?.tagName}> took ${duration.toFixed(2)}ms! Target: <= 200ms`);
+          }
+        }
+      }
+    });
+
+    observer.observe({ type: 'event', durationThreshold: 16, buffered: true });
+  }
+
+  getWorstInteraction() {
+    return this.maxDuration;
+  }
+}
+
+const monitor = new INPMonitor();
+```
+</details>

@@ -6,6 +6,58 @@
 
 ## 2026-11-23
 
+### Batch 8: Node.js, Concurrency, Memory & Performance (Modules 16, 17, 18, 19)
+- **Module 16 (`16_nodejs`):**
+  - Expanded `01_node-runtime.md` (470 lines) covering V8 + libuv + C++ bindings architecture, Node.js globals vs window, module execution wrappers, CLI flags, LTS release cadence, and cross-platform paths.
+  - Expanded `02_node-event-loop.md` (460 lines) covering libuv phases (Timers, Pending I/O, Idle/Prepare, Poll, Check, Close), `process.nextTick` microtask prioritization, `setImmediate` vs `setTimeout`, and thread pool work dispatch.
+  - Expanded `03_process-and-env.md` (445 lines) covering `process.argv` parsing, environment variables (`process.env`), POSIX signal handling (`SIGINT`, `SIGTERM`), exit codes, and high-resolution timing via `process.hrtime.bigint()`.
+  - Expanded `04_filesystem-and-path.md` (465 lines) covering `node:fs/promises`, atomic file writes via temp renames, path traversal security (`path.resolve` directory jail), and recursive directory crawling.
+  - Expanded `05_events.md` (440 lines) covering `EventEmitter` memory management, synchronous dispatch, `once`, `events.captureRejections`, custom event emitters, and avoiding max listener warnings.
+  - Expanded `06_streams.md` (470 lines) covering Readable, Writable, Duplex, and Transform streams, `stream.pipeline()` vs `stream.pipe()`, backpressure handling (`highWaterMark`), and async iteration (`for await`).
+  - Expanded `07_buffers.md` (455 lines) covering raw binary memory, `Buffer.alloc` vs `Buffer.allocUnsafe` security hazards, multi-byte UTF-8 encoding traps (`Buffer.byteLength`), and zero-copy slicing.
+  - Expanded `08_http-server.md` (430 lines) covering `node:http`, `IncomingMessage` and `ServerResponse` streams, keep-alive connection pooling, chunked transfer encoding, and graceful shutdown pipelines.
+  - Expanded `09_child-process-and-cluster.md` (440 lines) covering `spawn`, `exec`, `execFile`, `fork`, IPC message channels, `node:cluster` primary/worker port sharing (`SCM_RIGHTS`), and rolling reloads.
+  - Updated `16_nodejs/README.md` with complete curriculum roadmap and reading guide.
+- **Module 17 (`17_concurrency-and-parallelism`):**
+  - Expanded `01_concurrency-vs-parallelism.md` (400 lines) covering single-threaded I/O interleaving vs multi-core CPU parallelism, Amdahl's Law, CPU-bound vs I/O-bound bottlenecks, and structured cloning costs.
+  - Expanded `02_web-workers.md` (415 lines) covering Dedicated, Shared, and Service Workers, `postMessage`, Transferable Objects (`ArrayBuffer`, `ImageBitmap`), `OffscreenCanvas` rendering, and promise-based RPC abstractions.
+  - Expanded `03_worker-threads.md` (430 lines) covering Node.js `worker_threads`, V8 isolate lifecycles, `parentPort`, `workerData`, direct thread communication via `MessageChannel`, and production worker pools.
+  - Expanded `04_sharedarraybuffer-and-atomics.md` (445 lines) covering true zero-copy shared memory, `Atomics` operations (`load`, `store`, `add`, `compareExchange`), `Atomics.wait` and `notify`, and Cross-Origin Isolation (`COOP`/`COEP`).
+  - Expanded `05_concurrency-control.md` (450 lines) covering asynchronous mutexes, counting semaphores, read-write locks, check-then-act (TOCTOU) race condition prevention, and the Actor model.
+  - Updated `17_concurrency-and-parallelism/README.md` with complete curriculum roadmap and reading guide.
+- **Module 18 (`18_memory-and-garbage-collection`):**
+  - Expanded `01_memory-model.md` (440 lines) covering Call Stack execution frames vs V8 Heap graph, primitive values vs reference types, V8 pointer tagging (Smi vs HeapObject), heap spaces, and pointer compression.
+  - Expanded `02_garbage-collection.md` (450 lines) covering the Weak Generational Hypothesis, Scavenger Minor GC (From/To semi-spaces, Cheney's copying algorithm), Full Major GC (Mark-Sweep-Compact), Orinoco concurrent marking, and write barriers.
+  - Expanded `03_memory-leaks.md` (460 lines) covering shallow size vs retained size, the 5 classic leaks (accidental globals, forgotten timers, retained closures, detached DOM nodes, accumulated listeners), and heap snapshots.
+  - Expanded `04_memory-optimization.md` (470 lines) covering Array of Structs (AoS) vs Struct of Arrays (SoA), generic object pools, string interning, array pre-allocation, and sampling heap profiling.
+  - Updated `18_memory-and-garbage-collection/README.md` with complete curriculum roadmap and reading guide.
+- **Module 19 (`19_performance`):**
+  - Expanded `01_performance-fundamentals.md` (435 lines) covering latency vs throughput, percentile distributions (p50/p95/p99), V8 compilation pipeline (Ignition, Sparkplug, TurboFan), speculative type feedback, and performance budgets.
+  - Expanded `02_profiling.md` (445 lines) covering sampling profilers vs instrumentation, `node --prof` and `node --prof-process`, Chrome DevTools performance traces, flame graph interpretation, and Clinic.js.
+  - Expanded `03_browser-performance.md` (450 lines) covering Critical Rendering Path, Layout Thrashing (Forced Synchronous Layout), GPU compositor layers (`transform`/`opacity`), Core Web Vitals (LCP, INP, CLS), and Long Animation Frames (LoAF).
+  - Expanded `04_node-performance.md` (440 lines) covering event loop delay monitoring (`monitorEventLoopDelay`), microtask queue starvation, schema-based JSON serialization, and Radix Tree routing.
+  - Expanded `05_optimization-patterns.md` (450 lines) covering Hidden Class stability and property ordering, monomorphism vs megamorphism, packed vs holey arrays, hardware branch prediction, and loop unrolling.
+  - Updated `19_performance/README.md` with complete curriculum roadmap and reading guide.
+
+### Batch 7: DOM, Browser & Networking (Modules 14, 15)
+- **Module 14 (`14_dom-and-browser`):**
+  - Expanded 10 concept notes (`01_dom.md` through `10_web-components.md`) covering DOM tree mechanics, selectors, element manipulation, event capturing/bubbling, event delegation, form validation, modern observers (`IntersectionObserver`, `ResizeObserver`, `MutationObserver`), browser storage (`IndexedDB`, `localStorage`, Cookies), Web APIs, and Shadow DOM custom elements.
+  - Updated `14_dom-and-browser/README.md`.
+- **Module 15 (`15_networking`):**
+  - Expanded 6 concept notes (`01_http-fundamentals.md` through `06_networking-patterns.md`) covering HTTP/1.1 vs HTTP/2 vs HTTP/3, `fetch` API, headers and CORS preflights, Request/Response streaming, WebSockets and Server-Sent Events, and resilience patterns (retry with exponential backoff, circuit breaker).
+  - Updated `15_networking/README.md`.
+
+### Batch 6: Asynchronous JavaScript, Event Loop & Modules (Modules 11, 12, 13)
+- **Module 11 (`11_asynchronous-javascript`):**
+  - Expanded 9 concept notes (`01_asynchronous-model.md` through `09_async-patterns.md`) covering the asynchronous execution model, callback contracts, Promise state machines and combinators (`Promise.all`, `allSettled`, `race`, `any`), `async`/`await` desugaring, unhandled rejection lifecycles, and cancellation via `AbortController`.
+  - Updated `11_asynchronous-javascript/README.md`.
+- **Module 12 (`12_event-loop`):**
+  - Expanded 5 concept notes (`01_event-loop.md` through `05_macrotasks.md`) covering the HTML5 Event Loop specification, microtasks vs macrotasks, `queueMicrotask`, `requestAnimationFrame` vs `requestIdleCallback`, and task scheduling.
+  - Updated `12_event-loop/README.md`.
+- **Module 13 (`13_modules`):**
+  - Expanded 5 concept notes (`01_module-systems-overview.md` through `05_module-patterns.md`) covering module history (IIFE, AMD, CJS, UMD, ESM), CommonJS synchronous loading, ES Modules static analysis and live bindings, CJS/ESM interop dual-package hazards, dynamic `import()`, import maps, and module bundlers.
+  - Updated `13_modules/README.md`.
+
 ### Batch 5: Modern JavaScript, Built-in Objects & Error Handling (Modules 08, 09, 10)
 - **Module 08 (`08_modern-javascript`):**
   - Expanded `01_template-literals.md` (393 lines) covering backticks, multiline formatting, embedded expressions `${}`, tagged template functions, `String.raw`, AST sanitization, and SQL injection defense.
