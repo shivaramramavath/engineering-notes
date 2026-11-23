@@ -302,3 +302,8 @@
   - `exercises/00-type-challenges.md` (236 lines) - 5 tiers of type-level algorithm challenges from warm-up to extreme
   - `exercises/README.md` (14 lines)
   - `README.md` (25 lines)
+
+## [Batch 10] - 2026-11-24 - Interview Mastery & Reference Cheatsheets (Modules 27 & 28)
+- **Module 27 (Interview Mastery)**: Completed 12 comprehensive interview notes and README covering TypeScript basics, type erasure/runtime, generics, utility types, advanced types, narrowing, compiler & tsconfig flags, React typings, Node.js typings, output-based questions, architecture designs, and live coding challenges.
+- **Module 28 (Cheatsheets)**: Created 13 ultra-dense, authoritative reference cards and README spanning syntax & types, utility types, generics, narrowing, tsconfig profiles, React, Node.js, compiler internals, Zod runtime validation, type-safe APIs, design patterns, testing with Vitest, and production tooling.
+

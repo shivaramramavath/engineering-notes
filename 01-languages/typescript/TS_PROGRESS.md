@@ -144,9 +144,9 @@
 ## Batch 9: Projects & Exercises (Module 26) (COMPLETED)
 - [x] `26-projects/` (14 end-to-end production projects + comprehensive exercises, 4,712 lines) - CLI tool, API client, Fastify REST API, Auth system, React dashboard, NestJS API, Next.js 15 fullstack, Event Sourcing CQRS, Form builder, Mini-ORM, Schema validator, State machine, Monorepo shared types, tRPC fullstack, 5-tier type challenges
 
-## Batch 10: Interview & Cheatsheets (Modules 27 & 28) (Pending)
-- [ ] \`27-interview/\` (9 senior/staff interview guides + README)
-- [ ] \`28-cheatsheets/\` (13 dense cheatsheets + README)
+## Batch 10: Interview & Cheatsheets (Modules 27 & 28) (COMPLETED)
+- [x] `27-interview/` (12 senior/staff interview guides + live coding + README)
+- [x] `28-cheatsheets/` (13 dense cheatsheets + README)
 
 ## Batch 11: Track Root, Tree Refresh & Final Report (Pending)
 - [ ] Root documentation (\`README.md\`, \`INDEX.md\`, \`ROADMAP.md\`, \`GLOSSARY.md\`, \`CONTRIBUTING.md\`)
