@@ -1,51 +1,41 @@
-# 08 - Modules
+# 08 Modules
 
-How TypeScript organizes code across files: the `import`/`export` syntax, the two JavaScript module systems it has to target, how to structure modules in a growing codebase, and the older `namespace` feature. Most real-world module problems are not syntax errors. They are mismatches between `package.json`, file extensions, and `tsconfig`, so this section pays particular attention to configuration.
+> Complete architectural guide to TypeScript module systems: ES Modules, CommonJS interoperability, barrel patterns, namespaces, `verbatimModuleSyntax`, modern `package.json` exports, import attributes, and `--isolatedDeclarations`.
+
+## Module Overview
+
+TypeScript aligns compile-time type-checking directly with modern ECMAScript specifications and Node.js module loading rules. This module covers everything required to architect robust, scalable, and high-performance module boundaries.
+
+---
+
+## Documents in this Module
+
+| File | Level | Focus | Key Topics |
+| :--- | :--- | :--- | :--- |
+| [00-imports-and-exports.md](file:///E:/Learning/engineering-notes/01-languages/typescript/08-modules/00-imports-and-exports.md) | Intermediate | ES Module Basics | Named/default imports, type elision, re-exporting, dynamic imports |
+| [01-es-modules-and-commonjs.md](file:///E:/Learning/engineering-notes/01-languages/typescript/08-modules/01-es-modules-and-commonjs.md) | Intermediate | CJS / ESM Interop | `esModuleInterop`, default import synthesis, dual-package hazard |
+| [02-barrel-files-and-module-organization.md](file:///E:/Learning/engineering-notes/01-languages/typescript/08-modules/02-barrel-files-and-module-organization.md) | Intermediate | Architectural Structure | Facade pattern, tree-shaking impacts, circular dependencies, subpaths |
+| [03-namespaces.md](file:///E:/Learning/engineering-notes/01-languages/typescript/08-modules/03-namespaces.md) | Intermediate | Legacy & Declaration Merging | Namespaces, IIFE emit, ambient declaration merging, `isolatedModules` |
+| [04-verbatim-module-syntax-and-type-modifiers.md](file:///E:/Learning/engineering-notes/01-languages/typescript/08-modules/04-verbatim-module-syntax-and-type-modifiers.md) | Advanced | TS 5.0+ Emit Rules | `verbatimModuleSyntax`, Node 22 native type stripping, `import type` |
+| [05-package-json-exports-and-resolution-modes.md](file:///E:/Learning/engineering-notes/01-languages/typescript/08-modules/05-package-json-exports-and-resolution-modes.md) | Advanced | Modern Resolution | `NodeNext`, `bundler`, subpath exports in `package.json`, condition ordering |
+| [06-import-attributes-and-json-modules.md](file:///E:/Learning/engineering-notes/01-languages/typescript/08-modules/06-import-attributes-and-json-modules.md) | Advanced | Security & Assets | TS 5.3+ `with { type: "json" }`, import attributes, dynamic asset loading |
+| [07-isolated-declarations.md](file:///E:/Learning/engineering-notes/01-languages/typescript/08-modules/07-isolated-declarations.md) | Advanced | Parallel Compiler Perf | TS 5.5+ `--isolatedDeclarations`, explicit export annotations, `tsgo` compatibility |
+
+---
 
 ## Prerequisites
+Before tackling this module, ensure you are familiar with:
+- [00-setup/](file:///E:/Learning/engineering-notes/01-languages/typescript/00-setup/) (toolchain, tsconfig basics)
+- [01-fundamentals/](file:///E:/Learning/engineering-notes/01-languages/typescript/01-fundamentals/) (primitive types, objects)
 
-- [01 Fundamentals](../01-fundamentals/README.md)
-- [04 Objects and Interfaces](../04-objects-and-interfaces/README.md)
-- [00 Setup](../00-setup/README.md): a working project with `tsc`
+---
 
-## Notes in this section
-
-| # | Note | Covers |
-|---|---|---|
-| 00 | [Imports and exports](./00-imports-and-exports.md) | Named and default exports, type-only imports, re-exports, dynamic `import()`, `verbatimModuleSyntax` |
-| 01 | [ES modules and CommonJS](./01-es-modules-and-commonjs.md) | `module` vs `moduleResolution`, Node's per-file rules, `esModuleInterop`, `.js` extensions, common runtime errors |
-| 02 | [Barrel files and module organization](./02-barrel-files-and-module-organization.md) | `index.ts` barrels, circular dependencies, feature vs layer layout, enforcing boundaries |
-| 03 | [Namespaces](./03-namespaces.md) | `namespace`, `declare namespace`, merging, why modules replaced them |
-
-Read 00 and 01 in order. 02 and 03 can be read independently afterwards.
-
-## Quick decisions
-
-| Question | Answer |
-|---|---|
-| Named or default exports? | Named, unless a framework expects default |
-| Importing a type? | `import type { X }` or `import { type X }` |
-| Node app, what do I set? | `"type": "module"`, `module` and `moduleResolution` both `nodenext`, `.js` in relative imports |
-| Bundled frontend? | `module: esnext` (or `preserve`), `moduleResolution: bundler` |
-| Default import of a CJS package gives `undefined`? | Enable `esModuleInterop` |
-| Should I add a barrel here? | Only at a feature or package boundary, with explicit exports |
-| Should I use a `namespace`? | Not in new code. Only for `.d.ts` typings and merging |
-
-## Ideas that recur across the section
-
-- **Types are erased; imports are not always.** Whether an import survives into the output depends on whether it is used as a value, and on `verbatimModuleSyntax` / `isolatedModules`. Marking type imports with `type` makes this explicit.
-- **`module` is output, `moduleResolution` is lookup.** Set them as a matching pair.
-- **Node decides per file.** The nearest `package.json` `"type"` field and the file extension determine ESM vs CommonJS.
-- **Runtime failures are invisible to the type checker.** Cycles, missing extensions, and ESM/CJS mismatches all type-check and then crash.
-
-## Related sections
-
-- [09 Declaration Files](../09-declaration-files/README.md): `declare namespace`, `export =`, and module augmentation
-- [13 Compiler and tsconfig](../13-compiler-and-tsconfig/README.md): `module`, `moduleResolution`, `paths`, `verbatimModuleSyntax`
-- [14 Type System Internals: type erasure](../14-type-system-internals/00-type-erasure-and-runtime.md)
-- [21 Production Tooling: publishing packages](../21-production-tooling/03-publishing-packages.md) and [monorepos](../21-production-tooling/02-monorepos.md)
-- [24 Best Practices: project structure](../24-best-practices/02-project-structure.md)
-
-## Next
-
-[09 Declaration Files](../09-declaration-files/README.md)
+## Suggested Study Path
+1. Master core import/export syntax and type elision in **00-imports-and-exports**.
+2. Learn how to bridge CommonJS and ESM in **01-es-modules-and-commonjs**.
+3. Structure scalable directory facades with **02-barrel-files-and-module-organization**.
+4. Understand legacy encapsulation and declaration merging in **03-namespaces**.
+5. Enable zero-ambiguity type stripping with **04-verbatim-module-syntax-and-type-modifiers**.
+6. Master modern package publishing with **05-package-json-exports-and-resolution-modes**.
+7. Safely import assets with **06-import-attributes-and-json-modules**.
+8. Supercharge parallel build times with **07-isolated-declarations**.

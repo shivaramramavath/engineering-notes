@@ -1,193 +1,350 @@
-# infer
+# The infer Keyword
 
-`infer` lets a conditional type **capture** a piece of the type it is matching and give it a name. It is pattern matching for types: "if `T` looks like this shape, tell me what is in this position." Every "extract X from Y" utility (`ReturnType`, `Parameters`, `Awaited`, element-of-array, first-of-tuple) is built from it.
+> The `infer` keyword introduces pattern matching and type-level destructuring within conditional types, unlocking recursive unboxing, tuple destructuring, and AST extraction.
 
-**Prerequisites:**
-- [Conditional types](./00-conditional-types.md)
-- [Distributive conditional types](./01-distributive-conditional-types.md)
-- [Generic functions](../06-generics/00-generic-functions.md)
+| Metadata | Value |
+| :--- | :--- |
+| **Level** | Advanced |
+| **Prerequisites** | [00-conditional-types.md](file:///E:/Learning/engineering-notes/01-languages/typescript/10-advanced-types/00-conditional-types.md) |
+| **Time to Read** | 25 minutes |
+| **Status** | Complete |
+| **TypeScript Baseline** | Since TS 2.8 / TS 4.7 (constraints) / TS 7.0 Native |
+| **Tested tsconfig** | `strict: true`, `noImplicitAny: true` |
 
 ---
 
-## Syntax
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & API Reference](#4-syntax--api-reference)
+5. [Practical Examples](#5-practical-examples)
+6. [Edge Cases, Pitfalls & Gotchas](#6-edge-cases-pitfalls--gotchas)
+7. [Common Mistakes & Anti-Patterns](#7-common-mistakes--anti-patterns)
+8. [Performance & Type-Checker Complexity](#8-performance--type-checker-complexity)
+9. [Compiler Internals](#9-compiler-internals)
+10. [Best Practices & Design Guidelines](#10-best-practices--design-guidelines)
+11. [Real-World Case Study](#11-real-world-case-study)
+12. [Interview Questions](#12-interview-questions)
+13. [Exercises & Challenges](#13-exercises--challenges)
 
-`infer` can only appear in the `extends` clause of a conditional type. The name it introduces is available in the **true** branch.
+---
 
-```ts
-type ElementOf<T> = T extends (infer U)[] ? U : never;
+## 1. What & Why
+In functional programming, pattern matching allows destructuring complex data structures to extract nested values.
 
-type A = ElementOf<string[]>;    // string
-type B = ElementOf<number[]>;    // number
-type C = ElementOf<boolean>;     // never (does not match the pattern)
+Before TypeScript 2.8, TypeScript had no way to extract inner types from generic wrappers. If a function returned `Promise<User>`, there was no way to write a type that extracted `User`.
+
+The **`infer`** keyword introduces pattern matching to TypeScript:
+- It declares a fresh type variable dynamically inside the `extends` clause of a conditional type.
+- The compiler deduces the identity of that type variable by matching against the candidate structure.
+
+---
+
+## 2. Core Concepts
+
+### Pattern Matching Syntax
+```typescript
+type UnpackPromise<T> = T extends Promise<infer U> ? U : T;
+
+type R1 = UnpackPromise<Promise<string>>; // string
+type R2 = UnpackPromise<number>;          // number
 ```
 
-Read it as: "if `T` is an array of *something*, call that something `U` and return it."
+### Constrained `infer` (TS 4.7+)
+Starting in TypeScript 4.7, `infer` declarations can include explicit `extends` constraints directly:
+```typescript
+type FirstString<T> = T extends [infer S extends string, ...unknown[]] ? S : never;
 
-## How it works
-
-```text
-T extends (infer U)[] ? U : never
-
-  T = string[]
-        |
-        v   match against the pattern  ( ? )[]
-        |
-     U = string   -->   true branch returns string
+type A = FirstString<["hello", 123]>; // "hello"
+type B = FirstString<[100, 200]>;     // never (100 does not extend string)
 ```
 
-The compiler tries to make `T` fit the pattern. Wherever `infer U` sits, it records what `T` has in that position. If the pattern cannot match, the false branch is used.
+---
 
-## The standard library, rebuilt
+## 3. How It Works Internally
 
-```ts
-type ReturnType<T extends (...args: any) => any> =
-  T extends (...args: any) => infer R ? R : any;
-
-type Parameters<T extends (...args: any) => any> =
-  T extends (...args: infer P) => any ? P : never;
-
-type InstanceType<T extends abstract new (...args: any) => any> =
-  T extends abstract new (...args: any) => infer R ? R : any;
+```
+Target Type:   (x: string, y: number) => boolean
+Pattern:       (...args: any[]) => infer R
+                          |
+                          v
+Matching:      Return position matches 'boolean'
+Inferred:      R = boolean
+Result:        boolean
 ```
 
-These are what [function and class utilities](../07-utility-types/03-function-and-class-utilities.md) use. Nothing special: just `infer` in the return, parameter, and instance positions.
+During type assignability checking:
+1. The compiler creates an `InferenceContext`.
+2. It sets up inference candidates for every `infer` node.
+3. If an inferred variable appears in **covariant positions** (return types), multiple candidates are merged into a **union**.
+4. If an inferred variable appears in **contravariant positions** (parameter types), multiple candidates are merged into an **intersection**.
 
-## Practical patterns
+---
 
-### Unwrap a Promise, recursively
+## 4. Syntax & API Reference
 
-```ts
-type Unwrap<T> = T extends Promise<infer U> ? Unwrap<U> : T;
-
-type A = Unwrap<Promise<Promise<string>>>;  // string
-type B = Unwrap<number>;                    // number
+### Multiple `infer` Variables
+```typescript
+type UnpackEntry<T> = T extends [infer Key, infer Value] ? { key: Key; value: Value } : never;
+type Entry = UnpackEntry<["id", 42]>; // { key: "id"; value: 42 }
 ```
 
-The built-in `Awaited<T>` is the full version and also handles thenables.
+---
 
-### Head and tail of a tuple
+## 5. Practical Examples
 
-```ts
-type Head<T extends unknown[]> = T extends [infer H, ...unknown[]] ? H : never;
-type Tail<T extends unknown[]> = T extends [unknown, ...infer R] ? R : [];
-type Last<T extends unknown[]> = T extends [...unknown[], infer L] ? L : never;
+### 5.1 Extracting Constructor Parameters
+```typescript
+type ConstructorArgs<T> =
+  T extends new (...args: infer P) => any ? P : never;
 
-type H = Head<[1, 2, 3]>;  // 1
-type R = Tail<[1, 2, 3]>;  // [2, 3]
-type L = Last<[1, 2, 3]>;  // 3
+class Server {
+  constructor(port: number, host: string) {}
+}
+
+type ServerArgs = ConstructorArgs<typeof Server>; // [port: number, host: string]
 ```
 
-These are the building blocks of tuple recursion ([variadic tuple types](./06-variadic-tuple-types.md)).
+### 5.2 Real-World Application: Type-Safe Event Bus Payload Extractor
+```typescript
+interface AppHandlers {
+  onLogin(user: { id: string }): void;
+  onLogout(): void;
+  onError(err: Error, fatal: boolean): void;
+}
 
-### Pull a type out of an object property
+type HandlerPayload<T extends (...args: any[]) => void> =
+  T extends (...args: infer P) => void ? P : never;
 
-```ts
-type PropType<T, K extends string> =
-  T extends { [P in K]: infer V } ? V : never;
-
-type N = PropType<{ id: number; name: string }, "name">;  // string
+type ErrorArgs = HandlerPayload<AppHandlers["onError"]>; // [err: Error, fatal: boolean]
 ```
 
-(For a known key, plain `T[K]` is simpler. Use `infer` when the shape being matched is more complex than a single property.)
+### 5.3 Edge Case: Tuple Rest Infer
+```typescript
+type Pop<T extends readonly unknown[]> =
+  T extends readonly [...infer Rest, infer Last] ? Rest : [];
 
-### Parse strings
+type ShortList = Pop<[1, 2, 3]>; // [1, 2]
+```
 
-`infer` works inside template literal types:
+### 5.4 Failure Case: `infer` in False Branch
+```typescript
+// @ts-expect-error TS2304: Cannot find name 'U'.
+type BadInfer<T> = T extends Promise<infer U> ? U : U;
+// Inferred variables are ONLY in scope inside the TrueBranch!
+```
 
-```ts
-type Split<S extends string, D extends string> =
-  S extends `${infer Head}${D}${infer Rest}`
-    ? [Head, ...Split<Rest, D>]
+### 5.5 Idiomatic Pattern: Recursive String Splitter
+```typescript
+type Split<S extends string, Delim extends string> =
+  S extends `${infer Head}${Delim}${infer Tail}`
+    ? [Head, ...Split<Tail, Delim>]
     : [S];
 
-type S = Split<"a.b.c", ".">;  // ["a", "b", "c"]
+type Parts = Split<"users/profile/edit", "/">;
+// ["users", "profile", "edit"]
 ```
 
-More in [template literal types](./04-template-literal-types.md).
+---
 
-### Narrow what gets inferred: `infer X extends Y`
+## 6. Edge Cases, Pitfalls & Gotchas
+1. **Scope Limit**: The variable introduced by `infer U` is **only in scope inside the true branch** of the conditional type. It cannot be used in the false branch or outside the ternary.
+2. **Contravariant Intersections**: If `infer T` is in a function parameter position across overloaded signatures, it infers the **intersection** of parameter types.
+3. **Cannot Be Used in Type Aliases Directly**: You cannot write `type X = infer U;`. It must reside inside the `extends` clause of a conditional type.
 
-TS 4.7 lets you constrain an inferred type, and TS 4.8 improved its handling of primitives like `number`:
+---
 
-```ts
-type ParseInt<S> = S extends `${infer N extends number}` ? N : never;
+## 7. Common Mistakes & Anti-Patterns
 
-type A = ParseInt<"42">;     // 42  (a number literal type, not the string "42")
-type B = ParseInt<"hello">;  // never
-```
+| Anti-Pattern | Problem | Solution | Compiler Error |
+| :--- | :--- | :--- | :--- |
+| Referencing `infer` variable in false branch | Variable is out of scope in false branch | Restructure ternary or use fallback type | `TS2304: Cannot find name 'U'` |
+| Using `infer` outside conditional extends | Only valid inside conditional `extends` clause | Wrap in `T extends Pattern<infer U> ? ...` | `TS1338: 'infer' declarations are only permitted...` |
+| Unconstrained `infer` matching `unknown` | Type checker cannot verify downstream properties | Constrain: `infer U extends Expected` | `TS2344: Type does not satisfy constraint` |
+| Expecting union from parameter positions | Function parameters are contravariant | Inferred parameter types produce intersections | Unexpected `never` / intersection |
+| Recursive `infer` without base case | Exceeds compiler recursion stack | Provide non-matching terminating branch | `TS2589: Type instantiation is excessively deep` |
+| Over-inferring deeply nested tuples | Large tuple expansions slow compilation | Limit tuple parsing depth | Slow compilation |
 
-Without the `extends number` constraint, `N` would just be the string `"42"`.
+---
 
-## Multiple candidates for one `infer`
+## 8. Performance & Type-Checker Complexity
+- Simple inference (`ReturnType`, `Parameters`) is $O(1)$.
+- Recursive string or tuple destructuring with `infer` runs in $O(N)$ where $N$ is recursion depth (capped at ~1,000 steps with tail-call optimization).
 
-If the same name is inferred in several positions, the result depends on the **variance** of those positions.
+---
 
-**Covariant positions (property types, return types)** combine into a **union**:
+## 9. Compiler Internals
+- `InferTypeNode` (`kind: SyntaxKind.InferType`) contains a `typeParameter`.
+- In `src/compiler/checker.ts`, `createInferenceContext` tracks inferred type candidates.
+- Evaluated during subtyping via `inferTypes(context.inferences, source, target)`.
 
-```ts
-type Collect<T> = T extends { a: infer U; b: infer U } ? U : never;
+---
 
-type R = Collect<{ a: string; b: number }>;  // string | number
-```
+## 10. Best Practices & Design Guidelines
+- Use constrained `infer` (`infer U extends string`) in TypeScript 4.7+ to avoid redundant downstream conditional checks.
+- Keep recursive `infer` types tail-recursive by passing accumulator parameters.
+- Provide sensible fallback types in the false branch.
 
-**Contravariant positions (function parameters)** combine into an **intersection**:
+---
 
-```ts
-type Collect2<T> =
-  T extends { a: (x: infer U) => void; b: (x: infer U) => void } ? U : never;
-
-type R2 = Collect2<{ a: (x: string) => void; b: (x: number) => void }>;
-// string & number  ->  never
-```
-
-This is surprising until you think about what a function accepting both a `string` and a `number` argument must accept: a value that is both. It is the basis of a well-known trick, turning a union into an intersection:
-
-```ts
-type UnionToIntersection<U> =
-  (U extends unknown ? (x: U) => void : never) extends (x: infer I) => void
-    ? I
+## 11. Real-World Case Study
+### Type-Safe SQL Parameter Parser
+```typescript
+type ExtractSqlParams<T extends string> =
+  T extends `${infer _}$: ${infer Param} ${infer Rest}`
+    ? Param | ExtractSqlParams<` ${Rest}`>
+    : T extends `${infer _}$: ${infer Param}`
+    ? Param
     : never;
 
-type R = UnionToIntersection<{ a: 1 } | { b: 2 }>;  // { a: 1 } & { b: 2 }
+type Query = "SELECT * FROM users WHERE id = :userId AND tenant = :tenantId";
+type Params = ExtractSqlParams<Query>; // "userId" | "tenantId"
 ```
 
-See [variance](../14-type-system-internals/02-variance.md) for the reasoning.
+---
 
-## Important rules and misconceptions
+## 12. Interview Questions
 
-**`infer` only works inside a conditional's `extends` clause.** You cannot use it in an ordinary type alias or a function signature.
+<details>
+<summary>1. What does the <code>infer</code> keyword do in TypeScript?</summary>
 
-**The inferred name is only in scope in the true branch.**
+It introduces an inferred type parameter inside the `extends` clause of a conditional type, allowing the compiler to pattern-match against complex types and extract inner components (like return types, element types, or arguments).
+</details>
 
-**Overloaded functions:** `infer` against a function type uses the **last** overload signature.
+<details>
+<summary>2. Where is an <code>infer</code> variable in scope?</summary>
 
-**Generic functions:** type parameters of a generic function are replaced by their constraints (or `unknown`) when matched, so `ReturnType<typeof identity>` for `<T>(x: T) => T` is `unknown`.
+It is strictly in scope only within the **true branch** of the conditional type declaration. It cannot be accessed in the false branch.
+</details>
 
-**String inference is shortest-match for each non-final `infer`.** In ``S extends `${infer A}.${infer B}` `` with `"a.b.c"`, `A` is `"a"` and `B` is `"b.c"`. The last `infer` gets the remainder.
+<details>
+<summary>3. What happens when the same <code>infer</code> variable appears in multiple covariant vs contravariant positions?</summary>
 
-**`infer` is not a runtime feature.** It describes types only and vanishes at compile time.
+In covariant positions (like return types), multiple candidates are merged into a **union**. In contravariant positions (like function arguments), multiple candidates are merged into an **intersection**.
+</details>
 
-## Common mistakes
+<details>
+<summary>4. What feature was added to <code>infer</code> in TypeScript 4.7?</summary>
 
-- **Using `infer` outside a conditional.** It is a syntax error.
-- **Forgetting the false branch.** A non-matching input silently becomes `never` (or whatever you wrote). Decide what no-match should mean.
-- **Expecting a single type from several positions.** You get a union (covariant) or an intersection (contravariant), which may be `never`.
-- **Matching too loosely.** `T extends (infer U)[]` also matches arrays of `any`. Constrain the input type if it matters.
-- **Forgetting that tuples and arrays differ.** `[infer H, ...infer R]` matches tuples, not `string[]` with certainty. For `string[]`, `H` becomes `string` and `R` becomes `string[]`.
+Type parameter constraints: `infer T extends Constraint`, allowing developers to immediately bound the inferred type.
+</details>
 
-## Debugging
+<details>
+<summary>5. How does <code>ReturnType&lt;T&gt;</code> use <code>infer</code>?</summary>
 
-- Hover the alias with several concrete types. If you get `never`, the pattern did not match.
-- Reduce the pattern to just the position you care about, confirm it works, then add more structure.
-- Check whether a union was *distributed*: a bare `T` distributes over unions before the pattern is tested ([distributive conditional types](./01-distributive-conditional-types.md)).
-- For string patterns, test with strings that have zero, one, and several delimiters.
+```typescript
+type ReturnType<T extends (...args: any) => any> =
+  T extends (...args: any) => infer R ? R : any;
+```
+</details>
 
-## Quick summary
+<details>
+<summary>6. How can <code>infer</code> be used to extract the head and tail of a tuple?</summary>
 
-- `infer U` inside an `extends` clause captures whatever is in that position into `U`, usable in the true branch.
-- It powers `ReturnType`, `Parameters`, `Awaited`, tuple head/tail, and string parsing.
-- `infer U extends X` constrains what is captured (useful for turning `"42"` into `42`).
-- Multiple inferences of one name give a union in covariant positions and an intersection in contravariant ones.
-- Overloads use the last signature, and generics collapse to their constraints.
+```typescript
+type HeadTail<T> = T extends [infer Head, ...infer Tail] ? { head: Head; tail: Tail } : never;
+```
+</details>
 
-**Next:** [Mapped types](./03-mapped-types.md)
+<details>
+<summary>7. Can <code>infer</code> be used in template literal types?</summary>
+
+Yes. It matches substrings: `T extends `${infer A}/${infer B}` ? [A, B] : [T]`.
+</details>
+
+<details>
+<summary>8. What error is raised if <code>infer</code> is written in an interface declaration?</summary>
+
+`TS1338: 'infer' declarations are only permitted in the 'extends' clause of a conditional type.`
+</details>
+
+---
+
+## 13. Exercises & Challenges
+
+### Exercise 1: Extract Promise Type (Easy)
+Extract `T` from `Promise<T>` using `infer`.
+<details>
+<summary>Solution</summary>
+
+```typescript
+type Unwrap<T> = T extends Promise<infer U> ? U : T;
+type Res = Unwrap<Promise<string>>; // string
+```
+</details>
+
+### Exercise 2: First Tuple Element (Easy)
+Extract the first element of a tuple type using `infer`.
+<details>
+<summary>Solution</summary>
+
+```typescript
+type First<T extends readonly unknown[]> =
+  T extends readonly [infer F, ...unknown[]] ? F : never;
+
+type F = First<[10, 20, 30]>; // 10
+```
+</details>
+
+### Exercise 3: Last Element of Tuple (Medium)
+Extract the last element of a non-empty tuple.
+<details>
+<summary>Solution</summary>
+
+```typescript
+type Last<T extends readonly unknown[]> =
+  T extends readonly [...unknown[], infer L] ? L : never;
+
+type L = Last<["a", "b", "c"]>; // "c"
+```
+</details>
+
+### Exercise 4: Function Parameter at Index (Medium)
+Extract the parameter at index 1 from a function signature.
+<details>
+<summary>Solution</summary>
+
+```typescript
+type SecondParam<T extends (...args: any[]) => any> =
+  T extends (p0: any, p1: infer P1, ...rest: any[]) => any ? P1 : never;
+
+function log(msg: string, code: number, flag: boolean) {}
+type CodeType = SecondParam<typeof log>; // number
+```
+</details>
+
+### Exercise 5: Trim String Left (Hard)
+Implement `TrimLeft<S>` that recursively strips leading whitespace using `infer`.
+<details>
+<summary>Solution</summary>
+
+```typescript
+type Whitespace = " " | "	" | "
+";
+type TrimLeft<S extends string> =
+  S extends `${Whitespace}${infer Rest}` ? TrimLeft<Rest> : S;
+
+type Trimmed = TrimLeft<"   hello world">; // "hello world"
+```
+</details>
+
+### Exercise 6: Parse Function Signature Details (Hard)
+Extract an object containing parameter tuple, return type, and boolean indicating if return is a Promise.
+<details>
+<summary>Solution</summary>
+
+```typescript
+type InspectFunction<T> = T extends (...args: infer P) => infer R
+  ? {
+      parameters: P;
+      returnType: R;
+      isAsync: R extends Promise<any> ? true : false;
+    }
+  : never;
+
+async function fetchUser(id: string) { return { id }; }
+type Info = InspectFunction<typeof fetchUser>;
+// { parameters: [id: string]; returnType: Promise<{ id: string }>; isAsync: true }
+```
+</details>

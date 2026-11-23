@@ -1,172 +1,428 @@
 # Recursive Types
 
-A recursive type refers to itself in its own definition. That is how you describe data that nests to arbitrary depth (JSON, trees, menus, ASTs) and how you write type-level "loops" that walk tuples, strings, and object paths. Recursion is the one feature that makes the type system Turing-complete in practice, and also the one that most often triggers "Type instantiation is excessively deep".
+> Recursive type definitions enable TypeScript to model self-referential tree structures, linked lists, deeply nested JSON documents, and unbounded hierarchical domain models.
 
-**Prerequisites:**
-- [Conditional types](./00-conditional-types.md)
-- [infer](./02-infer.md)
-- [Mapped types](./03-mapped-types.md)
+| Metadata | Value |
+| :--- | :--- |
+| **Level** | Advanced |
+| **Prerequisites** | [00-conditional-types.md](file:///E:/Learning/engineering-notes/01-languages/typescript/10-advanced-types/00-conditional-types.md), [03-mapped-types.md](file:///E:/Learning/engineering-notes/01-languages/typescript/10-advanced-types/03-mapped-types.md) |
+| **Time to Read** | 24 minutes |
+| **Status** | Complete |
+| **TypeScript Baseline** | Since TS 3.7 / TS 4.1 / TS 7.0 Native |
+| **Tested tsconfig** | `strict: true`, `noImplicitAny: true` |
 
 ---
 
-## Recursive data shapes
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & API Reference](#4-syntax--api-reference)
+5. [Practical Examples](#5-practical-examples)
+6. [Edge Cases, Pitfalls & Gotchas](#6-edge-cases-pitfalls--gotchas)
+7. [Common Mistakes & Anti-Patterns](#7-common-mistakes--anti-patterns)
+8. [Performance & Type-Checker Complexity](#8-performance--type-checker-complexity)
+9. [Compiler Internals](#9-compiler-internals)
+10. [Best Practices & Design Guidelines](#10-best-practices--design-guidelines)
+11. [Real-World Case Study](#11-real-world-case-study)
+12. [Interview Questions](#12-interview-questions)
+13. [Exercises & Challenges](#13-exercises--challenges)
 
-The simplest case: a type alias that mentions itself inside an object, array, or union.
+---
 
-```ts
-type Json =
+## 1. What & Why
+Real-world data structures are frequently self-referential:
+- File systems: A directory contains files and subdirectories.
+- DOM / HTML: An element contains child nodes, which in turn contain child nodes.
+- JSON: A JSON value can be an array of JSON values or an object mapping keys to JSON values.
+- Abstract Syntax Trees (ASTs): An expression node contains left and right sub-expressions.
+
+Before TypeScript 3.7, defining recursive type aliases required cumbersome interface wrapping workarounds. TypeScript 3.7 introduced native support for **Recursive Type Aliases**, and TypeScript 4.1 added support for recursive conditional types.
+
+---
+
+## 2. Core Concepts
+
+### Direct Recursive Type Aliases
+Type aliases can directly reference themselves within their own definitions:
+```typescript
+type JsonValue =
   | string
   | number
   | boolean
   | null
-  | Json[]
-  | { [key: string]: Json };
-
-const config: Json = { name: "app", tags: ["a", "b"], nested: { debug: false } };
+  | JsonValue[]
+  | { [key: string]: JsonValue };
 ```
 
-```ts
+### Recursive Tree Nodes
+```typescript
 interface TreeNode<T> {
   value: T;
-  children: TreeNode<T>[];
+  left?: TreeNode<T>;
+  right?: TreeNode<T>;
+}
+```
+
+### Recursive Conditional Types (TS 4.1+)
+Conditional types can invoke themselves recursively:
+```typescript
+type DeepFlatten<T> = T extends Array<infer U> ? DeepFlatten<U> : T;
+type Res = DeepFlatten<number[][][]>; // number
+```
+
+---
+
+## 3. How It Works Internally
+
+```
+Type Evaluation: JsonValue = string | ... | JsonValue[]
+                   |
+                   v
+   Compiler defers recursive expansion:
+   Instead of infinitely evaluating JsonValue,
+   it creates a lazy TypeReference node.
+                   |
+                   v
+   Expanded only when a specific property/element is accessed:
+   const x: JsonValue = { a: [1, 2, "3"] };
+   Checking 'x.a': Resolves JsonValue[] lazily!
+```
+
+Inside `checker.ts`:
+1. When checking a self-referential type alias, the compiler assigns it a `TypeReference` marker.
+2. It defers expanding the type body until an operation (such as property access or subtyping check) requires resolution.
+3. For recursive conditional types, the compiler tracks call stack depth, preventing runaway recursion beyond internal limits.
+
+---
+
+## 4. Syntax & API Reference
+
+### Tail-Call Optimized Recursion (TS 4.5+)
+When a recursive conditional type evaluates its recursive call in **tail position**, the compiler eliminates the call stack frame:
+```typescript
+// Tail-recursive: Recursion limit is ~1,000 steps
+type Reverse<T extends any[], Acc extends any[] = []> =
+  T extends [infer Head, ...infer Tail]
+    ? Reverse<Tail, [Head, ...Acc]>
+    : Acc;
+```
+
+---
+
+## 5. Practical Examples
+
+### 5.1 Nested Menu Navigation Structure
+```typescript
+interface MenuItem {
+  title: string;
+  path?: string;
+  children?: MenuItem[];
 }
 
-type MenuItem = {
-  label: string;
-  items?: MenuItem[];
+const navMenu: MenuItem = {
+  title: "Settings",
+  children: [
+    { title: "Profile", path: "/profile" },
+    {
+      title: "Security",
+      children: [
+        { title: "2FA", path: "/2fa" },
+        { title: "Sessions", path: "/sessions" },
+      ],
+    },
+  ],
 };
 ```
 
-Both `interface` and `type` can be recursive. The reference must appear in a position the compiler can defer: inside an object property, an array, a tuple, or a generic type argument. A bare self-reference like `type A = A | string` is an error ("circularly references itself").
+### 5.2 Real-World Application: Fully Recursive Deep Partial
+```typescript
+type DeepPartial<T> = T extends Function
+  ? T
+  : T extends Array<infer U>
+  ? Array<DeepPartial<U>>
+  : T extends object
+  ? { [K in keyof T]?: DeepPartial<T[K]> }
+  : T;
 
-## Recursive conditional types
-
-A conditional type can call itself in a branch, which gives you a loop:
-
-```ts
-type Flatten<T> = T extends (infer U)[] ? Flatten<U> : T;
-
-type A = Flatten<number[][][]>;   // number
-```
-
-Each step peels one array layer off until the type is no longer an array.
-
-### Walking a tuple
-
-`infer` with spread lets you take a tuple apart one element at a time:
-
-```ts
-type Reverse<T extends unknown[]> =
-  T extends [infer H, ...infer R] ? [...Reverse<R>, H] : [];
-
-type R = Reverse<[1, 2, 3]>;   // [3, 2, 1]
-```
-
-### Deep object transformations
-
-```ts
-type DeepReadonly<T> =
-  T extends (...args: any[]) => any ? T :
-  T extends object ? { readonly [K in keyof T]: DeepReadonly<T[K]> } :
-  T;
-```
-
-Functions are returned unchanged, because mapping over a function type would turn it into an object. Built-ins like `Date`, `Map`, and `Set` need explicit handling too. See [building custom utility types](../07-utility-types/04-building-custom-utility-types.md).
-
-## Practical patterns
-
-### All property paths of an object
-
-```ts
-type Paths<T> = T extends object
-  ? { [K in keyof T & string]: T[K] extends object ? K | `${K}.${Paths<T[K]>}` : K }[keyof T & string]
-  : never;
-
-interface Config {
-  server: { host: string; port: number };
-  debug: boolean;
+interface OrgHierarchy {
+  company: string;
+  departments: Array<{
+    name: string;
+    manager: { name: string; email: string };
+  }>;
 }
 
-type P = Paths<Config>;
-// "server" | "server.host" | "server.port" | "debug"
+const patch: DeepPartial<OrgHierarchy> = {
+  departments: [{ manager: { email: "new@org.com" } }],
+};
 ```
 
-How it works: the mapped type builds one entry per key. If the value is an object, the entry is the key itself plus `key.` joined to each path inside it (the recursion). Indexing the mapped type with `[keyof T & string]` turns the object of entries into a union. See [template literal types](./04-template-literal-types.md).
+### 5.3 Edge Case: Self-Referential Linked List
+```typescript
+interface LinkedListNode<T> {
+  value: T;
+  next: LinkedListNode<T> | null;
+}
 
-### The value at a path
+function traverseList<T>(head: LinkedListNode<T>): T[] {
+  const result: T[] = [];
+  let curr: LinkedListNode<T> | null = head;
+  while (curr) {
+    result.push(curr.value);
+    curr = curr.next;
+  }
+  return result;
+}
+```
 
-```ts
+### 5.4 Failure Case: Infinite Recursion Without Base Case
+```typescript
+// @ts-expect-error TS2589: Type instantiation is excessively deep and possibly infinite.
+type Infinite<T> = [Infinite<T>];
+```
+
+### 5.5 Idiomatic Pattern: Bounded Recursion Depth Guard
+```typescript
+type Prev = [never, 0, 1, 2, 3, 4, 5];
+
+type BoundedDeepReadonly<T, Depth extends number = 5> = [Depth] extends [0]
+  ? T
+  : T extends object
+  ? { readonly [K in keyof T]: BoundedDeepReadonly<T[K], Prev[Depth]> }
+  : T;
+```
+
+---
+
+## 6. Edge Cases, Pitfalls & Gotchas
+1. **Error TS2589**: Occurs when recursive conditional types exceed the compiler's instantiation depth limit (approx. 1,000 steps for tail recursion, ~50 for non-tail recursion).
+2. **Circular Class References**: Classes can reference each other cyclically across files, but cyclic initialization order at runtime can yield `undefined`.
+3. **Function Preservation in Deep Recursion**: Always guard with `T extends Function ? T : ...` to prevent mapping over function prototypes.
+
+---
+
+## 7. Common Mistakes & Anti-Patterns
+
+| Anti-Pattern | Problem | Solution | Compiler Error |
+| :--- | :--- | :--- | :--- |
+| Omitting terminating base case | Causes infinite compiler loop | Provide condition that returns base type | `TS2589: Type instantiation is excessively deep...` |
+| Non-tail recursive type calls | Hits stack limit after ~50 iterations | Use accumulator in tail position | Stack overflow in checker |
+| Mapping over functions in recursive types | Destroys function call signatures | Add `T extends Function ? T : ...` base case | Function becomes empty object |
+| Not handling `Date` / `RegExp` in deep types | Turns built-in objects into empty mapped objects | Add explicit base case for built-ins | Missing prototype methods |
+| Recursive object intersection accumulation | Intersecting in a loop causes $O(N^2)$ memory bloat | Use mapped types instead of intersections | Extreme compiler memory usage |
+| Deep recursion over dynamic unbounded JSON | Can freeze IDE language server | Cap recursion depth with tuple counter | Slow IDE autocompletion |
+
+---
+
+## 8. Performance & Type-Checker Complexity
+- Recursive type aliases use lazy evaluation and have minimal memory footprint when dormant.
+- Recursive conditional types that run at compile time consume $O(N)$ type instantiations. Keep recursion bounds modest.
+
+---
+
+## 9. Compiler Internals
+- Evaluated via `getTypeFromTypeReference` in `src/compiler/checker.ts`.
+- The compiler maintains an `instantiationDepth` integer.
+- If recursion exceeds internal caps, `error(node, Diagnostics.Type_instantiation_is_excessively_deep_and_possibly_infinite)` is raised.
+
+---
+
+## 10. Best Practices & Design Guidelines
+- Provide depth counters on deep recursive utilities (e.g. `Depth extends number = 5`).
+- Formulate recursive conditional types in tail-call position using accumulator tuples.
+- Guard against built-in types (`Function`, `Date`, `RegExp`) before recursing into object keys.
+
+---
+
+## 11. Real-World Case Study
+### Strongly Typed File System Tree Traversal
+```typescript
+type FileNode = { type: "file"; name: string; sizeBytes: number };
+type DirectoryNode = { type: "dir"; name: string; entries: FsNode[] };
+type FsNode = FileNode | DirectoryNode;
+
+function calculateTotalSize(node: FsNode): number {
+  if (node.type === "file") {
+    return node.sizeBytes;
+  }
+  return node.entries.reduce((acc, entry) => acc + calculateTotalSize(entry), 0);
+}
+
+const rootDir: DirectoryNode = {
+  type: "dir",
+  name: "root",
+  entries: [
+    { type: "file", name: "index.html", sizeBytes: 500 },
+    {
+      type: "dir",
+      name: "assets",
+      entries: [{ type: "file", name: "logo.png", sizeBytes: 2400 }],
+    },
+  ],
+};
+
+console.log(calculateTotalSize(rootDir)); // 2900
+```
+
+---
+
+## 12. Interview Questions
+
+<details>
+<summary>1. When did TypeScript introduce native support for recursive type aliases?</summary>
+
+TypeScript 3.7 introduced native recursive type aliases (like `type Json = string | Json[]`) by deferring resolution until properties are accessed.
+</details>
+
+<details>
+<summary>2. What is Tail-Call Optimization for recursive conditional types in TypeScript 4.5+?</summary>
+
+When the recursive call of a conditional type is in tail position (directly returned without wrapping in an intermediate structure), the compiler reuses the evaluation stack frame, extending the supported recursion depth from ~50 to ~1,000 steps.
+</details>
+
+<details>
+<summary>3. What causes error TS2589?</summary>
+
+Exceeding the compiler's internal recursion depth limit during generic instantiation, typically caused by a recursive type that lacks a terminating base case or loops circularly.
+</details>
+
+<details>
+<summary>4. How can you limit the recursion depth of a recursive type?</summary>
+
+Using a tuple lookup array as a decrementing counter:
+```typescript
+type Prev = [never, 0, 1, 2, 3];
+type Recurse<T, D extends number = 3> = [D] extends [0] ? T : Recurse<Next<T>, Prev[D]>;
+```
+</details>
+
+<details>
+<summary>5. Why must functions be guarded in recursive deep types?</summary>
+
+In TypeScript, functions extend `object`. If a recursive mapped type does not guard against `Function`, it attempts to iterate over `keyof Function` and strips the call signature, turning the function into an uncallable object.
+</details>
+
+<details>
+<summary>6. How do you define a recursive JSON value type?</summary>
+
+```typescript
+type Json = string | number | boolean | null | Json[] | { [key: string]: Json };
+```
+</details>
+
+<details>
+<summary>7. How does lazy evaluation work for recursive types?</summary>
+
+The compiler creates an unevaluated `TypeReference` marker instead of evaluating the full recursive tree at declaration time. The recursive branch is only resolved when code explicitly accesses a child property.
+</details>
+
+<details>
+<summary>8. Can interfaces be recursive in TypeScript?</summary>
+
+Yes, interfaces have always supported recursive definitions since TypeScript 0.9 (e.g. `interface Node { next?: Node; }`).
+</details>
+
+---
+
+## 13. Exercises & Challenges
+
+### Exercise 1: Recursive String Array Flattener (Easy)
+Write a recursive utility `NestedArray<T>` representing an arbitrarily nested array of `T`.
+<details>
+<summary>Solution</summary>
+
+```typescript
+type NestedArray<T> = Array<T | NestedArray<T>>;
+const valid: NestedArray<number> = [1, [2, [3, [4]]]];
+```
+</details>
+
+### Exercise 2: Count Depth of Nested Array (Easy)
+Write a type `ArrayDepth<T>` that counts how many array dimensions surround `T`.
+<details>
+<summary>Solution</summary>
+
+```typescript
+type ArrayDepth<T, Acc extends any[] = []> =
+  T extends readonly (infer U)[]
+    ? ArrayDepth<U, [...Acc, any]>
+    : Acc["length"];
+
+type D3 = ArrayDepth<string[][][]>; // 3
+```
+</details>
+
+### Exercise 3: Recursive Deep Readonly (Medium)
+Implement `DeepReadonly<T>` with base-case guards for functions and primitives.
+<details>
+<summary>Solution</summary>
+
+```typescript
+type DeepReadonly<T> = T extends Function
+  ? T
+  : T extends readonly (infer U)[]
+  ? ReadonlyArray<DeepReadonly<U>>
+  : T extends object
+  ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
+  : T;
+```
+</details>
+
+### Exercise 4: Reverse Tuple Tail-Recursively (Medium)
+Implement `Reverse<T>` for tuples using tail recursion.
+<details>
+<summary>Solution</summary>
+
+```typescript
+type Reverse<T extends readonly unknown[], Acc extends unknown[] = []> =
+  T extends readonly [infer Head, ...infer Tail]
+    ? Reverse<Tail, [Head, ...Acc]>
+    : Acc;
+
+type Rev = Reverse<[1, 2, 3, 4]>; // [4, 3, 2, 1]
+```
+</details>
+
+### Exercise 5: Depth-Guarded Deep Required (Hard)
+Implement `BoundedDeepRequired<T, Depth extends number = 3>`.
+<details>
+<summary>Solution</summary>
+
+```typescript
+type Prev = [never, 0, 1, 2, 3];
+
+type BoundedDeepRequired<T, D extends number = 3> = [D] extends [0]
+  ? T
+  : T extends Function
+  ? T
+  : T extends Array<infer U>
+  ? Array<BoundedDeepRequired<U, Prev[D]>>
+  : T extends object
+  ? { [K in keyof T]-?: BoundedDeepRequired<T[K], Prev[D]> }
+  : T;
+```
+</details>
+
+### Exercise 6: Parse Deep Path Value (Hard)
+Given a recursive object structure, implement a strongly typed path accessor returning the nested property type.
+<details>
+<summary>Solution</summary>
+
+```typescript
 type PathValue<T, P extends string> =
-  P extends `${infer K}.${infer Rest}`
-    ? K extends keyof T ? PathValue<T[K], Rest> : never
-    : P extends keyof T ? T[P] : never;
+  P extends `${infer Key}.${infer Rest}`
+    ? Key extends keyof T
+      ? PathValue<T[Key], Rest>
+      : never
+    : P extends keyof T
+    ? T[P]
+    : never;
 
-type V = PathValue<Config, "server.port">;   // number
+interface Org {
+  dept: { engineering: { lead: { name: string } } };
+}
+
+type LeadName = PathValue<Org, "dept.engineering.lead.name">; // string
 ```
-
-Combine `Paths` and `PathValue` to type a `get(obj, "server.port")` helper that autocompletes valid paths and returns the right type.
-
-Arrays are objects, so `Paths` descends into them and produces keys like `"items.length"` and method names. If your data has arrays, add a branch for them (for example, stop at arrays or use `number` keys deliberately).
-
-## Recursion limits
-
-The compiler protects itself from infinite type expansion:
-
-- A **non-tail** recursive type has a fairly low depth limit (around 50 levels of nested instantiation). Exceeding it gives:
-  `Type instantiation is excessively deep and possibly infinite` (TS2589).
-- Since TS 4.5, **tail-recursive conditional types** are optimized and can go much deeper (the limit is on the order of a thousand iterations).
-
-A conditional type is tail-recursive when the recursive call is the **entire** result of a branch, not nested inside another type. The usual trick is an **accumulator parameter**:
-
-```ts
-// not tail-recursive: the recursive call is wrapped in a tuple
-type ReverseSlow<T extends unknown[]> =
-  T extends [infer H, ...infer R] ? [...ReverseSlow<R>, H] : [];
-
-// tail-recursive: the call is the whole branch result
-type Reverse<T extends unknown[], Acc extends unknown[] = []> =
-  T extends [infer H, ...infer R] ? Reverse<R, [H, ...Acc]> : Acc;
-```
-
-Same result, but the second form can handle much longer inputs. The accumulator carries the work-in-progress, and the final branch returns it.
-
-Practical limits to keep in mind:
-
-- Counting and arithmetic that build tuples element by element stop working somewhere around a thousand elements.
-- Deep recursion makes type checking slow even when it succeeds. See [type-checking performance](../22-performance/00-type-checking-performance.md).
-
-## Important rules and misconceptions
-
-**Recursion in type aliases is evaluated lazily.** A recursive object or array type is fine. A type that must be fully resolved to be defined is not.
-
-**Both branches matter.** Every recursive conditional needs a base case that stops it. If the recursion never reaches the base case for some input (for example `number` instead of a literal), you get the depth error.
-
-**A generic like `T extends string` that is not narrowed to a literal can loop or return something vague.** Recursive types usually expect literals or tuples as input.
-
-**Recursion is type-level only.** There is no runtime cost, and no runtime behavior. JSON typed as `Json` is not validated.
-
-## Common mistakes
-
-- **Writing the recursive call wrapped in another type** (tuple, template literal, union) and then hitting the depth limit on moderate inputs. Use an accumulator when possible.
-- **Missing base case.** The type recurses forever or returns `never` unexpectedly.
-- **Applying a deep mapped type to built-ins** (`Date`, `Map`, functions) and breaking them.
-- **Recursing on `number` or `string` instead of literals,** which cannot terminate.
-- **Over-using recursion for things a plain type could express.** Keep these utilities small, tested, and hidden behind simple names.
-
-## Debugging
-
-- Start with a tiny input (one or two levels) and hover the result, then grow it.
-- If you see TS2589, restructure for tail recursion, reduce the input size, or add an early exit for the cases you do not need.
-- Break the type into a helper and inspect intermediate results.
-- Add type tests so changes are caught ([type testing](../18-testing-and-debugging/04-type-testing.md)).
-- If the editor slows down while a recursive type is in view, simplify. Slow types hurt everyone who opens the file.
-
-## Quick summary
-
-- A type can refer to itself inside an object, array, tuple, or generic argument. That is how JSON, trees, and menus are typed.
-- Conditional types can recurse to loop over tuples, strings, and object paths. Always have a base case.
-- Non-tail recursion has a low depth limit (TS2589). Tail-recursive conditionals with an accumulator can go far deeper.
-- Common patterns: `Flatten`, `Reverse`, `DeepReadonly`, `Paths`, `PathValue`.
-- Recursive types are compile-time only and can be slow. Keep them small and tested.
-
-**Next:** [Variadic tuple types](./06-variadic-tuple-types.md)
+</details>

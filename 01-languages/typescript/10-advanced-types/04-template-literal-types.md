@@ -1,208 +1,390 @@
 # Template Literal Types
 
-Template literal types use the same backtick syntax as JavaScript template strings, but at the type level. They build **string literal types** from other types, and, combined with `infer`, they let you **parse** string types. They are how libraries type route paths, event names, CSS-like values, and "snake_case to camelCase" conversions.
+> Template literal types bring JavaScript template string interpolation syntax into the type system, enabling string pattern matching, compile-time parsers, and combinatoric union generation.
 
-**Prerequisites:**
-- [Literal types and const assertions](../03-unions-and-narrowing/02-literal-types-and-const-assertions.md)
-- [Union types](../03-unions-and-narrowing/00-union-types.md)
-- [Conditional types](./00-conditional-types.md) and [infer](./02-infer.md) (for the parsing sections)
+| Metadata | Value |
+| :--- | :--- |
+| **Level** | Advanced |
+| **Prerequisites** | [06-string-manipulation-types.md](file:///E:/Learning/engineering-notes/01-languages/typescript/07-utility-types/06-string-manipulation-types.md) |
+| **Time to Read** | 25 minutes |
+| **Status** | Complete |
+| **TypeScript Baseline** | Since TS 4.1 / TS 5.x / TS 7.0 Native |
+| **Tested tsconfig** | `strict: true`, `noImplicitAny: true` |
 
 ---
 
-## Syntax
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & API Reference](#4-syntax--api-reference)
+5. [Practical Examples](#5-practical-examples)
+6. [Edge Cases, Pitfalls & Gotchas](#6-edge-cases-pitfalls--gotchas)
+7. [Common Mistakes & Anti-Patterns](#7-common-mistakes--anti-patterns)
+8. [Performance & Type-Checker Complexity](#8-performance--type-checker-complexity)
+9. [Compiler Internals](#9-compiler-internals)
+10. [Best Practices & Design Guidelines](#10-best-practices--design-guidelines)
+11. [Real-World Case Study](#11-real-world-case-study)
+12. [Interview Questions](#12-interview-questions)
+13. [Exercises & Challenges](#13-exercises--challenges)
 
-```ts
-type Greeting = `Hello, ${string}`;
+---
 
-const a: Greeting = "Hello, world";   // ok
-const b: Greeting = "Hi, world";      // error
+## 1. What & Why
+In JavaScript, developers compose strings dynamically using template literals (``${prefix}_${name}``). Before TypeScript 4.1, the type system could only represent strings as broad `string` primitives or exact static string literals (`"GET"`).
+
+**Template Literal Types** use the exact same backtick syntax in type positions:
+```typescript
+type EventName = `on${Capitalize<string>}`;
+```
+They can interpolate unions, numbers, booleans, and other template types, automatically generating Cartesian products or acting as patterns in conditional type matching.
+
+---
+
+## 2. Core Concepts
+
+### Cartesian Product Generation
+When unions are interpolated inside a template literal type, TypeScript automatically computes the Cartesian product:
+```typescript
+type Direction = "top" | "bottom";
+type Alignment = "left" | "right";
+
+type Position = `${Direction}-${Alignment}`;
+// "top-left" | "top-right" | "bottom-left" | "bottom-right"
 ```
 
-Inside `${ }` you can place `string`, `number`, `bigint`, `boolean`, `null`, `undefined`, string/number literals, or unions of these.
+### Type Matching & Parsing
+When used with `infer`, template literals function as compile-time string parsers:
+```typescript
+type SplitPath<T extends string> =
+  T extends `${infer Segment}/${infer Rest}`
+    ? [Segment, ...SplitPath<Rest>]
+    : [T];
 
-```ts
-type Id = `user_${number}`;
-
-const ok: Id = "user_42";
-const bad: Id = "user_abc";   // error
+type Segments = SplitPath<"api/v1/users">;
+// ["api", "v1", "users"]
 ```
 
-## Unions expand to every combination
+---
 
-```ts
-type Axis = "x" | "y";
-type Side = "top" | "bottom";
+## 3. How It Works Internally
 
-type Position = `${Side}-${Axis}`;
-// "top-x" | "top-y" | "bottom-x" | "bottom-y"
+```
+Type Expression: `${"a" | "b"}_${1 | 2}`
+                     |
+                     v
+   Compiler computes combinations:
+       "a" + "_" + "1" ===> "a_1"
+       "a" + "_" + "2" ===> "a_2"
+       "b" + "_" + "1" ===> "b_1"
+       "b" + "_" + "2" ===> "b_2"
+                     |
+                     v
+Result Union: "a_1" | "a_2" | "b_1" | "b_2"
 ```
 
-The result is the cross product of all unions. This is powerful but grows fast: very large cross products hit a compiler limit and produce an error about the union being too complex. Keep the input unions small.
+In `src/compiler/checker.ts`:
+1. The parser generates a `TemplateLiteralTypeNode` containing a `head` and a list of `templateSpans`.
+2. When checking assignability, `checkTypeRelatedTo` runs a regex-like pattern matcher that matches character slices between template holes.
+3. If `infer` is inside a span, the matched substring is extracted and bound to that type parameter.
 
-## Intrinsic string types
+---
 
-Four built-in helpers transform string literal types:
+## 4. Syntax & API Reference
 
-| Type | Result for `"hello world"` |
-|---|---|
-| `Uppercase<S>` | `"HELLO WORLD"` |
-| `Lowercase<S>` | `"hello world"` |
-| `Capitalize<S>` | `"Hello world"` |
-| `Uncapitalize<S>` | `"hello world"` |
+### Primitives Allowed in Template Types
+Template literals coerce specific primitive types:
+- `string`, string literals
+- `number`, numeric literals
+- `boolean`, `true`, `false`
+- `bigint`, bigint literals
+- `null`, `undefined`
+*(Symbols and objects are forbidden).*
 
-```ts
-type EventName<T extends string> = `on${Capitalize<T>}`;
+---
 
-type E = EventName<"click" | "focus">;   // "onClick" | "onFocus"
+## 5. Practical Examples
+
+### 5.1 CSS Unit Validator
+```typescript
+type LengthUnit = "px" | "em" | "rem" | "%" | "vh" | "vw";
+type CSSLength = `${number}${LengthUnit}` | "0" | "auto";
+
+const width: CSSLength = "100px";
+const height: CSSLength = "50vh";
+// @ts-expect-error TS2322: Type '"100"' is not assignable to type 'CSSLength'.
+const bad: CSSLength = "100";
 ```
 
-## Practical usage
+### 5.2 Real-World Application: Type-Safe Dotted Path Object Accessor
+```typescript
+type DottedPath<T> = T extends object
+  ? {
+      [K in keyof T & string]: T[K] extends object
+        ? K | `${K}.${DottedPath<T[K]>}`
+        : K;
+    }[keyof T & string]
+  : never;
 
-### Typed event handler names
+interface AppConfig {
+  db: {
+    primary: { host: string; port: number };
+    replica: { host: string };
+  };
+  env: string;
+}
 
-```ts
-type Events = { click: MouseEvent; focus: FocusEvent };
+type Paths = DottedPath<AppConfig>;
+// "env" | "db" | "db.primary" | "db.primary.host" | "db.primary.port" | "db.replica" | "db.replica.host"
+```
 
-type Handlers = {
-  [K in keyof Events as `on${Capitalize<string & K>}`]: (e: Events[K]) => void;
+### 5.3 Edge Case: Greedy vs Non-Greedy String Inference
+```typescript
+// In template literal pattern matching, inference is NON-GREEDY:
+type MatchProtocol<T extends string> = T extends `${infer Proto}://${string}` ? Proto : never;
+type P = MatchProtocol<"https://my.domain.com/path">; // "https"
+```
+
+### 5.4 Failure Case: Symbol in Template Literal
+```typescript
+declare const sym: unique symbol;
+
+// @ts-expect-error TS2322: Type 'symbol' is not assignable to type 'string | number | bigint | boolean | null | undefined'.
+type BadTemplate = `prefixed_${typeof sym}`;
+```
+
+### 5.5 Idiomatic Pattern: Safe SQL Query Builder
+```typescript
+type SqlVerb = "SELECT" | "INSERT" | "UPDATE" | "DELETE";
+type SqlStatement = `${SqlVerb} ${string}`;
+
+function executeSql(query: SqlStatement): void {
+  console.log("Executing:", query);
+}
+
+executeSql("SELECT * FROM users"); // OK
+// @ts-expect-error TS2345: Argument of type '"DROP TABLE users"' is not assignable to parameter of type 'SqlStatement'.
+executeSql("DROP TABLE users");
+```
+
+---
+
+## 6. Edge Cases, Pitfalls & Gotchas
+1. **Exponential Instantiation Limit**: Multiplying multiple unions can quickly produce millions of types. TypeScript caps union size in template literal types to prevent compiler out-of-memory errors.
+2. **Numbers in Template Literals**: ``${number}`` matches any string containing valid digits or decimals, but does not parse mathematical boundaries at compile time.
+3. **Symbols are Forbidden**: Symbols cannot be coerced to strings in type space.
+
+---
+
+## 7. Common Mistakes & Anti-Patterns
+
+| Anti-Pattern | Problem | Solution | Compiler Error |
+| :--- | :--- | :--- | :--- |
+| Multiplying wide unions | Creates Cartesian explosion ($O(N^K)$) | Limit union size in template strings | `TS2590: Expression produces a union type that is too complex...` |
+| Using `symbol` in template string | Symbol cannot be converted to string type | Filter keys with `string & K` | `TS2322: Type 'symbol' not assignable to...` |
+| Recursive template type on long strings | Exceeds compiler recursion limit (~1,000) | Restrict parsing to identifiers | `TS2589: Type instantiation is excessively deep` |
+| Expecting numeric arithmetic in template types | Template types only perform string concatenation | Use tuple length simulation for math | Loss of numeric arithmetic |
+| Forgetting non-greedy matching behavior | First `infer` captures minimal matching string | Anchor with delimiters | Unexpected substring match |
+| Using template literals for enum replacement | Enums generate runtime values; template types do not | Use `as const` object dictionaries | Missing runtime value |
+
+---
+
+## 8. Performance & Type-Checker Complexity
+- Simple template strings resolve in $O(1)$.
+- Template types with multiple union holes compute Cartesian products with complexity $O(prod N_i)$. Keep total permutations below 10,000.
+
+---
+
+## 9. Compiler Internals
+- `TemplateLiteralTypeNode` contains `head: TemplateHead` and `templateSpans: NodeArray<TemplateSpan>`.
+- Evaluated in `src/compiler/checker.ts` by `getTemplateLiteralType`.
+- If any interpolated type parameter is generic, the compiler creates an unevaluated `TemplateLiteralType` deferred until instantiation.
+
+---
+
+## 10. Best Practices & Design Guidelines
+- Use template literal types for route paths, event names, and CSS unit validation.
+- Intersect with `string & K` when mapping object keys into template literals.
+- Guard recursive template parsers with base-case termination branches.
+
+---
+
+## 11. Real-World Case Study
+### Type-Safe REST API Endpoint Route Definition with Path Parameters
+```typescript
+type ExtractParams<T extends string> =
+  T extends `${infer _}:${infer Param}/${infer Rest}`
+    ? Param | ExtractParams<`/${Rest}`>
+    : T extends `${infer _}:${infer Param}`
+    ? Param
+    : never;
+
+type RouteDefinition<T extends string> = {
+  path: T;
+  handler: (params: Record<ExtractParams<T>, string>) => void;
 };
-// { onClick: (e: MouseEvent) => void; onFocus: (e: FocusEvent) => void }
+
+const route: RouteDefinition<"/api/v1/users/:userId/posts/:postId"> = {
+  path: "/api/v1/users/:userId/posts/:postId",
+  handler: (params) => {
+    // params is strictly typed as: { userId: string; postId: string }
+    console.log(params.userId, params.postId);
+  }
+};
 ```
 
-The `as` clause comes from [mapped types](./03-mapped-types.md). `string & K` narrows to string keys.
+---
 
-### Constrain string-typed props
+## 12. Interview Questions
 
-```ts
-type CssLength = `${number}px` | `${number}rem` | `${number}%`;
+<details>
+<summary>1. What are Template Literal Types in TypeScript?</summary>
 
-function setWidth(w: CssLength) {}
+Template literal types allow composing string types using the backtick interpolation syntax ``${A}_${B}`` in type positions. They can interpolate unions to generate Cartesian products or use `infer` to pattern-match and destructure strings.
+</details>
 
-setWidth("10px");     // ok
-setWidth("2.5rem");   // ok
-setWidth("10");       // error
+<details>
+<summary>2. What happens when unions are passed into template literal types?</summary>
+
+TypeScript computes the Cartesian product of all union members. For example, ``${"a"|"b"}_${1|2}`` resolves to `"a_1" | "a_2" | "b_1" | "b_2"`.
+</details>
+
+<details>
+<summary>3. What error occurs if a template literal type generates too many permutations?</summary>
+
+`TS2590: Expression produces a union type that is too complex to represent.`
+</details>
+
+<details>
+<summary>4. What types are permitted inside template literal interpolations?</summary>
+
+`string`, `number`, `boolean`, `bigint`, `null`, and `undefined`, along with their literal types. Symbols and objects are not permitted.
+</details>
+
+<details>
+<summary>5. How does pattern matching with <code>infer</code> in template literals work?</summary>
+
+By specifying ``${infer Head}-${infer Tail}``, TypeScript matches substrings before and after the delimiter `-`, assigning them to `Head` and `Tail` respectively.
+</details>
+
+<details>
+<summary>6. Is template literal pattern matching greedy or non-greedy?</summary>
+
+The first `infer` before a fixed delimiter is **non-greedy**; it matches the shortest possible substring until the delimiter is encountered.
+</details>
+
+<details>
+<summary>7. How can you validate that a string is a valid CSS pixel value?</summary>
+
+```typescript
+type Pixels = `${number}px`;
 ```
+</details>
 
-### Typed identifiers
+<details>
+<summary>8. How do template literal types integrate with mapped types?</summary>
 
-```ts
-type UserId  = `usr_${string}`;
-type OrderId = `ord_${string}`;
+Using key remapping with `as`:
+```typescript
+type Getters<T> = { [K in keyof T as `get${Capitalize<string & K>}`]: () => T[K] };
 ```
+</details>
 
-These catch accidental mix-ups for free, though they are only a convention at runtime. For stronger separation see [branded types](./07-branded-types.md).
+---
 
-## Parsing with `infer`
+## 13. Exercises & Challenges
 
-Placing `infer` inside a template literal lets you take strings apart:
+### Exercise 1: CSS Percentage Validator (Easy)
+Write a template literal type matching valid percentage strings (e.g. `"50%"`, `"100%"`).
+<details>
+<summary>Solution</summary>
 
-```ts
-type Prefix<S> = S extends `${infer P}-${string}` ? P : never;
-
-type P = Prefix<"user-123">;   // "user"
+```typescript
+type CSSPercentage = `${number}%`;
+const valid: CSSPercentage = "50%"; // OK
+// @ts-expect-error TS2322
+const bad: CSSPercentage = "50px";
 ```
+</details>
 
-### Matching rules
+### Exercise 2: Combine HTTP Methods and Paths (Easy)
+Combine HTTP methods `"GET" | "POST"` with paths `"/users" | "/orders"`.
+<details>
+<summary>Solution</summary>
 
-- Each `infer` that is **not last** captures the **shortest** possible match up to the next literal text.
-- The **last** `infer` captures the **rest** of the string.
-- `${string}` matches any characters; `${number}` matches a string that parses as a number.
-
-```ts
-type Split<S extends string> =
-  S extends `${infer A}.${infer B}` ? [A, B] : [S];
-
-type R = Split<"a.b.c">;   // ["a", "b.c"]
+```typescript
+type Method = "GET" | "POST";
+type Path = "/users" | "/orders";
+type Endpoint = `${Method} ${Path}`;
+// "GET /users" | "GET /orders" | "POST /users" | "POST /orders"
 ```
+</details>
 
-### Extract route parameters
+### Exercise 3: Extract Protocol from URL (Medium)
+Write a utility `ExtractProtocol<T>` that extracts the protocol (e.g. `"https"`) from a URL string.
+<details>
+<summary>Solution</summary>
 
-A realistic use: derive parameter names from a path pattern.
+```typescript
+type ExtractProtocol<T extends string> =
+  T extends `${infer Protocol}://${string}` ? Protocol : never;
 
-```ts
-type ParamNames<S extends string> =
-  S extends `${string}:${infer P}/${infer Rest}`
-    ? P | ParamNames<`/${Rest}`>
-    : S extends `${string}:${infer P}`
-      ? P
-      : never;
-
-type Params<S extends string> = { [K in ParamNames<S>]: string };
-
-type R = Params<"/users/:userId/posts/:postId">;
-// { userId: string; postId: string }
+type P = ExtractProtocol<"https://github.com">; // "https"
 ```
+</details>
 
-Trace: `"/users/:userId/posts/:postId"` first matches the first pattern. `${string}` takes `/users/`, `P` takes `userId` (up to the next `/`), and `Rest` is `posts/:postId`. The type then recurses on `/posts/:postId`, where the first pattern fails (no `/` after the parameter), and the second pattern captures `postId`. The recursion is covered in [recursive types](./05-recursive-types.md).
+### Exercise 4: Replace String Substring (Medium)
+Implement `Replace<S, From, To>` using template literal inference.
+<details>
+<summary>Solution</summary>
 
-Used with a function, this gives call-site checking:
+```typescript
+type Replace<S extends string, From extends string, To extends string> =
+  From extends ""
+    ? S
+    : S extends `${infer Head}${From}${infer Tail}`
+    ? `${Head}${To}${Tail}`
+    : S;
 
-```ts
-declare function buildPath<S extends string>(pattern: S, params: Params<S>): string;
-
-buildPath("/users/:userId", { userId: "1" });   // ok
-buildPath("/users/:userId", {});                // error: missing userId
+type Res = Replace<"foo_bar", "_", "-">; // "foo-bar"
 ```
+</details>
 
-### Convert casing
+### Exercise 5: CamelCase to KebabCase Converter (Hard)
+Convert `camelCaseString` to `kebab-case-string` entirely at compile time.
+<details>
+<summary>Solution</summary>
 
-```ts
-type CamelCase<S extends string> =
-  S extends `${infer Head}_${infer Tail}`
-    ? `${Lowercase<Head>}${Capitalize<CamelCase<Tail>>}`
-    : Lowercase<S>;
+```typescript
+type CamelToKebab<S extends string> = S extends `${infer Head}${infer Tail}`
+  ? `${Head extends Lowercase<Head> ? "" : "-"}${Lowercase<Head>}${CamelToKebab<Tail>}`
+  : S;
 
-type R = CamelCase<"user_first_name">;   // "userFirstName"
+type K = CamelToKebab<"myFavoriteColor">; // "my-favorite-color"
 ```
+</details>
 
-Applied to object keys with a mapped type, this converts a whole record from snake_case to camelCase at the type level.
+### Exercise 6: Parse Dotted JSON Path Values (Hard)
+Given a nested object type and a dotted string path, return the target value type.
+<details>
+<summary>Solution</summary>
 
-### Inferring literal types from values
+```typescript
+type GetPathValue<T, P extends string> =
+  P extends `${infer Key}.${infer Rest}`
+    ? Key extends keyof T
+      ? GetPathValue<T[Key], Rest>
+      : never
+    : P extends keyof T
+    ? T[P]
+    : never;
 
-Inference for template literal types needs the argument to be a **literal**. A `const` or a `<S extends string>` generic keeps the literal:
+interface Database {
+  connections: {
+    primary: { port: number };
+  };
+}
 
-```ts
-declare function route<S extends string>(path: S): Params<S>;
-
-route("/users/:id");        // S inferred as "/users/:id"
+type Port = GetPathValue<Database, "connections.primary.port">; // number
 ```
-
-A variable typed as plain `string` gives `string`, and the parsing types see no structure.
-
-## Important rules and misconceptions
-
-**These are types, not runtime checks.** `` `user_${number}` `` does not validate anything at runtime. Data coming from outside (JSON, input, URLs) needs real validation ([runtime validation](../15-runtime-validation/README.md)).
-
-**Template types distribute over unions** in each placeholder, as shown in the cross-product behavior.
-
-**`string` in a placeholder is a pattern, not a literal.** `` `a${string}` `` accepts `"a"`, `"abc"`, and so on.
-
-**Generic strings stay unresolved.** In a function body with `S extends string`, `Params<S>` is deferred until the call site provides a literal.
-
-**Number-like matching is lenient in some ways.** `` `${number}` `` matches strings like `"1e3"` and `"-0"` that parse as numbers. Test unusual formats if exactness matters.
-
-## Common mistakes
-
-- **Letting the argument widen to `string`.** The parser sees no pattern and returns something vague. Use a `const` or a generic constraint.
-- **Building huge unions** (large cross products) and hitting compiler limits or slow checks.
-- **Using `keyof T` directly in a template literal.** Use `string & keyof T` since `keyof T` can include `number` and `symbol`.
-- **Expecting regex-like power.** Template literal types do positional pattern matching only. Complex grammars are slow and fragile.
-- **Treating them as validation.** They describe types, not data.
-
-## Debugging
-
-- Test the parser with a literal and hover the result: `type T = Params<"/a/:b">`.
-- Test edge cases: empty string, no delimiter, several delimiters, trailing delimiter.
-- If you get `never`, the pattern did not match the string you supplied. Check for a missing leading `/` or extra characters.
-- If the result is `string` or `{}`, the input was widened. Confirm the argument is a literal.
-- For "Type instantiation is excessively deep" or "union too complex", reduce unions or restructure recursion with an accumulator ([recursive types](./05-recursive-types.md)).
-
-## Quick summary
-
-- `` `...${T}...` `` builds string literal types, expanding unions into every combination.
-- `Uppercase`, `Lowercase`, `Capitalize`, and `Uncapitalize` transform literal strings.
-- With `infer`, a template literal acts as a pattern matcher: non-final `infer`s take the shortest match, the last takes the rest.
-- Typical uses: event names, route parameters, casing conversion, string-shaped IDs and CSS values.
-- Inputs must be literal types to be parsed, and none of this validates data at runtime.
-
-**Next:** [Recursive types](./05-recursive-types.md)
+</details>

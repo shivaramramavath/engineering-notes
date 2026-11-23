@@ -88,3 +88,42 @@
   - `06-string-manipulation-types.md` (398 lines - NEW): Intrinsic string types (`Uppercase`, `Lowercase`, `Capitalize`, `Uncapitalize`), template literal types, string pattern extraction.
   - `07-deep-utility-types.md` (512 lines - NEW): Recursive `DeepPartial`, `DeepReadonly`, `DeepRequired`, `DeepMutable`, guards for `Function`, `Date`, and collections.
   - Authored comprehensive `07-utility-types/README.md` (42 lines).
+
+
+### Batch 4: Modules, Declarations & Advanced Types (Modules 08, 09, 10)
+- **Module 08: Modules (9 files, 100% Complete)**:
+  - `00-imports-and-exports.md` (384 lines): Named/default exports, type elision mechanisms, re-export pipelines, dynamic imports.
+  - `01-es-modules-and-commonjs.md` (379 lines): `esModuleInterop`, default import synthesis, synthetic module records, dual-package hazards.
+  - `02-barrel-files-and-module-organization.md` (374 lines): Facade patterns, tree-shaking impacts, circular dependency avoidance, subpaths.
+  - `03-namespaces.md` (431 lines): Legacy namespaces, IIFE emission, declaration merging with functions/enums, `isolatedModules` constraints.
+  - `04-verbatim-module-syntax-and-type-modifiers.md` (364 lines - NEW): TS 5.0+ `verbatimModuleSyntax`, Node 22 native type stripping (`--experimental-strip-types`) compatibility, `import type`.
+  - `05-package-json-exports-and-resolution-modes.md` (458 lines - NEW): Modern resolution modes (`bundler`, `node16`, `nodenext`), subpath exports, condition matching order (`types` first).
+  - `06-import-attributes-and-json-modules.md` (383 lines - NEW): TS 5.3+ Stage 3 `with { type: "json" }`, dynamic asset import security, MIME-type confusion defenses.
+  - `07-isolated-declarations.md` (398 lines - NEW): TS 5.5+ `--isolatedDeclarations`, explicit export boundaries, unblocking parallel compilers (`tsgo`, Oxlint).
+  - Authored comprehensive `08-modules/README.md` (42 lines).
+
+- **Module 09: Declaration Files (9 files, 100% Complete)**:
+  - `00-declaration-files.md` (384 lines): `.d.ts` anatomy, `declarationMap`, `emitDeclarationOnly`, project references optimization.
+  - `01-ambient-declarations.md` (388 lines): `declare` keyword, global variables, window extensions, `NodeJS.ProcessEnv` typing.
+  - `02-global-and-module-augmentation.md` (396 lines): Non-invasive third-party extensions (`declare module "pkg"`, `declare global`), Express, Fastify, Vitest matchers.
+  - `03-declaration-merging.md` (422 lines): Interface merging, method overload ordering rules, namespace companion merging with functions and enums.
+  - `04-third-party-types.md` (356 lines): DefinitelyTyped ecosystem (`@types/`), `skipLibCheck`, `typeRoots`, scoping with `types` array.
+  - `05-authoring-declarations-for-javascript-libraries.md` (401 lines - NEW): Step-by-step authoring for untyped npm packages, UMD `export as namespace`, `export =` CommonJS signatures.
+  - `06-types-versions-and-downleveling.md` (391 lines - NEW): `typesVersions` in `package.json`, automated `downlevel-dts`, multi-version compiler support.
+  - `07-definitely-typed-workflow-and-best-practices.md` (408 lines - NEW): DefinitelyTyped monorepo architecture, `dtslint` verification, PR approval bots, types-publisher automated release.
+  - Authored comprehensive `09-declaration-files/README.md` (42 lines).
+
+- **Module 10: Advanced Types (13 files, 100% Complete)**:
+  - `00-conditional-types.md` (397 lines): Ternary type logic, deferred evaluation, assignability checking, type equality checkers.
+  - `01-distributive-conditional-types.md` (374 lines): Bare type parameter rule, union filtering, tuple wrapping to disable distribution, the `never` trap.
+  - `02-infer.md` (351 lines): Pattern matching, covariant vs contravariant inference positions, TS 4.7+ constrained `infer`.
+  - `03-mapped-types.md` (393 lines): Homomorphic mapped types, `+` and `-` modifier tokens, key remapping with `as`, filtering with `never`.
+  - `04-template-literal-types.md` (391 lines): String interpolation in types, Cartesian product unions, string pattern extraction.
+  - `05-recursive-types.md` (429 lines): Self-referential type aliases, JSON models, tail-call recursion optimization (TS 4.5+), depth guards.
+  - `06-variadic-tuple-types.md` (391 lines): Generic tuple spreads (`...T`), flexible rest element positioning, labeled tuple elements.
+  - `07-branded-types.md` (394 lines): Nominal typing via phantom brands, unique symbols, zero runtime overhead, smart constructors.
+  - `08-type-level-programming.md` (379 lines): Turing completeness, type-space functional programming, boolean logic, accumulator pattern.
+  - `09-type-level-parsers-and-state-machines.md` (431 lines - NEW): Compile-time string DSL parsing, state transition matrices, query string tokenizers, SQL column extraction.
+  - `10-deep-keys-and-path-navigation.md` (455 lines - NEW): Exhaustive nested dotted paths (`DeepPaths`), path value extraction (`DeepPathValue`), type-safe lens setters.
+  - `11-type-arithmetic-and-tuple-manipulation.md` (354 lines - NEW): Peano number simulation, tuple length arithmetic (`Add`, `Subtract`, `GreaterThan`), tensor dimension verification.
+  - Authored comprehensive `10-advanced-types/README.md` (50 lines).

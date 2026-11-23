@@ -1,205 +1,387 @@
 # Ambient Declarations
 
-An **ambient declaration** tells the compiler that something exists at runtime, without defining it. You use the `declare` keyword for variables, functions, classes, enums, namespaces, and whole modules. It is how you describe globals injected by a script tag or bundler, untyped packages, and non-code imports like images and CSS.
+> Ambient declarations (`declare`) inform the TypeScript type checker about global variables, functions, and modules that exist in the execution environment without producing emitted runtime code.
 
-**Prerequisites:**
-- [Declaration files](./00-declaration-files.md)
-- [Imports and exports](../08-modules/00-imports-and-exports.md) (the module vs script distinction matters a lot here)
+| Metadata | Value |
+| :--- | :--- |
+| **Level** | Intermediate |
+| **Prerequisites** | [00-declaration-files.md](file:///E:/Learning/engineering-notes/01-languages/typescript/09-declaration-files/00-declaration-files.md) |
+| **Time to Read** | 22 minutes |
+| **Status** | Complete |
+| **TypeScript Baseline** | Since TS 0.9 / TS 5.x / TS 7.0 Native |
+| **Tested tsconfig** | `strict: true`, `noImplicitAny: true` |
 
 ---
 
-## The `declare` forms
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & API Reference](#4-syntax--api-reference)
+5. [Practical Examples](#5-practical-examples)
+6. [Edge Cases, Pitfalls & Gotchas](#6-edge-cases-pitfalls--gotchas)
+7. [Common Mistakes & Anti-Patterns](#7-common-mistakes--anti-patterns)
+8. [Performance & Type-Checker Complexity](#8-performance--type-checker-complexity)
+9. [Compiler Internals](#9-compiler-internals)
+10. [Best Practices & Design Guidelines](#10-best-practices--design-guidelines)
+11. [Real-World Case Study](#11-real-world-case-study)
+12. [Interview Questions](#12-interview-questions)
+13. [Exercises & Challenges](#13-exercises--challenges)
 
-```ts
-declare const APP_VERSION: string;
-declare let counter: number;
-declare var legacyGlobal: unknown;
+---
 
-declare function track(event: string, data?: object): void;
+## 1. What & Why
+JavaScript runtimes provide built-in globals:
+- Browsers provide `window`, `document`, `fetch`, `localStorage`.
+- Node.js provides `process`, `Buffer`, `__dirname`.
+- HTML scripts often inject global CDN libraries: `window.Stripe`, `window.dataLayer`.
 
-declare class Analytics {
-  constructor(key: string);
-  send(event: string): void;
-}
+When TypeScript compiles code that references these globals, it requires type definitions to verify signatures. An **Ambient Declaration** uses the **`declare`** keyword to say to the compiler:
+> "Trust me: an identifier with this name and shape exists in the runtime environment. Verify that my code uses it correctly, but do not emit any JavaScript for this declaration."
 
-declare enum LogLevel { Debug, Info, Error }
+---
 
-declare namespace Telemetry {
-  function start(): void;
-  const version: string;
-}
-```
+## 2. Core Concepts
 
-Each one says "this is there at runtime." The compiler emits nothing for them. If the thing does not actually exist, you get a `ReferenceError` at runtime, and the type checker cannot warn you.
-
-Declarations of this kind live in `.d.ts` files, or in a `.ts` file when it is a script (no top-level import/export). Putting them in `.d.ts` files keeps intent clear.
-
-## Typing globals
-
-### Values injected by a bundler or build step
-
-```ts
-// src/env.d.ts
-declare const __APP_VERSION__: string;
+### `declare var`, `declare let`, `declare const`
+Declares ambient global variables:
+```typescript
 declare const __DEV__: boolean;
+declare const API_BASE_URL: string;
+
+if (__DEV__) {
+  console.log("Connecting to:", API_BASE_URL);
+}
 ```
 
-This is the usual way to type constants replaced at build time (for example through a bundler's `define` option). The file must be included by `tsconfig` (`include: ["src"]` covers it) and must stay a **script**: no top-level `import` or `export`. Adding one turns it into a module, and `__DEV__` is then no longer global (see the next section for the right way to do that).
-
-### Values from a `<script>` tag
-
-```ts
-// global.d.ts
-declare const google: {
-  maps: { Map: new (el: HTMLElement, opts: object) => unknown };
-};
+### `declare function`
+Declares ambient callable functions:
+```typescript
+declare function gtag(command: string, ...args: any[]): void;
+gtag("event", "page_view");
 ```
 
-Prefer a typed `window` property if the value is attached there (see [global and module augmentation](./02-global-and-module-augmentation.md)).
+### `declare class`
+Declares ambient constructors:
+```typescript
+declare class AnalyticsTracker {
+  constructor(apiKey: string);
+  track(event: string): void;
+}
 
-### Framework client types
-
-Tools such as Vite ship their global types as a reference you add once:
-
-```ts
-// src/vite-env.d.ts
-/// <reference types="vite/client" />
+const tracker = new AnalyticsTracker("key_123");
+tracker.track("click");
 ```
 
-This brings in typings for `import.meta.env` and asset imports. The same mechanism is how `@types/node` globals reach your code.
+---
 
-## Typing modules
+## 3. How It Works Internally
 
-### `declare module "name"`
+```
+Source:
+declare const Stripe: (publishableKey: string) => StripeInstance;
+const stripe = Stripe("pk_live_123");
 
-Describes an untyped package, so imports from it are checked:
+Type-Checker Phase:
+  Finds 'Stripe' symbol in global scope.
+  Verifies argument "pk_live_123" matches string.
+  Sets type of 'stripe' to StripeInstance.
 
-```ts
-// types/legacy-chart.d.ts
-declare module "legacy-chart" {
-  export interface ChartOptions {
-    width: number;
-    height: number;
+Emitter Phase:
+  'declare const Stripe' is completely stripped!
+  Emitted JS:
+  const stripe = Stripe("pk_live_123");
+```
+
+When the binder encounters a statement with modifier `SyntaxKind.DeclareKeyword`:
+1. It registers the identifier in the target symbol table (either global scope or module scope).
+2. It sets `SymbolFlags.Ambient` on the symbol.
+3. The emitter completely ignores ambient symbols, ensuring zero overhead in output bundles.
+
+---
+
+## 4. Syntax & API Reference
+
+### Ambient Namespaces and Modules
+```typescript
+// Ambient namespace
+declare namespace WebGL {
+  interface ContextOptions { alpha: boolean; }
+}
+
+// Ambient module
+declare module "external-library" {
+  export function runJob(): void;
+}
+```
+
+---
+
+## 5. Practical Examples
+
+### 5.1 Declaring Global Window Extensions
+```typescript
+declare global {
+  interface Window {
+    __REDUX_DEVTOOLS_EXTENSION__?: () => any;
   }
-  export function draw(el: HTMLElement, options: ChartOptions): void;
+}
+
+if (typeof window !== "undefined" && window.__REDUX_DEVTOOLS_EXTENSION__) {
+  console.log("DevTools active");
 }
 ```
 
-```ts
-import { draw } from "legacy-chart";   // typed
-```
+### 5.2 Real-World Application: Bundler Build-Time Feature Flags
+```typescript
+// env.d.ts
+declare const __BUILD_TIMESTAMP__: string;
+declare const __APP_VERSION__: string;
+declare const __ENABLE_PROFILING__: boolean;
 
-If you only need the import to stop failing, a **shorthand ambient module** types everything as `any`:
-
-```ts
-declare module "legacy-chart";
-```
-
-Everything imported from it is `any`. That compiles, but you give up all checking for that package. Treat it as a temporary stopgap, and see [third-party types](./04-third-party-types.md) for better options.
-
-### Wildcard modules for non-code files
-
-Bundlers let you `import` images, CSS, and other assets. Tell TypeScript what the import produces:
-
-```ts
-// src/assets.d.ts
-declare module "*.svg" {
-  const url: string;
-  export default url;
-}
-
-declare module "*.module.css" {
-  const classes: Record<string, string>;
-  export default classes;
+export function getBuildInfo() {
+  return {
+    version: __APP_VERSION__,
+    builtAt: __BUILD_TIMESTAMP__,
+    profiling: __ENABLE_PROFILING__,
+  };
 }
 ```
 
-```ts
-import logo from "./logo.svg";            // string
-import styles from "./app.module.css";    // Record<string, string>
-```
-
-Only one `*` is allowed in the pattern. This only describes the type: you still need a bundler or loader that actually handles those files at runtime.
-
-## The big gotcha: module vs script
-
-`declare module "x" { ... }` behaves differently depending on whether the **file itself** is a module.
-
-```ts
-// types.d.ts - a SCRIPT (no top-level import/export)
-declare module "legacy-chart" {
-  export function draw(): void;
+### 5.3 Edge Case: Ambient `const enum`
+```typescript
+// Ambient const enums are inlined at compile time:
+declare const enum KeyCodes {
+  ENTER = 13,
+  ESCAPE = 27,
 }
-// -> this DECLARES the module "legacy-chart"
+
+const pressed = KeyCodes.ENTER; // Emits: const pressed = 13;
 ```
 
-```ts
-// types.d.ts - now a MODULE (has an import)
-import type { Something } from "./something";
+### 5.4 Failure Case: Initializing Ambient Variable
+```typescript
+// @ts-expect-error TS1039: Initializers are not allowed in ambient contexts.
+declare const maxConnections: number = 100;
+```
 
-declare module "legacy-chart" {
-  export function draw(): void;
+### 5.5 Idiomatic Pattern: Ambient ProcessEnv Typing
+```typescript
+declare namespace NodeJS {
+  interface ProcessEnv {
+    NODE_ENV: "development" | "production" | "test";
+    PORT: string;
+    DATABASE_URL: string;
+  }
 }
-// -> this AUGMENTS an existing "legacy-chart" module
-//    and errors if the module can't be resolved
+
+const port = parseInt(process.env.PORT, 10);
 ```
 
-Adding a single import changes the meaning. If you need to declare an untyped module *and* import types, put the `declare module` in its own script file, or use `import("...")` types inside the declaration instead of a top-level import:
+---
 
-```ts
-declare module "legacy-chart" {
-  export function draw(el: import("./dom-types").Target): void;
+## 6. Edge Cases, Pitfalls & Gotchas
+1. **Initializers Forbidden**: You cannot assign values in `declare const x = 10;` (unless it is a literal type in `declare const x: 10`).
+2. **Runtime Missing Identifiers**: If you declare `declare const secret: string` but fail to define it in the runtime environment (via Webpack `DefinePlugin` or a script tag), code will crash at runtime with `ReferenceError: secret is not defined`.
+3. **Top-Level Imports Turn File into a Module**: As soon as a file contains a top-level `import` or `export`, it becomes an ES Module. Any `declare const` inside it is scoped to that file rather than global scope! Use `declare global { ... }` to declare globals within a module.
+
+---
+
+## 7. Common Mistakes & Anti-Patterns
+
+| Anti-Pattern | Problem | Solution | Compiler Error |
+| :--- | :--- | :--- | :--- |
+| Initializing ambient variable | Ambient declarations cannot contain values | Remove initializer: `declare const x: number;` | `TS1039: Initializers are not allowed in ambient contexts` |
+| Forgetting to inject runtime value | Type passes compile check, crashes at runtime | Ensure bundler/script defines the variable | Runtime `ReferenceError: X is not defined` |
+| Declaring globals in module without `declare global` | Variable is scoped locally to module file | Wrap in `declare global { ... }` | Identifier not visible across files |
+| Overusing `declare var` with `any` | Degrades global type safety | Provide explicit structural interfaces | Loss of type checking |
+| Declaring duplicate conflicting globals | Name clash with standard library | Use unique prefixes or interface merging | `TS2403: Subsequent variable declaration...` |
+| Using ambient `const enum` with Babel/esbuild | Single-file transpilers cannot inline ambient enums | Use regular string literals or const objects | Runtime ReferenceError |
+
+---
+
+## 8. Performance & Type-Checker Complexity
+- Ambient declarations add symbols directly to the global or module scope.
+- Excessive numbers of global ambient declarations (e.g. hundreds of global types) slightly slow down global scope lookup; prefer module-scoped imports where possible.
+
+---
+
+## 9. Compiler Internals
+- Parsed with `parseDeclaration` in `src/compiler/parser.ts`.
+- Evaluated as `ModifierFlags.Ambient`.
+- In `src/compiler/emitter.ts`, the emitter explicitly skips any AST node where `node.flags & NodeFlags.Ambient` is truthy.
+
+---
+
+## 10. Best Practices & Design Guidelines
+- Wrap global augmentations inside `declare global { ... }` in dedicated `.d.ts` files.
+- Document the runtime origin of every ambient variable in comments (e.g. "Injected by Vite DefinePlugin").
+- Type environment variables strictly via `NodeJS.ProcessEnv` augmentation.
+
+---
+
+## 11. Real-World Case Study
+### Typing Third-Party Analytics SDK Injected via Tag Manager
+An enterprise frontend loaded Google Tag Manager and Segment via HTML script tags. Developers needed type-safe access to `window.analytics`.
+
+**Solution:**
+Created `src/types/analytics.d.ts`:
+```typescript
+interface AnalyticsSDK {
+  track(event: string, properties?: Record<string, unknown>): void;
+  identify(userId: string, traits?: Record<string, unknown>): void;
+}
+
+declare global {
+  interface Window {
+    analytics: AnalyticsSDK;
+  }
+}
+
+export {}; // Ensure file is an isolated module
+```
+All React components safely called `window.analytics.track("purchase", { total: 99.99 })` with full autocompletion and compile-time verification.
+
+---
+
+## 12. Interview Questions
+
+<details>
+<summary>1. What does the <code>declare</code> keyword do in TypeScript?</summary>
+
+The `declare` keyword introduces ambient declarations. It tells the compiler that a variable, function, class, or module exists in the runtime environment at execution time, allowing type checking against it without emitting any JavaScript code.
+</details>
+
+<details>
+<summary>2. Why are initializers not allowed in ambient declarations?</summary>
+
+Because ambient declarations are purely type metadata and emit zero JavaScript code. Initializing a variable requires emitting an assignment statement, which contradicts the ambient nature of `declare`.
+</details>
+
+<details>
+<summary>3. How does adding an <code>import</code> statement affect ambient declarations in a file?</summary>
+
+Adding a top-level `import` or `export` converts the file into an ES Module. Any `declare const` in the file becomes local to that module rather than global. To declare global variables inside a module, you must wrap them in `declare global { ... }`.
+</details>
+
+<details>
+<summary>4. What is the difference between <code>declare const x: number</code> and <code>const x: number = 5</code>?</summary>
+
+`const x: number = 5` is an executable declaration that emits `const x = 5;` into the JavaScript output. `declare const x: number` produces zero emitted JavaScript; it merely asserts that a global `x` exists at runtime.
+</details>
+
+<details>
+<summary>5. How can you augment the global <code>NodeJS.ProcessEnv</code> interface?</summary>
+
+```typescript
+declare namespace NodeJS {
+  interface ProcessEnv {
+    API_SECRET: string;
+  }
 }
 ```
+</details>
 
-`import()` types are allowed inside declarations without turning the file into a module.
+<details>
+<summary>6. What happens if you declare an ambient variable that is not actually present at runtime?</summary>
 
-## Making sure the compiler sees them
+TypeScript compiles cleanly, but when the code executes in the runtime environment, accessing the variable throws a runtime `ReferenceError: [variable] is not defined`.
+</details>
 
-Ambient declarations only work if the file is part of the program:
+<details>
+<summary>7. What is an ambient module declaration?</summary>
 
-- Files matched by `include` / `files` in `tsconfig.json` are loaded.
-- `typeRoots` and `types` control which **packages** under `node_modules/@types` (or custom folders) are auto-included as global declarations. Setting `"types": []` disables the automatic inclusion of every `@types/*` package, which can make `process` or `describe` suddenly disappear.
-- A `.d.ts` outside `include` is silently ignored, which looks like "my declaration does nothing."
+A declaration of the form `declare module "module-name" { ... }` that describes the exported types of an untyped external JavaScript library.
+</details>
 
-```json
-{
-  "compilerOptions": {
-    "typeRoots": ["./node_modules/@types", "./types"],
-    "types": ["node"]
-  },
-  "include": ["src", "types"]
+<details>
+<summary>8. Can you declare ambient classes?</summary>
+
+Yes, `declare class MyClass { constructor(x: number); method(): void; }` describes a class constructor and its instance methods without implementing them.
+</details>
+
+---
+
+## 13. Exercises & Challenges
+
+### Exercise 1: Declare Build Timestamp (Easy)
+Declare an ambient global constant `__VERSION__` of type `string`.
+<details>
+<summary>Solution</summary>
+
+```typescript
+declare const __VERSION__: string;
+console.log(__VERSION__);
+```
+</details>
+
+### Exercise 2: Global Window Property (Easy)
+Add a custom property `appReady: boolean` to the global `Window` interface.
+<details>
+<summary>Solution</summary>
+
+```typescript
+declare global {
+  interface Window {
+    appReady: boolean;
+  }
+}
+export {};
+```
+</details>
+
+### Exercise 3: Ambient Function with Overloads (Medium)
+Declare an ambient function `queryDatabase` supporting query strings or query config objects.
+<details>
+<summary>Solution</summary>
+
+```typescript
+interface QueryConfig { sql: string; timeout: number; }
+declare function queryDatabase(sql: string): Promise<any[]>;
+declare function queryDatabase(config: QueryConfig): Promise<any[]>;
+```
+</details>
+
+### Exercise 4: Untyped NPM Package Declaration (Medium)
+Declare types for an untyped package `fast-uuid` that exports `function v4(): string`.
+<details>
+<summary>Solution</summary>
+
+```typescript
+declare module "fast-uuid" {
+  export function v4(): string;
 }
 ```
+</details>
 
-## `declare enum` and `const enum`
+### Exercise 5: Ambient WebSocket Global (Hard)
+Declare an ambient WebSocket factory with strict event handler types.
+<details>
+<summary>Solution</summary>
 
-`declare enum` describes an enum that exists at runtime. `declare const enum` describes an enum whose values were meant to be inlined at build time, and it is risky across package boundaries and with per-file transpilers. Under `isolatedModules`, ambient `const enum` use is restricted. Avoid both in new declarations, and prefer union types or `as const` objects ([enums and const objects](../01-fundamentals/05-enums-and-const-objects.md)).
+```typescript
+declare class SecureSocket {
+  constructor(url: string);
+  on(event: "message", handler: (data: string) => void): void;
+  on(event: "close", handler: (code: number) => void): void;
+  send(payload: string): void;
+}
+```
+</details>
 
-## Common mistakes
+### Exercise 6: Ambient Environment Validator (Hard)
+Write a TypeScript utility function that safely accesses an ambient variable and throws an informative error if it was not injected by the bundler.
+<details>
+<summary>Solution</summary>
 
-- **Adding an `import` to a global declaration file,** which silently turns it into a module and un-globals everything in it.
-- **Declaring something that is not actually there.** The compiler cannot check; you get a runtime error.
-- **Using shorthand `declare module "x";` and forgetting about it.** The package is `any` forever, and typos go unnoticed.
-- **Declaring a wildcard module but not configuring the bundler.** The types pass, then the build fails.
-- **Putting the `.d.ts` outside `include`.** Nothing happens.
-- **Using `var` vs `let/const` carelessly.** Only `var` and function declarations create properties on `globalThis`. A `declare const` does not appear as `window.X` in the type system.
-- **Duplicating a declaration that a package already provides** (for example redeclaring `process`). Install the `@types` package instead.
+```typescript
+declare const __APP_CONFIG__: { apiUrl: string } | undefined;
 
-## Debugging
-
-- Add a deliberate error to the `.d.ts` (for example a stray token). If no error appears, the file is not in the program. Fix `include`/`files`.
-- `tsc --listFiles | grep my-declaration` confirms the file is loaded.
-- "Cannot find name 'X'": the global declaration is not loaded, or the file became a module.
-- "Invalid module name in augmentation, module 'x' cannot be found": a `declare module` in a *module* file is treated as augmentation of a module that does not resolve. Move it to a script file.
-- Editor works but `tsc` fails (or vice versa): check that both use the same `tsconfig` and TypeScript version.
-
-## Quick summary
-
-- `declare` states that something exists at runtime without defining it. It emits no code, and nothing verifies it.
-- Use `declare const/function/class/namespace` for globals, `declare module "x"` for untyped packages, and `declare module "*.ext"` for assets.
-- A file with a top-level `import`/`export` is a module. In it, `declare module "x"` means augmentation, not declaration.
-- The declaration must be inside the compilation (`include`, `typeRoots`, `types`) to take effect.
-- Shorthand `declare module "x";` is `any` and is a stopgap.
-
-**Next:** [Global and module augmentation](./02-global-and-module-augmentation.md)
+function getAppConfig(): { apiUrl: string } {
+  if (typeof __APP_CONFIG__ === "undefined") {
+    throw new Error("__APP_CONFIG__ was not defined by the bundler. Check build configuration.");
+  }
+  return __APP_CONFIG__;
+}
+```
+</details>

@@ -1,204 +1,421 @@
 # Declaration Merging
 
-When TypeScript sees **two or more declarations with the same name** in the same scope, it sometimes *merges* them into one definition instead of reporting a duplicate. This is the mechanism behind module augmentation, behind typing functions that have properties, and behind the difference between `interface` and `type`. Knowing which combinations merge, and how, saves a lot of confusion.
+> Declaration merging combines multiple separate declarations sharing the same identifier into a single unified symbol definition across interfaces, namespaces, functions, and enums.
 
-**Prerequisites:**
-- [Interfaces](../04-objects-and-interfaces/00-interfaces.md)
-- [Interface vs type](../04-objects-and-interfaces/01-interface-vs-type.md)
-- [Namespaces](../08-modules/03-namespaces.md)
+| Metadata | Value |
+| :--- | :--- |
+| **Level** | Advanced |
+| **Prerequisites** | [03-namespaces.md](file:///E:/Learning/engineering-notes/01-languages/typescript/08-modules/03-namespaces.md), [00-declaration-files.md](file:///E:/Learning/engineering-notes/01-languages/typescript/09-declaration-files/00-declaration-files.md) |
+| **Time to Read** | 24 minutes |
+| **Status** | Complete |
+| **TypeScript Baseline** | Since TS 0.9 / TS 5.x / TS 7.0 Native |
+| **Tested tsconfig** | `strict: true`, `noImplicitAny: true` |
 
 ---
 
-## What merges with what
+## Table of Contents
+1. [What & Why](#1-what--why)
+2. [Core Concepts](#2-core-concepts)
+3. [How It Works Internally](#3-how-it-works-internally)
+4. [Syntax & API Reference](#4-syntax--api-reference)
+5. [Practical Examples](#5-practical-examples)
+6. [Edge Cases, Pitfalls & Gotchas](#6-edge-cases-pitfalls--gotchas)
+7. [Common Mistakes & Anti-Patterns](#7-common-mistakes--anti-patterns)
+8. [Performance & Type-Checker Complexity](#8-performance--type-checker-complexity)
+9. [Compiler Internals](#9-compiler-internals)
+10. [Best Practices & Design Guidelines](#10-best-practices--design-guidelines)
+11. [Real-World Case Study](#11-real-world-case-study)
+12. [Interview Questions](#12-interview-questions)
+13. [Exercises & Challenges](#13-exercises--challenges)
 
-A declaration creates one or more of three things: a **type**, a **value**, or a **namespace**. Merging is allowed when the declarations occupy compatible slots.
+---
 
-| Combination | Merges? | Notes |
-|---|---|---|
-| interface + interface | yes | the common case |
-| namespace + namespace | yes | exported members combine |
-| namespace + class | yes | namespace must come **after** the class |
-| namespace + function | yes | namespace must come **after** the function |
-| namespace + enum | yes | |
-| enum + enum | yes | only for non-`const` enums, and only one declaration may omit an initializer on its first member |
-| class + interface | yes | the interface members are added to the class instance type |
-| type alias + anything of the same name in the type slot | **no** | "Duplicate identifier" |
-| class + class | **no** | |
-| function + function | overloads, not a merge | |
+## 1. What & Why
+In JavaScript, an identifier can simultaneously represent multiple concepts:
+- A function can have properties attached to it (`jQuery.ajax()`).
+- An object can act as both a constructor and a namespace.
+- Multiple scripts in a browser environment can add properties to the global `window` object.
 
-The important consequence: **interfaces are open, type aliases are closed.** You can add to an interface from another file. You cannot add to a type alias.
+In strict languages, declaring two entities with the exact same name causes a compile error. TypeScript resolves this with **Declaration Merging**: when two or more declarations share the same name in the same scope, the compiler merges their distinct type and value spaces into a single composite entity.
 
-## Interface merging
+---
 
-```ts
-interface User {
-  id: number;
-}
+## 2. Core Concepts
 
-interface User {
-  name: string;
-}
+### What Can Merge
+TypeScript entities exist across three spaces: **Namespaces**, **Types**, and **Values**:
+- **Interface + Interface**: Merges property members and overloads.
+- **Function + Namespace**: Attaches static properties or sub-types to a function.
+- **Class + Namespace**: Attaches static helper classes or utilities to a class.
+- **Enum + Namespace**: Attaches helper methods to an enum.
 
-const u: User = { id: 1, name: "Asha" };   // both properties required
+### What CANNOT Merge
+- **Type Alias + Type Alias**: Merging two `type Foo = ...` declarations is forbidden (`TS2300: Duplicate identifier`).
+- **Class + Class**: Classes cannot merge with classes.
+- **Variable + Variable**: Cannot merge value declarations.
+
+---
+
+## 3. How It Works Internally
+
+```
+First Declaration:
+  interface Box { height: number; }
+
+Second Declaration:
+  interface Box { width: number; }
+
+Compiler Symbol Table:
++------------------------------------+
+| Symbol: Box                        |
+| Flags: SymbolFlags.Interface       |
+| Declarations: [Decl1, Decl2]       |
++------------------------------------+
+                 |
+                 v
+Resulting Type:
+  { height: number; width: number; }
 ```
 
-Rules:
+Mechanics:
+1. When the compiler registers an interface, it checks if a symbol already exists with `SymbolFlags.Interface`.
+2. If it exists, the new declaration is appended to the symbol's `declarations` array.
+3. Method overloads are merged in declaration order, with later interface declarations having higher priority (except for string literal parameter overloads, which bubble to the top).
 
-- **Properties** with the same name must have the **same type**, otherwise: "Subsequent property declarations must have the same type" (TS2717).
-- **Methods** with the same name become **overloads** of that method.
-- Non-function members must be unique, or have identical types.
+---
 
-### Overload ordering
+## 4. Syntax & API Reference
 
-When overloads merge, **later declarations come first**. Within one declaration the order is preserved. There is one exception: signatures with a parameter of a single string-literal type are moved to the very top.
+### Function + Namespace Merging
+```typescript
+function buildWidget(label: string): { label: string } {
+  return { label };
+}
 
-```ts
-interface Cloner { clone(animal: Animal): Animal; }
-interface Cloner { clone(animal: Sheep): Sheep; }
-interface Cloner { clone(animal: Dog): Dog; clone(animal: Cat): Cat; }
+namespace buildWidget {
+  export const defaultLabel = "Widget-01";
+}
 
-// merged as:
-// clone(animal: Dog): Dog;
-// clone(animal: Cat): Cat;
-// clone(animal: Sheep): Sheep;
-// clone(animal: Animal): Animal;
+const w = buildWidget(buildWidget.defaultLabel);
 ```
 
-The order matters because the compiler picks the **first matching** overload. A more specific signature declared in an earlier file ends up *after* later ones and may never be chosen. See [function overloads](../02-functions/03-function-overloads.md).
-
-## Namespace merging
-
-Multiple `namespace` blocks with the same name combine. Only `export`ed members are visible across blocks:
-
-```ts
-namespace Animals {
-  export class Dog {}
-}
-namespace Animals {
-  export class Cat {}
+### Enum + Namespace Merging
+```typescript
+enum Direction {
+  NORTH = "N",
+  SOUTH = "S",
 }
 
-new Animals.Dog();
-new Animals.Cat();
-```
-
-### Merging a namespace with a function
-
-A function can carry properties. This is the standard way to type "a callable that also has members":
-
-```ts
-function counter(start: number) {
-  return start;
-}
-
-namespace counter {
-  export let calls = 0;
-  export const defaultStart = 0;
-}
-
-counter(1);
-counter.calls;
-```
-
-The namespace must be declared **after** the function (and in the same file for non-ambient code). Otherwise: "A namespace declaration cannot be located prior to a class or function with which it is merged" (TS2434).
-
-### Merging a namespace with a class
-
-This adds static-like members, including nested types:
-
-```ts
-class Album {
-  label = new Album.AlbumLabel();
-}
-
-namespace Album {
-  export class AlbumLabel {}
-}
-```
-
-### Merging a namespace with an enum
-
-```ts
-enum Color { Red, Green }
-
-namespace Color {
-  export function parse(s: string): Color {
-    return s === "red" ? Color.Red : Color.Green;
+namespace Direction {
+  export function isNorth(dir: Direction): boolean {
+    return dir === Direction.NORTH;
   }
 }
 ```
 
-Because namespaces that contain values compile to runtime objects, these patterns are affected by the tooling caveats in [namespaces](../08-modules/03-namespaces.md#tooling-caveats) (per-file transpilers, `erasableSyntaxOnly`).
+---
 
-## Class and interface merging
+## 5. Practical Examples
 
-An interface with the same name as a class adds members to the class's **instance type**:
-
-```ts
-class Greeter {
-  name = "world";
+### 5.1 Basic Interface Merging
+```typescript
+interface UserProfile {
+  name: string;
 }
 
-interface Greeter {
-  greet(): string;
+interface UserProfile {
+  email: string;
 }
 
-Greeter.prototype.greet = function () {
-  return `Hello ${this.name}`;
+const user: UserProfile = {
+  name: "Ada Lovelace",
+  email: "ada@computing.org",
 };
-
-new Greeter().greet();   // typed as string
 ```
 
-This is the foundation of the [mixins](../05-classes/06-mixins.md) pattern. The danger is that the compiler does **not** check that the merged members exist at runtime. In the example above, forgetting the `prototype.greet` assignment compiles fine and fails when called.
+### 5.2 Real-World Application: Static Factory Class Merging
+```typescript
+class Order {
+  constructor(public id: string, public total: number) {}
+}
 
-## Where merging matters in practice
+namespace Order {
+  export function createGuestOrder(total: number): Order {
+    return new Order("guest_" + Date.now(), total);
+  }
+}
 
-- **Module and global augmentation** are interface merging across files. See [global and module augmentation](./02-global-and-module-augmentation.md).
-- **Library typings** use namespace + function/class merging to describe objects like `express()` (a function with properties) and `moment` style APIs.
-- **Declaration files for plugins** extend a host's interface so that plugin options or methods appear in its types.
-
-## `interface` vs `type`, reconsidered
-
-Merging is the one semantic difference that matters in day-to-day use:
-
-```ts
-type Config = { debug: boolean };
-type Config = { verbose: boolean };   // error: Duplicate identifier 'Config'
-
-interface Settings { debug: boolean }
-interface Settings { verbose: boolean }   // fine: merged
+const order = Order.createGuestOrder(150);
 ```
 
-- If a type is **meant to be extended** by consumers (library options, plugin hooks, a global like `Window`), declare it as an `interface`.
-- If you want to guarantee **no one can silently add to it**, use a `type` alias, or keep the interface inside a module and do not export it for augmentation.
-- Accidental merging is a real source of bugs in global scripts: two files each declare `interface Options` and silently combine.
+### 5.3 Edge Case: Method Overload Ordering in Merged Interfaces
+```typescript
+interface DocumentViewer {
+  render(element: HTMLElement): void; // Position 2
+}
 
-## Common mistakes
+interface DocumentViewer {
+  render(element: HTMLCanvasElement): void; // Position 1 (Later interface takes priority!)
+  render(element: "special"): void;          // Position 0 (Literal parameters bubble to highest priority!)
+}
+```
 
-- **Declaring the namespace before the function or class it merges with** (TS2434).
-- **Expecting type aliases to merge.** They do not.
-- **Redeclaring a property with a different type** across merged interfaces (TS2717).
-- **Merging an interface into a class without implementing the members.** Compiles, throws at runtime.
-- **Relying on overload order across files.** Later declarations win position, so a specific overload added in an earlier-loaded file may be shadowed.
-- **Merging into a `const enum` or mixing initializers** inconsistently across enum declarations.
-- **Creating accidental global merges** by declaring a common name (`Options`, `Config`, `User`) in a script file. Make the file a module so its declarations stay local.
+### 5.4 Failure Case: Duplicate Incompatible Non-Method Properties
+```typescript
+interface Account {
+  id: string;
+}
 
-## Debugging
+// @ts-expect-error TS2717: Subsequent property declaration must have the same type. Property 'id' must be of type 'string', but here has type 'number'.
+interface Account {
+  id: number;
+}
+```
 
-- "Duplicate identifier 'X'": the two declarations cannot merge (type alias involved, or class + class). Rename one, or convert aliases to interfaces.
-- "Subsequent property declarations must have the same type": find the other declaration, usually in a `.d.ts` or `node_modules`, and align the type.
-- To see what was merged, hover the name or use "Go to definition", which lists all declaration sites.
-- To find hidden declarations, search for `interface X` across `node_modules/@types` and your own `.d.ts` files. Global names often collide with DOM or Node typings.
-- Unexpected overload resolution: reorder the declarations, or put the most specific signatures in the **last** declaration so they come first.
+### 5.5 Idiomatic Pattern: Attaching Static Metadata to Enums
+```typescript
+enum ErrorCode {
+  NOT_FOUND = "ERR_404",
+  FORBIDDEN = "ERR_403",
+}
 
-## Quick summary
+namespace ErrorCode {
+  export function getHttpStatus(code: ErrorCode): number {
+    switch (code) {
+      case ErrorCode.NOT_FOUND: return 404;
+      case ErrorCode.FORBIDDEN: return 403;
+    }
+  }
+}
 
-- Same-name declarations merge when their slots are compatible: interface + interface, namespace + namespace/class/function/enum, enum + enum, class + interface.
-- Interfaces are open and type aliases are closed. That is the practical difference that matters.
-- Merged methods become overloads, with later declarations first.
-- A namespace must come after the class or function it merges with.
-- Merging only affects types. The compiler does not check that merged members exist at runtime.
-- This is the machinery behind augmentation.
+console.log(ErrorCode.getHttpStatus(ErrorCode.NOT_FOUND)); // 404
+```
 
-**Next:** [Third-party types](./04-third-party-types.md)
+---
+
+## 6. Edge Cases, Pitfalls & Gotchas
+1. **Type Aliases Do Not Merge**: `type A = { x: 1 }; type A = { y: 2 };` fails with `TS2300`. Only `interface` supports merging.
+2. **Non-Method Properties Must Match Exactly**: If interface 1 defines `age: number`, interface 2 cannot define `age: string` or even `age?: number`.
+3. **Literal Parameter Overloads Bubble Up**: In merged method signatures, any overload whose parameter is a string literal type jumps to the top of the overload list.
+
+---
+
+## 7. Common Mistakes & Anti-Patterns
+
+| Anti-Pattern | Problem | Solution | Compiler Error |
+| :--- | :--- | :--- | :--- |
+| Attempting to merge type aliases | Type aliases are strictly non-merging | Use `interface` instead of `type` | `TS2300: Duplicate identifier 'T'` |
+| Changing property type in second interface | Conflicting property definition | Keep property types identical | `TS2717: Subsequent property declaration...` |
+| Over-using merging in application code | Hard to track where properties were defined | Prefer explicit interface extension (`extends`) | High cognitive overhead |
+| Merging function with class | Functions and classes both inhabit value space | Use namespace to attach statics | `TS2300: Duplicate identifier` |
+| Accidentally merging with global library | Unintended property collisions | Use unique names or scoped modules | Unexpected global properties |
+| Modifying method overload order unintentionally | Later interface takes higher priority | Order interface declarations intentionally | Overload resolution mismatches |
+
+---
+
+## 8. Performance & Type-Checker Complexity
+- Declaration merging is efficient during binding, but wide chains of merged interfaces require scanning multiple AST declarations during member lookups.
+- Prefer explicit inheritance (`interface B extends A`) over repeated declarations of the same interface when authoring domain application code.
+
+---
+
+## 9. Compiler Internals
+- `src/compiler/binder.ts` checks `SymbolFlags.Interface` during symbol table insertion.
+- The binder combines flags: `symbol.flags |= SymbolFlags.Interface`.
+- `mergeSymbol` merges symbol tables and links declaration nodes into a linked list on `symbol.declarations`.
+
+---
+
+## 10. Best Practices & Design Guidelines
+- Use declaration merging primarily for:
+  - Global scope augmentation (`Window`, `ProcessEnv`).
+  - Third-party library plugins (module augmentation).
+  - Associating static utilities with functions or enums.
+- In application domain logic, prefer explicit inheritance (`interface Admin extends User`) over splitting declarations.
+
+---
+
+## 11. Real-World Case Study
+### Extending Standard DOM Interfaces
+Web APIs evolve continuously. When a browser introduces a new experimental method on `Document` before TypeScript updates its standard library:
+```typescript
+interface Document {
+  requestStorageAccess(): Promise<void>;
+}
+
+// User code can call it immediately with full type safety:
+async function enableStorage() {
+  if ("requestStorageAccess" in document) {
+    await document.requestStorageAccess();
+  }
+}
+```
+TypeScript's standard library uses interface merging so developers can seamlessly polyfill and extend native browser contracts.
+
+---
+
+## 12. Interview Questions
+
+<details>
+<summary>1. What is Declaration Merging in TypeScript?</summary>
+
+Declaration merging is the compiler's mechanism of combining two or more separate declarations sharing the same identifier in the same scope into a single unified symbol definition across interface, namespace, class, and enum declarations.
+</details>
+
+<details>
+<summary>2. Why can interfaces merge while type aliases cannot?</summary>
+
+Interfaces are open-ended by design to support gradual typing, standard library evolution, and third-party plugin extension. Type aliases represent closed, exact definitions of a type and cannot be re-declared without error.
+</details>
+
+<details>
+<summary>3. How does method overload ordering work across merged interfaces?</summary>
+
+Method overloads declared in later interface definitions take precedence (appear earlier in the overload list) over earlier interfaces, with one exception: signatures with string literal parameters always bubble to the top of the merged overload list.
+</details>
+
+<details>
+<summary>4. What happens when two merged interfaces define the same non-method property with different types?</summary>
+
+The compiler emits error `TS2717: Subsequent property declaration must have the same type`. Non-method properties must be of identical types.
+</details>
+
+<details>
+<summary>5. How can you merge a namespace with a function?</summary>
+
+By declaring a function and a namespace with the same name in the same scope. The namespace exports become static properties on the function object.
+</details>
+
+<details>
+<summary>6. Can a class merge with another class?</summary>
+
+No. Two class declarations with the same name will trigger error `TS2300: Duplicate identifier`.
+</details>
+
+<details>
+<summary>7. How can an enum merge with a namespace?</summary>
+
+Declaring a namespace with the same name as an enum allows attaching static helper methods and metadata functions directly to the enum object.
+</details>
+
+<details>
+<summary>8. How does TypeScript's DOM standard library utilize declaration merging?</summary>
+
+The TypeScript standard library defines DOM interfaces (like `Window`, `Document`, `HTMLElement`) across multiple internal files. They merge automatically into single complete contracts.
+</details>
+
+---
+
+## 13. Exercises & Challenges
+
+### Exercise 1: Merge Two Interfaces (Easy)
+Merge two declarations of `Car` to include `make: string` and `model: string`.
+<details>
+<summary>Solution</summary>
+
+```typescript
+interface Car { make: string; }
+interface Car { model: string; }
+
+const myCar: Car = { make: "Toyota", model: "Corolla" };
+```
+</details>
+
+### Exercise 2: Function with Static Counter (Easy)
+Merge a function `nextId` with a namespace providing an incrementing counter.
+<details>
+<summary>Solution</summary>
+
+```typescript
+function nextId(): number {
+  return ++nextId.current;
+}
+
+namespace nextId {
+  export let current = 0;
+}
+
+console.log(nextId()); // 1
+console.log(nextId()); // 2
+```
+</details>
+
+### Exercise 3: Polyfill Native Array Method (Medium)
+Declare a merged interface on `Array<T>` adding `groupBy(keySelector: (item: T) => string): Record<string, T[]>`.
+<details>
+<summary>Solution</summary>
+
+```typescript
+interface Array<T> {
+  groupBy(keySelector: (item: T) => string): Record<string, T[]>;
+}
+```
+</details>
+
+### Exercise 4: Enum with Formatter Method (Medium)
+Merge an enum `HttpStatus` with a namespace providing a `getMessage` helper.
+<details>
+<summary>Solution</summary>
+
+```typescript
+enum HttpStatus {
+  OK = 200,
+  BAD_REQUEST = 400,
+}
+
+namespace HttpStatus {
+  export function getMessage(status: HttpStatus): string {
+    switch (status) {
+      case HttpStatus.OK: return "Success";
+      case HttpStatus.BAD_REQUEST: return "Bad Request";
+    }
+  }
+}
+
+console.log(HttpStatus.getMessage(HttpStatus.OK)); // "Success"
+```
+</details>
+
+### Exercise 5: Class with Companion Namespace Factory (Hard)
+Merge a class `ComplexNumber` with a companion namespace providing polar coordinate factories.
+<details>
+<summary>Solution</summary>
+
+```typescript
+class ComplexNumber {
+  constructor(public real: number, public imag: number) {}
+}
+
+namespace ComplexNumber {
+  export function fromPolar(r: number, theta: number): ComplexNumber {
+    return new ComplexNumber(r * Math.cos(theta), r * Math.sin(theta));
+  }
+}
+
+const c = ComplexNumber.fromPolar(1, Math.PI / 2);
+```
+</details>
+
+### Exercise 6: Multi-Stage Method Overload Merging (Hard)
+Demonstrate how method overload precedence behaves when merging three distinct interface declarations.
+<details>
+<summary>Solution</summary>
+
+```typescript
+interface Parser {
+  parse(input: any): unknown; // Priority 3
+}
+
+interface Parser {
+  parse(input: string): object; // Priority 2
+}
+
+interface Parser {
+  parse(input: "json"): Record<string, any>; // Priority 1 (string literal bubbles to top!)
+}
+
+declare const p: Parser;
+const r1 = p.parse("json"); // Returns Record<string, any>
+const r2 = p.parse("other"); // Returns object
+```
+</details>
