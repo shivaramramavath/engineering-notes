@@ -142,34 +142,34 @@
 - [x] `25_projects/21_mini-reactive-signals.md`
 - [x] `25_projects/README.md`
 
-## Batch 12: Interview Mastery & Reference Cheatsheets (In Progress)
+## Batch 12: Interview Mastery & Reference Cheatsheets (COMPLETED)
 
-- [ ] `26_interview/00_language-core-qa.md`
-- [ ] `26_interview/01_closures-and-scope-qa.md`
-- [ ] `26_interview/02_this-and-prototypes-qa.md`
-- [ ] `26_interview/03_async-and-event-loop-qa.md`
-- [ ] `26_interview/04_output-based-questions.md`
-- [ ] `26_interview/05_dom-and-browser-qa.md`
-- [ ] `26_interview/06_performance-qa.md`
-- [ ] `26_interview/07_machine-coding-rounds.md`
-- [ ] `26_interview/08_polyfills-from-scratch.md`
-- [ ] `26_interview/README.md`
-- [ ] `27_cheatsheets/00_syntax-and-operators.md`
-- [ ] `27_cheatsheets/01_arrays-and-objects.md`
-- [ ] `27_cheatsheets/02_strings-and-regex.md`
-- [ ] `27_cheatsheets/03_async-and-promises.md`
-- [ ] `27_cheatsheets/04_event-loop-order.md`
-- [ ] `27_cheatsheets/05_dom-and-events.md`
-- [ ] `27_cheatsheets/06_fetch-and-http.md`
-- [ ] `27_cheatsheets/07_es-features-by-version.md`
-- [ ] `27_cheatsheets/08_node-core-modules.md`
-- [ ] `27_cheatsheets/09_testing-commands.md`
-- [ ] `27_cheatsheets/10_devtools-shortcuts.md`
-- [ ] `27_cheatsheets/11_regex-reference.md`
-- [ ] `27_cheatsheets/12_common-gotchas.md`
-- [ ] `27_cheatsheets/README.md`
+- [x] `26_interview/00_language-core-qa.md`
+- [x] `26_interview/01_closures-and-scope-qa.md`
+- [x] `26_interview/02_this-and-prototypes-qa.md`
+- [x] `26_interview/03_async-and-event-loop-qa.md`
+- [x] `26_interview/04_output-based-questions.md`
+- [x] `26_interview/05_dom-and-browser-qa.md`
+- [x] `26_interview/06_performance-qa.md`
+- [x] `26_interview/07_machine-coding-rounds.md`
+- [x] `26_interview/08_polyfills-from-scratch.md`
+- [x] `26_interview/README.md`
+- [x] `27_cheatsheets/00_syntax-and-operators.md`
+- [x] `27_cheatsheets/01_arrays-and-objects.md`
+- [x] `27_cheatsheets/02_strings-and-regex.md`
+- [x] `27_cheatsheets/03_async-and-promises.md`
+- [x] `27_cheatsheets/04_event-loop-order.md`
+- [x] `27_cheatsheets/05_dom-and-events.md`
+- [x] `27_cheatsheets/06_fetch-and-http.md`
+- [x] `27_cheatsheets/07_es-features-by-version.md`
+- [x] `27_cheatsheets/08_node-core-modules.md`
+- [x] `27_cheatsheets/09_testing-commands.md`
+- [x] `27_cheatsheets/10_devtools-shortcuts.md`
+- [x] `27_cheatsheets/11_regex-reference.md`
+- [x] `27_cheatsheets/12_common-gotchas.md`
+- [x] `27_cheatsheets/README.md`
 
-## Batch 13: Track Root, Tree Refresh & Final Report (Pending)
+## Batch 13: Track Root, Tree Refresh & Final Report (In Progress)
 
 - [ ] `01-languages/javascript/README.md`
 - [ ] `01-languages/javascript/INDEX.md`

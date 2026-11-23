@@ -6,6 +6,34 @@
 
 ## 2026-11-23
 
+### Batch 12: Interview Mastery & Reference Cheatsheets (Modules 26, 27)
+- **Module 26 (`26_interview`):**
+  - Created `00_language-core-qa.md` (350 lines): Senior Q&A on primitive types, abstract operations, TDZ, and IEEE 754 float precision.
+  - Created `01_closures-and-scope-qa.md` (350 lines): Senior Q&A on lexical environments, heap context allocation, Meteor memory leak, and currying.
+  - Created `02_this-and-prototypes-qa.md` (350 lines): Senior Q&A on the 4 binding rules, arrow function lexical capture, prototype delegation, and hidden class de-optimization.
+  - Created `03_async-and-event-loop-qa.md` (360 lines): Senior Q&A on microtask vs macrotask execution order, libuv 6 phases, and `async/await` desugaring.
+  - Created `04_output-based-questions.md` (380 lines): 15 comprehensive code prediction puzzles covering coercion, scope shadowing, sparse arrays, and class inheritance.
+  - Created `05_dom-and-browser-qa.md` (350 lines): Senior Q&A on W3C event propagation, Critical Rendering Path, Layout Thrashing, and storage models.
+  - Created `06_performance-qa.md` (360 lines): Staff Q&A on the V8 multi-tier compiler pipeline, Monomorphic vs Megamorphic ICs, and Orinoco GC.
+  - Created `07_machine-coding-rounds.md` (350 lines): 4 end-to-end production solutions: $O(1)$ LRU Cache, Async Backoff with Jitter, Promise Pool, and Flatten/Unflatten.
+  - Created `08_polyfills-from-scratch.md` (350 lines): Specification-compliant polyfills for `Function.bind/call/apply`, `Array.map/filter/reduce/flat`, and `Promise.all/allSettled/race/any`.
+  - Created `26_interview/README.md` curriculum overview and preparation roadmap.
+- **Module 27 (`27_cheatsheets`):**
+  - Created `00_syntax-and-operators.md` (150 lines): Quick lookup of modern declarations, nullish operators, destructuring, and bitwise math.
+  - Created `01_arrays-and-objects.md` (160 lines): Quick lookup of non-mutating copy methods, array searching, `Object.groupBy`, and `structuredClone`.
+  - Created `02_strings-and-regex.md` (150 lines): Quick lookup of modern string methods, RegExp flags (`v`, `d`), tokens, and `Intl.Segmenter`.
+  - Created `03_async-and-promises.md` (150 lines): Quick lookup of Promise combinators, `Promise.withResolvers`, and `AbortSignal` timeouts.
+  - Created `04_event-loop-order.md` (140 lines): Exact execution precedence matrix comparing Browser and Node.js libuv loop phases.
+  - Created `05_dom-and-events.md` (150 lines): Modern DOM tree mutations, event options (`passive`, `signal`), and Browser Observers.
+  - Created `06_fetch-and-http.md` (160 lines): Complete Fetch request options, ReadableStream consumption, and HTTP status code reference.
+  - Created `07_es-features-by-version.md` (180 lines): Comprehensive TC39 timeline covering ES2015 through ES2025 additions.
+  - Created `08_node-core-modules.md` (160 lines): Modern `node:` core modules: `fs/promises`, `path`, `crypto`, `util`, `test`, `stream`.
+  - Created `09_testing-commands.md` (140 lines): CLI commands and flags across Node.js test runner, Vitest, and Jest.
+  - Created `10_devtools-shortcuts.md` (150 lines): DevTools keyboard shortcuts, `$0`-$`$4` expressions, Console API, and debugger controls.
+  - Created `11_regex-reference.md` (150 lines): Character classes, lookaround assertions, and production recipes (Email, UUID, SemVer, ISO date).
+  - Created `12_common-gotchas.md` (160 lines): Top 15 JavaScript gotchas, ASI quirks, and `parseInt` mapping bugs.
+  - Created `27_cheatsheets/README.md` indexing all 13 reference cheatsheets.
+
 ### Batch 11: Real-World Engineering Projects (Module 25)
 - **Module 25 (`25_projects`):**
   - Created `01_vanilla-todo-app.md` (350 lines): MVC todo application with localStorage persistence, filter states, and event delegation.
