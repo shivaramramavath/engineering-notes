@@ -17,12 +17,12 @@
 | **03** | [`03-storage-and-databases/`](file:///04-devops/aws/03-storage-and-databases/) | 11 | 11 | Completed |
 | **04** | [`04-networking/`](file:///04-devops/aws/04-networking/) | 10 | 10 | Completed |
 | **05** | [`05-app-services/`](file:///04-devops/aws/05-app-services/) | 9 | 9 | Completed |
-| **06** | [`06-operations/`](file:///04-devops/aws/06-operations/) | 12 | 0 | Pending |
+| **06** | [`06-operations/`](file:///04-devops/aws/06-operations/) | 12 | 12 | Completed |
 | **07** | [`07-architecture-patterns/`](file:///04-devops/aws/07-architecture-patterns/) | 10 | 0 | Pending |
 | **08** | [`08-projects/`](file:///04-devops/aws/08-projects/) | 8 | 0 | Pending |
 | **09** | [`09-interview/`](file:///04-devops/aws/09-interview/) | 9 | 0 | Pending |
 | **10** | [`10-cheatsheets/`](file:///04-devops/aws/10-cheatsheets/) | 10 | 0 | Pending |
-| **Total** | **All 10 Modules** | **101** | **52** | **51.5%** |
+| **Total** | **All 10 Modules** | **101** | **64** | **63.4%** |
 
 ---
 
@@ -96,19 +96,19 @@
 - [x] `05-app-services/09-event-driven-patterns-on-aws.md`
 
 ### Module 06: Cloud Operations, Security & IaC
-- [ ] `06-operations/README.md`
-- [ ] `06-operations/01-infrastructure-as-code.md`
-- [ ] `06-operations/02-cloudformation.md`
-- [ ] `06-operations/03-cdk.md`
-- [ ] `06-operations/04-terraform-on-aws.md`
-- [ ] `06-operations/05-ci-cd-to-aws.md`
-- [ ] `06-operations/06-security-and-secrets.md`
-- [ ] `06-operations/07-security-services.md`
-- [ ] `06-operations/08-observability.md`
-- [ ] `06-operations/09-reliability-and-cost.md`
-- [ ] `06-operations/10-cost-optimisation-and-finops.md`
-- [ ] `06-operations/11-multi-account-strategy.md`
-- [ ] `06-operations/12-compliance-and-auditing-basics.md`
+- [x] `06-operations/README.md`
+- [x] `06-operations/01-infrastructure-as-code.md`
+- [x] `06-operations/02-cloudformation.md`
+- [x] `06-operations/03-cdk.md`
+- [x] `06-operations/04-terraform-on-aws.md`
+- [x] `06-operations/05-ci-cd-to-aws.md`
+- [x] `06-operations/06-security-and-secrets.md`
+- [x] `06-operations/07-security-services.md`
+- [x] `06-operations/08-observability.md`
+- [x] `06-operations/09-reliability-and-cost.md`
+- [x] `06-operations/10-cost-optimisation-and-finops.md`
+- [x] `06-operations/11-multi-account-strategy.md`
+- [x] `06-operations/12-compliance-and-auditing-basics.md`
 
 ### Module 07: Enterprise Architecture Patterns
 - [ ] `07-architecture-patterns/README.md`

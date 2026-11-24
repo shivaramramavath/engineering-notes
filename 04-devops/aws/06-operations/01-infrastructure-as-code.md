@@ -1,296 +1,464 @@
-# Infrastructure as Code: CDK (and SAM)
+# Infrastructure as Code (IaC) Fundamentals & Cloud Automation
 
-Clicking through the console is fine for learning. It is a bad way to run anything real, because clicks aren't reviewable, repeatable or reversible. **Infrastructure as Code (IaC)** describes your AWS resources in files you version, review in pull requests, test, and deploy the same way every time, to dev, staging and prod.
-
-On AWS everything ultimately runs through **CloudFormation**. The tools in this note generate or extend CloudFormation templates:
-
-| Tool | What you write | Good for |
-|---|---|---|
-| **AWS CDK** | TypeScript/Python/Java/C#/Go (this repo: **TypeScript**) | General infrastructure; loops, functions, types, reuse |
-| **AWS SAM** | Short YAML (a CloudFormation extension) | Serverless apps (Lambda, API Gateway, DynamoDB, SQS) with great local tooling |
-| **CloudFormation** | JSON/YAML directly | The underlying engine; verbose, but you must be able to read it |
-| **Terraform / OpenTofu** | HCL | Multi-cloud or existing Terraform shops (not covered here) |
-
-Pick **CDK** as the default for a TypeScript developer; pick **SAM** if your app is mostly Lambda and you value its simplicity and `sam local`. They aren't exclusive. SAM can even build/test CDK-defined Lambdas.
-
-Prerequisites: [AWS CLI](../01-foundations/04-aws-cli.md) (credentials/profiles), [IAM](../01-foundations/03-iam.md).
+> **Module**: `06-operations`  
+> **Topic**: Declarative vs Imperative, State Management, Drift Detection & GitOps Workflows  
+> **Target Audience**: DevOps Engineers, Cloud Platform Architects, SREs  
+> **Last Updated**: November 2026
 
 ---
 
-## How it works: CloudFormation underneath
+## Navigation & Contents
 
-```
-CDK app (TypeScript) ──synth──► CloudFormation template (JSON) ──deploy──► CloudFormation stack
-                                                                              │
-                                                       creates/updates/deletes real resources
-```
-
-- A **stack** is a unit of deployment: a set of resources managed together.
-- On update CloudFormation computes a **change set** (what will be added/modified/replaced/deleted) and applies it. If something fails it **rolls back** to the previous state.
-- Each resource has a **logical ID** in the template (e.g. `OrdersTable1234ABCD`). **Changing a logical ID tells CloudFormation to delete the old resource and create a new one.** For a database, that means data loss. Keep this in mind whenever you rename or move constructs.
-- Some property changes need **replacement** (a new physical resource), others are in-place. The docs mark each property's update behaviour, and `cdk diff` shows replacements clearly.
-- **Drift** means someone changed a resource outside CloudFormation. Detect it with drift detection; prefer fixing the code over hand edits.
+- [1. What & Why](#1-what--why)
+- [2. Core Concepts](#2-core-concepts)
+- [3. How It Works Internally](#3-how-it-works-internally)
+- [4. Syntax & Usage](#4-syntax--usage)
+- [5. Practical Examples](#5-practical-examples)
+- [6. Best Practices](#6-best-practices)
+- [7. Common Mistakes](#7-common-mistakes)
+- [8. Performance, Security & Cost Notes](#8-performance-security--cost-notes)
+- [9. Comparison Table](#9-comparison-table)
+- [10. Interview Questions & Answers](#10-interview-questions--answers)
+- [11. Practice Exercises](#11-practice-exercises)
+- [12. Summary & Quick Reference](#12-summary--quick-reference)
+- [13. Further Reading](#13-further-reading)
 
 ---
 
-## CDK concepts
+## 1. What & Why
+
+In the early days of cloud computing, infrastructure was provisioned by clicking through the AWS Management Console or running ad-hoc Bash scripts. This manual approach introduced severe operational risks:
+- **Configuration Drift & Snowflake Servers**: Inconsistencies between development, staging, and production environments created bugs that only manifested in production.
+- **Lack of Auditability & Version Control**: Zero historical visibility into who changed a security group rule, opened port 22, or deleted a database.
+- **Slow Disaster Recovery**: Rebuilding an entire environment after an outage took days or weeks of manual, error-prone reconstruction.
+
+**Infrastructure as Code (IaC)** is the practice of defining, provisioning, and managing cloud infrastructure using machine-readable configuration files rather than manual processes. IaC brings software engineering rigor to infrastructure: version control in Git, automated pull-request code reviews, continuous integration/continuous delivery (CI/CD) pipelines, automated static security scanning, and reproducible environment spin-up in minutes.
+
+---
+
+## 2. Core Concepts
+
+### 2.1 Declarative vs Imperative Paradigms
+1. **Declarative IaC (What, Not How)**:
+   - You define the **desired end state** of the infrastructure (e.g., "I want a VPC with CIDR 10.0.0.0/16 and 3 public subnets").
+   - The IaC engine figures out the current state, computes the diff, and generates the necessary API calls to reach the target state.
+   - Idempotent by nature: running the template 10 times results in the same state.
+   - Examples: **AWS CloudFormation**, **HashiCorp Terraform**, **OpenTofu**.
+2. **Imperative / Programmable IaC (How to Build)**:
+   - You write code in programming languages (TypeScript, Python, Go) that explicitly executes construction logic.
+   - Examples: **AWS CDK (Cloud Development Kit)** compiles imperative code down to declarative CloudFormation templates; **Pulumi** executes imperative state graphs directly.
+
+### 2.2 State Management
+- Declarative tools must maintain a **State File** mapping code definitions to actual physical AWS resource IDs (ARNs, VPC IDs).
+- **Terraform State (`terraform.tfstate`)**: Stored remotely in an Amazon S3 bucket with server-side encryption and state locking via Amazon DynamoDB to prevent concurrent modifications.
+- **CloudFormation State**: Managed internally and transparently by AWS within the CloudFormation service control plane.
+
+### 2.3 Configuration Drift & Detection
+- **Drift**: Occurs when team members manually modify cloud resources (e.g., adding an inbound rule in the EC2 Console) outside of the IaC codebase.
+- **Drift Detection**: Tools scan live AWS API states, compare them against the IaC template or state file, and highlight differences for automated or manual reconciliation.
+
+### 2.4 Immutable Infrastructure & GitOps
+- **Immutable Infrastructure**: Servers are never patched or modified in-place. If code or configuration changes, a brand-new AMI or container image is built, deployed, and the old instance is terminated.
+- **GitOps**: The practice where Git is the **single source of truth** for all infrastructure definitions. Infrastructure changes are executed strictly via automated pull-request approvals and CI/CD pipelines, completely revoking human write permissions to the AWS Console.
+
+---
+
+## 3. How It Works Internally
 
 ```
-App
- └── Stack  (→ one CloudFormation stack)
-      └── Construct  (building block, may contain more constructs)
++---------------------------------------------------------------------------------------------------+
+|                            GITOPS INFRASTRUCTURE AS CODE EXECUTION PIPELINE                       |
+|                                                                                                   |
+|  [DevOps Engineer]                                                                                |
+|         |                                                                                         |
+|         v (Git Commit & Push: Add RDS Read Replica)                                               |
+|  +---------------------------------------------------------------------------------------------+  |
+|  | GITHUB / GITLAB REPOSITORY (Source of Truth)                                                |  |
+|  | - Pull Request triggers CI Pipeline via GitHub Actions / CodePipeline                       |  |
+|  +---------------------------------------------------------------------------------------------+  |
+|         |                                                                                         |
+|         v (CI Triggered via OIDC Federation)                                                      |
+|  +---------------------------------------------------------------------------------------------+  |
+|  | AUTOMATED CI VALIDATION STAGE                                                               |  |
+|  | 1. Static Linting: tflint / cfn-lint                                                         |  |
+|  | 2. Security & Policy as Code: checkov / tfsec / cdk-nag (Ensures no public S3 or 0.0.0.0/0) |  |
+|  | 3. Execution Plan Generation: `terraform plan` or `cdk diff`                                |  |
+|  | 4. Plan posted automatically to PR comments for peer review                                 |  |
+|  +---------------------------------------------------------------------------------------------+  |
+|         |                                                                                         |
+|         v (PR Merged to Main)                                                                     |
+|  +---------------------------------------------------------------------------------------------+  |
+|  | CD DEPLOYMENT STAGE (Assume Deployment IAM Role)                                            |  |
+|  | 1. State Lock Acquired (DynamoDB lock table or CloudFormation ChangeSet)                     |  |
+|  | 2. AWS SDK / API Calls Dispatched: `rds:CreateDBInstanceReadReplica`                        |  |
+|  | 3. State file updated & released in S3 remote backend                                       |  |
+|  +---------------------------------------------------------------------------------------------+  |
+|         |                                                                                         |
+|         v (Continuous Monitoring)                                                                 |
+|  +---------------------------------------------------------------------------------------------+  |
+|  | DRIFT DETECTION ENGINE (AWS Config / Terraform Cloud / OpenTofu)                           |  |
+|  | Periodically compares Live AWS APIs vs Stored State -> Alerts on manual console drift       |  |
++---------------------------------------------------------------------------------------------------+
 ```
 
-| Level | What | Example |
-|---|---|---|
-| **L1** (`Cfn*`) | 1:1 with a CloudFormation resource; every property, no defaults | `CfnBucket` |
-| **L2** | Opinionated, with sensible defaults, helper methods and **grants** | `s3.Bucket`, `lambda.Function`, `dynamodb.Table` |
-| **L3 / patterns** | Multi-resource solutions | `ApplicationLoadBalancedFargateService` |
+---
 
-Use **L2** by default, dropping to L1 (or an "escape hatch" on the L2) when a feature isn't exposed.
+## 4. Syntax & Usage
 
-### A real stack: Lambda + DynamoDB + HTTP API
+### 4.1 Comparing Syntax Across Tools (Creating an S3 Bucket)
 
-```ts
-// lib/orders-stack.ts
-import * as cdk from "aws-cdk-lib";
-import { Construct } from "constructs";
-import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
-import * as lambda from "aws-cdk-lib/aws-lambda";
-import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
-import * as apigwv2 from "aws-cdk-lib/aws-apigatewayv2";
-import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
+#### CloudFormation (YAML)
+```yaml
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Production S3 Storage Bucket
+Resources:
+  SecureStorageBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: enterprise-secure-vault-2026
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms
+```
 
-export class OrdersStack extends cdk.Stack {
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
-    super(scope, id, props);
+#### Terraform (HCL)
+```hcl
+resource "aws_s3_bucket" "secure_vault" {
+  bucket = "enterprise-secure-vault-2026"
+}
 
-    const table = new dynamodb.Table(this, "Orders", {
-      partitionKey: { name: "pk", type: dynamodb.AttributeType.STRING },
-      sortKey: { name: "sk", type: dynamodb.AttributeType.STRING },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
-      removalPolicy: cdk.RemovalPolicy.RETAIN,        // never delete data just because the stack is deleted
-    });
+resource "aws_s3_bucket_versioning" "versioning" {
+  bucket = aws_s3_bucket.secure_vault.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
 
-    const createOrder = new NodejsFunction(this, "CreateOrder", {
-      entry: "src/handlers/create-order.ts",          // bundled with esbuild, TypeScript supported
-      runtime: lambda.Runtime.NODEJS_22_X,
-      architecture: lambda.Architecture.ARM_64,
-      timeout: cdk.Duration.seconds(10),
-      environment: { TABLE_NAME: table.tableName },
-    });
-
-    table.grantReadWriteData(createOrder);            // generates a least-privilege IAM policy for you
-
-    const api = new apigwv2.HttpApi(this, "Api");
-    api.addRoutes({
-      path: "/orders",
-      methods: [apigwv2.HttpMethod.POST],
-      integration: new HttpLambdaIntegration("CreateOrderIntegration", createOrder),
-    });
-
-    new cdk.CfnOutput(this, "ApiUrl", { value: api.apiEndpoint });
+resource "aws_s3_bucket_server_side_encryption_configuration" "kms_enc" {
+  bucket = aws_s3_bucket.secure_vault.id
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "aws:kms"
+    }
   }
 }
 ```
 
-```ts
-// bin/app.ts
-import * as cdk from "aws-cdk-lib";
-import { OrdersStack } from "../lib/orders-stack";
+#### AWS CDK (TypeScript)
+```typescript
+import * as cdk from 'aws-cdk-lib';
+import * as s3 from 'aws-cdk-lib/aws-s3';
+import { Construct } from 'constructs';
 
-const app = new cdk.App();
-new OrdersStack(app, "Orders-dev", {
-  env: { account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION },
-});
+export class StorageStack extends cdk.Stack {
+  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+    super(scope, id, props);
+
+    new s3.Bucket(this, 'SecureStorageBucket', {
+      bucketName: 'enterprise-secure-vault-2026',
+      versioned: true,
+      encryption: s3.BucketEncryption.KMS_MANAGED,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      enforceSSL: true,
+    });
+  }
+}
 ```
-
-Things to notice:
-
-- **Grants** (`table.grantReadWriteData(fn)`) are CDK's best feature: they write the IAM policy from the relationships between resources, which keeps permissions tight without hand-writing JSON ([IAM](../01-foundations/03-iam.md)).
-- References between resources (`table.tableName`) become CloudFormation references, so ordering and wiring are automatic.
-- **`RemovalPolicy.RETAIN`** on stateful resources (tables, buckets, databases) means `cdk destroy` won't delete your data. The default for many resources is to *retain* or *destroy* depending on the type, so set it deliberately.
-- Passing `env` with an explicit account/region makes the stack **environment-specific**, enabling lookups (VPCs, hosted zones) and some features. Without it the stack is environment-agnostic.
 
 ---
 
-## The CDK workflow
+## 5. Practical Examples
 
-```bash
-npm install -g aws-cdk          # the CLI (or use npx); versions are released frequently
-cdk init app --language typescript
+### 5.1 Remote State Backend with S3 & DynamoDB Locking (Terraform)
 
-cdk bootstrap aws://111122223333/ap-south-1   # ONCE per account+region
-cdk synth                       # generate CloudFormation into cdk.out/
-cdk diff                        # what will change? (always read this)
-cdk deploy                      # create/update (shows IAM/security changes for approval)
-cdk destroy                     # delete the stack(s)
+```hcl
+# backend-bootstrap.tf
+terraform {
+  required_version = ">= 1.5.0"
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+
+  backend "s3" {
+    bucket         = "corp-terraform-state-us-east-1"
+    key            = "prod/networking/terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "corp-terraform-lock-table"
+    encrypt        = true
+  }
+}
 ```
 
-| Command | Purpose |
-|---|---|
-| `cdk bootstrap` | Creates the **CDKToolkit** stack: an S3 bucket and ECR repo for assets, plus IAM roles used for deployments. Required once per environment before the first deploy. |
-| `cdk diff` | Shows a diff against the deployed stack, including IAM policy and security group changes. **Run it before every deploy, and in CI on every PR.** |
-| `cdk deploy` | Synthesises, uploads assets, and runs CloudFormation. Prompts before broadening IAM/security permissions unless told otherwise. |
-| `cdk watch` / `--hotswap` | **Dev only.** Hot-swaps Lambda code and similar changes directly, bypassing CloudFormation for speed. Never use it for production, since it creates drift. |
-| `cdk import` | Bring existing resources under CDK/CloudFormation management. |
-| `cdk refactor` | Move or rename resources between stacks/constructs *without* replacing them (maps old logical IDs to new). Check the docs for current constraints. |
-| `cdk diagnose` | Analyses a failed deployment and summarises the root cause. |
-| `cdk migrate` | Generate a CDK app from existing resources or templates. |
-
-The CDK is under constant, fast development (the library and CLI release roughly weekly), so pin versions in `package.json`, upgrade deliberately, and read release notes. The toolkit CLI and `aws-cdk-lib` are versioned separately but must be compatible.
-
-### Keeping stacks healthy
-
-- **Split stateful from stateless.** Put databases, buckets and user pools in a long-lived "data" stack and application code in another. Redeploying the app then can't threaten the data.
-- **Cross-stack references** (exports/imports) create hard dependencies: you can't change or delete an exported value while another stack imports it. Pass values explicitly through construct props within one app, and prefer SSM parameters or explicit config for loose coupling across apps.
-- **Resource limits**: a stack is capped at 500 resources (CDK-heavy constructs consume many). If you approach it, split the stack.
-- **Context lookups** (`Vpc.fromLookup`, etc.) cache results in `cdk.context.json`. **Commit it** so synth is deterministic in CI.
-- **Never put secrets in code or templates.** Reference them by ARN or use dynamic references (`{{resolve:secretsmanager:...}}`) so the value is fetched at deploy time and not stored in the template ([Security and Secrets](./03-security-and-secrets.md)).
-- **Names:** let CDK generate physical names unless you must fix them. Hard-coded names block replacement updates ("resource already exists") and can't be reused across environments.
-- **Environments as parameters:** instantiate the same stack class per environment (`Orders-dev`, `Orders-prod`) with different props, rather than copy-pasting.
-
-### Testing CDK
-
-```ts
-import { Template } from "aws-cdk-lib/assertions";
-import * as cdk from "aws-cdk-lib";
-import { OrdersStack } from "../lib/orders-stack";
-
-test("table has PITR and is retained", () => {
-  const stack = new OrdersStack(new cdk.App(), "T");
-  const t = Template.fromStack(stack);
-  t.hasResource("AWS::DynamoDB::Table", {
-    DeletionPolicy: "Retain",
-    Properties: { PointInTimeRecoverySpecification: { PointInTimeRecoveryEnabled: true } },
-  });
-});
-```
-
-Fine-grained assertions on important properties (encryption on, public access blocked, retention policies) beat brittle full-template snapshots. CDK also supports synth-time validation plugins and linting (e.g. cdk-nag) to flag insecure configurations early.
-
----
-
-## SAM: the serverless-focused alternative
-
-SAM (Serverless Application Model) is a CloudFormation **transform** that gives you short resource types for serverless apps, plus a CLI for building, testing locally, and deploying.
+### 5.2 Automated Policy-as-Code Scanning with Checkov in GitHub Actions
 
 ```yaml
-# template.yaml
-AWSTemplateFormatVersion: "2010-09-09"
-Transform: AWS::Serverless-2016-10-31
+name: "IaC Security Scan"
 
-Globals:
-  Function:
-    Runtime: nodejs22.x
-    Architectures: [arm64]
-    Timeout: 10
+on:
+  pull_request:
+    branches: [ main ]
 
-Resources:
-  OrdersTable:
-    Type: AWS::DynamoDB::Table
-    DeletionPolicy: Retain
-    Properties:
-      BillingMode: PAY_PER_REQUEST
-      AttributeDefinitions:
-        - { AttributeName: pk, AttributeType: S }
-        - { AttributeName: sk, AttributeType: S }
-      KeySchema:
-        - { AttributeName: pk, KeyType: HASH }
-        - { AttributeName: sk, KeyType: RANGE }
+jobs:
+  checkov:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-  CreateOrderFn:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: index.handler
-      CodeUri: src/create-order/
-      Environment:
-        Variables:
-          TABLE_NAME: !Ref OrdersTable
-      Policies:
-        - DynamoDBCrudPolicy: { TableName: !Ref OrdersTable }
-      Events:
-        PostOrder:
-          Type: HttpApi
-          Properties: { Path: /orders, Method: post }
-
-Outputs:
-  ApiUrl:
-    Value: !Sub "https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+      - name: Run Checkov Security Scan
+        uses: bridgecrewio/checkov-action@master
+        with:
+          framework: terraform
+          output_format: cli
+          soft_fail: false # Fails build if high severity CVE or security misconfig found
+          skip_check: CKV_AWS_144 # Skip cross-region replication check if not applicable
 ```
+
+### 5.3 Automated Drift Detection Workflow (Bash / CLI)
 
 ```bash
-sam build                          # package code/dependencies
-sam local invoke CreateOrderFn -e event.json   # run a function locally in a container
-sam local start-api                # local API Gateway emulation
-sam deploy --guided                # first deploy; writes samconfig.toml
-sam sync --watch                   # dev loop: fast sync of code changes (dev only)
-sam logs --stack-name my-stack --tail
-```
+#!/usr/bin/env bash
+# Runs automated drift detection against production infrastructure
+set -euo pipefail
 
-Use **SAM** when the app is mostly serverless and a compact YAML file plus `sam local` suit you. Use **CDK** when you need real programming (loops, conditions, shared constructs), non-serverless resources (VPCs, ECS, RDS), or strong typing and refactoring support. Both produce the same kind of stack, and both support Lambda, API Gateway and EventBridge integration. CDK adds more abstraction; SAM stays close to the template.
+echo "==> Initializing Terraform Backend..."
+terraform init -backend=true
 
----
+echo "==> Running Plan with Detailed Exit Code..."
+# -detailed-exitcode: 0 = No changes, 1 = Error, 2 = Drift detected!
+set +e
+terraform plan -detailed-exitcode -no-color > drift_report.txt
+EXIT_CODE=$?
+set -e
 
-## Choosing and conventions
-
-| Question | Guidance |
-|---|---|
-| Repo layout | One repo per application with its infra (`/infra` or `/lib`), or a separate platform repo for shared network/accounts |
-| Environments | Same code, different stack instances/accounts; promote through dev → staging → prod |
-| Deployments | From **CI**, not laptops ([CI/CD to AWS](./02-ci-cd-to-aws.md)) |
-| Approvals | `cdk diff` in PRs; require review of IAM/security changes |
-| State | CloudFormation holds state for you (no state file to manage, unlike Terraform) |
-
----
-
-## Common mistakes
-
-- **Renaming/moving a construct** (changing its logical ID) and replacing a stateful resource. Always read `cdk diff` and look for `[-]`/`[~]` on tables and buckets (use `cdk refactor` for planned renames).
-- **Forgetting `RemovalPolicy.RETAIN`** on data, then deleting a stack.
-- **Hard-coding physical names**, causing "already exists" errors on replacement.
-- **Skipping `cdk bootstrap`** (or running an outdated bootstrap) and getting asset/role errors.
-- **Using `--hotswap` / `cdk watch` beyond dev**, leaving drift.
-- **Deploying from laptops** with admin credentials.
-- **Secrets in code/templates/context.**
-- **Not committing `cdk.context.json`**, so CI synth differs from local.
-- **One giant stack** (500-resource limit, slow deploys, big blast radius).
-- **Heavy cross-stack exports**, which create deployment deadlocks.
-- **Editing resources in the console** (drift) instead of the code.
-- Mixing **CDK/CLI versions** carelessly.
-
----
-
-## Debugging
-
-| Symptom | What to check |
-|---|---|
-| `This stack uses assets, so the toolkit stack must be deployed` | Run `cdk bootstrap` for that account/region (or upgrade the bootstrap stack if the error mentions a version) |
-| `Resource already exists` | A hard-coded name collides with an existing resource, or a prior failed/retained resource is still there |
-| Stack in **`UPDATE_ROLLBACK_FAILED`** | Read stack **Events** for the first failure; fix the cause and use *Continue update rollback* (skipping the stuck resource only as a last resort) |
-| `ROLLBACK_COMPLETE` on first create | The stack can't be updated; delete it and redeploy after fixing the error |
-| Deploy hangs | A resource is slow to create (CloudFront, RDS, NAT Gateway) or waiting on a dependency; check Events |
-| `Access Denied` during deploy | The deploying identity can't assume the CDK bootstrap roles, or lacks permission for a resource; check CloudTrail |
-| Cryptic template errors | `cdk synth` and inspect `cdk.out/*.template.json`; use `cdk diagnose` after a failed deploy |
-| Unexpected replacement | Look at `cdk diff` for properties requiring replacement; check docs "Update requires: Replacement" |
-| Resource drifted | Run drift detection; re-deploy or `cdk deploy --revert-drift` if available in your CLI version |
-
-```bash
-aws cloudformation describe-stack-events --stack-name Orders-dev \
-  --query 'StackEvents[?contains(ResourceStatus,`FAILED`)].[LogicalResourceId,ResourceStatusReason]' --output table
+if [ $EXIT_CODE -eq 2 ]; then
+    echo "CRITICAL: Configuration drift detected in production AWS environment!"
+    # Dispatch alert to Slack webhook or PagerDuty
+    curl -X POST -H 'Content-type: application/json' \
+        --data '{"text":"⚠️ *Alert*: Production infrastructure has drifted from Git source of truth!"}' \
+        "$SLACK_WEBHOOK_URL"
+    exit 2
+elif [ $EXIT_CODE -eq 0 ]; then
+    echo "SUCCESS: Infrastructure is 100% in sync with code."
+else
+    echo "ERROR: Terraform plan failed."
+    exit 1
+fi
 ```
 
 ---
 
-## Quick Summary
+## 6. Best Practices
 
-- **IaC = infrastructure in version control**: reviewable, repeatable, reversible. On AWS it runs through **CloudFormation** stacks.
-- **CDK** (TypeScript) builds CloudFormation from code: **App → Stack → Construct**, use **L2** constructs and **grants** for least-privilege IAM.
-- Workflow: **`bootstrap` once → `synth` → `diff` → `deploy`**; read the diff, especially replacements and IAM changes.
-- Protect state: **`RemovalPolicy.RETAIN`**, separate stateful/stateless stacks, don't rename carelessly, no hard-coded names.
-- **`--hotswap`/`watch` is dev-only**; deploy to real environments from CI.
-- **SAM** is the compact alternative for serverless apps, with `sam local` for fast iteration.
-- Keep secrets out of templates; commit `cdk.context.json`; test key properties with assertions.
+1. **Lock State Files Remotely**: Always store Terraform state files in a private, encrypted S3 bucket with versioning enabled and DynamoDB state locking to prevent concurrent state corruption.
+2. **Never Commit Secrets to Git**: Use `.gitignore` for `.tfvars` containing secrets. Inject sensitive values at runtime using AWS Secrets Manager or environment variables.
+3. **Enforce Policy-as-Code in CI**: Integrate tools like Checkov, tfsec, cfn-nag, or OPA (Open Policy Agent) to automatically fail PRs that attempt to create unencrypted buckets or open security groups (`0.0.0.0/0` on port 22/3389).
+4. **Decompose State Files by Lifecycle**: Never create a single "god state" file for your entire company. Separate infrastructure into independent state boundaries: `networking`, `database`, `compute`, and `applications`.
+5. **Enforce Read-Only Access in Production**: Strip human engineers of write access in the production AWS console. All changes must originate from reviewed, tested Git pull requests.
 
-**Next:** [CI/CD to AWS](./02-ci-cd-to-aws.md)
+---
+
+## 7. Common Mistakes
+
+| Mistake | Root Cause | Impact | Fix |
+|---|---|---|---|
+| Committing State File to Git | `terraform.tfstate` tracked in repository. | Exposes database passwords and access keys stored in plaintext state. | Add `*.tfstate*` to `.gitignore` and configure remote S3 backend. |
+| Monolithic Giant State File | Managing VPC, RDS, and ECS tasks in a single 10,000-line file. | Blast radius is catastrophic; `terraform apply` takes 30 minutes. | Split into modular stacks with discrete state keys. |
+| Manual Hotfixes in Console | Engineer edits SG rule directly in console during an incident. | Future IaC deployment reverts the fix or fails with state collision. | Backport manual fixes to Git immediately, or import into state. |
+| Missing S3 Versioning on Backend | State file corrupted by network disruption; no history. | Permanent loss of infrastructure mapping. | Enable bucket versioning and MFA delete on state bucket. |
+| Concurrent Unlocked Applies | Two engineers run `terraform apply` simultaneously. | Race condition corrupts or overwrites remote state. | Configure DynamoDB locking table (`dynamodb_table`). |
+| Hardcoding Availability Zones | Hardcoding `us-east-1a` across templates. | AZ IDs differ across accounts; deployment fails in secondary accounts. | Use dynamic datasource lookups (`aws_availability_zones`). |
+
+---
+
+## 8. Performance, Security & Cost Notes
+
+### 8.1 Plan & Apply Performance
+- **Targeted Applies (`-target`)**: Avoid using `-target` in normal workflows as it can cause incomplete dependency state; reserve strictly for emergency break-glass recovery.
+- **Parallelism**: Increase `terraform apply -parallelism=20` to accelerate provisioning of large resource trees.
+
+### 8.2 Security & Compliance
+- **KMS State Encryption**: Terraform state files store resource attributes (including DB master passwords and private keys) in plaintext JSON. The S3 backend bucket must enforce KMS CMK encryption and strict IAM bucket policies.
+
+### 8.3 Cost Breakdown
+- **CloudFormation**: Native service is **100% Free** (you pay only for the underlying resources created).
+- **Terraform / OpenTofu**: Open-source CLI is **100% Free**.
+- **S3 & DynamoDB Backend**: Costs pennies per month (~$0.25/month for S3 storage and DynamoDB pay-per-request locking).
+
+---
+
+## 9. Comparison Table
+
+| Dimension | AWS CloudFormation | AWS CDK (v2) | HashiCorp Terraform | Pulumi |
+|---|---|---|---|---|
+| **Authoring Paradigm** | Declarative (YAML/JSON) | Imperative (TS, Python, Go)| Declarative (HCL) | Imperative (TS, Python, Go) |
+| **Cloud Target** | AWS Native Only | AWS Native (Compiles to CFN)| Multi-Cloud (AWS, GCP, Azure) | Multi-Cloud |
+| **State Storage** | AWS Managed Internal | AWS Managed Internal | Remote S3 + DynamoDB | Pulumi Service / S3 |
+| **Ecosystem Maturity** | Extreme (First-party) | High (Modern standard) | Extreme (De-facto industry standard)| High |
+| **Abstraction Level** | Low (Resource level) | High (L2/L3 Constructs) | Moderate (Modules) | High (Components) |
+| **Drift Detection** | Native AWS Console | Via CloudFormation | CLI Plan Diff (`plan -detailed`)| CLI Refresh Diff |
+
+---
+
+## 10. Interview Questions & Answers
+
+<details>
+<summary><strong>Q1: What is the difference between Declarative and Imperative Infrastructure as Code?</strong></summary>
+
+- **Declarative IaC** focuses on the **what**: you declare the desired end state of the system in configuration files (YAML, JSON, or HCL). The tool calculates the current state, identifies discrepancies, and executes the minimal set of changes to match the declared state. Examples include CloudFormation and Terraform.
+- **Imperative IaC** focuses on the **how**: you write procedural code in standard programming languages (Python, TypeScript) defining explicit sequence steps to build resources. AWS CDK bridges both: developers write imperative code that synthesizes into purely declarative CloudFormation templates.
+</details>
+
+<details>
+<summary><strong>Q2: Why does Terraform require a state file, whereas CloudFormation does not appear to have one?</strong></summary>
+
+Both tools require state tracking. 
+- **Terraform** is cloud-agnostic; it does not own the AWS backend. It must store a mapping of declared code resources to physical AWS ARNs and IDs in a `terraform.tfstate` file, which developers must manage and secure remotely (e.g., in S3 with DynamoDB locking).
+- **CloudFormation** is an AWS-native managed service. The CloudFormation service control plane automatically maintains and tracks resource state internally within AWS database tables, abstracting state storage away from the developer.
+</details>
+
+<details>
+<summary><strong>Q3: What is Configuration Drift and how do you prevent and remediate it?</strong></summary>
+
+Configuration Drift occurs when resources in the live environment are modified outside of the IaC codebase (e.g., via the AWS Console or manual CLI commands). 
+- **Prevention**: Enforce GitOps and remove console write permissions from engineers using strict IAM SCPs (Service Control Policies).
+- **Detection**: Run scheduled daily automated drift detection jobs (`terraform plan -detailed-exitcode` or CloudFormation Drift Detection).
+- **Remediation**: Backport the changes into the IaC codebase, or re-run `apply` to overwrite and align the live resources back to the Git source of truth.
+</details>
+
+<details>
+<summary><strong>Q4: Why is state locking essential when multiple engineers collaborate on infrastructure?</strong></summary>
+
+Without state locking, if Engineer A and Engineer B run `terraform apply` simultaneously, both processes read the same initial state, generate conflicting execution plans, and write conflicting updates back to the state file concurrently. This leads to race conditions, partial resource creations, and state corruption. 
+DynamoDB state locking acquires a mutex lock item before any state modification; any concurrent apply attempt is blocked with an error until the active operation completes.
+</details>
+
+<details>
+<summary><strong>Q5: What are the risks of using a single monolithic state file for an entire enterprise?</strong></summary>
+
+1. **Massive Blast Radius**: A typo or syntax bug during an apply could accidentally delete or modify unrelated core production databases.
+2. **Performance Degradation**: As resources grow, refreshing the state of thousands of resources on every plan takes 20-40 minutes.
+3. **Concurrency Bottlenecks**: Only one engineer can apply changes across the entire company at any given time due to state locking.
+**Fix**: Break state files into distinct stacks: Network, Data, Core Compute, and App.
+</details>
+
+<details>
+<summary><strong>Q6: What is Policy as Code and where should it be enforced?</strong></summary>
+
+Policy as Code is the practice of defining compliance, security, and operational guardrails as executable code. 
+- **Shift-Left Enforcement**: Tools like Checkov, tfsec, and cfn-nag scan IaC templates during the local build and CI/CD pull-request phase, blocking PR merges if security violations are detected.
+- **Run-time Enforcement**: AWS Config rules and Sentinel evaluate live resources and prevent deployment of non-compliant configurations.
+</details>
+
+<details>
+<summary><strong>Q7: What is Immutable Infrastructure and how does it relate to IaC?</strong></summary>
+
+In immutable infrastructure, existing instances are never patched, upgraded, or reconfigured in-place (no SSHing to update packages). When an application or OS update is needed, the IaC pipeline launches brand-new instances using updated AMIs or container images, verifies health checks, shifts traffic over, and destroys the old instances. This eliminates configuration drift and ensures reproducible deployments.
+</details>
+
+<details>
+<summary><strong>Q8: What is a CloudFormation Change Set?</strong></summary>
+
+A Change Set is a preview of the proposed changes that CloudFormation will execute on a stack before modifying live resources. It details which resources will be added, modified, or deleted, and critically highlights whether a resource modification requires **replacement** (e.g., changing an RDS DB instance identifier or KMS key replaces the database, which causes data loss if unmanaged).
+</details>
+
+---
+
+## 11. Practice Exercises
+
+<details>
+<summary><strong>Exercise 1: Bootstrap an S3 and DynamoDB Remote State Backend</strong></summary>
+
+**Goal**: Provision a secure backend for Terraform.
+1. Create an S3 bucket with versioning and SSE-KMS encryption enabled.
+2. Create a DynamoDB table `terraform-locks` with primary key `LockID` (String).
+3. Configure your Terraform backend block to reference them.
+4. Run `terraform init` and verify the state file is uploaded to S3.
+</details>
+
+<details>
+<summary><strong>Exercise 2: Simulate State Locking Concurrency</strong></summary>
+
+**Goal**: Observe DynamoDB state lock protection in action.
+1. In terminal 1, run a command that acquires a lock (e.g., `terraform apply` with a long pause).
+2. In terminal 2, simultaneously run `terraform plan`.
+3. Verify that terminal 2 is rejected with `Error acquiring the state lock`.
+</details>
+
+<details>
+<summary><strong>Exercise 3: Detect and Reconcile Configuration Drift</strong></summary>
+
+**Goal**: Catch manual console modifications.
+1. Deploy an S3 bucket with tag `Environment = "Production"`.
+2. Manually change the tag in the AWS Console to `Environment = "Staging"`.
+3. Run `terraform plan` and inspect the detected drift.
+4. Run `terraform apply` to overwrite the manual change and restore code alignment.
+</details>
+
+<details>
+<summary><strong>Exercise 4: Run Static Security Scans with Checkov</strong></summary>
+
+**Goal**: Block unencrypted resource definitions.
+1. Write a Terraform snippet creating an S3 bucket without encryption.
+2. Run `checkov -d .`.
+3. Review the failure output (`CKV_AWS_19: Ensure all data stored in S3 is encrypted`).
+4. Add the encryption block and verify Checkov passes.
+</details>
+
+<details>
+<summary><strong>Exercise 5: Split a Monolith into Layered Stacks</strong></summary>
+
+**Goal**: Structure infrastructure by lifecycle.
+1. Create a `01-network` directory managing VPC and subnets.
+2. Create a `02-database` directory using `terraform_remote_state` data source to read the VPC ID.
+3. Apply both stacks independently.
+</details>
+
+<details>
+<summary><strong>Exercise 6: Generate CloudFormation Change Set via CLI</strong></summary>
+
+**Goal**: Preview infrastructure modifications safely.
+1. Deploy a basic CloudFormation template.
+2. Update the template with an additional tag.
+3. Execute `aws cloudformation create-change-set`.
+4. Inspect the changes with `describe-change-set` before calling `execute-change-set`.
+</details>
+
+---
+
+## 12. Summary & Quick Reference
+
+```
++---------------------------------------------------------------------------------------------------+
+| INFRASTRUCTURE AS CODE LIFECYCLE CHEAT SHEET                                                      |
++--------------------------+-------------------------------------+----------------------------------+
+| Phase                    | Purpose                             | Key Best Practice                |
++--------------------------+-------------------------------------+----------------------------------+
+| Authoring                | Define desired state in code        | Use modules, avoid hardcoding IDs|
+| Static Analysis          | Pre-commit security & lint check    | cfn-lint, tflint, checkov        |
+| Planning / Diff          | Preview delta before applying       | Review Change Sets / terraform plan|
+| Execution                | Apply API state modifications       | Enforce automated CI/CD applying |
+| State Storage            | Mapping code to physical ARNs       | Encrypted S3 + DynamoDB locking  |
+| Drift Monitoring         | Continuous synchronization check    | Daily automated plan diff alerts |
++--------------------------+-------------------------------------+----------------------------------+
+```
+
+- **Git as Source of Truth**: All infrastructure changes originate in Git pull requests.
+- **Remote State Locking**: Essential protection against simultaneous corrupting updates.
+- **Layered Architecture**: Decouple network, database, and application lifecycles.
+
+---
+
+## 13. Further Reading
+
+- [AWS Well-Architected Framework: Operational Excellence Pillar](https://docs.aws.amazon.com/wellarchitected/latest/operational-excellence-pillar/)
+- [HashiCorp Terraform AWS Provider Documentation](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
+- [AWS Cloud Development Kit (CDK) v2 Developer Guide](https://docs.aws.amazon.com/cdk/v2/guide/home.html)
+- [Checkov Open Source Policy-as-Code](https://www.checkov.io/)
+- [06-operations/02-cloudformation.md](file:///04-devops/aws/06-operations/02-cloudformation.md)
