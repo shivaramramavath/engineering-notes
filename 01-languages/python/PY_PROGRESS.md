@@ -22,7 +22,7 @@
 
 ---
 
-## Batch 1: Setup & Fundamentals Part 1 (In Progress)
+## Batch 1: Setup & Fundamentals Part 1 (COMPLETED)
 - [x] `00-setup/00-what-is-python-and-implementations.md`
 - [x] `00-setup/01-installing-and-managing-versions.md`
 - [x] `00-setup/02-virtual-environments.md`
@@ -32,24 +32,25 @@
 - [x] `00-setup/06-how-python-runs-code.md`
 - [x] `00-setup/07-zen-of-python-and-pep8.md`
 - [x] `00-setup/README.md` (Module 00 100% Complete)
-- [ ] `01-fundamentals/00-syntax-and-indentation.md`
-- [ ] `01-fundamentals/01-variables-names-and-objects.md`
-- [ ] `01-fundamentals/02-numbers-int-float-decimal-fraction.md`
-- [ ] `01-fundamentals/03-strings-intro.md`
-- [ ] `01-fundamentals/04-booleans-truthiness-and-none.md`
-- [ ] `01-fundamentals/05-operators.md`
-- [ ] `01-fundamentals/06-type-conversion.md`
+- [x] `01-fundamentals/00-syntax-and-indentation.md`
+- [x] `01-fundamentals/01-variables-names-and-objects.md`
+- [x] `01-fundamentals/02-numbers-int-float-decimal-fraction.md`
+- [x] `01-fundamentals/03-strings-intro.md`
+- [x] `01-fundamentals/04-booleans-truthiness-and-none.md`
+- [x] `01-fundamentals/05-operators.md`
+- [x] `01-fundamentals/06-type-conversion.md`
 
 ---
 
-## Batch 2: Fundamentals Part 2 & Data Structures Part 1 (Pending)
-- [ ] `01-fundamentals/07-input-and-output.md`
-- [ ] `01-fundamentals/08-comments-and-docstrings.md`
-- [ ] `01-fundamentals/09-conditionals.md`
-- [ ] `01-fundamentals/10-loops-range-enumerate-zip.md`
-- [ ] `01-fundamentals/11-structural-pattern-matching.md`
-- [ ] `01-fundamentals/12-walrus-operator.md`
-- [ ] `01-fundamentals/13-integer-and-float-internals.md`
+## Batch 2: Fundamentals Part 2 & Data Structures Part 1 (In Progress)
+- [x] `01-fundamentals/07-input-and-output.md`
+- [x] `01-fundamentals/08-comments-and-docstrings.md`
+- [x] `01-fundamentals/09-conditionals.md`
+- [x] `01-fundamentals/10-loops-range-enumerate-zip.md`
+- [x] `01-fundamentals/11-structural-pattern-matching.md`
+- [x] `01-fundamentals/12-walrus-operator.md`
+- [x] `01-fundamentals/13-integer-and-float-internals.md`
+- [x] `01-fundamentals/README.md` (Module 01 100% Complete)
 - [ ] `02-data-structures/00-lists.md`
 - [ ] `02-data-structures/01-tuples-and-namedtuples.md`
 - [ ] `02-data-structures/02-dictionaries.md`
