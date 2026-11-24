@@ -1,46 +1,28 @@
-# 02 — State and Rendering
+# Module 02: State and Rendering
 
-How React remembers data between renders, and how it decides what to show on screen. This chapter is the mental model behind every hook, every bug about "stale values", and every performance discussion later in the repo. It's conceptual on purpose: the hook APIs live in [`../03-hooks/`](../03-hooks/README.md), while this chapter explains **why** they behave the way they do.
+## Syllabus & Topic Overview
 
-## What you'll be able to do after this chapter
+Module 02 dissects the core runtime engine of React: state transitions, snapshots, reconciliation, and the two-phase rendering pipeline. From the fundamental snapshot mental model to deep dive inspections of the Render and Commit phases, immutable updates with Immer, state colocation, and StrictMode double-rendering behaviors, this module provides the rigorous conceptual foundations necessary to build bug-free, high-performance UI state systems.
 
-- Explain why a normal variable can't hold UI data and what state adds
-- Predict the value a handler sees, using the "state is a snapshot" model
-- Update objects and arrays in state without mutating them
-- Use updater functions and understand how updates are batched
-- Structure state to avoid duplication and contradictions
-- Decide when to lift state up
-- Describe the trigger → render → commit cycle
-- Map "mount, update, unmount" onto modern function components
-- Predict when a component keeps its state and when it resets
+### Concept Notes Index
 
-## Reading order
+1. [00-state-and-snapshots.md](file:///E:/Learning/engineering-notes/02-frontend/reactjs/02-state-and-rendering/00-state-and-snapshots.md) - State as a snapshot across time, closures capturing render variables, and the asynchronous queue mental model.
+2. [01-state-updates-and-batching.md](file:///E:/Learning/engineering-notes/02-frontend/reactjs/02-state-and-rendering/01-state-updates-and-batching.md) - Updater functions `setCount(c => c + 1)`, automatic batching across microtasks, and `flushSync`.
+3. [02-state-structure-and-lifting.md](file:///E:/Learning/engineering-notes/02-frontend/reactjs/02-state-and-rendering/02-state-structure-and-lifting.md) - Structuring state cleanly: avoiding redundancy, lifting state to common parents, and state normalization.
+4. [03-rendering.md](file:///E:/Learning/engineering-notes/02-frontend/reactjs/02-state-and-rendering/03-rendering.md) - Triggers, render tree execution, and how React avoids unnecessary work.
+5. [04-component-lifecycle.md](file:///E:/Learning/engineering-notes/02-frontend/reactjs/02-state-and-rendering/04-component-lifecycle.md) - The functional lifecycle: mounting, updating, and unmounting mapped to effects and reconciliation.
+6. [05-state-preservation-and-reset.md](file:///E:/Learning/engineering-notes/02-frontend/reactjs/02-state-and-rendering/05-state-preservation-and-reset.md) - How component position in the UI tree controls state identity, and resetting state via the `key` prop.
+7. [06-state-colocation-and-derived-state.md](file:///E:/Learning/engineering-notes/02-frontend/reactjs/02-state-and-rendering/06-state-colocation-and-derived-state.md) - Keeping state local, avoiding state duplication, and calculating pure derived values during render.
+8. [07-immutable-updates-with-immer.md](file:///E:/Learning/engineering-notes/02-frontend/reactjs/02-state-and-rendering/07-immutable-updates-with-immer.md) - ES6 Proxy drafts, structural sharing, `useImmer`, curried reducers, and eliminating spread operator clutter.
+9. [08-render-phases-render-vs-commit.md](file:///E:/Learning/engineering-notes/02-frontend/reactjs/02-state-and-rendering/08-render-phases-render-vs-commit.md) - Render phase (pure, concurrent, interruptible) vs Commit phase (synchronous, DOM mutations, layout effects).
+10. [09-strict-mode-double-rendering.md](file:///E:/Learning/engineering-notes/02-frontend/reactjs/02-state-and-rendering/09-strict-mode-double-rendering.md) - Why React renders twice in development, effect remounting stress tests, and fixing cleanup bugs.
 
-| # | File | What it covers | Prerequisite |
-|---|------|----------------|--------------|
-| 00 | [00-state-and-snapshots.md](./00-state-and-snapshots.md) | Why state exists; state as a snapshot per render | `../01-fundamentals/` |
-| 01 | [01-state-updates-and-batching.md](./01-state-updates-and-batching.md) | Updater functions, immutability, batching | 00 |
-| 02 | [02-state-structure-and-lifting.md](./02-state-structure-and-lifting.md) | Choosing state shape; lifting state up; derived data | 01 |
-| 03 | [03-rendering.md](./03-rendering.md) | Trigger, render, commit; purity; StrictMode | 00 |
-| 04 | [04-component-lifecycle.md](./04-component-lifecycle.md) | Mount, update, unmount in function components | 03 |
-| 05 | [05-state-preservation-and-reset.md](./05-state-preservation-and-reset.md) | When state persists or resets; the `key` technique | 03 |
+---
 
-`02` and `03` are independent after `01`/`00`; read them in order the first time.
+## Learning Outcomes & Core Takeaways
 
-## Boundary with other chapters
-
-- **This chapter:** the mental model (snapshots, batching, render phases).
-- **[`../03-hooks/01-useState.md`](../03-hooks/01-useState.md):** the `useState` API reference (lazy initialization, patterns).
-- **[`../17-react-internals/`](../17-react-internals/README.md):** how Fiber, reconciliation, and scheduling implement all of this.
-
-## Exercises
-
-1. **Predict the output.** A button calls `setCount(count + 1)` three times in one handler. What does the counter show after one click? Fix it so it shows 3.
-2. **Immutable updates.** Given `todos` in state, write handlers to add, remove, toggle, and rename a todo without mutating the array.
-3. **Fix contradictory state.** Replace `isLoading`, `isError`, and `isSuccess` booleans with a single `status` value.
-4. **Lift it up.** Two sibling components must show the same selected tab; move the state to their parent.
-5. **Reset with a key.** Build a profile form that fully resets when you switch between users, without writing any reset code.
-
-## Next
-
-**[`../03-hooks/README.md`](../03-hooks/README.md)** covers the full set of hooks, starting with their rules.
+- **The Snapshot Mental Model**: Internalize that state variables never mutate within an already-running render pass; they are immutable constants captured by function closures.
+- **Render vs Commit**: Understand why side effects are fatal in the Render phase and how `useLayoutEffect` vs `useEffect` hook into the Commit phase lifecycle.
+- **Derived State Mastery**: Eliminate redundant state variables and sync effects by calculating derived values directly in the component body.
+- **Immer Fluency**: Update deep nested objects with natural mutable syntax while retaining structural sharing and referential equality.
+- **StrictMode Resilient**: Write pure render functions and robust effect cleanup logic that pass StrictMode double-rendering checks effortlessly.
