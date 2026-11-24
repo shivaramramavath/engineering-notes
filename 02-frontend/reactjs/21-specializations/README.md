@@ -1,38 +1,45 @@
-# 21 — Specializations
+# 21 — Specializations & Domain Architectures
 
-The earlier folders cover what nearly every React app needs. **Specializations** are deeper dives into areas that only *some* products need, but that are hard to get right when you do. You don't have to read these to be a productive React developer. Read the one that matches the thing you're building.
+The earlier modules cover what nearly every React app needs. **Specializations** are deeper architectural explorations into specialized domains that only *some* products require, but that are notoriously complex to engineer correctly from scratch. You do not need to read these to be a productive React developer; read the ones that align with the specific product domain you are building.
 
-Each specialization follows the same shape: **the mental model first** (what problem this domain really is), then the **library or API that dominates it**, then **the pitfalls that experienced people learn the hard way**.
+---
 
-## What's here
+## Specialization Domains Catalog
 
-| Specialization | Build this when you need… | Main tools |
-|---|---|---|
-| [Animation](./animation/README.md) | Polished transitions, enter/exit animations, shared-element motion, gestures, scroll effects | CSS transitions and keyframes, Motion (formerly Framer Motion) |
-| [React Flow](./react-flow/README.md) | Node-based editors: workflow builders, pipelines, diagrams, mind maps, visual programming | `@xyflow/react` |
+| # | Specialization Area | Description | Industry Standard Tooling |
+|---|---------------------|-------------|:---:|
+| 01 | [Animation](./animation/README.md) | Motion physics, layout morphs (`layoutId`), gesture tracking | Motion (`motion/react`) |
+| 02 | [Node-Based Workflow Editors](./react-flow/README.md) | Visual node editors, graph pipelines, drag-and-drop connectors | React Flow (`@xyflow/react`) |
+| 05 | [Data Visualization](./05-data-visualization-recharts-visx.md) | High-level analytics dashboards vs low-level D3 SVG primitives | Recharts / Visx (Airbnb) |
+| 06 | [Geospatial Mapping](./06-maps-with-leaflet-maplibre.md) | Raster tiles vs hardware-accelerated WebGL vector tiles, marker clustering | Leaflet / MapLibre GL |
+| 07 | [Rich Text Editing](./07-rich-text-tiptap-lexical.md) | Headless document models, custom React node views, markdown AST | Tiptap (ProseMirror) / Lexical |
+| 08 | [Progressive Web Apps (PWA)](./08-pwa-and-offline-first.md) | Service Workers, Workbox caching strategies, IndexedDB with Dexie | `vite-plugin-pwa` / Dexie.js |
+| 09 | [Real-Time Collaboration](./09-realtime-collaboration-crdt-yjs.md) | Conflict-free Replicated Data Types (CRDTs), live presence awareness, multi-cursors | Yjs / `y-websocket` |
+| 10 | [Generative AI Chat UIs](./10-ai-chat-uis-streaming.md) | Token streaming, streaming markdown, Generative UI tool components | Vercel AI SDK (`ai/react`) |
+| 11 | [3D Graphics & WebGL](./11-canvas-three-fiber-overview.md) | Three.js scene graphs, custom reconcilers, GLTF models, instancing | React Three Fiber / Drei |
 
-(The `22-projects` folder applies both: the workflow builder project in particular uses React Flow.)
+---
 
-## How to decide whether to learn one
+## Decision Framework: When to Adopt a Specialization
 
-Ask:
+Before introducing these heavy domain libraries into a codebase, evaluate:
 
-1. **Is it core to my product, or decoration?** A workflow builder *is* React Flow. A button hover effect is two lines of CSS. Don't adopt a heavy library for decoration.
-2. **Can the platform already do it?** Modern CSS handles many animations without JavaScript. Check there first.
-3. **What does it cost?** Bundle size, a new mental model, accessibility obligations, and testing difficulty. Every specialization here has all four.
-4. **Who maintains it?** These are ecosystems with active maintainers. Check release notes, since APIs and package names change (Framer Motion became Motion; `reactflow` became `@xyflow/react`).
+1. **Is it core business functionality or cosmetic decoration?**
+   - A workflow pipeline builder *is* React Flow. A button ripple is 2 lines of CSS.
+   - A financial analytics dashboard *is* Recharts. A simple progress bar is a native `<progress>` element.
+2. **Can the platform already do it?**
+   - Modern CSS animations and the View Transitions API handle many transitions without 40KB of JavaScript.
+3. **What are the hidden costs?**
+   - Bundle size impact, steep learning curves, testing complexity, and accessibility (WCAG) obligations.
+4. **Maintenance & Community Health**:
+   - Every library listed here is actively maintained and verified compatible with React 19.
+
+---
 
 ## Prerequisites
 
-- [Performance](../14-performance/README.md): both specializations are performance-sensitive, and both can wreck frame rate if used carelessly
-- [Accessibility](../08-accessibility/README.md): motion and canvas-style editors both create accessibility obligations
-- [Refs](../16-advanced-react/01-refs-and-imperative-handles.md) and [external stores](../16-advanced-react/02-external-stores.md): these libraries lean on both
+- [Performance Engineering](../14-performance/README.md): All specializations are performance-critical; improper use can easily bottleneck frame rates.
+- [Accessibility Guidelines](../08-accessibility/README.md): Interactive canvases, 3D scenes, and animations create significant screen-reader and keyboard accessibility obligations.
+- [Custom Renderers & Internals](../16-advanced-react/04-custom-renderers-reconciler.md): React Three Fiber and Tiptap build directly on React reconciler primitives.
 
-## Conventions
-
-- TypeScript, React 19.
-- Library versions: **Motion** (`motion` package, imported from `motion/react`) and **React Flow v12** (`@xyflow/react`). Older tutorials use `framer-motion` and `reactflow` (v11) with some different names. Where it matters, the notes mention the differences.
-
-## Next
-
-[Animation](./animation/README.md)
+---
