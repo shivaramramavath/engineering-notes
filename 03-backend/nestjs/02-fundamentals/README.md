@@ -57,6 +57,15 @@ You should have a generated project running before you start, because every file
 | 07 | [Request Data](./07-request-data.md) | `@Param`, `@Query`, `@Body`, `@Headers`, cookies, conversion | 1.5 h |
 | 08 | [Response Handling](./08-response-handling.md) | Standard vs library mode, status codes, headers, streaming | 1.5 h |
 | 09 | [Request Lifecycle](./09-request-lifecycle.md) | Order of middleware, guards, interceptors, pipes, filters | 1 h |
+| 10 | [Routing & Wildcards: Express 5 vs Fastify](./10-routing-and-wildcards-express5-vs-fastify.md) | Named wildcards (`*path`), radix tree mechanics, path matching differences | 1.5 h |
+| 11 | [Platform Adapters: Express vs Fastify](./11-platform-express-vs-fastify.md) | High-throughput benchmarks, plugin bindings, Docker `0.0.0.0` configuration | 1.5 h |
+| 12 | [API Versioning: URI, Header, Media Type](./12-versioning-uri-header-media-type.md) | URI, header, media-type strategies, `VERSION_NEUTRAL`, deprecation headers | 1 h |
+| 13 | [Serving Static Assets & SSE](./13-serving-static-and-sse.md) | `ServeStaticModule`, SPA routing, reactive `@Sse()` streams with RxJS | 1.5 h |
+| 14 | [Streaming Files & StreamableFile](./14-streaming-files.md) | Backpressure-safe downloads, zero-memory buffering, on-the-fly zip streams | 1.5 h |
+| 15 | [HTTP Module & Axios Integration](./15-http-module-and-axios.md) | `HttpService`, keep-alive agents, retry backoff, correlation tracing | 1.5 h |
+| 16 | [Raw Body & Body Parsers](./16-raw-body-and-body-parsers.md) | Webhook signature verification (Stripe/HMAC), buffer preservation, payload limits | 1.5 h |
+| 17 | [Cookies & Sessions](./17-cookies-and-sessions.md) | Signed cookies, Redis session stores (`connect-redis`), CSRF/XSS protection | 1.5 h |
+| 18 | [Hybrid Applications: HTTP & Microservices](./18-hybrid-applications-intro.md) | Single process dual-listening (HTTP + Redis/Kafka/TCP), shared DI container | 1.5 h |
 
 Read `01` first, then `02` to `05` in order. Files `06` to `08` can be read in any order after `05`. Read `09` last.
 

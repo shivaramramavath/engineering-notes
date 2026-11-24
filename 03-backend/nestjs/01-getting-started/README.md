@@ -50,6 +50,11 @@ Complete (or pass the skip-check of) [00-prerequisites](../00-prerequisites/READ
 | 04 | [Project Structure](./04-project-structure.md) | Meaning of every generated file and config | 1 h |
 | 05 | [Development Environment](./05-development-environment.md) | Editor, linting, formatting, `.env`, Git, CI skeleton | 1 h |
 | 06 | [Debugging](./06-debugging.md) | Breakpoints, logging, test debugging, error decoder | 1–1.5 h |
+| 07 | [NestJS Versions and Upgrade Guide](./07-nestjs-versions-and-upgrade-guide.md) | v8-v11 migration paths, Express 5 wildcard fixes, Keyv cache updates | 1.5 h |
+| 08 | [Nest CLI Workspaces & Monorepos](./08-nest-cli-workspaces-and-monorepos.md) | Multi-app architectures, shared libs, path aliases, docker multi-stage | 1.5 h |
+| 09 | [SWC and Vitest Setup](./09-swc-and-vitest-setup.md) | High-speed Rust compiler, unplugin-swc, Vitest runner and decorator metadata | 1 h |
+| 10 | [Devtools and REPL](./10-devtools-and-repl.md) | Interactive CLI REPL, live dependency graph inspection, debugging workflows | 1 h |
+| 11 | [Standalone Applications and CLI Apps](./11-standalone-applications-and-cli-apps.md) | Non-HTTP execution, scripts, nest-commander, clean teardown lifecycles | 1.5 h |
 
 ---
 

@@ -35,10 +35,19 @@ JavaScript basics
 04  HTTP & REST Basics             ← the protocol your code speaks
       │
       ▼
+05  Node.js Modules: ESM vs CJS    ← module resolution, tsconfig, interop
+      │
+      ▼
+06  reflect-metadata & Reflection  ← deep metadata keys & runtime DI wiring
+      │
+      ▼
+07  OOP & SOLID Primer             ← architectural foundations of NestJS
+      │
+      ▼
 01-getting-started
 ```
 
-Files `03` and `04` do not depend on `01` and `02`. You can read them in any order, but `02` requires `01`.
+Files `03`, `04`, and `05` do not depend on `01` and `02`. You can read them in any order, but `02` and `06` require `01`, and `07` establishes the design principles used throughout NestJS architecture.
 
 | # | File | What you gain | Approx. time |
 |---|---|---|---|
@@ -46,6 +55,9 @@ Files `03` and `04` do not depend on `01` and `02`. You can read them in any ord
 | 02 | [TypeScript Decorators](./02-typescript-decorators.md) | How decorators work, `reflect-metadata`, how a DI container uses them | 2–3 h |
 | 03 | [Node.js Async & Event Loop](./03-nodejs-async-and-event-loop.md) | Promises, `async`/`await`, event loop phases, streams, blocking pitfalls | 3 h |
 | 04 | [HTTP & REST Basics](./04-http-and-rest-basics.md) | Methods, status codes, headers, cookies, CORS, REST vocabulary | 2–3 h |
+| 05 | [Node.js Modules (ESM and CJS)](./05-nodejs-modules-esm-and-cjs.md) | CommonJS vs ES Modules, `"type": "module"`, exports maps, Dual-package hazards | 2 h |
+| 06 | [reflect-metadata & Decorator Mechanics](./06-reflect-metadata-and-decorator-mechanics.md) | `design:type`, `design:paramtypes`, circular metadata traps, custom reflections | 2–3 h |
+| 07 | [OOP & SOLID Primer](./07-oop-and-solid-primer.md) | SRP, OCP, LSP, ISP, DIP directly mapped to NestJS architecture & DI | 2–3 h |
 
 Time estimates assume you type the examples yourself. Reading alone is faster, but retention is much lower.
 
