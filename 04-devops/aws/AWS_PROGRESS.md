@@ -12,7 +12,7 @@
 
 | # | Module Directory | Planned Notes | Completed Notes | Status |
 |---|---|:---:|:---:|:---:|
-| **01** | [`01-foundations/`](file:///04-devops/aws/01-foundations/) | 12 | 0 | In Progress |
+| **01** | [`01-foundations/`](file:///04-devops/aws/01-foundations/) | 12 | 12 | Completed |
 | **02** | [`02-compute/`](file:///04-devops/aws/02-compute/) | 10 | 0 | Pending |
 | **03** | [`03-storage-and-databases/`](file:///04-devops/aws/03-storage-and-databases/) | 11 | 0 | Pending |
 | **04** | [`04-networking/`](file:///04-devops/aws/04-networking/) | 10 | 0 | Pending |
@@ -22,26 +22,26 @@
 | **08** | [`08-projects/`](file:///04-devops/aws/08-projects/) | 8 | 0 | Pending |
 | **09** | [`09-interview/`](file:///04-devops/aws/09-interview/) | 9 | 0 | Pending |
 | **10** | [`10-cheatsheets/`](file:///04-devops/aws/10-cheatsheets/) | 10 | 0 | Pending |
-| **Total** | **All 10 Modules** | **101** | **0** | **0%** |
+| **Total** | **All 10 Modules** | **101** | **12** | **11.9%** |
 
 ---
 
 ## Detailed Notes Checklist
 
 ### Module 01: Cloud Foundations & Governance
-- [ ] `01-foundations/README.md`
-- [ ] `01-foundations/01-what-is-aws.md`
-- [ ] `01-foundations/02-shared-responsibility-and-well-architected.md`
-- [ ] `01-foundations/03-accounts-regions-and-billing.md`
-- [ ] `01-foundations/04-organizations-scp-and-control-tower.md`
-- [ ] `01-foundations/05-iam-fundamentals.md`
-- [ ] `01-foundations/06-iam-policy-evaluation-and-least-privilege.md`
-- [ ] `01-foundations/07-iam-identity-center-and-sso.md`
-- [ ] `01-foundations/08-aws-cli.md`
-- [ ] `01-foundations/09-sdks-and-credential-provider-chain.md`
-- [ ] `01-foundations/10-console-cloudshell-and-tagging.md`
-- [ ] `01-foundations/11-global-infrastructure.md`
-- [ ] `01-foundations/12-pricing-calculators-and-budgets.md`
+- [x] `01-foundations/README.md`
+- [x] `01-foundations/01-what-is-aws.md`
+- [x] `01-foundations/02-shared-responsibility-and-well-architected.md`
+- [x] `01-foundations/03-accounts-regions-and-billing.md`
+- [x] `01-foundations/04-organizations-scp-and-control-tower.md`
+- [x] `01-foundations/05-iam-fundamentals.md`
+- [x] `01-foundations/06-iam-policy-evaluation-and-least-privilege.md`
+- [x] `01-foundations/07-iam-identity-center-and-sso.md`
+- [x] `01-foundations/08-aws-cli.md`
+- [x] `01-foundations/09-sdks-and-credential-provider-chain.md`
+- [x] `01-foundations/10-console-cloudshell-and-tagging.md`
+- [x] `01-foundations/11-global-infrastructure.md`
+- [x] `01-foundations/12-pricing-calculators-and-budgets.md`
 
 ### Module 02: Compute & Containers
 - [ ] `02-compute/README.md`
