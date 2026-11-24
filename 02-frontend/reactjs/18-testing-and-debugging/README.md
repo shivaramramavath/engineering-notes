@@ -1,55 +1,58 @@
-# 18 — Testing and Debugging
+# 18 — Testing & Debugging
 
-Tests are how you change code without fear. Debugging is how you find out why it's broken anyway. This folder covers both, with one guiding principle:
+Tests are how you change code without fear. Debugging is how you find out why it's broken anyway. This module covers both, with one guiding principle:
 
 > **Test your app the way users use it.** Click what they click, read what they read, and avoid asserting on implementation details they never see.
 
-That principle shapes the whole stack:
-
 ```text
         ┌────────────────────────────────────────┐
-        │  E2E (Playwright)          few, slow      │  real browser, real-ish backend: critical flows
+        │  E2E (Playwright)          few, slow   │  real browser, real-ish backend: critical flows
         ├────────────────────────────────────────┤
-        │  Integration (Vitest + RTL + MSW)  many   │  pages/features with real providers, mocked network
+        │  Real Browser (Vitest Browser Mode)    │  real layout dimensions, real CSS, visual snapshots
         ├────────────────────────────────────────┤
-        │  Unit (Vitest)              many, fast     │  pure logic: utils, reducers, hooks
+        │  Integration (Vitest + RTL + MSW)      │  pages/features with real providers, mocked network
         ├────────────────────────────────────────┤
-        │  Static (TypeScript, ESLint)   always on   │  catches typos and type errors for free
+        │  Unit (Vitest)             many, fast  │  pure logic: utils, reducers, custom hooks
+        ├────────────────────────────────────────┤
+        │  Static (TypeScript, ESLint)  always on│  catches typos and type errors for free
         └────────────────────────────────────────┘
 ```
 
-## The stack in this folder
+---
 
-| Tool | Role |
-|---|---|
-| **Vitest** | Test runner and assertions (Vite-native, Jest-compatible API) |
-| **React Testing Library (RTL)** + **user-event** | Render components and interact like a user |
-| **MSW** (Mock Service Worker) | Mock the network at the request level |
-| **Playwright** | End-to-end tests in real browsers |
-| **Browser DevTools, React DevTools, Query/Redux devtools** | Debugging |
+## What you'll be able to do after this module
 
-## Prerequisites
+- **Design a High-ROI Test Strategy**: Focus on user-observable behavior, avoiding fragile assertions on internal state.
+- **Master Vitest Core**: Configure test suites, mock timers, spy on functions, and measure code coverage with Vite-native execution speed.
+- **Render with React Testing Library**: Query semantic accessibility roles (`getByRole`), interact with `@testing-library/user-event`, and handle async mutations.
+- **Test Custom Hooks**: Use `renderHook` and `act()` to verify complex asynchronous state machines and timers.
+- **Mock Network with MSW**: Intercept network requests at the transport level with Mock Service Worker v2, ensuring network mocks closely mimic production backends.
+- **Build Full E2E Suites with Playwright**: Write robust, auto-waiting end-to-end tests covering login, checkout, and critical user funnels.
+- **Run Real Browser Tests in Vitest 3**: Test real layout dimensions (`getBoundingClientRect`), computed CSS, and visual snapshots inside real Chromium/WebKit instances.
+- **Systematic Debugging**: Diagnose React render loops, hydration mismatches, memory leaks, and performance issues using React DevTools and Chrome DevTools.
 
-- [Components and props](../01-fundamentals/02-components-and-props.md), [hooks](../03-hooks/README.md)
-- [API client](../11-api-integration/02-api-client.md) and [TanStack Query](../12-server-state/03-tanstack-query.md): you'll test code that uses them
+---
 
-## Contents
+## Module Syllabus
 
-| # | File | What you'll learn |
-|---|------|-------------------|
-| 00 | [Testing fundamentals](./00-testing-fundamentals.md) | What to test, test types, the trophy, good vs brittle tests |
-| 01 | [Vitest](./01-vitest.md) | Setup, API, mocks, fake timers, coverage |
-| 02 | [Component testing with RTL](./02-component-testing-with-rtl.md) | Queries, user-event, async UI, providers |
-| 03 | [Hook testing](./03-hook-testing.md) | `renderHook`, `act`, timers, wrappers |
-| 04 | [Mocking and MSW](./04-mocking-and-msw.md) | What to mock, MSW handlers, test setup |
-| 05 | [Integration testing](./05-integration-testing.md) | Whole features: router + query cache + network |
-| 06 | [E2E testing with Playwright](./06-e2e-testing-playwright.md) | Locators, auto-waiting, auth, CI, traces |
-| 07 | [Debugging](./07-debugging.md) | DevTools, common React errors, a repeatable method |
+| # | Note | Description | Key Tool |
+|---|------|-------------|:---:|
+| 00 | [00-testing-fundamentals.md](./00-testing-fundamentals.md) | Testing philosophy, testing trophy vs pyramid, brittle vs resilient tests | Methodology |
+| 01 | [01-vitest.md](./01-vitest.md) | Vitest runner setup, assertion APIs, vi.fn, vi.spyOn, fake timers | Vitest 3 |
+| 02 | [02-component-testing-with-rtl.md](./02-component-testing-with-rtl.md) | RTL queries, user-event interactions, testing async state | RTL / user-event |
+| 03 | [03-hook-testing.md](./03-hook-testing.md) | `renderHook`, testing custom hooks, `act` mechanics, wrappers | RTL Hooks |
+| 04 | [04-mocking-and-msw.md](./04-mocking-and-msw.md) | Mock Service Worker (MSW v2), network mocking, test handlers | MSW v2 |
+| 05 | [05-integration-testing.md](./05-integration-testing.md) | Feature-level integration: Router + TanStack Query + MSW | Integration Testing |
+| 06 | [06-e2e-testing-playwright.md](./06-e2e-testing-playwright.md) | End-to-end testing with Playwright, locators, auto-waiting, CI | Playwright |
+| 07 | [07-debugging.md](./07-debugging.md) | Systematic debugging, React DevTools, hydration error diagnosis | DevTools |
+| 08 | [08-vitest-browser-mode.md](./08-vitest-browser-mode.md) | Vitest 3 Browser Mode, real browser engine, layout dimensions, visual tests | Vitest Browser Mode |
 
-## Suggested order
+---
 
-00 → 01 → 02 is the core loop. 03 and 04 fill in hooks and the network. 05 and 06 zoom out. 07 stands alone and is useful from day one.
+## Boundary with Other Modules
 
-## Quick reference
+- **Accessibility Verification**: Read [`08-accessibility/06-testing-accessibility-playwright.md`](../08-accessibility/06-testing-accessibility-playwright.md) for automated axe-core accessibility testing.
+- **Performance Profiling**: Read [`14-performance/00-profiling-and-measuring.md`](../14-performance/00-profiling-and-measuring.md) for measuring INP and render bottlenecks.
+- **Quick Reference**: See the [Testing Cheatsheet](../24-cheatsheets/09-testing.md) and [Testing Interview Questions](../23-interview/08-testing.md).
 
-A condensed version lives in the [testing cheatsheet](../24-cheatsheets/09-testing.md), and common interview questions in [testing interview prep](../23-interview/08-testing.md).
+---
