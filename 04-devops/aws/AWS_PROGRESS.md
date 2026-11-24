@@ -14,7 +14,7 @@
 |---|---|:---:|:---:|:---:|
 | **01** | [`01-foundations/`](file:///04-devops/aws/01-foundations/) | 12 | 12 | Completed |
 | **02** | [`02-compute/`](file:///04-devops/aws/02-compute/) | 10 | 10 | Completed |
-| **03** | [`03-storage-and-databases/`](file:///04-devops/aws/03-storage-and-databases/) | 11 | 0 | Pending |
+| **03** | [`03-storage-and-databases/`](file:///04-devops/aws/03-storage-and-databases/) | 11 | 11 | Completed |
 | **04** | [`04-networking/`](file:///04-devops/aws/04-networking/) | 10 | 0 | Pending |
 | **05** | [`05-app-services/`](file:///04-devops/aws/05-app-services/) | 9 | 0 | Pending |
 | **06** | [`06-operations/`](file:///04-devops/aws/06-operations/) | 12 | 0 | Pending |
@@ -22,7 +22,7 @@
 | **08** | [`08-projects/`](file:///04-devops/aws/08-projects/) | 8 | 0 | Pending |
 | **09** | [`09-interview/`](file:///04-devops/aws/09-interview/) | 9 | 0 | Pending |
 | **10** | [`10-cheatsheets/`](file:///04-devops/aws/10-cheatsheets/) | 10 | 0 | Pending |
-| **Total** | **All 10 Modules** | **101** | **22** | **21.8%** |
+| **Total** | **All 10 Modules** | **101** | **33** | **32.7%** |
 
 ---
 
@@ -57,18 +57,18 @@
 - [x] `02-compute/10-graviton-and-spot-and-savings-plans.md`
 
 ### Module 03: Storage & Databases
-- [ ] `03-storage-and-databases/README.md`
-- [ ] `03-storage-and-databases/01-s3.md`
-- [ ] `03-storage-and-databases/02-s3-deep-dive.md`
-- [ ] `03-storage-and-databases/03-ebs-efs-and-fsx.md`
-- [ ] `03-storage-and-databases/04-dynamodb.md`
-- [ ] `03-storage-and-databases/05-dynamodb-data-modelling.md`
-- [ ] `03-storage-and-databases/06-rds-and-aurora.md`
-- [ ] `03-storage-and-databases/07-rds-operations.md`
-- [ ] `03-storage-and-databases/08-elasticache-redis-and-memcached.md`
-- [ ] `03-storage-and-databases/09-opensearch-service.md`
-- [ ] `03-storage-and-databases/10-analytics-overview.md`
-- [ ] `03-storage-and-databases/11-backup-and-disaster-recovery.md`
+- [x] `03-storage-and-databases/README.md`
+- [x] `03-storage-and-databases/01-s3.md`
+- [x] `03-storage-and-databases/02-s3-deep-dive.md`
+- [x] `03-storage-and-databases/03-ebs-efs-and-fsx.md`
+- [x] `03-storage-and-databases/04-dynamodb.md`
+- [x] `03-storage-and-databases/05-dynamodb-data-modelling.md`
+- [x] `03-storage-and-databases/06-rds-and-aurora.md`
+- [x] `03-storage-and-databases/07-rds-operations.md`
+- [x] `03-storage-and-databases/08-elasticache-redis-and-memcached.md`
+- [x] `03-storage-and-databases/09-opensearch-service.md`
+- [x] `03-storage-and-databases/10-analytics-overview.md`
+- [x] `03-storage-and-databases/11-backup-and-disaster-recovery.md`
 
 ### Module 04: Networking & Content Delivery
 - [ ] `04-networking/README.md`
