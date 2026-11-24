@@ -1,27 +1,26 @@
-# 04 — npm Ecosystem
+# Module 04: The NPM Ecosystem & Package Engineering
 
-`00-setup/02-npm-and-package-json.md` covered the basics of `package.json` and installing packages. This section goes deeper into using npm well day to day — how version numbers actually work, managing dependencies and scripts effectively, and publishing your own package.
+> Modern package management, SemVer rigor, subpath exports/imports, and enterprise monorepo workspace architectures.
 
-## In this section
+---
 
-| File                             | Covers                                                                          |
-| -------------------------------- | ------------------------------------------------------------------------------- |
-| `01-semantic-versioning.md`      | What `major.minor.patch` actually means, and how `^`/`~` ranges use it          |
-| `02-dependencies-and-scripts.md` | Managing `dependencies`/`devDependencies` well, npm scripts in depth, and `npx` |
-| `03-publishing-a-package.md`     | Publishing your own package to the npm registry                                 |
+## Module Overview
 
-## Why this matters beyond "installing packages"
+Node.js dependency management has evolved from simple nested `node_modules` into advanced content-addressable storage engines (`pnpm`), strict encapsulation via the `package.json` `"exports"` field, internal subpath aliases (`#`), and high-performance monorepo build pipelines.
 
-Every dependency your project uses has its own version history, and every update carries some risk. Understanding semantic versioning is what lets you read a `package.json` and know whether an update is likely safe or likely to break something, rather than treating version numbers as arbitrary. Scripts and `npx` are the daily-driver tools for actually running your project's tasks consistently across every machine that clones it.
+---
 
-## What you should be able to do after this section
+## Contents
 
-- Read a version like `^4.18.2` and know exactly what range of versions it permits, and why
-- Decide correctly whether a new dependency belongs in `dependencies` or `devDependencies`
-- Write and chain npm scripts (including `pre`/`post` hooks) for your project's common tasks
-- Use `npx` to run a package's CLI without installing it globally
-- Publish a package to npm, including versioning it correctly for updates
+| Index | Note | Core Focus |
+| :---: | :--- | :--- |
+| **01** | [01-semantic-versioning.md](./01-semantic-versioning.md) | SemVer specifications, caret (`^`) vs tilde (`~`), lockfile determinism. |
+| **02** | [02-dependencies-and-scripts.md](./02-dependencies-and-scripts.md) | `dependencies`, `devDependencies`, `peerDependencies`, lifecycle hooks. |
+| **03** | [03-publishing-a-package.md](./03-publishing-a-package.md) | Publishing to npm, 2FA, scoped packages (`@org/pkg`), automated release. |
+| **04** | [04-package-json-deep-dive-exports-imports.md](./04-package-json-deep-dive-exports-imports.md) | Conditional `"exports"`, subpath encapsulation, private `#` imports. |
+| **05** | [05-npm-pnpm-yarn-bun-and-workspaces.md](./05-npm-pnpm-yarn-bun-and-workspaces.md) | Package manager comparison, phantom dependencies, pnpm workspaces. |
 
-## Next
+---
 
-**`05-http-web`** moves from tooling into the actual protocol every Node backend deals with — HTTP methods, status codes, headers, and more.
+## Next Steps
+Proceed to [05-http-web](../05-http-web/README.md) to explore low-level HTTP protocols, keep-alive connections, streaming uploads, and Server-Sent Events.

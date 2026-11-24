@@ -1,31 +1,29 @@
-# 03 — JavaScript for Node
+# Module 03: JavaScript for Node.js Backends
 
-Node runs plain JavaScript, but a few language features and mechanisms matter far more in a Node backend than they typically do in simple frontend scripts — asynchronous code above all. This section covers the JavaScript concepts that come up constantly once you're writing real Node applications.
+> Server-side JavaScript mechanics, async coordination, EventEmitter architectures, and V8 memory management.
 
-## In this section
+---
 
-| File                                   | Covers                                                                                                           |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `01-callbacks-promises-async-await.md` | The evolution of async JavaScript — callbacks, Promises, and `async`/`await` — and how they relate               |
-| `02-event-loop.md`                     | How Node schedules callbacks, microtasks, and I/O — the mechanism underneath everything in `01`                  |
-| `03-closures.md`                       | Functions that remember the scope they were created in — used constantly in middleware, factories, and callbacks |
-| `04-prototypes.md`                     | JavaScript's prototype-based inheritance, and how `class` relates to it                                          |
-| `05-error-handling.md`                 | `try/catch`, error propagation through callbacks/promises, and custom error classes                              |
-| `06-memory-management.md`              | How Node's garbage collector works, and the common causes of memory leaks                                        |
+## Module Overview
 
-## Why this comes before frameworks
+While general JavaScript language concepts reside in [01-languages/javascript/](../../01-languages/javascript/README.md), server-side Node.js engineering requires deep understanding of how asynchronous tasks, closures, and object references interact with the single-threaded V8 runtime and multi-tenant memory constraints.
 
-Express middleware, database drivers, and queue libraries all lean heavily on closures, Promises, and careful error handling. Debugging a confusing async bug, a memory leak, or an uncaught rejection in `06-express/` or `11-async-processing/` is far easier once the mechanisms here are second nature, rather than something to reverse-engineer under pressure.
+---
 
-## What you should be able to do after this section
+## Contents
 
-- Convert between callback-style, Promise-based, and `async`/`await` code, and explain why `async`/`await` won out
-- Explain what the event loop actually does, and why `setTimeout(fn, 0)` doesn't run immediately
-- Use closures deliberately (e.g. to build configurable middleware) rather than by accident
-- Explain how `class` in JavaScript relates to prototypes underneath
-- Handle errors correctly across sync code, callbacks, and Promises — including the ones that are easy to accidentally swallow
-- Recognize common memory leak patterns in a long-running Node process
+| Index | Note | Core Focus |
+| :---: | :--- | :--- |
+| **01** | [01-callbacks-promises-async-await.md](./01-callbacks-promises-async-await.md) | Asynchronous evolution, promise chaining, async/await microtasks. |
+| **02** | [02-event-loop.md](./02-event-loop.md) | Macrotasks vs microtasks (`process.nextTick`, `queueMicrotask`). |
+| **03** | [03-closures.md](./03-closures.md) | Lexical scoping, factory functions, memory retention in closures. |
+| **04** | [04-prototypes.md](./04-prototypes.md) | Prototype inheritance, `Object.create(null)`, prototype pollution defenses. |
+| **05** | [05-error-handling.md](./05-error-handling.md) | Try/catch, error bubbling, asynchronous stack traces. |
+| **06** | [06-memory-management.md](./06-memory-management.md) | V8 garbage collector (Scavenge vs Mark-Sweep-Compact), heap spaces. |
+| **07** | [07-server-async-patterns-and-event-emitter.md](./07-server-async-patterns-and-event-emitter.md) | Concurrency limiting (`p-limit`), `AbortController`, EventEmitter leaks. |
+| **08** | [08-memory-leaks-and-heap-profiling.md](./08-memory-leaks-and-heap-profiling.md) | Heap snapshots (`v8.getHeapSnapshot`), Chrome DevTools memory profiling. |
 
-## Next
+---
 
-**`04-npm-ecosystem`** covers using npm effectively day to day — versioning, scripts, and publishing.
+## Next Steps
+Proceed to [04-npm-ecosystem](../04-npm-ecosystem/README.md) to explore modern package management, exports fields, and monorepo workspaces.
