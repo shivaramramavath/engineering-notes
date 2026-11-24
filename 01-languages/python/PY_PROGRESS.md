@@ -22,15 +22,16 @@
 
 ---
 
-## Batch 1: Setup & Fundamentals Part 1 (Pending)
-- [ ] `00-setup/00-what-is-python-and-implementations.md`
-- [ ] `00-setup/01-installing-and-managing-versions.md`
-- [ ] `00-setup/02-virtual-environments.md`
-- [ ] `00-setup/03-packages-with-pip-and-uv.md`
-- [ ] `00-setup/04-repl-and-first-program.md`
-- [ ] `00-setup/05-editor-and-debugger-setup.md`
-- [ ] `00-setup/06-how-python-runs-code.md`
-- [ ] `00-setup/07-zen-of-python-and-pep8.md`
+## Batch 1: Setup & Fundamentals Part 1 (In Progress)
+- [x] `00-setup/00-what-is-python-and-implementations.md`
+- [x] `00-setup/01-installing-and-managing-versions.md`
+- [x] `00-setup/02-virtual-environments.md`
+- [x] `00-setup/03-packages-with-pip-and-uv.md`
+- [x] `00-setup/04-repl-and-first-program.md`
+- [x] `00-setup/05-editor-and-debugger-setup.md`
+- [x] `00-setup/06-how-python-runs-code.md`
+- [x] `00-setup/07-zen-of-python-and-pep8.md`
+- [x] `00-setup/README.md` (Module 00 100% Complete)
 - [ ] `01-fundamentals/00-syntax-and-indentation.md`
 - [ ] `01-fundamentals/01-variables-names-and-objects.md`
 - [ ] `01-fundamentals/02-numbers-int-float-decimal-fraction.md`
