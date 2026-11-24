@@ -1,25 +1,27 @@
-# 00 — Setup
+# Module 00: Node.js Setup & Environment
 
-Everything you need before writing any real Node.js code: installing Node itself, and understanding npm and `package.json` well enough to start a project.
+> Setting up a modern, production-grade Node.js 22 LTS / 24+ backend engineering environment.
 
-## In this section
+---
 
-| File                         | Covers                                                                                                |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `01-getting-started.md`      | Installing Node (and why via a version manager), verifying the install, running your first script     |
-| `02-npm-and-package-json.md` | npm basics, `package.json`, and `package-lock.json` — the three things every Node project starts with |
+## Module Overview
 
-## Why this comes first
+This module covers everything required to establish a robust, modern development workflow for server-side Node.js: runtime installation, version managers, native TypeScript execution without transpilers, debugger protocol setup, and enterprise project bootstrapping.
 
-Every later section assumes Node and npm are installed and that `package.json` makes sense to you — it's the file every single command (`npm install`, `npm run`, `npm test`) reads from. Getting comfortable with it now avoids a lot of confusion later when sections start referencing scripts, dependencies, and dev dependencies without re-explaining them each time.
+---
 
-## What you should be able to do after this section
+## Contents
 
-- Install Node via a version manager (not a single global install) and switch versions per project
-- Run `node --version` / `npm --version` and get sensible output
-- Initialize a new project with `npm init` and understand every field `package.json` generates
-- Explain the difference between `package.json` and `package-lock.json`, and why both get committed to Git
+| Index | Note | Core Focus |
+| :---: | :--- | :--- |
+| **01** | [01-getting-started.md](./01-getting-started.md) | First Node.js application, runtime architecture, basic execution. |
+| **02** | [02-npm-and-package-json.md](./02-npm-and-package-json.md) | Package management, scripts, dependency types (`dependencies` vs `devDependencies`). |
+| **03** | [03-node-versions-and-managers.md](./03-node-versions-and-managers.md) | LTS schedules, `fnm`, `nvm`, `Volta`, `.node-version` pinning. |
+| **04** | [04-running-typescript-in-node.md](./04-running-typescript-in-node.md) | Native type stripping (`--experimental-strip-types`), `tsx`, tsconfig NodeNext. |
+| **05** | [05-editor-debugger-and-inspector.md](./05-editor-debugger-and-inspector.md) | VS Code debugging, Chrome DevTools (`chrome://inspect`), diagnostic flags. |
+| **06** | [06-project-bootstrapping-checklist.md](./06-project-bootstrapping-checklist.md) | Production checklist for initializing enterprise Node.js repositories. |
 
-## Next
+---
 
-**`01-fundamentals`** covers how Node actually runs your JavaScript — the runtime, global objects, and the module system.
+## Next Steps
+Proceed to [01-fundamentals](../01-fundamentals/README.md) to explore the libuv event loop, V8 engine internals, process lifecycles, and module resolution.

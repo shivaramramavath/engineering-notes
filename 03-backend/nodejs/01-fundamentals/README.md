@@ -1,27 +1,27 @@
-# 01 — Fundamentals
+# Module 01: Node.js Runtime Fundamentals
 
-With Node installed and npm/`package.json` understood, this section covers how Node actually works under the hood — what makes it different from running JavaScript in a browser, what's available globally without an import, how its module system works, and how configuration reaches your app via environment variables.
+> Core architectural principles, the libuv event loop, module systems, environment configuration, and process lifecycle mechanics.
 
-## In this section
+---
 
-| File                          | Covers                                                                                     |
-| ----------------------------- | ------------------------------------------------------------------------------------------ |
-| `01-node-runtime.md`          | What Node actually is — V8 plus a set of APIs — and how it differs from browser JavaScript |
-| `02-global-objects.md`        | What's available everywhere without an import: `global`, `console`, timers, and more       |
-| `03-module-system.md`         | CommonJS vs ES Modules — `require` vs `import`, and how Node decides which one applies     |
-| `04-environment-variables.md` | `process.env`, `.env` files, and how configuration reaches a running app                   |
+## Module Overview
 
-## Why this comes before core modules
+This module establishes the foundational mental model for server-side Node.js engineering: how V8 executes JavaScript, how libuv coordinates non-blocking asynchronous I/O across OS threads, how ES Modules and CommonJS interoperate natively, and how production processes manage their lifecycle and exit codes.
 
-`02-core-modules` covers specific built-in modules (`fs`, `http`, `events`, and so on) in depth — this section covers the concepts that make sense of _why_ those modules work the way they do: what "the event loop" even runs on top of, why some things are globally available and others need an import, and why you'll see both `require()` and `import` across different Node codebases.
+---
 
-## What you should be able to do after this section
+## Contents
 
-- Explain, at a high level, what Node actually is and why it can run JavaScript outside a browser
-- Use globals like `console`, `setTimeout`, and `process` without needing to import them
-- Recognize whether a given file is CommonJS or ES Modules, and know why that matters
-- Read and set environment variables, and understand why `process.env` values are always strings
+| Index | Note | Core Focus |
+| :---: | :--- | :--- |
+| **01** | [01-node-runtime.md](./01-node-runtime.md) | V8 engine, libuv event loop phases, threadpool (`UV_THREADPOOL_SIZE`). |
+| **02** | [02-global-objects.md](./02-global-objects.md) | Globals (`process`, `Buffer`), Web Platform APIs (`fetch`, Web Streams, SubtleCrypto). |
+| **03** | [03-esm-vs-commonjs-in-node.md](./03-esm-vs-commonjs-in-node.md) | ESM vs CommonJS, native `require(esm)`, package exports. |
+| **04** | [04-environment-variables.md](./04-environment-variables.md) | Built-in `--env-file`, `process.loadEnvFile`, Zod configuration validation. |
+| **05** | [05-process-lifecycle-and-exit-codes.md](./05-process-lifecycle-and-exit-codes.md) | Process lifecycle, POSIX signals (`SIGTERM`, `SIGINT`), graceful shutdown, exit codes. |
+| **06** | [06-error-handling-fundamentals.md](./06-error-handling-fundamentals.md) | Operational vs programmer errors, `uncaughtException`, `unhandledRejection`. |
 
-## Next
+---
 
-**`02-core-modules`** puts these fundamentals to work through Node's actual built-in modules — `fs`, `http`, `events`, `streams`, and more.
+## Next Steps
+Proceed to [02-core-modules](../02-core-modules/README.md) to dive deep into Node's standard library: streams, buffers, SQLite, worker threads, and single-executable applications.
