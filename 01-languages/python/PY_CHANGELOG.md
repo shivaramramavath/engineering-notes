@@ -4,6 +4,25 @@
 
 ---
 
+## [Module 02] - 2026-11-24 - Data Structures
+- **00-lists.md**: Completed 13-section guide on pointer array layout, mutability, indexing, $O(1)$ amortized append, in-place mutations, sorting, and aliasing pitfalls.
+- **01-tuples-and-namedtuples.md**: Completed 13-section guide on immutability, singleton comma rule, hashability, memory layout, `typing.NamedTuple`, and `_replace()`.
+- **02-dictionaries.md**: Completed 13-section guide on compact hash table layout, insertion order preservation, dynamic views, and PEP 584 merge operators (`|`, `|=`).
+- **03-sets-and-frozensets.md**: Completed 13-section guide on mathematical set operators vs methods, uniqueness, `frozenset` keys, and dummy deletion tombstones.
+- **04-slicing-and-indexing.md**: Completed 13-section guide on half-open intervals, `[::-1]` reversal, `slice` objects, `indices()`, and in-place slice mutations.
+- **05-unpacking.md**: Completed 13-section guide on extended iterable unpacking (`*rest`), PEP 3132 rules, nested unpacking, `*args`/`**kwargs`, and literal merging.
+- **06-sorting-and-keys.md**: Completed 13-section guide on `list.sort()` vs `sorted()`, key functions, Timsort & Powersort algorithms, and `operator.attrgetter`.
+- **07-comprehensions.md**: Completed 13-section guide on list, set, dict, and generator expressions, filtering vs ternary branching, isolated scope, and bytecode opcodes.
+- **08-copying-shallow-vs-deep.md**: Completed 13-section guide on reference aliasing, shallow copy, `deepcopy`, memo dictionary for cycles, and `__deepcopy__` hooks.
+- **09-collections-module.md**: Completed 13-section guide on `deque` ring buffers, `Counter` multiset math, `defaultdict` missing factories, `OrderedDict`, and `ChainMap`.
+- **10-heapq-bisect-and-array.md**: Completed 13-section guide on min-heaps, $O(n)$ `heapify`, priority queues, $O(\log n)$ binary search with `bisect`, and unboxed typed C buffers with `array`.
+- **11-choosing-the-right-structure.md**: Completed 13-section guide with comprehensive Big-O complexity matrix, memory consumption audit, and architectural decision flowchart.
+- **12-dict-and-set-internals.md**: Completed 13-section guide on CPython compact layout, perturbation probing, 2/3 load factor, SipHash-2-4 (PEP 456), and PEP 412 key-sharing dicts.
+- **13-list-internals-and-growth.md**: Completed 13-section guide on `PyListObject` struct, geometric over-allocation formula, amortized $O(1)$ proof, buffer shrinkage, and header free list.
+- **02-data-structures/README.md**: Updated syllabus table and module outcomes.
+
+---
+
 ## [Module 01] - 2026-11-24 - Python Fundamentals & Syntax
 - **00-syntax-and-indentation.md**: Completed 13-section guide on off-side rule, 4-space convention, `INDENT`/`DEDENT` tokens, line continuation, and `pass` vs `...`.
 - **01-variables-names-and-objects.md**: Completed 13-section guide on name binding, `PyObject` structure, mutability, `is` vs `==`, and garbage collection.

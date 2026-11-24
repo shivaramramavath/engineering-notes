@@ -42,7 +42,7 @@
 
 ---
 
-## Batch 2: Fundamentals Part 2 & Data Structures Part 1 (In Progress)
+## Batch 2: Fundamentals Part 2 & Data Structures Part 1 (COMPLETED)
 - [x] `01-fundamentals/07-input-and-output.md`
 - [x] `01-fundamentals/08-comments-and-docstrings.md`
 - [x] `01-fundamentals/09-conditionals.md`
@@ -51,24 +51,25 @@
 - [x] `01-fundamentals/12-walrus-operator.md`
 - [x] `01-fundamentals/13-integer-and-float-internals.md`
 - [x] `01-fundamentals/README.md` (Module 01 100% Complete)
-- [ ] `02-data-structures/00-lists.md`
-- [ ] `02-data-structures/01-tuples-and-namedtuples.md`
-- [ ] `02-data-structures/02-dictionaries.md`
-- [ ] `02-data-structures/03-sets-and-frozensets.md`
-- [ ] `02-data-structures/04-slicing-and-indexing.md`
-- [ ] `02-data-structures/05-unpacking.md`
-- [ ] `02-data-structures/06-sorting-and-keys.md`
+- [x] `02-data-structures/00-lists.md`
+- [x] `02-data-structures/01-tuples-and-namedtuples.md`
+- [x] `02-data-structures/02-dictionaries.md`
+- [x] `02-data-structures/03-sets-and-frozensets.md`
+- [x] `02-data-structures/04-slicing-and-indexing.md`
+- [x] `02-data-structures/05-unpacking.md`
+- [x] `02-data-structures/06-sorting-and-keys.md`
 
 ---
 
-## Batch 3: Data Structures Part 2 & Functions (Pending)
-- [ ] `02-data-structures/07-comprehensions.md`
-- [ ] `02-data-structures/08-copying-shallow-vs-deep.md`
-- [ ] `02-data-structures/09-collections-module.md`
-- [ ] `02-data-structures/10-heapq-bisect-and-array.md`
-- [ ] `02-data-structures/11-choosing-the-right-structure.md`
-- [ ] `02-data-structures/12-dict-and-set-internals.md`
-- [ ] `02-data-structures/13-list-internals-and-growth.md`
+## Batch 3: Data Structures Part 2 & Functions (In Progress)
+- [x] `02-data-structures/07-comprehensions.md`
+- [x] `02-data-structures/08-copying-shallow-vs-deep.md`
+- [x] `02-data-structures/09-collections-module.md`
+- [x] `02-data-structures/10-heapq-bisect-and-array.md`
+- [x] `02-data-structures/11-choosing-the-right-structure.md`
+- [x] `02-data-structures/12-dict-and-set-internals.md`
+- [x] `02-data-structures/13-list-internals-and-growth.md`
+- [x] `02-data-structures/README.md` (Module 02 100% Complete)
 - [ ] `03-functions/00-defining-functions.md`
 - [ ] `03-functions/01-arguments-positional-keyword-star.md`
 - [ ] `03-functions/02-default-argument-pitfalls.md`
