@@ -2,14 +2,14 @@
 
 > **Resumable Progress Checklist**: Updated continuously across every batch.
 
-## Summary Status: Batch 2 In Progress
+## Summary Status: Batch 3 In Progress
 
 | Batch | Scope | Status | Notes / Deliverables | Commit |
 | :--- | :--- | :---: | :---: | :---: |
 | **Batch 0** | Hygiene, Root Documentation Suite & Module README Scaffolding | **Complete** | 6 root files + 21 module READMEs | 9cea601 |
-| **Batch 1** | Modules 00 Setup & 01 Fundamentals | **Complete** | 21 notes | Pending |
-| **Batch 2** | Modules 02 Pydantic v2 & 03 Dependency Injection | **In Progress** | 26 notes | Pending |
-| **Batch 3** | Modules 04 Routing & 05 Middleware, Streaming & Realtime | Pending | 24 notes | Pending |
+| **Batch 1** | Modules 00 Setup & 01 Fundamentals | **Complete** | 21 notes | 01cb7ed |
+| **Batch 2** | Modules 02 Pydantic v2 & 03 Dependency Injection | **Complete** | 26 notes | Pending |
+| **Batch 3** | Modules 04 Routing & 05 Middleware, Streaming & Realtime | **In Progress** | 24 notes | Pending |
 | **Batch 4** | Modules 06 Databases & 07 Authentication & Security | Pending | 39 notes | Pending |
 | **Batch 5** | Modules 08 API Design & 09 Async & Concurrency | Pending | 25 notes | Pending |
 | **Batch 6** | Modules 10 Background Processing & 11 Testing | Pending | 29 notes | Pending |
@@ -28,8 +28,8 @@
 - [x] Authoritative templates (`concept-template.md` and `project-template.md`) created in `_templates/`.
 - [x] Batch 0: Root documentation suite and module README scaffolding.
 - [x] Batch 1: Modules 00 and 01.
-- [/] Batch 2: Modules 02 and 03.
-- [ ] Batch 3: Modules 04 and 05.
+- [x] Batch 2: Modules 02 and 03.
+- [/] Batch 3: Modules 04 and 05.
 - [ ] Batch 4: Modules 06 and 07.
 - [ ] Batch 5: Modules 08 and 09.
 - [ ] Batch 6: Modules 10 and 11.
