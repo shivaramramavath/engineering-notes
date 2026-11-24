@@ -13,7 +13,7 @@
 | # | Module Directory | Planned Notes | Completed Notes | Status |
 |---|---|:---:|:---:|:---:|
 | **01** | [`01-foundations/`](file:///04-devops/aws/01-foundations/) | 12 | 12 | Completed |
-| **02** | [`02-compute/`](file:///04-devops/aws/02-compute/) | 10 | 0 | Pending |
+| **02** | [`02-compute/`](file:///04-devops/aws/02-compute/) | 10 | 10 | Completed |
 | **03** | [`03-storage-and-databases/`](file:///04-devops/aws/03-storage-and-databases/) | 11 | 0 | Pending |
 | **04** | [`04-networking/`](file:///04-devops/aws/04-networking/) | 10 | 0 | Pending |
 | **05** | [`05-app-services/`](file:///04-devops/aws/05-app-services/) | 9 | 0 | Pending |
@@ -22,7 +22,7 @@
 | **08** | [`08-projects/`](file:///04-devops/aws/08-projects/) | 8 | 0 | Pending |
 | **09** | [`09-interview/`](file:///04-devops/aws/09-interview/) | 9 | 0 | Pending |
 | **10** | [`10-cheatsheets/`](file:///04-devops/aws/10-cheatsheets/) | 10 | 0 | Pending |
-| **Total** | **All 10 Modules** | **101** | **12** | **11.9%** |
+| **Total** | **All 10 Modules** | **101** | **22** | **21.8%** |
 
 ---
 
@@ -44,17 +44,17 @@
 - [x] `01-foundations/12-pricing-calculators-and-budgets.md`
 
 ### Module 02: Compute & Containers
-- [ ] `02-compute/README.md`
-- [ ] `02-compute/01-ec2.md`
-- [ ] `02-compute/02-ec2-autoscaling-and-launch-templates.md`
-- [ ] `02-compute/03-lambda.md`
-- [ ] `02-compute/04-lambda-deep-dive.md`
-- [ ] `02-compute/05-ecs-fargate.md`
-- [ ] `02-compute/06-ecs-deep-dive.md`
-- [ ] `02-compute/07-eks-fundamentals.md`
-- [ ] `02-compute/08-elastic-beanstalk-and-app-runner.md`
-- [ ] `02-compute/09-batch-and-step-functions.md`
-- [ ] `02-compute/10-graviton-and-spot-and-savings-plans.md`
+- [x] `02-compute/README.md`
+- [x] `02-compute/01-ec2.md`
+- [x] `02-compute/02-ec2-autoscaling-and-launch-templates.md`
+- [x] `02-compute/03-lambda.md`
+- [x] `02-compute/04-lambda-deep-dive.md`
+- [x] `02-compute/05-ecs-fargate.md`
+- [x] `02-compute/06-ecs-deep-dive.md`
+- [x] `02-compute/07-eks-fundamentals.md`
+- [x] `02-compute/08-elastic-beanstalk-and-app-runner.md`
+- [x] `02-compute/09-batch-and-step-functions.md`
+- [x] `02-compute/10-graviton-and-spot-and-savings-plans.md`
 
 ### Module 03: Storage & Databases
 - [ ] `03-storage-and-databases/README.md`
