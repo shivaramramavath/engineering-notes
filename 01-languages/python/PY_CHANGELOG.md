@@ -4,6 +4,22 @@
 
 ---
 
+## [Module 03] - 2026-11-24 - Functions & Callables
+- **00-defining-functions.md**: Completed 13-section guide on first-class citizen model, `def` as runtime statement, `PyFunctionObject` heap anatomy, implicit `None`, and dynamic definitions.
+- **01-arguments-positional-keyword-star.md**: Completed 13-section guide on call-by-sharing semantics, mutability impacts, `*args` tuple packing, `**kwargs` dict packing, and canonical signature order.
+- **02-default-argument-pitfalls.md**: Completed 13-section guide on the mutable default trap (`[]`, `{}`), definition-time evaluation, `__defaults__` tuple, and canonical `None` sentinel idioms.
+- **03-scope-legb-global-nonlocal.md**: Completed 13-section guide on LEGB hierarchy, compile-time scope tagging, `UnboundLocalError`, `global` vs `nonlocal` (PEP 3104), and `LOAD_FAST` optimization.
+- **04-closures.md**: Completed 13-section guide on free variables, `__closure__` tuple, `PyCellObject` lifecycle, late-binding loop variable trap and fixes, and state encapsulation.
+- **05-lambdas-and-higher-order-functions.md**: Completed 13-section guide on anonymous inline expressions, single-expression rule, higher-order functions (`map`, `filter`, `reduce`), and comprehensions vs lambdas.
+- **06-decorators.md**: Completed 13-section guide on `@` syntactic sugar, wrapper preservation via `@functools.wraps`, parameterized decorator factories, class decorators, and stacking order.
+- **07-functools.md**: Completed 13-section guide on `@lru_cache` & `@cache`, `partial()`, `@singledispatch` & `@singledispatchmethod`, and `@total_ordering`.
+- **08-recursion-and-limits.md**: Completed 13-section guide on call stack growth, `sys.getrecursionlimit()`, why Python rejects Tail Call Optimization (TCO), and converting recursion to iterative stacks.
+- **09-docstrings-and-annotations.md**: Completed 13-section guide on PEP 257 docstrings (Google/Sphinx), `inspect.get_annotations()`, PEP 563 future strings, and Python 3.14+ PEP 649/749 `annotationlib`.
+- **10-positional-only-and-keyword-only.md**: Completed 13-section guide on PEP 570 forward slash `/`, PEP 3102 asterisk `*`, API decoupling, boolean flag trap elimination, and `**kwargs` collision resolution.
+- **03-functions/README.md**: Updated syllabus table and module outcomes.
+
+---
+
 ## [Module 02] - 2026-11-24 - Data Structures
 - **00-lists.md**: Completed 13-section guide on pointer array layout, mutability, indexing, $O(1)$ amortized append, in-place mutations, sorting, and aliasing pitfalls.
 - **01-tuples-and-namedtuples.md**: Completed 13-section guide on immutability, singleton comma rule, hashability, memory layout, `typing.NamedTuple`, and `_replace()`.

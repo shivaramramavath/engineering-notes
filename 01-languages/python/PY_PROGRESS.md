@@ -61,7 +61,7 @@
 
 ---
 
-## Batch 3: Data Structures Part 2 & Functions (In Progress)
+## Batch 3: Data Structures Part 2 & Functions (COMPLETED)
 - [x] `02-data-structures/07-comprehensions.md`
 - [x] `02-data-structures/08-copying-shallow-vs-deep.md`
 - [x] `02-data-structures/09-collections-module.md`
@@ -70,21 +70,22 @@
 - [x] `02-data-structures/12-dict-and-set-internals.md`
 - [x] `02-data-structures/13-list-internals-and-growth.md`
 - [x] `02-data-structures/README.md` (Module 02 100% Complete)
-- [ ] `03-functions/00-defining-functions.md`
-- [ ] `03-functions/01-arguments-positional-keyword-star.md`
-- [ ] `03-functions/02-default-argument-pitfalls.md`
-- [ ] `03-functions/03-scope-legb-global-nonlocal.md`
-- [ ] `03-functions/04-closures.md`
-- [ ] `03-functions/05-lambdas-and-higher-order-functions.md`
-- [ ] `03-functions/06-decorators.md`
-- [ ] `03-functions/07-functools.md`
-- [ ] `03-functions/08-recursion-and-limits.md`
-- [ ] `03-functions/09-docstrings-and-annotations.md`
-- [ ] `03-functions/10-positional-only-and-keyword-only.md`
+- [x] `03-functions/00-defining-functions.md`
+- [x] `03-functions/01-arguments-positional-keyword-star.md`
+- [x] `03-functions/02-default-argument-pitfalls.md`
+- [x] `03-functions/03-scope-legb-global-nonlocal.md`
+- [x] `03-functions/04-closures.md`
+- [x] `03-functions/05-lambdas-and-higher-order-functions.md`
+- [x] `03-functions/06-decorators.md`
+- [x] `03-functions/07-functools.md`
+- [x] `03-functions/08-recursion-and-limits.md`
+- [x] `03-functions/09-docstrings-and-annotations.md`
+- [x] `03-functions/10-positional-only-and-keyword-only.md`
+- [x] `03-functions/README.md` (Module 03 100% Complete)
 
 ---
 
-## Batch 4: Strings & OOP Part 1 (Pending)
+## Batch 4: Strings & OOP Part 1 (In Progress)
 - [ ] `04-strings-and-text/00-string-methods.md`
 - [ ] `04-strings-and-text/01-formatting-f-strings.md`
 - [ ] `04-strings-and-text/02-unicode-and-encodings.md`
