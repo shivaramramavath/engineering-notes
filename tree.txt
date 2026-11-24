@@ -1,9 +1,6 @@
 engineering-notes/
 ├── 01-languages
 │   ├── c
-│   │   ├── _templates
-│   │   │   ├── concept-template.md
-│   │   │   └── project-template.md
 │   │   ├── 00-setup
 │   │   │   ├── 01-toolchain.md
 │   │   │   ├── 02-editor-setup.md
@@ -248,6 +245,9 @@ engineering-notes/
 │   │   │   ├── 08-c23-features.md
 │   │   │   ├── 09-bit-tricks.md
 │   │   │   └── README.md
+│   │   ├── _templates
+│   │   │   ├── concept-template.md
+│   │   │   └── project-template.md
 │   │   ├── C_AUDIT.md
 │   │   ├── C_CHANGELOG.md
 │   │   ├── C_COMPLETION_PLAN.md
@@ -260,9 +260,6 @@ engineering-notes/
 │   │   ├── INDEX.md
 │   │   └── README.md
 │   ├── java
-│   │   ├── _templates
-│   │   │   ├── concept-template.md
-│   │   │   └── project-template.md
 │   │   ├── 00-setup
 │   │   │   ├── 00_jdk-installation.md
 │   │   │   ├── 01_java-version-management.md
@@ -605,6 +602,9 @@ engineering-notes/
 │   │   │   ├── 08_maven-and-gradle-commands.md
 │   │   │   ├── 09_dsa-patterns-and-complexity.md
 │   │   │   └── README.md
+│   │   ├── _templates
+│   │   │   ├── concept-template.md
+│   │   │   └── project-template.md
 │   │   ├── CONTRIBUTING.md
 │   │   ├── GLOSSARY.md
 │   │   ├── INDEX.md
@@ -619,9 +619,6 @@ engineering-notes/
 │   │   ├── README.md
 │   │   └── ROADMAP.md
 │   ├── javascript
-│   │   ├── _templates
-│   │   │   ├── concept-template.md
-│   │   │   └── project-template.md
 │   │   ├── 00_setup
 │   │   │   ├── 01_what-is-javascript.md
 │   │   │   ├── 02_runtimes-browser-and-node.md
@@ -911,6 +908,9 @@ engineering-notes/
 │   │   │   ├── 11_regex-reference.md
 │   │   │   ├── 12_common-gotchas.md
 │   │   │   └── README.md
+│   │   ├── _templates
+│   │   │   ├── concept-template.md
+│   │   │   └── project-template.md
 │   │   ├── CODE_OF_CONDUCT.md
 │   │   ├── CONTRIBUTING.md
 │   │   ├── GLOSSARY.md
@@ -920,6 +920,7 @@ engineering-notes/
 │   │   ├── JS_COMPLETION_PLAN.md
 │   │   ├── JS_DECISIONS.md
 │   │   ├── JS_FACTS.md
+│   │   ├── JS_FINAL_REPORT.md
 │   │   ├── JS_PROGRESS.md
 │   │   ├── LICENSE
 │   │   ├── README.md
@@ -929,6 +930,9 @@ engineering-notes/
 │       │   ├── 00-toolchain.md
 │       │   ├── 01-first-project.md
 │       │   ├── 02-editor-and-playground.md
+│       │   ├── 03-typescript-versions-and-upgrade-strategy.md
+│       │   ├── 04-running-typescript.md
+│       │   ├── 05-playground-and-reproduction-repos.md
 │       │   └── README.md
 │       ├── 01-fundamentals
 │       │   ├── 00-types-and-inference.md
@@ -940,6 +944,11 @@ engineering-notes/
 │       │   ├── 06-any-and-unknown.md
 │       │   ├── 07-never-and-void.md
 │       │   ├── 08-null-and-undefined.md
+│       │   ├── 09-object-vs-empty-curly-vs-object-wrapper.md
+│       │   ├── 10-bigint-symbol-and-unique-symbol.md
+│       │   ├── 11-readonly-arrays-and-tuples.md
+│       │   ├── 12-truthiness-and-equality-narrowing.md
+│       │   ├── 13-typeof-instanceof-in-quick-reference.md
 │       │   └── README.md
 │       ├── 02-functions
 │       │   ├── 00-function-types.md
@@ -947,6 +956,9 @@ engineering-notes/
 │       │   ├── 02-callbacks.md
 │       │   ├── 03-function-overloads.md
 │       │   ├── 04-this-parameters.md
+│       │   ├── 05-generic-callbacks-and-contextual-typing.md
+│       │   ├── 06-assertion-signatures-and-this-types.md
+│       │   ├── 07-abstract-construct-signatures-and-constructor-types.md
 │       │   └── README.md
 │       ├── 03-unions-and-narrowing
 │       │   ├── 00-union-types.md
@@ -974,6 +986,8 @@ engineering-notes/
 │       │   ├── 05-getters-and-setters.md
 │       │   ├── 06-mixins.md
 │       │   ├── 07-decorators.md
+│       │   ├── 08-constructor-parameter-properties-and-erasable-syntax.md
+│       │   ├── 09-class-expressions-and-structural-typing.md
 │       │   └── README.md
 │       ├── 06-generics
 │       │   ├── 00-generic-functions.md
@@ -982,6 +996,9 @@ engineering-notes/
 │       │   ├── 03-keyof-and-typeof.md
 │       │   ├── 04-indexed-access-types.md
 │       │   ├── 05-generic-inference.md
+│       │   ├── 06-const-type-parameters.md
+│       │   ├── 07-type-parameter-variance-annotations.md
+│       │   ├── 08-generic-instantiation-limits-and-compiler-perf.md
 │       │   └── README.md
 │       ├── 07-utility-types
 │       │   ├── 00-partial-required-readonly.md
@@ -989,12 +1006,19 @@ engineering-notes/
 │       │   ├── 02-exclude-extract-nonnullable.md
 │       │   ├── 03-function-and-class-utilities.md
 │       │   ├── 04-building-custom-utility-types.md
+│       │   ├── 05-awaited-and-promise-unwrapping.md
+│       │   ├── 06-string-manipulation-types.md
+│       │   ├── 07-deep-utility-types.md
 │       │   └── README.md
 │       ├── 08-modules
 │       │   ├── 00-imports-and-exports.md
 │       │   ├── 01-es-modules-and-commonjs.md
 │       │   ├── 02-barrel-files-and-module-organization.md
 │       │   ├── 03-namespaces.md
+│       │   ├── 04-verbatim-module-syntax-and-type-modifiers.md
+│       │   ├── 05-package-json-exports-and-resolution-modes.md
+│       │   ├── 06-import-attributes-and-json-modules.md
+│       │   ├── 07-isolated-declarations.md
 │       │   └── README.md
 │       ├── 09-declaration-files
 │       │   ├── 00-declaration-files.md
@@ -1002,6 +1026,9 @@ engineering-notes/
 │       │   ├── 02-global-and-module-augmentation.md
 │       │   ├── 03-declaration-merging.md
 │       │   ├── 04-third-party-types.md
+│       │   ├── 05-authoring-declarations-for-javascript-libraries.md
+│       │   ├── 06-types-versions-and-downleveling.md
+│       │   ├── 07-definitely-typed-workflow-and-best-practices.md
 │       │   └── README.md
 │       ├── 10-advanced-types
 │       │   ├── 00-conditional-types.md
@@ -1013,12 +1040,17 @@ engineering-notes/
 │       │   ├── 06-variadic-tuple-types.md
 │       │   ├── 07-branded-types.md
 │       │   ├── 08-type-level-programming.md
+│       │   ├── 09-type-level-parsers-and-state-machines.md
+│       │   ├── 10-deep-keys-and-path-navigation.md
+│       │   ├── 11-type-arithmetic-and-tuple-manipulation.md
 │       │   └── README.md
 │       ├── 11-error-handling
 │       │   ├── 00-catching-and-narrowing-errors.md
 │       │   ├── 01-custom-errors.md
 │       │   ├── 02-result-pattern.md
 │       │   ├── 03-error-handling-strategies.md
+│       │   ├── 04-neverthrow-and-functional-error-handling.md
+│       │   ├── 05-effect-ts-error-management-and-defects.md
 │       │   └── README.md
 │       ├── 12-async-and-iteration
 │       │   ├── 00-event-loop.md
@@ -1027,7 +1059,9 @@ engineering-notes/
 │       │   ├── 03-async-generics.md
 │       │   ├── 04-iterators-and-generators.md
 │       │   ├── 05-concurrency-patterns.md
-│       │   └── README (2).md
+│       │   ├── 06-explicit-resource-management-and-using.md
+│       │   ├── 07-abortsignal-and-cancellation-tokens.md
+│       │   └── README.md
 │       ├── 13-compiler-and-tsconfig
 │       │   ├── 00-compiler-options.md
 │       │   ├── 01-strict-mode.md
@@ -1035,7 +1069,9 @@ engineering-notes/
 │       │   ├── 03-module-resolution-and-paths.md
 │       │   ├── 04-project-references-and-incremental-builds.md
 │       │   ├── 05-tsconfig-recipes.md
-│       │   └── README (3).md
+│       │   ├── 06-extended-diagnostics-and-generate-trace.md
+│       │   ├── 07-typescript-7-native-go-compiler-tsgo.md
+│       │   └── README.md
 │       ├── 14-type-system-internals
 │       │   ├── 00-type-erasure-and-runtime.md
 │       │   ├── 01-assignability-and-subtyping.md
@@ -1043,6 +1079,9 @@ engineering-notes/
 │       │   ├── 03-type-widening-and-inference.md
 │       │   ├── 04-soundness-and-escape-hatches.md
 │       │   ├── 05-compiler-architecture.md
+│       │   ├── 06-ast-and-compiler-api.md
+│       │   ├── 07-ts-morph-and-programmatic-ast-manipulation.md
+│       │   ├── 08-writing-a-custom-language-service-plugin.md
 │       │   └── README.md
 │       ├── 15-runtime-validation
 │       │   ├── 00-trust-boundaries.md
@@ -1069,7 +1108,7 @@ engineering-notes/
 │       │   ├── 05-dependency-injection.md
 │       │   ├── 06-state-machines.md
 │       │   ├── 07-typed-event-emitter.md
-│       │   └── README (4).md
+│       │   └── README.md
 │       ├── 18-testing-and-debugging
 │       │   ├── 00-unit-testing.md
 │       │   ├── 01-integration-testing.md
@@ -1078,7 +1117,7 @@ engineering-notes/
 │       │   ├── 04-type-testing.md
 │       │   ├── 05-debugging.md
 │       │   ├── 06-reading-type-errors.md
-│       │   └── README (1).md
+│       │   └── README.md
 │       ├── 19-react-and-frontend
 │       │   ├── 00-component-props-and-children.md
 │       │   ├── 01-event-types.md
@@ -1148,6 +1187,20 @@ engineering-notes/
 │       │   │   └── README.md
 │       │   ├── 07-fullstack-application
 │       │   │   └── README.md
+│       │   ├── 08-typed-event-sourcing
+│       │   │   └── README.md
+│       │   ├── 09-type-safe-form-builder
+│       │   │   └── README.md
+│       │   ├── 10-mini-orm-type-queries
+│       │   │   └── README.md
+│       │   ├── 11-schema-validation-library
+│       │   │   └── README.md
+│       │   ├── 12-typed-state-machine
+│       │   │   └── README.md
+│       │   ├── 13-monorepo-shared-types
+│       │   │   └── README.md
+│       │   ├── 14-trpc-fullstack
+│       │   │   └── README.md
 │       │   ├── exercises
 │       │   │   ├── 00-type-challenges.md
 │       │   │   └── README.md
@@ -1174,15 +1227,35 @@ engineering-notes/
 │       │   ├── 04-tsconfig.md
 │       │   ├── 05-react-typescript.md
 │       │   ├── 06-node-typescript.md
+│       │   ├── 07-compiler-internals.md
+│       │   ├── 08-runtime-validation.md
+│       │   ├── 09-type-safe-apis.md
+│       │   ├── 10-design-patterns.md
+│       │   ├── 11-testing-and-debugging.md
+│       │   ├── 12-production-tooling.md
 │       │   └── README.md
-│       ├── templates
-│       │   └── concept-template.md
+│       ├── 29-typed-data-structures-and-algorithms
+│       │   ├── 00-typed-linked-lists-and-trees.md
+│       │   ├── 01-generic-heap-and-priority-queue.md
+│       │   ├── 02-type-safe-graphs-and-topological-sort.md
+│       │   ├── 03-typed-lru-cache-and-bloom-filter.md
+│       │   ├── 04-algorithm-complexity-in-type-space.md
+│       │   └── README.md
+│       ├── _templates
+│       │   ├── concept-template.md
+│       │   └── project-template.md
 │       ├── CONTRIBUTING.md
 │       ├── GLOSSARY.md
 │       ├── INDEX.md
 │       ├── LICENSE
 │       ├── README.md
-│       └── ROADMAP.md
+│       ├── ROADMAP.md
+│       ├── TS_AUDIT.md
+│       ├── TS_CHANGELOG.md
+│       ├── TS_COMPLETION_PLAN.md
+│       ├── TS_DECISIONS.md
+│       ├── TS_FACTS.md
+│       └── TS_PROGRESS.md
 ├── 02-frontend
 │   ├── nextjs
 │   │   ├── 00-setup
@@ -1361,25 +1434,15 @@ engineering-notes/
 │   │   │   └── README.md
 │   │   ├── 24-projects
 │   │   │   ├── 01-blog
-│   │   │   │   └── .gitkeep
 │   │   │   ├── 02-authentication
-│   │   │   │   └── .gitkeep
 │   │   │   ├── 03-ecommerce
-│   │   │   │   └── .gitkeep
 │   │   │   ├── 04-admin-dashboard
-│   │   │   │   └── .gitkeep
 │   │   │   ├── 05-saas-application
-│   │   │   │   └── .gitkeep
 │   │   │   ├── 06-realtime-chat
-│   │   │   │   └── .gitkeep
 │   │   │   ├── 07-ai-chatbot
-│   │   │   │   └── .gitkeep
 │   │   │   ├── 08-rag-application
-│   │   │   │   └── .gitkeep
 │   │   │   ├── 09-timetable-application
-│   │   │   │   └── .gitkeep
 │   │   │   ├── 10-production-fullstack-app
-│   │   │   │   └── .gitkeep
 │   │   │   └── README.md
 │   │   ├── 25-interview
 │   │   │   ├── 00-fundamentals.md
@@ -1412,10 +1475,6 @@ engineering-notes/
 │   │   ├── README.md
 │   │   └── ROADMAP.md
 │   └── reactjs
-│       ├── _libraries
-│       │   └── socket.io-react-hook.md
-│       ├── _templates
-│       │   └── concept.md
 │       ├── 00-setup
 │       │   ├── 00-javascript-for-react.md
 │       │   ├── 01-node-and-npm.md
@@ -1646,6 +1705,10 @@ engineering-notes/
 │       │   ├── 08-shadcn-ui.md
 │       │   ├── 09-testing.md
 │       │   └── README.md
+│       ├── _libraries
+│       │   └── socket.io-react-hook.md
+│       ├── _templates
+│       │   └── concept.md
 │       ├── CONTRIBUTING.md
 │       ├── GLOSSARY.md
 │       ├── LICENSE
@@ -1653,9 +1716,6 @@ engineering-notes/
 │       └── ROADMAP.md
 ├── 03-backend
 │   ├── nestjs
-│   │   ├── _templates
-│   │   │   ├── concept-template.md
-│   │   │   └── project-template.md
 │   │   ├── 00-prerequisites
 │   │   │   ├── 01-typescript-essentials.md
 │   │   │   ├── 02-typescript-decorators.md
@@ -2001,6 +2061,9 @@ engineering-notes/
 │   │   │   ├── 14-configuration.md
 │   │   │   ├── 15-production.md
 │   │   │   └── README.md
+│   │   ├── _templates
+│   │   │   ├── concept-template.md
+│   │   │   └── project-template.md
 │   │   ├── CONTRIBUTING.md
 │   │   ├── GLOSSARY.md
 │   │   ├── INDEX.md
@@ -2352,12 +2415,12 @@ engineering-notes/
 │       │   └── README.md
 │       ├── 13-testing
 │       │   ├── 00_README.md
-│       │   ├── 01_testing-fundamentals.md
 │       │   ├── 01-unit-and-integration-testing.md
-│       │   ├── 02_unit-testing.md
+│       │   ├── 01_testing-fundamentals.md
 │       │   ├── 02-api-testing-and-mocking.md
-│       │   ├── 03_integration-testing.md
+│       │   ├── 02_unit-testing.md
 │       │   ├── 03-test-database-and-coverage.md
+│       │   ├── 03_integration-testing.md
 │       │   ├── 04_vitest-and-jest.md
 │       │   ├── 05_mocking.md
 │       │   ├── 06_testing-patterns.md
@@ -2431,31 +2494,22 @@ engineering-notes/
 │       │   ├── 05-projects
 │       │   │   ├── 01-s3-upload-api
 │       │   │   │   ├── infra
-│       │   │   │   │   └── .gitkeep
 │       │   │   │   ├── src
-│       │   │   │   │   └── .gitkeep
 │       │   │   │   ├── test
-│       │   │   │   │   └── .gitkeep
 │       │   │   │   ├── package.json
 │       │   │   │   ├── README.md
 │       │   │   │   └── tsconfig.json
 │       │   │   ├── 02-serverless-api
 │       │   │   │   ├── infra
-│       │   │   │   │   └── .gitkeep
 │       │   │   │   ├── src
-│       │   │   │   │   └── .gitkeep
 │       │   │   │   ├── test
-│       │   │   │   │   └── .gitkeep
 │       │   │   │   ├── package.json
 │       │   │   │   ├── README.md
 │       │   │   │   └── tsconfig.json
 │       │   │   ├── 03-node-app-on-ecs
 │       │   │   │   ├── infra
-│       │   │   │   │   └── .gitkeep
 │       │   │   │   ├── src
-│       │   │   │   │   └── .gitkeep
 │       │   │   │   ├── test
-│       │   │   │   │   └── .gitkeep
 │       │   │   │   ├── package.json
 │       │   │   │   ├── README.md
 │       │   │   │   └── tsconfig.json
@@ -2957,8 +3011,6 @@ engineering-notes/
 │           ├── 04-input-validation.md
 │           └── 05-logging-and-audit.md
 ├── 07-system-design
-│   ├── _templates
-│   │   └── case-study-template.md
 │   ├── 01-fundamentals
 │   │   ├── 01-approach-and-requirements.md
 │   │   ├── 02-estimation.md
@@ -3010,6 +3062,8 @@ engineering-notes/
 │   │   ├── 07-ride-matching.md
 │   │   ├── 08-web-crawler.md
 │   │   └── 09-rag-and-llm-platform.md
+│   ├── _templates
+│   │   └── case-study-template.md
 │   ├── reference
 │   │   ├── cheatsheet.md
 │   │   └── interview.md

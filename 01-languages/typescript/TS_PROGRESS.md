@@ -148,7 +148,10 @@
 - [x] `27-interview/` (12 senior/staff interview guides + live coding + README)
 - [x] `28-cheatsheets/` (13 dense cheatsheets + README)
 
-## Batch 11: Track Root, Tree Refresh & Final Report (Pending)
-- [ ] Root documentation (\`README.md\`, \`INDEX.md\`, \`ROADMAP.md\`, \`GLOSSARY.md\`, \`CONTRIBUTING.md\`)
-- [ ] Regenerate global \`tree.txt\`
+## Batch 11: Track Root, Tree Refresh & Final Report (COMPLETED)
+- [x] Root documentation (`README.md`, `INDEX.md`, `ROADMAP.md`, `GLOSSARY.md`, `CONTRIBUTING.md`)
+- [x] Regenerate global `tree.txt` (3,392 lines)
+- [x] Author `TS_FINAL_REPORT.md` (Executive summary, quantitative metrics, module-by-module inventory)
+- [x] Root documentation (\`README.md\`, \`INDEX.md\`, \`ROADMAP.md\`, \`GLOSSARY.md\`, \`CONTRIBUTING.md\`)
+- [x] Regenerate global \`tree.txt\`
 - [ ] Author \`TS_FINAL_REPORT.md\`
