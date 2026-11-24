@@ -15,14 +15,14 @@
 | **01** | [`01-foundations/`](file:///04-devops/aws/01-foundations/) | 12 | 12 | Completed |
 | **02** | [`02-compute/`](file:///04-devops/aws/02-compute/) | 10 | 10 | Completed |
 | **03** | [`03-storage-and-databases/`](file:///04-devops/aws/03-storage-and-databases/) | 11 | 11 | Completed |
-| **04** | [`04-networking/`](file:///04-devops/aws/04-networking/) | 10 | 0 | Pending |
+| **04** | [`04-networking/`](file:///04-devops/aws/04-networking/) | 10 | 10 | Completed |
 | **05** | [`05-app-services/`](file:///04-devops/aws/05-app-services/) | 9 | 0 | Pending |
 | **06** | [`06-operations/`](file:///04-devops/aws/06-operations/) | 12 | 0 | Pending |
 | **07** | [`07-architecture-patterns/`](file:///04-devops/aws/07-architecture-patterns/) | 10 | 0 | Pending |
 | **08** | [`08-projects/`](file:///04-devops/aws/08-projects/) | 8 | 0 | Pending |
 | **09** | [`09-interview/`](file:///04-devops/aws/09-interview/) | 9 | 0 | Pending |
 | **10** | [`10-cheatsheets/`](file:///04-devops/aws/10-cheatsheets/) | 10 | 0 | Pending |
-| **Total** | **All 10 Modules** | **101** | **33** | **32.7%** |
+| **Total** | **All 10 Modules** | **101** | **43** | **42.6%** |
 
 ---
 
@@ -71,17 +71,17 @@
 - [x] `03-storage-and-databases/11-backup-and-disaster-recovery.md`
 
 ### Module 04: Networking & Content Delivery
-- [ ] `04-networking/README.md`
-- [ ] `04-networking/01-vpc.md`
-- [ ] `04-networking/02-vpc-deep-dive.md`
-- [ ] `04-networking/03-security-groups-and-nacls.md`
-- [ ] `04-networking/04-vpc-peering-transit-gateway-and-privatelink.md`
-- [ ] `04-networking/05-route53-and-dns-patterns.md`
-- [ ] `04-networking/06-cloudfront.md`
-- [ ] `04-networking/07-load-balancing.md`
-- [ ] `04-networking/08-api-gateway.md`
-- [ ] `04-networking/09-vpn-and-direct-connect-overview.md`
-- [ ] `04-networking/10-waf-shield-and-network-security.md`
+- [x] `04-networking/README.md`
+- [x] `04-networking/01-vpc.md`
+- [x] `04-networking/02-vpc-deep-dive.md`
+- [x] `04-networking/03-security-groups-and-nacls.md`
+- [x] `04-networking/04-vpc-peering-transit-gateway-and-privatelink.md`
+- [x] `04-networking/05-route53-and-dns-patterns.md`
+- [x] `04-networking/06-cloudfront.md`
+- [x] `04-networking/07-load-balancing.md`
+- [x] `04-networking/08-api-gateway.md`
+- [x] `04-networking/09-vpn-and-direct-connect-overview.md`
+- [x] `04-networking/10-waf-shield-and-network-security.md`
 
 ### Module 05: Application Integration & Messaging
 - [ ] `05-app-services/README.md`
