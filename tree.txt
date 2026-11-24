@@ -3170,680 +3170,1052 @@ E:.
 |   |           concept-template.md
 |   |           project-template.md
 |   |           
-|   \---nodejs
+|   +---nodejs
+|   |   |   CONTRIBUTING.md
+|   |   |   GLOSSARY.md
+|   |   |   INDEX.md
+|   |   |   LICENSE
+|   |   |   NODE_AUDIT.md
+|   |   |   NODE_CHANGELOG.md
+|   |   |   NODE_COMPLETION_PLAN.md
+|   |   |   NODE_DECISIONS.md
+|   |   |   NODE_FACTS.md
+|   |   |   NODE_FINAL_REPORT.md
+|   |   |   NODE_PROGRESS.md
+|   |   |   README.md
+|   |   |   ROADMAP.md
+|   |   |   
+|   |   +---00-setup
+|   |   |       01-getting-started.md
+|   |   |       02-npm-and-package-json.md
+|   |   |       03-node-versions-and-managers.md
+|   |   |       04-running-typescript-in-node.md
+|   |   |       05-editor-debugger-and-inspector.md
+|   |   |       06-project-bootstrapping-checklist.md
+|   |   |       README.md
+|   |   |       
+|   |   +---01-fundamentals
+|   |   |       01-node-runtime.md
+|   |   |       02-global-objects.md
+|   |   |       03-esm-vs-commonjs-in-node.md
+|   |   |       04-environment-variables.md
+|   |   |       05-process-lifecycle-and-exit-codes.md
+|   |   |       06-error-handling-fundamentals.md
+|   |   |       README.md
+|   |   |       
+|   |   +---02-core-modules
+|   |   |       01-fs.md
+|   |   |       02-path.md
+|   |   |       03-http.md
+|   |   |       04-events.md
+|   |   |       05-streams.md
+|   |   |       06-buffer.md
+|   |   |       07-process.md
+|   |   |       08-os.md
+|   |   |       09-child-process.md
+|   |   |       10-cluster-worker-threads.md
+|   |   |       11-node-sqlite-and-test-runner.md
+|   |   |       12-permissions-model.md
+|   |   |       13-single-executable-applications.md
+|   |   |       14-diagnostics-channel-and-asynclocalstorage.md
+|   |   |       README.md
+|   |   |       
+|   |   +---03-javascript-for-node
+|   |   |       01-callbacks-promises-async-await.md
+|   |   |       02-event-loop.md
+|   |   |       03-closures.md
+|   |   |       04-prototypes.md
+|   |   |       05-error-handling.md
+|   |   |       06-memory-management.md
+|   |   |       07-server-async-patterns-and-event-emitter.md
+|   |   |       08-memory-leaks-and-heap-profiling.md
+|   |   |       README.md
+|   |   |       
+|   |   +---04-npm-ecosystem
+|   |   |       01-semantic-versioning.md
+|   |   |       02-dependencies-and-scripts.md
+|   |   |       03-publishing-a-package.md
+|   |   |       04-package-json-deep-dive-exports-imports.md
+|   |   |       05-npm-pnpm-yarn-bun-and-workspaces.md
+|   |   |       README.md
+|   |   |       
+|   |   +---05-http-web
+|   |   |       01-http-methods-and-status-codes.md
+|   |   |       02-headers-and-content-negotiation.md
+|   |   |       03-cookies.md
+|   |   |       04-cors.md
+|   |   |       05-caching-and-compression.md
+|   |   |       06-status-codes-reference.md
+|   |   |       07-http2-http3-and-keepalive.md
+|   |   |       08-server-sent-events-and-streaming.md
+|   |   |       README.md
+|   |   |       
+|   |   +---06-express
+|   |   |       01-setup-and-routing.md
+|   |   |       02-middleware.md
+|   |   |       03-controllers.md
+|   |   |       04-error-handling.md
+|   |   |       05-validation.md
+|   |   |       06-auth-and-authorization.md
+|   |   |       07-file-upload.md
+|   |   |       08-http-errors-and-problem-details.md
+|   |   |       09-express-5-migration-and-internals.md
+|   |   |       10-express-security-middleware-and-clustering.md
+|   |   |       README.md
+|   |   |       
+|   |   +---06b-fastify
+|   |   |       01-getting-started-and-plugins.md
+|   |   |       02-schemas-validation-and-serialization.md
+|   |   |       03-lifecycle-hooks-and-decorators.md
+|   |   |       README.md
+|   |   |       
+|   |   +---06c-hono-and-edge-runtimes
+|   |   |       01-hono-fundamentals-and-node-server.md
+|   |   |       02-web-standards-and-edge-deployment.md
+|   |   |       README.md
+|   |   |       
+|   |   +---06d-koa-and-framework-landscape
+|   |   |       01-koa-onion-architecture.md
+|   |   |       02-framework-selection-and-benchmarks.md
+|   |   |       README.md
+|   |   |       
+|   |   +---07-databases
+|   |   |   |   01-mysql-with-node.md
+|   |   |   |   02-sqlite-with-node.md
+|   |   |   |   03-dynamodb-from-node.md
+|   |   |   |   04-elasticsearch-and-opensearch.md
+|   |   |   |   05-database-selection-guide.md
+|   |   |   |   README.md
+|   |   |   |   
+|   |   |   +---mongodb
+|   |   |   |   |   CONTRIBUTING.md
+|   |   |   |   |   LICENSE
+|   |   |   |   |   README.md
+|   |   |   |   |   ROADMAP.md
+|   |   |   |   |   
+|   |   |   |   +---00-mongodb-basics
+|   |   |   |   |       01-installation-and-atlas.md
+|   |   |   |   |       02-shell-and-compass.md
+|   |   |   |   |       03-architecture-and-bson.md
+|   |   |   |   |       04-databases-collections-documents.md
+|   |   |   |   |       README.md
+|   |   |   |   |       
+|   |   |   |   +---01-mongodb-native-driver
+|   |   |   |   |       01-connecting-with-the-native-driver.md
+|   |   |   |   |       02-native-crud-methods.md
+|   |   |   |   |       03-query-operators-reference.md
+|   |   |   |   |       README.md
+|   |   |   |   |       
+|   |   |   |   +---02-mongodb-vs-mongoose
+|   |   |   |   |       01-what-mongoose-adds.md
+|   |   |   |   |       02-when-to-drop-to-the-native-driver.md
+|   |   |   |   |       README.md
+|   |   |   |   |       
+|   |   |   |   +---03-setup
+|   |   |   |   |       01-installing-mongoose.md
+|   |   |   |   |       02-connecting-to-mongodb.md
+|   |   |   |   |       03-connection-events-and-lifecycle.md
+|   |   |   |   |       README.md
+|   |   |   |   |       
+|   |   |   |   +---04-schemas
+|   |   |   |   |       01-defining-a-schema.md
+|   |   |   |   |       02-schema-types-reference.md
+|   |   |   |   |       03-schema-type-options.md
+|   |   |   |   |       04-nested-and-subdocument-schemas.md
+|   |   |   |   |       05-schema-options.md
+|   |   |   |   |       06-schema-methods-statics-virtuals.md
+|   |   |   |   |       07-indexes-in-schemas.md
+|   |   |   |   |       README.md
+|   |   |   |   |       
+|   |   |   |   +---05-models
+|   |   |   |   |       01-creating-a-model.md
+|   |   |   |   |       02-model-vs-document.md
+|   |   |   |   |       03-compiling-models-and-avoiding-overwrite-errors.md
+|   |   |   |   |       README.md
+|   |   |   |   |       
+|   |   |   |   +---06-crud-methods
+|   |   |   |   |       01-create-methods.md
+|   |   |   |   |       02-read-methods.md
+|   |   |   |   |       03-update-methods.md
+|   |   |   |   |       04-delete-methods.md
+|   |   |   |   |       05-query-chaining-and-cursor-methods.md
+|   |   |   |   |       06-bulk-and-batch-methods.md
+|   |   |   |   |       README.md
+|   |   |   |   |       
+|   |   |   |   +---07-filter-conditions
+|   |   |   |   |       01-basic-filter-syntax.md
+|   |   |   |   |       02-comparison-operators.md
+|   |   |   |   |       03-logical-operators.md
+|   |   |   |   |       04-element-and-type-operators.md
+|   |   |   |   |       05-array-filter-conditions.md
+|   |   |   |   |       06-regex-and-text-filters.md
+|   |   |   |   |       07-filtering-nested-and-subdocument-fields.md
+|   |   |   |   |       08-combining-filters-with-mongoose-query-builders.md
+|   |   |   |   |       README.md
+|   |   |   |   |       
+|   |   |   |   +---08-errors
+|   |   |   |   |       01-mongoose-error-types-overview.md
+|   |   |   |   |       02-validation-errors.md
+|   |   |   |   |       03-cast-errors.md
+|   |   |   |   |       04-duplicate-key-errors.md
+|   |   |   |   |       05-turning-errors-into-friendly-responses.md
+|   |   |   |   |       06-custom-application-errors.md
+|   |   |   |   |       README.md
+|   |   |   |   |       
+|   |   |   |   +---09-validation
+|   |   |   |   |       01-built-in-validators.md
+|   |   |   |   |       02-custom-validators.md
+|   |   |   |   |       03-async-validators.md
+|   |   |   |   |       04-validating-updates.md
+|   |   |   |   |       README.md
+|   |   |   |   |       
+|   |   |   |   +---10-middleware-hooks
+|   |   |   |   |       01-pre-and-post-hooks.md
+|   |   |   |   |       02-document-vs-query-vs-aggregate-middleware.md
+|   |   |   |   |       03-common-hook-patterns.md
+|   |   |   |   |       README.md
+|   |   |   |   |       
+|   |   |   |   +---11-relationships
+|   |   |   |   |       01-references-and-populate.md
+|   |   |   |   |       02-embedding-vs-referencing-in-mongoose.md
+|   |   |   |   |       03-virtual-populate.md
+|   |   |   |   |       04-populate-performance.md
+|   |   |   |   |       README.md
+|   |   |   |   |       
+|   |   |   |   +---12-aggregation-with-mongoose
+|   |   |   |   |       01-the-aggregate-method.md
+|   |   |   |   |       02-common-pipeline-recipes.md
+|   |   |   |   |       README.md
+|   |   |   |   |       
+|   |   |   |   +---13-transactions
+|   |   |   |   |       01-sessions-and-transactions.md
+|   |   |   |   |       02-transaction-patterns.md
+|   |   |   |   |       README.md
+|   |   |   |   |       
+|   |   |   |   +---14-performance
+|   |   |   |   |       01-indexes-in-mongoose.md
+|   |   |   |   |       02-query-optimization-and-lean.md
+|   |   |   |   |       03-pagination.md
+|   |   |   |   |       04-connection-pooling.md
+|   |   |   |   |       README.md
+|   |   |   |   |       
+|   |   |   |   +---15-patterns-and-architecture
+|   |   |   |   |       01-repository-and-service-pattern.md
+|   |   |   |   |       02-soft-delete.md
+|   |   |   |   |       03-multi-tenancy.md
+|   |   |   |   |       README.md
+|   |   |   |   |       
+|   |   |   |   +---16-testing
+|   |   |   |   |       01-testing-with-an-in-memory-database.md
+|   |   |   |   |       02-mocking-and-fixtures.md
+|   |   |   |   |       README.md
+|   |   |   |   |       
+|   |   |   |   \---17-production
+|   |   |   |           01-connection-management-in-production.md
+|   |   |   |           02-monitoring-and-logging.md
+|   |   |   |           03-migrations.md
+|   |   |   |           04-production-checklist.md
+|   |   |   |           README.md
+|   |   |   |           
+|   |   |   +---postgresql
+|   |   |   |       01-connection-and-queries.md
+|   |   |   |       02-transactions-and-indexing.md
+|   |   |   |       03-migrations-with-node-pg-migrate-and-drizzle.md
+|   |   |   |       04-query-builders-kysely-and-knex.md
+|   |   |   |       05-orms-prisma-drizzle-typeorm-compared.md
+|   |   |   |       06-pagination-and-n-plus-one.md
+|   |   |   |       07-json-and-full-text-search.md
+|   |   |   |       08-listen-notify-and-replication.md
+|   |   |   |       09-testing-with-real-databases-and-testcontainers.md
+|   |   |   |       README.md
+|   |   |   |       
+|   |   |   \---redis
+|   |   |       |   CONTRIBUTING.md
+|   |   |       |   LICENSE
+|   |   |       |   README.md
+|   |   |       |   ROADMAP.md
+|   |   |       |   
+|   |   |       +---00_introduction
+|   |   |       |       01_why-redis.md
+|   |   |       |       02_redis-vs-alternatives.md
+|   |   |       |       03_redis-architecture.md
+|   |   |       |       04_when-not-to-use-redis.md
+|   |   |       |       README.md
+|   |   |       |       
+|   |   |       +---01_setup
+|   |   |       |       01_redis-installation.md
+|   |   |       |       02_redis-cli-and-insight.md
+|   |   |       |       03_ioredis-setup.md
+|   |   |       |       README.md
+|   |   |       |       
+|   |   |       +---02_redis-fundamentals
+|   |   |       |       01_keys-and-values.md
+|   |   |       |       02_data-types-overview.md
+|   |   |       |       03_expiration-and-ttl.md
+|   |   |       |       04_persistence.md
+|   |   |       |       05_memory-and-eviction.md
+|   |   |       |       README.md
+|   |   |       |       
+|   |   |       +---03_ioredis-basics
+|   |   |       |       01_connection.md
+|   |   |       |       02_configuration.md
+|   |   |       |       03_commands-and-options.md
+|   |   |       |       04_promises-callbacks-buffers.md
+|   |   |       |       05_error-handling.md
+|   |   |       |       06_graceful-shutdown.md
+|   |   |       |       README.md
+|   |   |       |       
+|   |   |       +---04_data-structures
+|   |   |       |       01_strings.md
+|   |   |       |       02_hashes.md
+|   |   |       |       03_lists.md
+|   |   |       |       04_sets.md
+|   |   |       |       05_sorted-sets.md
+|   |   |       |       06_bitmaps-and-bitfields.md
+|   |   |       |       07_hyperloglog-and-geo.md
+|   |   |       |       08_streams-overview.md
+|   |   |       |       09_choosing-the-right-structure.md
+|   |   |       |       README.md
+|   |   |       |       
+|   |   |       +---05_key-management
+|   |   |       |       01_key-design.md
+|   |   |       |       02_scan-and-iteration.md
+|   |   |       |       03_delete-and-unlink.md
+|   |   |       |       README.md
+|   |   |       |       
+|   |   |       +---06_advanced-commands
+|   |   |       |       01_pipelines-and-auto-pipelining.md
+|   |   |       |       02_transactions.md
+|   |   |       |       03_lua-scripts.md
+|   |   |       |       04_atomic-and-conditional-ops.md
+|   |   |       |       README.md
+|   |   |       |       
+|   |   |       +---07_caching
+|   |   |       |       01_cache-aside.md
+|   |   |       |       02_cache-strategies.md
+|   |   |       |       03_cache-invalidation.md
+|   |   |       |       04_cache-problems.md
+|   |   |       |       05_caching-api-responses.md
+|   |   |       |       README.md
+|   |   |       |       
+|   |   |       +---08_nodejs-integration
+|   |   |       |       01_connection-management.md
+|   |   |       |       02_redis-service.md
+|   |   |       |       03_redis-repository.md
+|   |   |       |       04_typed-redis-client.md
+|   |   |       |       05_redis-key-builder.md
+|   |   |       |       06_express-integration.md
+|   |   |       |       README.md
+|   |   |       |       
+|   |   |       +---09_pub-sub
+|   |   |       |       01_pub-sub-fundamentals.md
+|   |   |       |       02_event-driven-nodejs.md
+|   |   |       |       03_socketio-with-redis.md
+|   |   |       |       README.md
+|   |   |       |       
+|   |   |       +---10_streams
+|   |   |       |       01_stream-fundamentals.md
+|   |   |       |       02_producers-and-consumers.md
+|   |   |       |       03_consumer-groups-and-acks.md
+|   |   |       |       04_stream-patterns.md
+|   |   |       |       README.md
+|   |   |       |       
+|   |   |       +---11_distributed-locks
+|   |   |       |       01_locking-fundamentals.md
+|   |   |       |       02_lock-expiration-and-renewal.md
+|   |   |       |       03_redlock.md
+|   |   |       |       README.md
+|   |   |       |       
+|   |   |       +---12_rate-limiting
+|   |   |       |       01_fixed-and-sliding-window.md
+|   |   |       |       02_token-and-leaky-bucket.md
+|   |   |       |       03_distributed-rate-limiter.md
+|   |   |       |       README.md
+|   |   |       |       
+|   |   |       +---13_session-management
+|   |   |       |       01_session-storage.md
+|   |   |       |       02_token-management.md
+|   |   |       |       README.md
+|   |   |       |       
+|   |   |       +---14_queues-and-workers
+|   |   |       |       01_queue-fundamentals.md
+|   |   |       |       02_delayed-jobs.md
+|   |   |       |       03_retries-and-dead-letter-queue.md
+|   |   |       |       04_bullmq.md
+|   |   |       |       README.md
+|   |   |       |       
+|   |   |       +---15_redis-architecture
+|   |   |       |       01_replication.md
+|   |   |       |       02_sentinel.md
+|   |   |       |       03_cluster.md
+|   |   |       |       04_high-availability-and-failover.md
+|   |   |       |       README.md
+|   |   |       |       
+|   |   |       +---16_performance
+|   |   |       |       01_latency-and-benchmarking.md
+|   |   |       |       02_command-optimization.md
+|   |   |       |       03_memory-optimization.md
+|   |   |       |       04_serialization.md
+|   |   |       |       README.md
+|   |   |       |       
+|   |   |       +---17_security
+|   |   |       |       01_authentication-and-acl.md
+|   |   |       |       02_tls.md
+|   |   |       |       03_security-checklist.md
+|   |   |       |       README.md
+|   |   |       |       
+|   |   |       +---18_testing-and-debugging
+|   |   |       |       01_testing-with-redis.md
+|   |   |       |       02_debugging.md
+|   |   |       |       03_common-pitfalls.md
+|   |   |       |       README.md
+|   |   |       |       
+|   |   |       +---19_redis-production
+|   |   |       |       01_deployment.md
+|   |   |       |       02_monitoring-and-logging.md
+|   |   |       |       03_backup-and-disaster-recovery.md
+|   |   |       |       04_production-checklist.md
+|   |   |       |       README.md
+|   |   |       |       
+|   |   |       \---20_real-world-patterns
+|   |   |               01_idempotency.md
+|   |   |               02_request-deduplication.md
+|   |   |               03_leaderboard.md
+|   |   |               04_notification-system.md
+|   |   |               05_feature-flags.md
+|   |   |               06_event-driven-system.md
+|   |   |               README.md
+|   |   |               
+|   |   +---08-authentication-security
+|   |   |       01-password-hashing.md
+|   |   |       02-jwt-and-tokens.md
+|   |   |       03-sessions.md
+|   |   |       04-oauth-and-oidc.md
+|   |   |       05-common-vulnerabilities.md
+|   |   |       06-rate-limiting.md
+|   |   |       07-helmet.md
+|   |   |       08-security-checklist.md
+|   |   |       09-passkeys-and-webauthn.md
+|   |   |       10-rbac-abac-and-policy-enforcement.md
+|   |   |       11-api-keys-and-hmac-signatures.md
+|   |   |       README.md
+|   |   |       
+|   |   +---09-api-development
+|   |   |       01-rest-api-design.md
+|   |   |       02-versioning-and-pagination.md
+|   |   |       03-filtering-and-sorting.md
+|   |   |       04-validation.md
+|   |   |       05-error-responses.md
+|   |   |       06-idempotency.md
+|   |   |       07-webhooks.md
+|   |   |       08-graphql-with-node-apollo-and-yoga.md
+|   |   |       09-trpc-and-grpc-in-node.md
+|   |   |       10-openapi-first-and-sdk-generation.md
+|   |   |       README.md
+|   |   |       
+|   |   +---10-architecture
+|   |   |       01-mvc-and-layered-architecture.md
+|   |   |       02-clean-architecture.md
+|   |   |       03-repository-and-service-pattern.md
+|   |   |       04-dependency-injection.md
+|   |   |       05-modular-monolith-vs-microservices.md
+|   |   |       06-hexagonal-architecture-and-ports-adapters.md
+|   |   |       07-cqrs-and-event-sourcing.md
+|   |   |       08-domain-driven-design-with-node.md
+|   |   |       README.md
+|   |   |       
+|   |   +---11-async-processing
+|   |   |       01-queues-and-bullmq.md
+|   |   |       02-workers-retry-dlq.md
+|   |   |       03-scheduled-jobs.md
+|   |   |       04-kafka.md
+|   |   |       05-rabbitmq-and-amqplib.md
+|   |   |       06-outbox-and-saga-patterns.md
+|   |   |       07-idempotent-consumers-and-stream-processing.md
+|   |   |       README.md
+|   |   |       
+|   |   +---12-realtime
+|   |   |       01-websocket-and-socketio.md
+|   |   |       02-auth-and-rooms.md
+|   |   |       03-scaling-with-redis-adapter.md
+|   |   |       04-ws-library-from-scratch.md
+|   |   |       05-webrtc-signalling-server.md
+|   |   |       06-backpressure-in-realtime-systems.md
+|   |   |       README.md
+|   |   |       
+|   |   +---13-testing
+|   |   |       01-testing-fundamentals.md
+|   |   |       02-unit-testing.md
+|   |   |       03-integration-testing.md
+|   |   |       04-vitest-and-jest.md
+|   |   |       05-api-testing-with-supertest.md
+|   |   |       06-test-databases-and-coverage.md
+|   |   |       07-mocking-and-test-doubles.md
+|   |   |       08-testing-patterns.md
+|   |   |       09-unit-and-integration-guide.md
+|   |   |       10-node-test-runner.md
+|   |   |       README.md
+|   |   |       
+|   |   +---14-logging-observability
+|   |   |       01-pino-and-structured-logging.md
+|   |   |       02-correlation-id.md
+|   |   |       03-metrics-and-prometheus.md
+|   |   |       04-tracing-and-opentelemetry.md
+|   |   |       05-grafana.md
+|   |   |       README.md
+|   |   |       
+|   |   +---15-performance
+|   |   |       01-event-loop-performance.md
+|   |   |       02-profiling-and-memory-leaks.md
+|   |   |       03-database-optimization.md
+|   |   |       04-load-balancing-and-testing.md
+|   |   |       README.md
+|   |   |       
+|   |   +---16-production
+|   |   |       01-environment-management.md
+|   |   |       02-graceful-shutdown-and-health-checks.md
+|   |   |       03-docker-and-compose.md
+|   |   |       04-nginx.md
+|   |   |       05-ci-cd.md
+|   |   |       README.md
+|   |   |       
+|   |   +---17-typescript
+|   |   |       01-setup-and-types.md
+|   |   |       02-interfaces-and-generics.md
+|   |   |       03-express-types.md
+|   |   |       04-error-types.md
+|   |   |       05-production-config.md
+|   |   |       README.md
+|   |   |       
+|   |   +---18-design-patterns
+|   |   |       01_module-pattern.md
+|   |   |       02_factory-pattern.md
+|   |   |       03_singleton-pattern.md
+|   |   |       04_builder-pattern.md
+|   |   |       05_strategy-pattern.md
+|   |   |       06_observer-pattern.md
+|   |   |       07_adapter-pattern.md
+|   |   |       08_decorator-pattern.md
+|   |   |       09_dependency-injection.md
+|   |   |       10-circuit-breaker-and-retry.md
+|   |   |       11-repository-and-unit-of-work.md
+|   |   |       12-facade-and-command-patterns.md
+|   |   |       README.md
+|   |   |       
+|   |   +---19-system-design
+|   |   |       01-scalable-api-and-rate-limiter.md
+|   |   |       02-url-shortener.md
+|   |   |       03-chat-system.md
+|   |   |       04-notification-system.md
+|   |   |       05-file-upload-system.md
+|   |   |       06-job-processing-system.md
+|   |   |       08-ecommerce-flash-sale-system.md
+|   |   |       09-payment-system-and-idempotency.md
+|   |   |       10-multi-tenant-saas-backend.md
+|   |   |       README.md
+|   |   |       
+|   |   +---20-aws-sdk
+|   |   |   |   README.md
+|   |   |   |   
+|   |   |   +---01-setup
+|   |   |   |       01-sdk-v3-and-credentials.md
+|   |   |   |       02-local-development-and-testing.md
+|   |   |   |       
+|   |   |   +---02-services
+|   |   |   |       01-s3.md
+|   |   |   |       02-dynamodb.md
+|   |   |   |       03-sqs.md
+|   |   |   |       04-sns-and-eventbridge.md
+|   |   |   |       05-ses-email.md
+|   |   |   |       06-cognito.md
+|   |   |   |       07-bedrock.md
+|   |   |   |       08-secrets-and-parameters.md
+|   |   |   |       
+|   |   |   +---03-lambda
+|   |   |   |       01-lambda-handlers.md
+|   |   |   |       02-api-gateway-apis.md
+|   |   |   |       03-event-driven-lambda.md
+|   |   |   |       
+|   |   |   +---04-production
+|   |   |   |       01-errors-and-retries.md
+|   |   |   |       02-logging-and-tracing.md
+|   |   |   |       
+|   |   |   +---05-projects
+|   |   |   |   |   README.md
+|   |   |   |   |   
+|   |   |   |   +---01-s3-upload-api
+|   |   |   |   |       README.md
+|   |   |   |   |       
+|   |   |   |   +---02-serverless-api
+|   |   |   |   |       README.md
+|   |   |   |   |       
+|   |   |   |   \---03-node-app-on-ecs
+|   |   |   |           README.md
+|   |   |   |           
+|   |   |   \---reference
+|   |   |           cheatsheet.md
+|   |   |           
+|   |   +---21-projects
+|   |   |   |   README.md
+|   |   |   |   
+|   |   |   +---01-rest-api-with-express-postgres
+|   |   |   |       README.md
+|   |   |   |       
+|   |   |   +---02-auth-service
+|   |   |   |       README.md
+|   |   |   |       
+|   |   |   +---03-url-shortener-with-redis
+|   |   |   |       README.md
+|   |   |   |       
+|   |   |   +---04-job-queue-service-with-bullmq
+|   |   |   |       README.md
+|   |   |   |       
+|   |   |   +---05-realtime-chat-server
+|   |   |   |       README.md
+|   |   |   |       
+|   |   |   +---06-file-upload-service
+|   |   |   |       README.md
+|   |   |   |       
+|   |   |   +---07-notification-service
+|   |   |   |       README.md
+|   |   |   |       
+|   |   |   +---08-ecommerce-api
+|   |   |   |       README.md
+|   |   |   |       
+|   |   |   +---09-webhook-receiver-and-dispatcher
+|   |   |   |       README.md
+|   |   |   |       
+|   |   |   +---10-rate-limiter-service
+|   |   |   |       README.md
+|   |   |   |       
+|   |   |   +---11-api-gateway-lite
+|   |   |   |       README.md
+|   |   |   |       
+|   |   |   +---12-graphql-api
+|   |   |   |       README.md
+|   |   |   |       
+|   |   |   +---13-event-sourced-bank
+|   |   |   |       README.md
+|   |   |   |       
+|   |   |   +---14-multi-tenant-saas-backend
+|   |   |   |       README.md
+|   |   |   |       
+|   |   |   +---15-log-ingestion-pipeline
+|   |   |   |       README.md
+|   |   |   |       
+|   |   |   \---16-cli-tool-in-node
+|   |   |           README.md
+|   |   |           
+|   |   +---22-project-tooling
+|   |   |       01-project-structure.md
+|   |   |       02-environment-variables.md
+|   |   |       03-git-hooks-and-commits.md
+|   |   |       04-linting-and-formatting.md
+|   |   |       05-validation-libraries.md
+|   |   |       06-inversifyjs.md
+|   |   |       README.md
+|   |   |       
+|   |   +---23-interview
+|   |   |       00-fundamentals-qa.md
+|   |   |       01-event-loop-and-async-qa.md
+|   |   |       02-streams-and-buffers-qa.md
+|   |   |       03-express-and-http-qa.md
+|   |   |       04-databases-qa.md
+|   |   |       05-auth-and-security-qa.md
+|   |   |       06-performance-and-scaling-qa.md
+|   |   |       07-architecture-and-system-design-qa.md
+|   |   |       08-output-based-questions.md
+|   |   |       09-coding-problems.md
+|   |   |       10-behavioural-and-project-discussion.md
+|   |   |       README.md
+|   |   |       
+|   |   +---24-cheatsheets
+|   |   |       00-core-modules.md
+|   |   |       01-npm-and-package-json.md
+|   |   |       02-express.md
+|   |   |       03-fastify.md
+|   |   |       04-streams-and-buffers.md
+|   |   |       05-http-status-and-headers.md
+|   |   |       06-mongodb.md
+|   |   |       07-postgres-with-node.md
+|   |   |       08-redis-with-ioredis.md
+|   |   |       09-auth-and-jwt.md
+|   |   |       10-docker-and-compose.md
+|   |   |       11-testing.md
+|   |   |       12-debugging-and-profiling.md
+|   |   |       13-common-errors.md
+|   |   |       README.md
+|   |   |       
+|   |   \---_templates
+|   |           concept-template.md
+|   |           project-template.md
+|   |           
+|   \---spring-boot
 |       |   CONTRIBUTING.md
 |       |   GLOSSARY.md
 |       |   INDEX.md
 |       |   LICENSE
-|       |   NODE_AUDIT.md
-|       |   NODE_CHANGELOG.md
-|       |   NODE_COMPLETION_PLAN.md
-|       |   NODE_DECISIONS.md
-|       |   NODE_FACTS.md
-|       |   NODE_FINAL_REPORT.md
-|       |   NODE_PROGRESS.md
 |       |   README.md
 |       |   ROADMAP.md
+|       |   SPRING_AUDIT.md
+|       |   SPRING_CHANGELOG.md
+|       |   SPRING_COMPLETION_PLAN.md
+|       |   SPRING_CONVENTIONS.md
+|       |   SPRING_DECISIONS.md
+|       |   SPRING_FACTS.md
+|       |   SPRING_FINAL_REPORT.md
+|       |   SPRING_PROGRESS.md
 |       |   
 |       +---00-setup
-|       |       01-getting-started.md
-|       |       02-npm-and-package-json.md
-|       |       03-node-versions-and-managers.md
-|       |       04-running-typescript-in-node.md
-|       |       05-editor-debugger-and-inspector.md
-|       |       06-project-bootstrapping-checklist.md
+|       |       01-spring-ecosystem-overview.md
+|       |       02-prerequisites-from-java.md
+|       |       03-project-setup-with-initializr-maven-gradle.md
+|       |       04-ide-and-devtools.md
+|       |       05-first-application-walkthrough.md
+|       |       06-boot-versions-and-upgrade-guide.md
+|       |       07-project-structure-and-conventions.md
+|       |       08-docker-compose-and-dev-services.md
 |       |       README.md
 |       |       
-|       +---01-fundamentals
-|       |       01-node-runtime.md
-|       |       02-global-objects.md
-|       |       03-esm-vs-commonjs-in-node.md
-|       |       04-environment-variables.md
-|       |       05-process-lifecycle-and-exit-codes.md
-|       |       06-error-handling-fundamentals.md
+|       +---01-core-spring
+|       |       01-ioc-container-and-application-context.md
+|       |       02-beans-and-bean-definitions.md
+|       |       03-dependency-injection-styles.md
+|       |       04-component-scanning-and-stereotypes.md
+|       |       05-javaconfig-and-at-configuration.md
+|       |       06-bean-scopes-and-lifecycle.md
+|       |       07-bean-post-processors-and-factory-post-processors.md
+|       |       08-qualifiers-primary-and-conditional-wiring.md
+|       |       09-profiles-and-environment-abstraction.md
+|       |       10-application-events-and-listeners.md
+|       |       11-resource-loading-and-abstractions.md
+|       |       12-spring-expression-language-spel.md
+|       |       13-aop-fundamentals-and-proxies.md
+|       |       14-aspects-in-practice.md
+|       |       15-validation-jsr380-jakarta.md
+|       |       16-type-conversion-and-formatting.md
+|       |       17-application-context-internals.md
+|       |       18-circular-dependencies-and-resolution.md
+|       |       19-lazy-initialization-and-startup-optimization.md
 |       |       README.md
 |       |       
-|       +---02-core-modules
-|       |       01-fs.md
-|       |       02-path.md
-|       |       03-http.md
-|       |       04-events.md
-|       |       05-streams.md
-|       |       06-buffer.md
-|       |       07-process.md
-|       |       08-os.md
-|       |       09-child-process.md
-|       |       10-cluster-worker-threads.md
-|       |       11-node-sqlite-and-test-runner.md
-|       |       12-permissions-model.md
-|       |       13-single-executable-applications.md
-|       |       14-diagnostics-channel-and-asynclocalstorage.md
+|       +---02-boot-fundamentals
+|       |       01-auto-configuration-mechanics.md
+|       |       02-starters-architecture-and-dependency-management.md
+|       |       03-externalized-configuration-and-properties.md
+|       |       04-configuration-properties-deep-dive.md
+|       |       05-profiles-in-boot.md
+|       |       06-config-data-import-and-config-trees.md
+|       |       07-structured-logging-and-log-systems.md
+|       |       08-application-runners-and-command-line-runners.md
+|       |       09-custom-starters-step-by-step.md
+|       |       10-banner-and-spring-application-customization.md
+|       |       11-graceful-shutdown-and-lifecycle.md
+|       |       12-actuator-fundamentals.md
+|       |       13-devtools-internals-and-classloaders.md
+|       |       14-conditional-beans-in-boot.md
 |       |       README.md
 |       |       
-|       +---03-javascript-for-node
-|       |       01-callbacks-promises-async-await.md
-|       |       02-event-loop.md
-|       |       03-closures.md
-|       |       04-prototypes.md
-|       |       05-error-handling.md
-|       |       06-memory-management.md
-|       |       07-server-async-patterns-and-event-emitter.md
-|       |       08-memory-leaks-and-heap-profiling.md
+|       +---03-web-mvc
+|       |       01-dispatcherservlet-and-request-lifecycle.md
+|       |       02-controllers-and-request-mapping.md
+|       |       03-request-binding-and-parameters.md
+|       |       04-validation-in-web-layer.md
+|       |       05-content-negotiation.md
+|       |       06-jackson-customization-and-json.md
+|       |       07-error-handling-and-problemdetail.md
+|       |       08-interceptors-filters-and-argument-resolvers.md
+|       |       09-cors-configuration.md
+|       |       10-file-upload-and-streaming.md
+|       |       11-rest-api-design-best-practices.md
+|       |       12-hateoas-and-rich-rest.md
+|       |       13-api-versioning-strategies.md
+|       |       14-pagination-sorting-and-keyset.md
+|       |       15-async-requests-and-sse.md
+|       |       16-thymeleaf-and-server-rendered-views.md
+|       |       17-static-content-and-caching.md
+|       |       18-embedded-web-servers-tuning.md
 |       |       README.md
 |       |       
-|       +---04-npm-ecosystem
-|       |       01-semantic-versioning.md
-|       |       02-dependencies-and-scripts.md
-|       |       03-publishing-a-package.md
-|       |       04-package-json-deep-dive-exports-imports.md
-|       |       05-npm-pnpm-yarn-bun-and-workspaces.md
+|       +---04-http-clients
+|       |       01-restclient-deep-dive.md
+|       |       02-webclient-in-mvc.md
+|       |       03-http-interfaces.md
+|       |       04-resttemplate-maintenance.md
+|       |       05-ssl-tls-and-mutual-tls.md
+|       |       06-resilience4j-integration.md
+|       |       07-openfeign-integration.md
 |       |       README.md
 |       |       
-|       +---05-http-web
-|       |       01-http-methods-and-status-codes.md
-|       |       02-headers-and-content-negotiation.md
-|       |       03-cookies.md
-|       |       04-cors.md
-|       |       05-caching-and-compression.md
-|       |       06-status-codes-reference.md
-|       |       07-http2-http3-and-keepalive.md
-|       |       08-server-sent-events-and-streaming.md
+|       +---05-reactive-webflux
+|       |       01-reactive-programming-and-reactor.md
+|       |       02-webflux-architecture.md
+|       |       03-annotated-controllers-in-webflux.md
+|       |       04-functional-endpoints.md
+|       |       05-reactive-data-r2dbc.md
+|       |       06-reactive-security.md
+|       |       07-reactive-streams-and-backpressure.md
+|       |       08-webclient-deep-dive.md
+|       |       09-testing-reactive-apps.md
+|       |       10-blockhound-and-threading.md
+|       |       11-reactive-operators-and-debugging.md
 |       |       README.md
 |       |       
-|       +---06-express
-|       |       01-setup-and-routing.md
-|       |       02-middleware.md
-|       |       03-controllers.md
-|       |       04-error-handling.md
-|       |       05-validation.md
-|       |       06-auth-and-authorization.md
-|       |       07-file-upload.md
-|       |       08-http-errors-and-problem-details.md
-|       |       09-express-5-migration-and-internals.md
-|       |       10-express-security-middleware-and-clustering.md
+|       +---06-data-access
+|       |       01-jdbc-template-and-jdbc-client.md
+|       |       02-datasource-and-hikari-pooling.md
+|       |       03-spring-data-jpa-fundamentals.md
+|       |       04-entity-mapping-and-relationships.md
+|       |       05-repositories-and-derived-queries.md
+|       |       06-jpql-native-and-specifications.md
+|       |       07-projections-and-dtos.md
+|       |       08-pagination-and-sorting.md
+|       |       09-auditing-and-optimistic-locking.md
+|       |       10-fetching-n-plus-one-and-entity-graphs.md
+|       |       11-lazy-loading-and-open-in-view-pitfalls.md
+|       |       12-spring-data-jdbc.md
+|       |       13-hibernate-caching-and-second-level-cache.md
+|       |       14-transactions.md
+|       |       15-batching-and-bulk-operations.md
+|       |       16-flyway-and-liquibase-migrations.md
+|       |       17-multiple-datasources.md
+|       |       18-jooq-and-mybatis-overview.md
+|       |       19-spring-data-mongodb.md
+|       |       20-spring-data-redis.md
+|       |       21-spring-data-elasticsearch-overview.md
+|       |       22-soft-delete-and-multi-tenancy-in-jpa.md
+|       |       23-database-testing-with-testcontainers.md
+|       |       24-database-performance-and-query-plans.md
 |       |       README.md
 |       |       
-|       +---06b-fastify
-|       |       01-getting-started-and-plugins.md
-|       |       02-schemas-validation-and-serialization.md
-|       |       03-lifecycle-hooks-and-decorators.md
+|       +---07-security
+|       |       01-spring-security-architecture.md
+|       |       02-authentication-fundamentals.md
+|       |       03-authorization-and-method-security.md
+|       |       04-password-encoding-and-user-details.md
+|       |       05-session-and-cookie-security.md
+|       |       06-CSRF-and-CORS.md
+|       |       07-JWT-resource-server.md
+|       |       08-oauth2-client-and-social-login.md
+|       |       09-oauth2-authorization-server.md
+|       |       10-OIDC-and-keycloak-integration.md
+|       |       11-refresh-tokens-and-logout.md
+|       |       12-RBAC-ABAC-and-ACLs.md
+|       |       13-api-keys-and-HMAC.md
+|       |       14-passkeys-and-webauthn.md
+|       |       15-method-security-and-domain-object-security.md
+|       |       16-security-testing.md
+|       |       17-security-headers-and-hardening.md
+|       |       18-common-vulnerabilities-and-owasp-mapping.md
+|       |       19-secrets-management.md
+|       |       20-rate-limiting-and-brute-force.md
+|       |       21-multi-tenant-security.md
 |       |       README.md
 |       |       
-|       +---06c-hono-and-edge-runtimes
-|       |       01-hono-fundamentals-and-node-server.md
-|       |       02-web-standards-and-edge-deployment.md
+|       +---08-testing
+|       |       01-testing-fundamentals-in-spring.md
+|       |       02-unit-testing-without-spring.md
+|       |       03-spring-boot-test-and-slices.md
+|       |       04-mockito-and-mockbean-replacements.md
+|       |       05-MockMvc-and-RestTestClient.md
+|       |       06-testcontainers-and-service-connections.md
+|       |       07-testing-security.md
+|       |       08-testing-transactions-and-database-state.md
+|       |       09-contract-testing-with-spring-cloud-contract-or-pact.md
+|       |       10-wiremock.md
+|       |       11-test-configuration-and-context-caching.md
+|       |       12-testing-async-and-scheduled-code.md
+|       |       13-archunit.md
+|       |       14-mutation-testing.md
+|       |       15-test-data-builders.md
+|       |       16-flaky-tests.md
 |       |       README.md
 |       |       
-|       +---06d-koa-and-framework-landscape
-|       |       01-koa-onion-architecture.md
-|       |       02-framework-selection-and-benchmarks.md
+|       +---09-api-and-integration
+|       |       01-openapi-with-springdoc.md
+|       |       02-api-first-and-code-generation.md
+|       |       03-validation-and-error-contracts.md
+|       |       04-webhooks.md
+|       |       05-graphql-with-spring-graphql.md
+|       |       06-gRPC-with-spring.md
+|       |       07-websockets-and-stomp.md
+|       |       08-server-sent-events.md
+|       |       09-file-storage-and-s3.md
+|       |       10-email-and-notifications.md
+|       |       11-scheduling-and-async-methods.md
+|       |       12-caching-abstraction-with-caffeine-and-redis.md
+|       |       13-mapstruct-and-dto-mapping.md
+|       |       14-i18n-and-localisation.md
+|       |       15-search-integration.md
+|       |       16-payment-integration-stripe.md
 |       |       README.md
 |       |       
-|       +---07-databases
-|       |   |   01-mysql-with-node.md
-|       |   |   02-sqlite-with-node.md
-|       |   |   03-dynamodb-from-node.md
-|       |   |   04-elasticsearch-and-opensearch.md
-|       |   |   05-database-selection-guide.md
-|       |   |   README.md
-|       |   |   
-|       |   +---mongodb
-|       |   |   |   CONTRIBUTING.md
-|       |   |   |   LICENSE
-|       |   |   |   README.md
-|       |   |   |   ROADMAP.md
-|       |   |   |   
-|       |   |   +---00-mongodb-basics
-|       |   |   |       01-installation-and-atlas.md
-|       |   |   |       02-shell-and-compass.md
-|       |   |   |       03-architecture-and-bson.md
-|       |   |   |       04-databases-collections-documents.md
-|       |   |   |       README.md
-|       |   |   |       
-|       |   |   +---01-mongodb-native-driver
-|       |   |   |       01-connecting-with-the-native-driver.md
-|       |   |   |       02-native-crud-methods.md
-|       |   |   |       03-query-operators-reference.md
-|       |   |   |       README.md
-|       |   |   |       
-|       |   |   +---02-mongodb-vs-mongoose
-|       |   |   |       01-what-mongoose-adds.md
-|       |   |   |       02-when-to-drop-to-the-native-driver.md
-|       |   |   |       README.md
-|       |   |   |       
-|       |   |   +---03-setup
-|       |   |   |       01-installing-mongoose.md
-|       |   |   |       02-connecting-to-mongodb.md
-|       |   |   |       03-connection-events-and-lifecycle.md
-|       |   |   |       README.md
-|       |   |   |       
-|       |   |   +---04-schemas
-|       |   |   |       01-defining-a-schema.md
-|       |   |   |       02-schema-types-reference.md
-|       |   |   |       03-schema-type-options.md
-|       |   |   |       04-nested-and-subdocument-schemas.md
-|       |   |   |       05-schema-options.md
-|       |   |   |       06-schema-methods-statics-virtuals.md
-|       |   |   |       07-indexes-in-schemas.md
-|       |   |   |       README.md
-|       |   |   |       
-|       |   |   +---05-models
-|       |   |   |       01-creating-a-model.md
-|       |   |   |       02-model-vs-document.md
-|       |   |   |       03-compiling-models-and-avoiding-overwrite-errors.md
-|       |   |   |       README.md
-|       |   |   |       
-|       |   |   +---06-crud-methods
-|       |   |   |       01-create-methods.md
-|       |   |   |       02-read-methods.md
-|       |   |   |       03-update-methods.md
-|       |   |   |       04-delete-methods.md
-|       |   |   |       05-query-chaining-and-cursor-methods.md
-|       |   |   |       06-bulk-and-batch-methods.md
-|       |   |   |       README.md
-|       |   |   |       
-|       |   |   +---07-filter-conditions
-|       |   |   |       01-basic-filter-syntax.md
-|       |   |   |       02-comparison-operators.md
-|       |   |   |       03-logical-operators.md
-|       |   |   |       04-element-and-type-operators.md
-|       |   |   |       05-array-filter-conditions.md
-|       |   |   |       06-regex-and-text-filters.md
-|       |   |   |       07-filtering-nested-and-subdocument-fields.md
-|       |   |   |       08-combining-filters-with-mongoose-query-builders.md
-|       |   |   |       README.md
-|       |   |   |       
-|       |   |   +---08-errors
-|       |   |   |       01-mongoose-error-types-overview.md
-|       |   |   |       02-validation-errors.md
-|       |   |   |       03-cast-errors.md
-|       |   |   |       04-duplicate-key-errors.md
-|       |   |   |       05-turning-errors-into-friendly-responses.md
-|       |   |   |       06-custom-application-errors.md
-|       |   |   |       README.md
-|       |   |   |       
-|       |   |   +---09-validation
-|       |   |   |       01-built-in-validators.md
-|       |   |   |       02-custom-validators.md
-|       |   |   |       03-async-validators.md
-|       |   |   |       04-validating-updates.md
-|       |   |   |       README.md
-|       |   |   |       
-|       |   |   +---10-middleware-hooks
-|       |   |   |       01-pre-and-post-hooks.md
-|       |   |   |       02-document-vs-query-vs-aggregate-middleware.md
-|       |   |   |       03-common-hook-patterns.md
-|       |   |   |       README.md
-|       |   |   |       
-|       |   |   +---11-relationships
-|       |   |   |       01-references-and-populate.md
-|       |   |   |       02-embedding-vs-referencing-in-mongoose.md
-|       |   |   |       03-virtual-populate.md
-|       |   |   |       04-populate-performance.md
-|       |   |   |       README.md
-|       |   |   |       
-|       |   |   +---12-aggregation-with-mongoose
-|       |   |   |       01-the-aggregate-method.md
-|       |   |   |       02-common-pipeline-recipes.md
-|       |   |   |       README.md
-|       |   |   |       
-|       |   |   +---13-transactions
-|       |   |   |       01-sessions-and-transactions.md
-|       |   |   |       02-transaction-patterns.md
-|       |   |   |       README.md
-|       |   |   |       
-|       |   |   +---14-performance
-|       |   |   |       01-indexes-in-mongoose.md
-|       |   |   |       02-query-optimization-and-lean.md
-|       |   |   |       03-pagination.md
-|       |   |   |       04-connection-pooling.md
-|       |   |   |       README.md
-|       |   |   |       
-|       |   |   +---15-patterns-and-architecture
-|       |   |   |       01-repository-and-service-pattern.md
-|       |   |   |       02-soft-delete.md
-|       |   |   |       03-multi-tenancy.md
-|       |   |   |       README.md
-|       |   |   |       
-|       |   |   +---16-testing
-|       |   |   |       01-testing-with-an-in-memory-database.md
-|       |   |   |       02-mocking-and-fixtures.md
-|       |   |   |       README.md
-|       |   |   |       
-|       |   |   \---17-production
-|       |   |           01-connection-management-in-production.md
-|       |   |           02-monitoring-and-logging.md
-|       |   |           03-migrations.md
-|       |   |           04-production-checklist.md
-|       |   |           README.md
-|       |   |           
-|       |   +---postgresql
-|       |   |       01-connection-and-queries.md
-|       |   |       02-transactions-and-indexing.md
-|       |   |       03-migrations-with-node-pg-migrate-and-drizzle.md
-|       |   |       04-query-builders-kysely-and-knex.md
-|       |   |       05-orms-prisma-drizzle-typeorm-compared.md
-|       |   |       06-pagination-and-n-plus-one.md
-|       |   |       07-json-and-full-text-search.md
-|       |   |       08-listen-notify-and-replication.md
-|       |   |       09-testing-with-real-databases-and-testcontainers.md
-|       |   |       README.md
-|       |   |       
-|       |   \---redis
-|       |       |   CONTRIBUTING.md
-|       |       |   LICENSE
-|       |       |   README.md
-|       |       |   ROADMAP.md
-|       |       |   
-|       |       +---00_introduction
-|       |       |       01_why-redis.md
-|       |       |       02_redis-vs-alternatives.md
-|       |       |       03_redis-architecture.md
-|       |       |       04_when-not-to-use-redis.md
-|       |       |       README.md
-|       |       |       
-|       |       +---01_setup
-|       |       |       01_redis-installation.md
-|       |       |       02_redis-cli-and-insight.md
-|       |       |       03_ioredis-setup.md
-|       |       |       README.md
-|       |       |       
-|       |       +---02_redis-fundamentals
-|       |       |       01_keys-and-values.md
-|       |       |       02_data-types-overview.md
-|       |       |       03_expiration-and-ttl.md
-|       |       |       04_persistence.md
-|       |       |       05_memory-and-eviction.md
-|       |       |       README.md
-|       |       |       
-|       |       +---03_ioredis-basics
-|       |       |       01_connection.md
-|       |       |       02_configuration.md
-|       |       |       03_commands-and-options.md
-|       |       |       04_promises-callbacks-buffers.md
-|       |       |       05_error-handling.md
-|       |       |       06_graceful-shutdown.md
-|       |       |       README.md
-|       |       |       
-|       |       +---04_data-structures
-|       |       |       01_strings.md
-|       |       |       02_hashes.md
-|       |       |       03_lists.md
-|       |       |       04_sets.md
-|       |       |       05_sorted-sets.md
-|       |       |       06_bitmaps-and-bitfields.md
-|       |       |       07_hyperloglog-and-geo.md
-|       |       |       08_streams-overview.md
-|       |       |       09_choosing-the-right-structure.md
-|       |       |       README.md
-|       |       |       
-|       |       +---05_key-management
-|       |       |       01_key-design.md
-|       |       |       02_scan-and-iteration.md
-|       |       |       03_delete-and-unlink.md
-|       |       |       README.md
-|       |       |       
-|       |       +---06_advanced-commands
-|       |       |       01_pipelines-and-auto-pipelining.md
-|       |       |       02_transactions.md
-|       |       |       03_lua-scripts.md
-|       |       |       04_atomic-and-conditional-ops.md
-|       |       |       README.md
-|       |       |       
-|       |       +---07_caching
-|       |       |       01_cache-aside.md
-|       |       |       02_cache-strategies.md
-|       |       |       03_cache-invalidation.md
-|       |       |       04_cache-problems.md
-|       |       |       05_caching-api-responses.md
-|       |       |       README.md
-|       |       |       
-|       |       +---08_nodejs-integration
-|       |       |       01_connection-management.md
-|       |       |       02_redis-service.md
-|       |       |       03_redis-repository.md
-|       |       |       04_typed-redis-client.md
-|       |       |       05_redis-key-builder.md
-|       |       |       06_express-integration.md
-|       |       |       README.md
-|       |       |       
-|       |       +---09_pub-sub
-|       |       |       01_pub-sub-fundamentals.md
-|       |       |       02_event-driven-nodejs.md
-|       |       |       03_socketio-with-redis.md
-|       |       |       README.md
-|       |       |       
-|       |       +---10_streams
-|       |       |       01_stream-fundamentals.md
-|       |       |       02_producers-and-consumers.md
-|       |       |       03_consumer-groups-and-acks.md
-|       |       |       04_stream-patterns.md
-|       |       |       README.md
-|       |       |       
-|       |       +---11_distributed-locks
-|       |       |       01_locking-fundamentals.md
-|       |       |       02_lock-expiration-and-renewal.md
-|       |       |       03_redlock.md
-|       |       |       README.md
-|       |       |       
-|       |       +---12_rate-limiting
-|       |       |       01_fixed-and-sliding-window.md
-|       |       |       02_token-and-leaky-bucket.md
-|       |       |       03_distributed-rate-limiter.md
-|       |       |       README.md
-|       |       |       
-|       |       +---13_session-management
-|       |       |       01_session-storage.md
-|       |       |       02_token-management.md
-|       |       |       README.md
-|       |       |       
-|       |       +---14_queues-and-workers
-|       |       |       01_queue-fundamentals.md
-|       |       |       02_delayed-jobs.md
-|       |       |       03_retries-and-dead-letter-queue.md
-|       |       |       04_bullmq.md
-|       |       |       README.md
-|       |       |       
-|       |       +---15_redis-architecture
-|       |       |       01_replication.md
-|       |       |       02_sentinel.md
-|       |       |       03_cluster.md
-|       |       |       04_high-availability-and-failover.md
-|       |       |       README.md
-|       |       |       
-|       |       +---16_performance
-|       |       |       01_latency-and-benchmarking.md
-|       |       |       02_command-optimization.md
-|       |       |       03_memory-optimization.md
-|       |       |       04_serialization.md
-|       |       |       README.md
-|       |       |       
-|       |       +---17_security
-|       |       |       01_authentication-and-acl.md
-|       |       |       02_tls.md
-|       |       |       03_security-checklist.md
-|       |       |       README.md
-|       |       |       
-|       |       +---18_testing-and-debugging
-|       |       |       01_testing-with-redis.md
-|       |       |       02_debugging.md
-|       |       |       03_common-pitfalls.md
-|       |       |       README.md
-|       |       |       
-|       |       +---19_redis-production
-|       |       |       01_deployment.md
-|       |       |       02_monitoring-and-logging.md
-|       |       |       03_backup-and-disaster-recovery.md
-|       |       |       04_production-checklist.md
-|       |       |       README.md
-|       |       |       
-|       |       \---20_real-world-patterns
-|       |               01_idempotency.md
-|       |               02_request-deduplication.md
-|       |               03_leaderboard.md
-|       |               04_notification-system.md
-|       |               05_feature-flags.md
-|       |               06_event-driven-system.md
-|       |               README.md
-|       |               
-|       +---08-authentication-security
-|       |       01-password-hashing.md
-|       |       02-jwt-and-tokens.md
-|       |       03-sessions.md
-|       |       04-oauth-and-oidc.md
-|       |       05-common-vulnerabilities.md
-|       |       06-rate-limiting.md
-|       |       07-helmet.md
-|       |       08-security-checklist.md
-|       |       09-passkeys-and-webauthn.md
-|       |       10-rbac-abac-and-policy-enforcement.md
-|       |       11-api-keys-and-hmac-signatures.md
+|       +---10-messaging-and-events
+|       |       01-spring-events-and-transactional-events.md
+|       |       02-spring-kafka.md
+|       |       03-spring-amqp-rabbitmq.md
+|       |       04-spring-cloud-stream.md
+|       |       05-outbox-and-saga.md
+|       |       06-idempotent-consumers.md
+|       |       07-dead-letter-and-retry.md
+|       |       08-spring-integration-overview.md
+|       |       09-spring-batch-fundamentals.md
+|       |       10-spring-batch-in-production.md
+|       |       11-spring-modulith.md
 |       |       README.md
 |       |       
-|       +---09-api-development
-|       |       01-rest-api-design.md
-|       |       02-versioning-and-pagination.md
-|       |       03-filtering-and-sorting.md
-|       |       04-validation.md
-|       |       05-error-responses.md
-|       |       06-idempotency.md
-|       |       07-webhooks.md
-|       |       08-graphql-with-node-apollo-and-yoga.md
-|       |       09-trpc-and-grpc-in-node.md
-|       |       10-openapi-first-and-sdk-generation.md
+|       +---11-cloud-and-microservices
+|       |       01-microservices-with-spring.md
+|       |       02-spring-cloud-overview.md
+|       |       03-config-server-and-alternatives.md
+|       |       04-service-discovery.md
+|       |       05-api-gateway-spring-cloud-gateway.md
+|       |       06-resilience4j.md
+|       |       07-distributed-tracing.md
+|       |       08-load-balancing-and-client-side-lb.md
+|       |       09-distributed-transactions-and-saga.md
+|       |       10-contract-first-service-communication.md
+|       |       11-kubernetes-native-config.md
+|       |       12-spring-cloud-vs-platform-features-decision.md
 |       |       README.md
 |       |       
-|       +---10-architecture
-|       |       01-mvc-and-layered-architecture.md
-|       |       02-clean-architecture.md
-|       |       03-repository-and-service-pattern.md
-|       |       04-dependency-injection.md
+|       +---12-observability-and-operations
+|       |       01-actuator-in-depth.md
+|       |       02-micrometer-metrics.md
+|       |       03-opentelemetry-tracing-and-logs.md
+|       |       04-structured-logging.md
+|       |       05-health-probes-and-kubernetes.md
+|       |       06-prometheus-and-grafana.md
+|       |       07-logging-best-practices.md
+|       |       08-jvm-metrics-and-diagnostics.md
+|       |       09-thread-and-heap-dump-analysis.md
+|       |       10-spring-boot-admin-overview.md
+|       |       11-alerting-and-slos.md
+|       |       README.md
+|       |       
+|       +---13-performance
+|       |       01-startup-time-and-lazy-init.md
+|       |       02-aot-and-graalvm-native-images.md
+|       |       03-class-data-sharing-and-crac-leyden.md
+|       |       04-connection-pool-tuning.md
+|       |       05-jpa-performance-patterns.md
+|       |       06-caching-strategies.md
+|       |       07-virtual-threads-and-throughput.md
+|       |       08-tomcat-and-netty-tuning.md
+|       |       09-gc-and-memory-in-containers.md
+|       |       10-profiling-spring-apps.md
+|       |       11-load-testing-k6-gatling.md
+|       |       12-common-performance-pitfalls.md
+|       |       README.md
+|       |       
+|       +---14-production-and-deployment
+|       |       01-production-configuration-and-profiles.md
+|       |       02-packaging-jar-layers-and-buildpacks.md
+|       |       03-docker-and-jib.md
+|       |       04-kubernetes-deployment.md
+|       |       05-helm-basics.md
+|       |       06-ci-cd-pipelines.md
+|       |       07-aws-deployment.md
+|       |       08-zero-downtime-deploys-and-db-migrations.md
+|       |       09-secrets-and-config-in-production.md
+|       |       10-graceful-shutdown-and-health-probes.md
+|       |       11-twelve-factor-with-spring.md
+|       |       12-incident-runbooks.md
+|       |       README.md
+|       |       
+|       +---15-architecture-and-patterns
+|       |       01-layered-architecture.md
+|       |       02-hexagonal-clean-onion-with-spring.md
+|       |       03-domain-driven-design-with-spring.md
+|       |       04-cqrs-and-event-sourcing.md
 |       |       05-modular-monolith-vs-microservices.md
-|       |       06-hexagonal-architecture-and-ports-adapters.md
-|       |       07-cqrs-and-event-sourcing.md
-|       |       08-domain-driven-design-with-node.md
+|       |       06-design-patterns-in-spring.md
+|       |       07-repository-and-unit-of-work.md
+|       |       08-dto-entity-domain-separation.md
+|       |       09-error-handling-architecture.md
+|       |       10-feature-flags.md
+|       |       11-multi-tenancy-architecture.md
+|       |       12-api-versioning-strategies.md
+|       |       13-clean-code-and-code-review-checklist.md
+|       |       14-real-world-patterns.md
 |       |       README.md
 |       |       
-|       +---11-async-processing
-|       |       01-queues-and-bullmq.md
-|       |       02-workers-retry-dlq.md
-|       |       03-scheduled-jobs.md
-|       |       04-kafka.md
-|       |       05-rabbitmq-and-amqplib.md
-|       |       06-outbox-and-saga-patterns.md
-|       |       07-idempotent-consumers-and-stream-processing.md
+|       +---16-ai
+|       |       01-spring-ai-fundamentals.md
+|       |       02-chat-and-embeddings.md
+|       |       03-rag-with-spring-ai.md
+|       |       04-tool-calling.md
+|       |       05-structured-outputs.md
+|       |       06-observability-and-cost.md
 |       |       README.md
 |       |       
-|       +---12-realtime
-|       |       01-websocket-and-socketio.md
-|       |       02-auth-and-rooms.md
-|       |       03-scaling-with-redis-adapter.md
-|       |       04-ws-library-from-scratch.md
-|       |       05-webrtc-signalling-server.md
-|       |       06-backpressure-in-realtime-systems.md
+|       +---17-projects
+|       |       01-rest-api-crud-with-postgres.md
+|       |       02-blog-platform.md
+|       |       03-auth-server-with-jwt-and-oauth2.md
+|       |       04-ecommerce-backend.md
+|       |       05-task-manager-with-rbac.md
+|       |       06-url-shortener-with-redis.md
+|       |       07-file-storage-service.md
+|       |       08-notification-service.md
+|       |       09-realtime-chat-with-websockets.md
+|       |       10-multi-tenant-saas-api.md
+|       |       11-microservices-system.md
+|       |       12-spring-batch-etl-pipeline.md
+|       |       13-graphql-api.md
+|       |       14-event-driven-order-processing-with-modulith.md
+|       |       15-rag-api-with-spring-ai.md
+|       |       16-booking-system-with-concurrency-control.md
 |       |       README.md
 |       |       
-|       +---13-testing
-|       |       01-testing-fundamentals.md
-|       |       02-unit-testing.md
-|       |       03-integration-testing.md
-|       |       04-vitest-and-jest.md
-|       |       05-api-testing-with-supertest.md
-|       |       06-test-databases-and-coverage.md
-|       |       07-mocking-and-test-doubles.md
-|       |       08-testing-patterns.md
-|       |       09-unit-and-integration-guide.md
-|       |       10-node-test-runner.md
-|       |       README.md
-|       |       
-|       +---14-logging-observability
-|       |       01-pino-and-structured-logging.md
-|       |       02-correlation-id.md
-|       |       03-metrics-and-prometheus.md
-|       |       04-tracing-and-opentelemetry.md
-|       |       05-grafana.md
-|       |       README.md
-|       |       
-|       +---15-performance
-|       |       01-event-loop-performance.md
-|       |       02-profiling-and-memory-leaks.md
-|       |       03-database-optimization.md
-|       |       04-load-balancing-and-testing.md
-|       |       README.md
-|       |       
-|       +---16-production
-|       |       01-environment-management.md
-|       |       02-graceful-shutdown-and-health-checks.md
-|       |       03-docker-and-compose.md
-|       |       04-nginx.md
-|       |       05-ci-cd.md
-|       |       README.md
-|       |       
-|       +---17-typescript
-|       |       01-setup-and-types.md
-|       |       02-interfaces-and-generics.md
-|       |       03-express-types.md
-|       |       04-error-types.md
-|       |       05-production-config.md
-|       |       README.md
-|       |       
-|       +---18-design-patterns
-|       |       01_module-pattern.md
-|       |       02_factory-pattern.md
-|       |       03_singleton-pattern.md
-|       |       04_builder-pattern.md
-|       |       05_strategy-pattern.md
-|       |       06_observer-pattern.md
-|       |       07_adapter-pattern.md
-|       |       08_decorator-pattern.md
-|       |       09_dependency-injection.md
-|       |       10-circuit-breaker-and-retry.md
-|       |       11-repository-and-unit-of-work.md
-|       |       12-facade-and-command-patterns.md
-|       |       README.md
-|       |       
-|       +---19-system-design
-|       |       01-scalable-api-and-rate-limiter.md
-|       |       02-url-shortener.md
-|       |       03-chat-system.md
+|       +---18-system-design
+|       |       01-system-design-approach.md
+|       |       02-scalable-rest-api.md
+|       |       03-authentication-system.md
 |       |       04-notification-system.md
 |       |       05-file-upload-system.md
-|       |       06-job-processing-system.md
-|       |       08-ecommerce-flash-sale-system.md
-|       |       09-payment-system-and-idempotency.md
-|       |       10-multi-tenant-saas-backend.md
+|       |       06-job-queue-system.md
+|       |       07-realtime-chat-system.md
+|       |       08-ecommerce-backend.md
+|       |       09-url-shortener.md
+|       |       10-rate-limiter.md
+|       |       11-payment-system-and-idempotency.md
+|       |       12-search-service.md
+|       |       13-booking-and-inventory-reservation.md
+|       |       14-social-feed.md
+|       |       15-microservices-system.md
 |       |       README.md
 |       |       
-|       +---20-aws-sdk
-|       |   |   README.md
-|       |   |   
-|       |   +---01-setup
-|       |   |       01-sdk-v3-and-credentials.md
-|       |   |       02-local-development-and-testing.md
-|       |   |       
-|       |   +---02-services
-|       |   |       01-s3.md
-|       |   |       02-dynamodb.md
-|       |   |       03-sqs.md
-|       |   |       04-sns-and-eventbridge.md
-|       |   |       05-ses-email.md
-|       |   |       06-cognito.md
-|       |   |       07-bedrock.md
-|       |   |       08-secrets-and-parameters.md
-|       |   |       
-|       |   +---03-lambda
-|       |   |       01-lambda-handlers.md
-|       |   |       02-api-gateway-apis.md
-|       |   |       03-event-driven-lambda.md
-|       |   |       
-|       |   +---04-production
-|       |   |       01-errors-and-retries.md
-|       |   |       02-logging-and-tracing.md
-|       |   |       
-|       |   +---05-projects
-|       |   |   |   README.md
-|       |   |   |   
-|       |   |   +---01-s3-upload-api
-|       |   |   |       README.md
-|       |   |   |       
-|       |   |   +---02-serverless-api
-|       |   |   |       README.md
-|       |   |   |       
-|       |   |   \---03-node-app-on-ecs
-|       |   |           README.md
-|       |   |           
-|       |   \---reference
-|       |           cheatsheet.md
-|       |           
-|       +---21-projects
-|       |   |   README.md
-|       |   |   
-|       |   +---01-rest-api-with-express-postgres
-|       |   |       README.md
-|       |   |       
-|       |   +---02-auth-service
-|       |   |       README.md
-|       |   |       
-|       |   +---03-url-shortener-with-redis
-|       |   |       README.md
-|       |   |       
-|       |   +---04-job-queue-service-with-bullmq
-|       |   |       README.md
-|       |   |       
-|       |   +---05-realtime-chat-server
-|       |   |       README.md
-|       |   |       
-|       |   +---06-file-upload-service
-|       |   |       README.md
-|       |   |       
-|       |   +---07-notification-service
-|       |   |       README.md
-|       |   |       
-|       |   +---08-ecommerce-api
-|       |   |       README.md
-|       |   |       
-|       |   +---09-webhook-receiver-and-dispatcher
-|       |   |       README.md
-|       |   |       
-|       |   +---10-rate-limiter-service
-|       |   |       README.md
-|       |   |       
-|       |   +---11-api-gateway-lite
-|       |   |       README.md
-|       |   |       
-|       |   +---12-graphql-api
-|       |   |       README.md
-|       |   |       
-|       |   +---13-event-sourced-bank
-|       |   |       README.md
-|       |   |       
-|       |   +---14-multi-tenant-saas-backend
-|       |   |       README.md
-|       |   |       
-|       |   +---15-log-ingestion-pipeline
-|       |   |       README.md
-|       |   |       
-|       |   \---16-cli-tool-in-node
-|       |           README.md
-|       |           
-|       +---22-project-tooling
-|       |       01-project-structure.md
-|       |       02-environment-variables.md
-|       |       03-git-hooks-and-commits.md
-|       |       04-linting-and-formatting.md
-|       |       05-validation-libraries.md
-|       |       06-inversifyjs.md
+|       +---19-interview
+|       |       01-spring-core-and-di-qa.md
+|       |       02-boot-and-autoconfiguration-qa.md
+|       |       03-mvc-and-rest-qa.md
+|       |       04-data-jpa-and-transactions-qa.md
+|       |       05-security-qa.md
+|       |       06-testing-qa.md
+|       |       07-microservices-and-cloud-qa.md
+|       |       08-messaging-qa.md
+|       |       09-performance-and-production-qa.md
+|       |       10-architecture-qa.md
+|       |       11-output-and-scenario-questions.md
+|       |       12-coding-rounds.md
+|       |       13-behavioural-and-project-discussion.md
 |       |       README.md
 |       |       
-|       +---23-interview
-|       |       00-fundamentals-qa.md
-|       |       01-event-loop-and-async-qa.md
-|       |       02-streams-and-buffers-qa.md
-|       |       03-express-and-http-qa.md
-|       |       04-databases-qa.md
-|       |       05-auth-and-security-qa.md
-|       |       06-performance-and-scaling-qa.md
-|       |       07-architecture-and-system-design-qa.md
-|       |       08-output-based-questions.md
-|       |       09-coding-problems.md
-|       |       10-behavioural-and-project-discussion.md
-|       |       README.md
-|       |       
-|       +---24-cheatsheets
-|       |       00-core-modules.md
-|       |       01-npm-and-package-json.md
-|       |       02-express.md
-|       |       03-fastify.md
-|       |       04-streams-and-buffers.md
-|       |       05-http-status-and-headers.md
-|       |       06-mongodb.md
-|       |       07-postgres-with-node.md
-|       |       08-redis-with-ioredis.md
-|       |       09-auth-and-jwt.md
-|       |       10-docker-and-compose.md
-|       |       11-testing.md
-|       |       12-debugging-and-profiling.md
-|       |       13-common-errors.md
+|       +---20-cheatsheets
+|       |       01-annotations-quick-reference.md
+|       |       02-boot-properties-and-config.md
+|       |       03-mvc-and-rest.md
+|       |       04-data-jpa-and-queries.md
+|       |       05-transactions.md
+|       |       06-security-config.md
+|       |       07-testing-recipes.md
+|       |       08-actuator-and-metrics.md
+|       |       09-kafka-and-rabbitmq.md
+|       |       10-docker-and-kubernetes.md
+|       |       11-maven-and-gradle-for-spring.md
+|       |       12-common-errors-and-fixes.md
+|       |       13-upgrade-cheatsheet.md
 |       |       README.md
 |       |       
 |       \---_templates
