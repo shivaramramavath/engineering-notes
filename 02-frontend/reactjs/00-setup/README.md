@@ -1,36 +1,27 @@
-# 00 — Setup
+# Module 00: Setup and Modern Tooling
 
-Everything you need before writing your first component: the JavaScript React assumes you know, a working toolchain, and an editor that catches mistakes as you type. Nothing here is React-specific theory — it's the groundwork that makes every later chapter smoother.
+## Syllabus & Topic Overview
 
-## What you'll be able to do after this chapter
+Module 00 covers the essential foundation for building high-performance modern React applications. Moving decisively away from legacy architectures (Create React App, Webpack-first setups, and manual Babel configs), this module establishes modern production environments using React 19, Vite 6, TypeScript 5.7 strict mode, monorepo architectures, and StrictMode debugging behaviors.
 
-- Read modern JavaScript (destructuring, spread, array methods, modules) without stumbling
-- Install and manage Node.js and npm packages
-- Create, run, and build a React + TypeScript project with Vite
-- Explain what every file in a fresh project is for
-- Inspect a running app with React DevTools
-- Have TypeScript, ESLint, and Prettier working together in your editor
+### Concept Notes Index
 
-## Reading order
+1. [00-javascript-for-react.md](file:///E:/Learning/engineering-notes/02-frontend/reactjs/00-setup/00-javascript-for-react.md) - Essential modern ESNext features for React: destructuring, rest/spread, closures, async/await, optional chaining, and nullish coalescing.
+2. [01-node-and-npm.md](file:///E:/Learning/engineering-notes/02-frontend/reactjs/00-setup/01-node-and-npm.md) - Node.js LTS runtime, npm/pnpm package resolution, lockfiles, semantic versioning, and scripts.
+3. [02-vite.md](file:///E:/Learning/engineering-notes/02-frontend/reactjs/00-setup/02-vite.md) - Deep dive into Vite 6: native ESM dev server, esbuild pre-bundling, Rollup production builds, and plugins.
+4. [03-project-structure.md](file:///E:/Learning/engineering-notes/02-frontend/reactjs/00-setup/03-project-structure.md) - Feature-sliced design, component folder anatomy, path aliases (`@/`), and asset organization.
+5. [04-react-devtools.md](file:///E:/Learning/engineering-notes/02-frontend/reactjs/00-setup/04-react-devtools.md) - Mastering the React DevTools: inspecting Fiber trees, props/state live mutation, and flamegraph profiling.
+6. [05-typescript-and-linting-setup.md](file:///E:/Learning/engineering-notes/02-frontend/reactjs/00-setup/05-typescript-and-linting-setup.md) - Strict TypeScript compiler options, ESLint flat config with `eslint-plugin-react-hooks` and React Compiler rules.
+7. [06-react-versions-and-upgrade-guide.md](file:///E:/Learning/engineering-notes/02-frontend/reactjs/00-setup/06-react-versions-and-upgrade-guide.md) - Complete upgrade roadmap from React 17 -> 18 -> 19: Actions, `useActionState`, `ref` as prop, and removals.
+8. [07-bundlers-compared-vite-rspack-turbopack.md](file:///E:/Learning/engineering-notes/02-frontend/reactjs/00-setup/07-bundlers-compared-vite-rspack-turbopack.md) - Architectural comparison of Vite 6, Rspack, Turbopack, and legacy Webpack.
+9. [08-strict-mode-and-dev-behaviours.md](file:///E:/Learning/engineering-notes/02-frontend/reactjs/00-setup/08-strict-mode-and-dev-behaviours.md) - StrictMode double invocation, effect unmount/remount simulation, component purity, and memory leak detection.
+10. [09-monorepo-setup-for-react.md](file:///E:/Learning/engineering-notes/02-frontend/reactjs/00-setup/09-monorepo-setup-for-react.md) - pnpm Workspaces, Turborepo 2 pipelines, shared UI component libraries, and single React instance invariants.
 
-| #   | File                                                                       | What it covers                                      | Prerequisite     |
-| --- | -------------------------------------------------------------------------- | --------------------------------------------------- | ---------------- |
-| 00  | [00-javascript-for-react.md](./00-javascript-for-react.md)                 | The JS features React code uses constantly          | Basic JavaScript |
-| 01  | [01-node-and-npm.md](./01-node-and-npm.md)                                 | Installing Node, `package.json`, scripts, lockfiles | None             |
-| 02  | [02-vite.md](./02-vite.md)                                                 | Creating and running a project, config, build       | 01               |
-| 03  | [03-project-structure.md](./03-project-structure.md)                       | What the starter template generates                 | 02               |
-| 04  | [04-react-devtools.md](./04-react-devtools.md)                             | Inspecting components, state, and renders           | 02               |
-| 05  | [05-typescript-and-linting-setup.md](./05-typescript-and-linting-setup.md) | `tsconfig`, ESLint, Prettier, editor setup          | 02               |
+---
 
-If you're already comfortable with modern JavaScript and Node, skim `00` and `01` and start at `02`.
+## Learning Outcomes & Core Takeaways
 
-## Exercises
-
-1. Create a new Vite + React + TypeScript project, run the dev server, and change the text in `App.tsx` to see hot reload.
-2. Delete everything inside `App.tsx` except a single `<h1>`, then remove the unused imports and assets.
-3. Open React DevTools and find your `App` component in the Components tab.
-4. Introduce a deliberate type error and an unused variable; confirm your editor flags both.
-
-## Next
-
-**[`../01-fundamentals/README.md`](../01-fundamentals/README.md)** starts with how to think about UIs as components, then moves into JSX, props, events, and lists.
+- **Vite 6 Mastery**: Configure ultra-fast unbundled ESM development workflows and optimize production Rollup chunk splitting.
+- **React 19 Readiness**: Understand all breaking changes in React 19 (removal of `ReactDOM.render`, `forwardRef`, `defaultProps`) and transition to native Actions and `ref` props.
+- **StrictMode Fluency**: Emphasize component purity and ensure all `useEffect` hooks contain robust cleanup logic to thrive under double-invocation checks.
+- **Enterprise Monorepos**: Set up pnpm workspaces and Turborepo to share design systems without dual-React hook collision bugs.
