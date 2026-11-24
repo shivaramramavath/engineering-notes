@@ -4,6 +4,18 @@
 
 ---
 
+## [Module 04] - 2026-11-24 - Strings & Text Processing
+- **00-string-methods.md**: Completed 13-section guide on search, casing, partition vs split, PEP 616 `removeprefix`/`removesuffix`, $O(n)$ `join()`, and Unicode `casefold()`.
+- **01-formatting-f-strings.md**: Completed 13-section guide on format specifier mini-language, alignment, digit grouping, `{expr=}`, and PEP 701 syntax.
+- **02-unicode-and-encodings.md**: Completed 13-section guide on the Unicode Sandwich pattern, UTF-8/16/32, error handlers (`strict`, `surrogateescape`), and NFC/NFD/NFKC normalization.
+- **03-bytes-and-bytearray.md**: Completed 13-section guide on immutable `bytes` vs mutable `bytearray`, zero-copy `memoryview`, PEP 3118 buffer protocol, and in-place socket I/O.
+- **04-regular-expressions.md**: Completed 13-section guide on `match` vs `search` vs `fullmatch`, named capture groups `(?P<name>)`, lookaround assertions, callback substitutions, and ReDoS.
+- **05-text-processing-patterns.md**: Completed 13-section guide on streaming pipelines ($O(1)$ memory), safe `string.Template`, `textwrap` formatting, and state machine tokenization.
+- **06-string-internals-and-interning.md**: Completed 13-section guide on PEP 393 (Latin-1, UCS-2, UCS-4), memory widening penalty, `sys.intern()`, and Latin-1 singletons.
+- **04-strings-and-text/README.md**: Updated syllabus table and module outcomes.
+
+---
+
 ## [Module 03] - 2026-11-24 - Functions & Callables
 - **00-defining-functions.md**: Completed 13-section guide on first-class citizen model, `def` as runtime statement, `PyFunctionObject` heap anatomy, implicit `None`, and dynamic definitions.
 - **01-arguments-positional-keyword-star.md**: Completed 13-section guide on call-by-sharing semantics, mutability impacts, `*args` tuple packing, `**kwargs` dict packing, and canonical signature order.

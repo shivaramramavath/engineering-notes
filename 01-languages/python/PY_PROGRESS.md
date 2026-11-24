@@ -86,13 +86,14 @@
 ---
 
 ## Batch 4: Strings & OOP Part 1 (In Progress)
-- [ ] `04-strings-and-text/00-string-methods.md`
-- [ ] `04-strings-and-text/01-formatting-f-strings.md`
-- [ ] `04-strings-and-text/02-unicode-and-encodings.md`
-- [ ] `04-strings-and-text/03-bytes-and-bytearray.md`
-- [ ] `04-strings-and-text/04-regular-expressions.md`
-- [ ] `04-strings-and-text/05-text-processing-patterns.md`
-- [ ] `04-strings-and-text/06-string-internals-and-interning.md`
+- [x] `04-strings-and-text/00-string-methods.md`
+- [x] `04-strings-and-text/01-formatting-f-strings.md`
+- [x] `04-strings-and-text/02-unicode-and-encodings.md`
+- [x] `04-strings-and-text/03-bytes-and-bytearray.md`
+- [x] `04-strings-and-text/04-regular-expressions.md`
+- [x] `04-strings-and-text/05-text-processing-patterns.md`
+- [x] `04-strings-and-text/06-string-internals-and-interning.md`
+- [x] `04-strings-and-text/README.md` (Module 04 100% Complete)
 - [ ] `05-oop/00-classes-and-objects.md`
 - [ ] `05-oop/01-init-new-and-instance-lifecycle.md`
 - [ ] `05-oop/02-instance-vs-class-attributes.md`
