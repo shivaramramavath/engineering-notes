@@ -4223,6 +4223,20 @@ E:.
 |               project-template.md
 |               
 +---04-devops
+|   |   CONTRIBUTING.md
+|   |   CONVENTIONS.md
+|   |   DEVOPS_AUDIT.md
+|   |   DEVOPS_CHANGELOG.md
+|   |   DEVOPS_COMPLETION_PLAN.md
+|   |   DEVOPS_DECISIONS.md
+|   |   DEVOPS_FACTS.md
+|   |   DEVOPS_FINAL_REPORT.md
+|   |   DEVOPS_PROGRESS.md
+|   |   GLOSSARY.md
+|   |   INDEX.md
+|   |   README.md
+|   |   ROADMAP.md
+|   |   
 |   +---aws
 |   |   |   README.md
 |   |   |   
@@ -4409,48 +4423,52 @@ E:.
 |   |           cheatsheet.md
 |   |           interview.md
 |   |           
-|   \---nginx
-|       |   README.md
-|       |   ROADMAP.md
-|       |   
-|       +---01-fundamentals
-|       |       config-structure.md
-|       |       installation.md
-|       |       server-and-location.md
-|       |       static-files.md
-|       |       
-|       +---02-core-features
-|       |       logging.md
-|       |       reverse-proxy.md
-|       |       tls-https.md
-|       |       variables-and-rewrites.md
-|       |       
-|       +---03-traffic-management
-|       |       caching.md
-|       |       load-balancing.md
-|       |       rate-limiting.md
-|       |       
-|       +---04-internals
-|       |       architecture.md
-|       |       request-lifecycle.md
-|       |       
-|       +---05-security-performance
-|       |       performance-tuning.md
-|       |       security-hardening.md
-|       |       
-|       +---06-production
-|       |       docker-kubernetes.md
-|       |       operations.md
-|       |       troubleshooting.md
-|       |       
-|       +---07-projects
-|       |       secure-gateway-stack.md
-|       |       spa-with-api-proxy.md
-|       |       
-|       \---08-reference
-|               cheatsheet.md
-|               interview-questions.md
-|               
+|   +---nginx
+|   |   |   README.md
+|   |   |   ROADMAP.md
+|   |   |   
+|   |   +---01-fundamentals
+|   |   |       config-structure.md
+|   |   |       installation.md
+|   |   |       server-and-location.md
+|   |   |       static-files.md
+|   |   |       
+|   |   +---02-core-features
+|   |   |       logging.md
+|   |   |       reverse-proxy.md
+|   |   |       tls-https.md
+|   |   |       variables-and-rewrites.md
+|   |   |       
+|   |   +---03-traffic-management
+|   |   |       caching.md
+|   |   |       load-balancing.md
+|   |   |       rate-limiting.md
+|   |   |       
+|   |   +---04-internals
+|   |   |       architecture.md
+|   |   |       request-lifecycle.md
+|   |   |       
+|   |   +---05-security-performance
+|   |   |       performance-tuning.md
+|   |   |       security-hardening.md
+|   |   |       
+|   |   +---06-production
+|   |   |       docker-kubernetes.md
+|   |   |       operations.md
+|   |   |       troubleshooting.md
+|   |   |       
+|   |   +---07-projects
+|   |   |       secure-gateway-stack.md
+|   |   |       spa-with-api-proxy.md
+|   |   |       
+|   |   \---08-reference
+|   |           cheatsheet.md
+|   |           interview-questions.md
+|   |           
+|   \---_templates
+|           concept-template.md
+|           project-template.md
+|           
 +---05-ai
 |   +---01-langchain-js
 |   |   |   README.md
