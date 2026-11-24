@@ -1,41 +1,27 @@
-# 01 — Fundamentals
+# Module 01: Core Fundamentals
 
-The building blocks every React app is made from: components, JSX, props, children, conditional rendering, lists, events, and basic forms. By the end of this chapter you can build a static-to-interactive UI out of small components, even before you've studied state in depth.
+## Syllabus & Topic Overview
 
-## What you'll be able to do after this chapter
+Module 01 explores the foundational principles that govern the React programming model. Moving beyond superficial syntax tutorials, this module examines how React transforms declarative JSX into virtual element trees, how reconciliation keys protect against state aliasing, synthetic event delegation, and the mathematical purity contract required for Concurrent Mode and the React Compiler.
 
-- Break a UI design into a component hierarchy
-- Write JSX correctly and know what it compiles to
-- Pass data down with props and pass behavior down with function props
-- Build reusable wrapper components with `children`
-- Show, hide, and swap UI conditionally without common pitfalls
-- Render lists with stable keys
-- Handle clicks, input, and form submission
-- Build a simple controlled form
+### Concept Notes Index
 
-## Reading order
+1. [00-thinking-in-react.md](file:///E:/Learning/engineering-notes/02-frontend/reactjs/01-fundamentals/00-thinking-in-react.md) - The mental model: decomposing mockups into component hierarchies, identifying minimal state representation, and inverse data flow.
+2. [01-jsx.md](file:///E:/Learning/engineering-notes/02-frontend/reactjs/01-fundamentals/01-jsx.md) - JavaScript XML syntax rules: single parent constraint, fragment syntax (`<>`), camelCase attributes, and embedding expressions.
+3. [02-components-and-props.md](file:///E:/Learning/engineering-notes/02-frontend/reactjs/01-fundamentals/02-components-and-props.md) - Functional components, read-only props, default parameters, destructuring, and unidirectional data flow.
+4. [03-children-and-composition.md](file:///E:/Learning/engineering-notes/02-frontend/reactjs/01-fundamentals/03-children-and-composition.md) - The `children` prop, container components, visual slots, and composition over inheritance.
+5. [04-conditional-rendering.md](file:///E:/Learning/engineering-notes/02-frontend/reactjs/01-fundamentals/04-conditional-rendering.md) - Ternary operators, short-circuit evaluation (`&&`), early returns, and the `0` falsy number rendering bug.
+6. [05-lists-and-keys.md](file:///E:/Learning/engineering-notes/02-frontend/reactjs/01-fundamentals/05-lists-and-keys.md) - Rendering collections with `map()`, why index keys cause state corruption, stable ID generation, and reconciliation diffing.
+7. [06-events.md](file:///E:/Learning/engineering-notes/02-frontend/reactjs/01-fundamentals/06-events.md) - Synthetic events, event delegation to root container (`#root`), synthetic event pooling removal, stopping propagation, and passive listeners.
+8. [07-forms-basics.md](file:///E:/Learning/engineering-notes/02-frontend/reactjs/01-fundamentals/07-forms-basics.md) - Controlled inputs with `value`/`onChange`, uncontrolled inputs with `useRef`, `defaultValue`, and native form reset behaviors.
+9. [08-jsx-transform-and-compilation.md](file:///E:/Learning/engineering-notes/02-frontend/reactjs/01-fundamentals/08-jsx-transform-and-compilation.md) - Deep dive into modern `react/jsx-runtime`, `_jsx` vs `_jsxs`, the `$$typeof` XSS security tag, and element objects.
+10. [09-component-purity-and-side-effects.md](file:///E:/Learning/engineering-notes/02-frontend/reactjs/01-fundamentals/09-component-purity-and-side-effects.md) - The $\text{UI} = f(\text{State}, \text{Props})$ formula, side effect isolation, local mutations, derived state, and React Compiler rules.
 
-| # | File | What it covers | Prerequisite |
-|---|------|----------------|--------------|
-| 00 | [00-thinking-in-react.md](./00-thinking-in-react.md) | UI as a function of state; the five-step design process | `../00-setup/` |
-| 01 | [01-jsx.md](./01-jsx.md) | JSX syntax rules, expressions, fragments | 00 |
-| 02 | [02-components-and-props.md](./02-components-and-props.md) | Function components, props, one-way data flow | 01 |
-| 03 | [03-children-and-composition.md](./03-children-and-composition.md) | `children`, containment, slots | 02 |
-| 04 | [04-conditional-rendering.md](./04-conditional-rendering.md) | `if`, ternary, `&&`, early return | 02 |
-| 05 | [05-lists-and-keys.md](./05-lists-and-keys.md) | `map`, keys, filtering and sorting | 02 |
-| 06 | [06-events.md](./06-events.md) | Event handlers, event objects, propagation | 02 |
-| 07 | [07-forms-basics.md](./07-forms-basics.md) | Controlled inputs, submit handling | 06 |
+---
 
-`07` uses `useState` briefly. If it's unfamiliar, read the first section of [`../02-state-and-rendering/00-state-and-snapshots.md`](../02-state-and-rendering/00-state-and-snapshots.md) alongside it, or continue to the next chapter and return.
+## Learning Outcomes & Core Takeaways
 
-## Exercises
-
-1. **Profile card** — build a `ProfileCard` component with `name`, `role`, and an optional `avatarUrl` prop (fall back to initials).
-2. **Layout wrapper** — create a `Card` component that wraps arbitrary `children` and accepts a `title` prop.
-3. **Product list** — render an array of products with keys, show "No products" when empty, and mark out-of-stock items.
-4. **Like button** — handle clicks and update a displayed count.
-5. **Signup form** — a controlled form with name, email, and a terms checkbox; log the values on submit.
-
-## Next
-
-**[`../02-state-and-rendering/README.md`](../02-state-and-rendering/README.md)** explains how React tracks changing data and decides when to re-render.
+- **JSX De-mystified**: Understand what JSX actually outputs (`_jsx` element trees) and how the internal `$$typeof` Symbol prevents cross-site scripting (XSS) via injected JSON.
+- **Component Purity**: Write deterministic components with zero render side-effects, unlocking automatic memoization in the React Compiler.
+- **Reconciliation Keys**: Avoid state-aliasing bugs by always providing unique, stable string/numeric keys rather than array indices.
+- **Modern Event Architecture**: Leverage React's root-container synthetic event delegation system without legacy event pooling traps.
