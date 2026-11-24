@@ -2285,6 +2285,366 @@ E:.
 |               project-template.md
 |               
 +---03-backend
+|   +---fastapi
+|   |   |   CONTRIBUTING.md
+|   |   |   FASTAPI_AUDIT.md
+|   |   |   FASTAPI_CHANGELOG.md
+|   |   |   FASTAPI_COMPLETION_PLAN.md
+|   |   |   FASTAPI_CONVENTIONS.md
+|   |   |   FASTAPI_DECISIONS.md
+|   |   |   FASTAPI_FACTS.md
+|   |   |   FASTAPI_FINAL_REPORT.md
+|   |   |   FASTAPI_PROGRESS.md
+|   |   |   GLOSSARY.md
+|   |   |   INDEX.md
+|   |   |   LICENSE
+|   |   |   README.md
+|   |   |   ROADMAP.md
+|   |   |   
+|   |   +---00-setup
+|   |   |       01-what-is-fastapi-and-asgi.md
+|   |   |       02-python-environment-and-versions.md
+|   |   |       03-project-setup-with-uv.md
+|   |   |       04-fastapi-cli-and-dev-server.md
+|   |   |       05-first-api-and-virtual-env.md
+|   |   |       06-auto-docs-swagger-redoc.md
+|   |   |       07-editor-setup-and-type-checking.md
+|   |   |       08-fastapi-versions-and-upgrade-guide.md
+|   |   |       09-common-setup-pitfalls.md
+|   |   |       README.md
+|   |   |       
+|   |   +---01-fundamentals
+|   |   |       01-path-operations-and-routing.md
+|   |   |       02-path-and-query-parameters.md
+|   |   |       03-request-body-and-pydantic-models.md
+|   |   |       04-status-codes-and-http-semantics.md
+|   |   |       05-response-model-and-data-filtering.md
+|   |   |       06-form-data-and-file-uploads.md
+|   |   |       07-request-validation-and-422-errors.md
+|   |   |       08-async-vs-sync-endpoints.md
+|   |   |       09-handling-errors-and-httpexception.md
+|   |   |       10-path-operation-configuration-and-metadata.md
+|   |   |       11-extra-data-types-uuid-datetime-decimal.md
+|   |   |       12-request-object-direct-access.md
+|   |   |       README.md
+|   |   |       
+|   |   +---02-pydantic-v2
+|   |   |       01-models-and-fields.md
+|   |   |       02-data-types-and-coercion.md
+|   |   |       03-validators-and-model-validators.md
+|   |   |       04-serialization-and-model-dump.md
+|   |   |       05-nested-models-and-complex-schemas.md
+|   |   |       06-computed-fields-and-properties.md
+|   |   |       07-model-config-and-configdict.md
+|   |   |       08-generic-models.md
+|   |   |       09-discriminated-unions.md
+|   |   |       10-custom-data-types-and-annotated.md
+|   |   |       11-pydantic-settings-and-env-config.md
+|   |   |       12-typeadapter-and-root-models.md
+|   |   |       13-json-schema-and-customization.md
+|   |   |       14-performance-and-pydantic-core.md
+|   |   |       15-common-pitfalls-and-v1-migration.md
+|   |   |       README.md
+|   |   |       
+|   |   +---03-dependency-injection
+|   |   |       01-depends-basics.md
+|   |   |       02-dependency-caching-and-use_cache.md
+|   |   |       03-sub-dependencies-and-trees.md
+|   |   |       04-class-based-dependencies.md
+|   |   |       05-dependencies-with-yield.md
+|   |   |       06-dependencies-in-path-decorators.md
+|   |   |       07-global-dependencies.md
+|   |   |       08-security-dependencies-oauth2-bearer.md
+|   |   |       09-dependency-overrides-in-tests.md
+|   |   |       10-advanced-dependency-patterns.md
+|   |   |       11-common-dependency-mistakes.md
+|   |   |       README.md
+|   |   |       
+|   |   +---04-routing-and-structure
+|   |   |       01-apirouter-basics.md
+|   |   |       02-nested-routers-and-prefixing.md
+|   |   |       03-router-dependencies.md
+|   |   |       04-router-tags-metadata-and-responses.md
+|   |   |       05-project-structure-patterns.md
+|   |   |       06-circular-imports-and-resolution.md
+|   |   |       07-versioning-strategies.md
+|   |   |       08-sub-applications-and-mounting.md
+|   |   |       09-path-operation-callbacks.md
+|   |   |       10-common-routing-mistakes.md
+|   |   |       README.md
+|   |   |       
+|   |   +---05-middleware-and-requests
+|   |   |       01-middleware-concept-and-order.md
+|   |   |       02-cors-middleware.md
+|   |   |       03-custom-base-http-middleware.md
+|   |   |       04-pure-asgi-middleware.md
+|   |   |       05-trusted-host-and-https-redirect.md
+|   |   |       06-gzip-and-brotli-compression.md
+|   |   |       07-session-middleware.md
+|   |   |       08-request-state-and-contextvars.md
+|   |   |       09-streaming-responses.md
+|   |   |       10-server-sent-events-sse.md
+|   |   |       11-websockets.md
+|   |   |       12-file-responses-and-static-files.md
+|   |   |       13-proxy-headers-and-forwarded.md
+|   |   |       14-common-middleware-mistakes.md
+|   |   |       README.md
+|   |   |       
+|   |   +---06-databases
+|   |   |       01-database-landscape-sql-vs-nosql.md
+|   |   |       02-sqlalchemy-2-async-setup.md
+|   |   |       03-async-session-management.md
+|   |   |       04-declarative-models-and-mapped-columns.md
+|   |   |       05-relationships-and-lazy-loading.md
+|   |   |       06-crud-operations-async.md
+|   |   |       07-alembic-migrations-setup.md
+|   |   |       08-alembic-autogenerate-and-workflow.md
+|   |   |       09-connection-pooling-and-engine-config.md
+|   |   |       10-transactions-and-savepoints.md
+|   |   |       11-sqlmodel-unified-models.md
+|   |   |       12-tortoise-orm-async.md
+|   |   |       13-mongodb-with-motor-and-beanie.md
+|   |   |       14-redis-caching-and-sessions.md
+|   |   |       15-repository-pattern.md
+|   |   |       16-unit-of-work-pattern.md
+|   |   |       17-database-testing-with-sqlite-and-testcontainers.md
+|   |   |       18-database-performance-and-n-plus-one.md
+|   |   |       19-common-database-mistakes.md
+|   |   |       README.md
+|   |   |       
+|   |   +---07-authentication-and-security
+|   |   |       01-auth-strategies-jwt-session-oauth-apikey.md
+|   |   |       02-password-hashing-bcrypt-argon2.md
+|   |   |       03-jwt-tokens-access-and-refresh.md
+|   |   |       04-oauth2-with-password-flow.md
+|   |   |       05-oauth2-with-third-party-google-github.md
+|   |   |       06-role-based-access-control-rbac.md
+|   |   |       07-permission-based-access-control.md
+|   |   |       08-scopes-in-fastapi-security.md
+|   |   |       09-api-key-authentication.md
+|   |   |       10-http-basic-and-digest-auth.md
+|   |   |       11-token-revocation-and-blacklisting.md
+|   |   |       12-rate-limiting-strategies.md
+|   |   |       13-csrf-protection.md
+|   |   |       14-content-security-policy-and-security-headers.md
+|   |   |       15-sql-injection-and-nosql-injection.md
+|   |   |       16-data-sanitization-and-xss-prevention.md
+|   |   |       17-secrets-management-and-env-security.md
+|   |   |       18-audit-logging-for-security.md
+|   |   |       19-owasp-top-10-for-fastapi.md
+|   |   |       20-common-auth-and-security-mistakes.md
+|   |   |       README.md
+|   |   |       
+|   |   +---08-api-design
+|   |   |       01-rest-principles-and-fastapi.md
+|   |   |       02-resource-naming-and-uri-design.md
+|   |   |       03-http-verbs-and-idempotency.md
+|   |   |       04-status-codes-and-semantics.md
+|   |   |       05-request-response-lifecycle.md
+|   |   |       06-versioning-strategies.md
+|   |   |       07-pagination-offset-cursor-keyset.md
+|   |   |       08-filtering-sorting-searching.md
+|   |   |       09-hashing-etag-and-conditional-requests.md
+|   |   |       10-error-handling-and-rfc-7807.md
+|   |   |       11-openapi-and-json-schema-customization.md
+|   |   |       12-documentation-swagger-redoc-scalar.md
+|   |   |       13-hubs-webhooks-and-callbacks.md
+|   |   |       14-graphql-with-strawberry.md
+|   |   |       15-common-api-design-mistakes.md
+|   |   |       README.md
+|   |   |       
+|   |   +---09-async-and-concurrency
+|   |   |       01-python-async-internals-event-loop-coroutine-task.md
+|   |   |       02-fastapi-concurrency-model-async-vs-sync-def.md
+|   |   |       03-blocking-io-and-threadpool-offloading.md
+|   |   |       04-async-context-managers-and-generators.md
+|   |   |       05-task-groups-and-structured-concurrency.md
+|   |   |       06-background-tasks-built-in.md
+|   |   |       07-cpu-bound-workloads-processpool.md
+|   |   |       08-concurrency-hazards-race-conditions-deadlocks.md
+|   |   |       09-async-profiling-and-event-loop-lag.md
+|   |   |       10-common-async-mistakes.md
+|   |   |       README.md
+|   |   |       
+|   |   +---10-background-and-messaging
+|   |   |       01-background-tasks-vs-task-queues.md
+|   |   |       02-celery-with-fastapi.md
+|   |   |       03-arq-dramatiq-and-taskiq.md
+|   |   |       04-rq-and-lightweight-options.md
+|   |   |       05-retries-dead-letters-idempotency.md
+|   |   |       06-scheduled-jobs-with-apscheduler.md
+|   |   |       07-kafka-with-python-clients.md
+|   |   |       08-rabbitmq-with-aio-pika.md
+|   |   |       09-redis-streams-and-pubsub.md
+|   |   |       10-outbox-and-saga-patterns.md
+|   |   |       11-websockets-at-scale-with-redis.md
+|   |   |       12-server-sent-events-at-scale.md
+|   |   |       13-event-driven-design.md
+|   |   |       14-job-observability.md
+|   |   |       README.md
+|   |   |       
+|   |   +---11-testing
+|   |   |       01-testing-fundamentals-for-apis.md
+|   |   |       02-testclient-vs-httpx-asyncclient.md
+|   |   |       03-pytest-fixtures-for-fastapi.md
+|   |   |       04-dependency-overrides.md
+|   |   |       05-testing-databases-with-transactions.md
+|   |   |       06-testing-auth-and-permissions.md
+|   |   |       07-testing-websockets-and-sse.md
+|   |   |       08-testing-background-tasks-and-queues.md
+|   |   |       09-mocking-external-apis-with-respx.md
+|   |   |       10-contract-testing-with-schemathesis.md
+|   |   |       11-property-based-testing-with-hypothesis.md
+|   |   |       12-coverage-and-mutation-testing.md
+|   |   |       13-load-testing-with-locust-and-k6.md
+|   |   |       14-testing-lifespan-and-startup.md
+|   |   |       15-flaky-tests-and-isolation.md
+|   |   |       README.md
+|   |   |       
+|   |   +---12-architecture-and-patterns
+|   |   |       01-layered-architecture-for-fastapi.md
+|   |   |       02-service-layer-and-repository.md
+|   |   |       03-hexagonal-and-clean-architecture.md
+|   |   |       04-domain-driven-design-with-python.md
+|   |   |       05-cqrs-and-event-sourcing.md
+|   |   |       06-modular-monolith-vs-microservices.md
+|   |   |       07-dependency-inversion-and-protocols.md
+|   |   |       08-dto-vs-entity-vs-domain-models.md
+|   |   |       09-design-patterns-in-fastapi.md
+|   |   |       10-error-handling-architecture.md
+|   |   |       11-feature-flags.md
+|   |   |       12-multi-tenancy-architecture.md
+|   |   |       13-real-world-patterns.md
+|   |   |       14-clean-code-and-code-review-checklist.md
+|   |   |       README.md
+|   |   |       
+|   |   +---13-observability-and-operations
+|   |   |       01-structured-logging-with-structlog-and-loguru.md
+|   |   |       02-request-logging-and-correlation-ids.md
+|   |   |       03-opentelemetry-tracing-metrics-logs.md
+|   |   |       04-prometheus-and-grafana.md
+|   |   |       05-health-checks-and-readiness.md
+|   |   |       06-error-tracking-and-alerting.md
+|   |   |       07-profiling-and-debugging-in-production.md
+|   |   |       08-memory-leak-diagnosis.md
+|   |   |       09-slos-and-alerting.md
+|   |   |       README.md
+|   |   |       
+|   |   +---14-performance
+|   |   |       01-uvicorn-gunicorn-workers-and-tuning.md
+|   |   |       02-event-loop-health-and-uvloop.md
+|   |   |       03-orjson-and-fast-serialisation.md
+|   |   |       04-pydantic-performance-patterns.md
+|   |   |       05-database-performance.md
+|   |   |       06-caching-strategies.md
+|   |   |       07-connection-pool-tuning.md
+|   |   |       08-streaming-and-memory-efficiency.md
+|   |   |       09-free-threaded-python-and-fastapi.md
+|   |   |       10-load-testing-and-benchmarking-correctly.md
+|   |   |       11-common-performance-pitfalls.md
+|   |   |       README.md
+|   |   |       
+|   |   +---15-production-and-deployment
+|   |   |       01-production-configuration.md
+|   |   |       02-running-with-uvicorn-gunicorn-and-process-managers.md
+|   |   |       03-docker-multi-stage-builds-with-uv.md
+|   |   |       04-nginx-and-reverse-proxy-settings.md
+|   |   |       05-kubernetes-deployment-and-probes.md
+|   |   |       06-ci-cd-with-github-actions.md
+|   |   |       07-aws-deployment.md
+|   |   |       08-serverless-considerations.md
+|   |   |       09-zero-downtime-deploys-and-migrations.md
+|   |   |       10-secrets-and-config-in-production.md
+|   |   |       11-graceful-shutdown.md
+|   |   |       12-twelve-factor-with-fastapi.md
+|   |   |       13-incident-runbooks.md
+|   |   |       README.md
+|   |   |       
+|   |   +---16-ai-and-ml-serving
+|   |   |       01-serving-ml-models-with-fastapi.md
+|   |   |       02-loading-models-at-startup-with-lifespan.md
+|   |   |       03-batching-and-concurrency-for-inference.md
+|   |   |       04-streaming-llm-responses-sse.md
+|   |   |       05-openai-anthropic-and-langchain-integration.md
+|   |   |       06-rag-api-with-pgvector.md
+|   |   |       07-vector-databases-integration.md
+|   |   |       08-background-inference-jobs.md
+|   |   |       09-guardrails-cost-and-rate-control.md
+|   |   |       10-model-versioning-and-deployment.md
+|   |   |       README.md
+|   |   |       
+|   |   +---17-projects
+|   |   |       01-todo-api-with-postgres.md
+|   |   |       02-blog-api.md
+|   |   |       03-auth-service.md
+|   |   |       04-url-shortener-with-redis.md
+|   |   |       05-file-upload-service.md
+|   |   |       06-notification-service.md
+|   |   |       07-realtime-chat-with-websockets.md
+|   |   |       08-ecommerce-backend.md
+|   |   |       09-multi-tenant-saas-api.md
+|   |   |       10-task-manager-with-rbac.md
+|   |   |       11-graphql-api-with-strawberry.md
+|   |   |       12-microservices-system.md
+|   |   |       13-rag-api-with-pgvector.md
+|   |   |       14-ml-model-serving-api.md
+|   |   |       15-booking-system-with-concurrency-control.md
+|   |   |       16-webhook-dispatcher-and-receiver.md
+|   |   |       README.md
+|   |   |       
+|   |   +---18-system-design
+|   |   |       01-url-shortener-architecture.md
+|   |   |       02-real-time-notification-system.md
+|   |   |       03-rate-limiter-service.md
+|   |   |       04-ecommerce-checkout-and-inventory.md
+|   |   |       05-file-storage-and-cdn-service.md
+|   |   |       06-chat-and-messaging-platform.md
+|   |   |       07-streaming-and-video-transcoding.md
+|   |   |       08-payment-gateway-integration.md
+|   |   |       09-multi-tenant-saas-platform.md
+|   |   |       10-distributed-task-queue.md
+|   |   |       11-search-and-recommendation-engine.md
+|   |   |       12-analytics-and-event-ingestion.md
+|   |   |       13-rag-and-vector-search-service.md
+|   |   |       14-iot-telemetry-ingestion-pipeline.md
+|   |   |       README.md
+|   |   |       
+|   |   +---19-interview
+|   |   |       01-fastapi-core-internals.md
+|   |   |       02-pydantic-v2-deep-dive.md
+|   |   |       03-dependency-injection-mastery.md
+|   |   |       04-async-concurrency-and-event-loop.md
+|   |   |       05-sqlalchemy-2-and-database-concurrency.md
+|   |   |       06-authentication-and-security.md
+|   |   |       07-api-design-and-openapi.md
+|   |   |       08-testing-strategies-and-mocking.md
+|   |   |       09-performance-optimization-and-profiling.md
+|   |   |       10-production-deployment-and-observability.md
+|   |   |       11-system-design-scenarios.md
+|   |   |       12-coding-challenges-and-live-coding.md
+|   |   |       README.md
+|   |   |       
+|   |   +---20-cheatsheets
+|   |   |       01-cli-and-uvicorn.md
+|   |   |       02-routing-and-parameters.md
+|   |   |       03-pydantic-v2-syntax.md
+|   |   |       04-dependency-injection.md
+|   |   |       05-response-types-and-status-codes.md
+|   |   |       06-sqlalchemy-2-async-crud.md
+|   |   |       07-security-and-jwt.md
+|   |   |       08-middleware-and-cors.md
+|   |   |       09-background-tasks-and-arq.md
+|   |   |       10-testing-recipes.md
+|   |   |       11-docker-and-compose.md
+|   |   |       12-alembic-migrations.md
+|   |   |       13-error-handling-and-exceptions.md
+|   |   |       14-common-patterns-and-anti-patterns.md
+|   |   |       README.md
+|   |   |       
+|   |   \---_templates
+|   |           concept-template.md
+|   |           project-template.md
+|   |           
 |   +---nestjs
 |   |   |   CONTRIBUTING.md
 |   |   |   GLOSSARY.md
@@ -2295,6 +2655,7 @@ E:.
 |   |   |   NEST_COMPLETION_PLAN.md
 |   |   |   NEST_DECISIONS.md
 |   |   |   NEST_FACTS.md
+|   |   |   NEST_FINAL_REPORT.md
 |   |   |   NEST_PROGRESS.md
 |   |   |   README.md
 |   |   |   ROADMAP.md
