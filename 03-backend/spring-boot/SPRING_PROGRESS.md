@@ -2,9 +2,9 @@
 
 ## Global Status Overview
 
-- **Overall Track Status**: In Progress (Module 00 Complete, Executing Module 01)
+- **Overall Track Status**: In Progress (Modules 00 & 01 Complete, Executing Module 02)
 - **Total Planned Notes**: 283
-- **Total Completed Notes**: 8
+- **Total Completed Notes**: 27
 - **Total Modules**: 21 (00-setup through 20-cheatsheets)
 
 ---
@@ -14,8 +14,8 @@
 | # | Module Name | Planned Notes | Completed Notes | Status |
 |:---|:---|:---:|:---:|:---:|
 | **00** | [00-setup/](file:///03-backend/spring-boot/00-setup/) | 8 | 8 | Complete |
-| **01** | [01-core-spring/](file:///03-backend/spring-boot/01-core-spring/) | 19 | 0 | In Progress |
-| **02** | [02-boot-fundamentals/](file:///03-backend/spring-boot/02-boot-fundamentals/) | 14 | 0 | Pending |
+| **01** | [01-core-spring/](file:///03-backend/spring-boot/01-core-spring/) | 19 | 19 | Complete |
+| **02** | [02-boot-fundamentals/](file:///03-backend/spring-boot/02-boot-fundamentals/) | 14 | 0 | In Progress |
 | **03** | [03-web-mvc/](file:///03-backend/spring-boot/03-web-mvc/) | 18 | 0 | Pending |
 | **04** | [04-http-clients/](file:///03-backend/spring-boot/04-http-clients/) | 7 | 0 | Pending |
 | **05** | [05-reactive-webflux/](file:///03-backend/spring-boot/05-reactive-webflux/) | 11 | 0 | Pending |
