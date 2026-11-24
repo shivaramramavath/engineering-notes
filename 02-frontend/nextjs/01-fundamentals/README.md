@@ -1,25 +1,30 @@
-# 01 · Fundamentals
+# Module 01: Next.js Fundamentals (`01-fundamentals`)
 
-The mental model for everything that follows: what Next.js is, how the App Router maps folders to URLs, what each special file does, and how pages and layouts compose. Spend time here. Almost every later "why does it behave like this?" question traces back to these notes.
+> Architectural foundations of the Next.js framework, App Router design principles, build output anatomy, route tables, and Pages-to-App Router migration.
 
-> Written for Next.js 16 with the App Router. The legacy Pages Router is covered in the last note, for reading older code and migrating.
+---
 
-## Reading order
+## 1. Module Overview & Learning Objectives
 
-| # | Note | You will learn |
-|---|---|---|
-| 00 | [Overview](./00-overview.md) | What Next.js adds to React, the big ideas, how a request flows |
-| 01 | [App Router](./01-app-router.md) | The `app/` directory model, Server Components by default, your first routes |
-| 02 | [Project Structure](./02-project-structure.md) | Top-level files and folders, every special file, colocation and organization |
-| 03 | [Pages and Layouts](./03-pages-and-layouts.md) | `page.tsx`, `layout.tsx`, nesting, root layout, `template.tsx` |
-| 04 | [Pages Router](./04-pages-router.md) | The legacy `pages/` model, how it differs, and migrating to the App Router |
+This module explores the core mechanics governing Next.js execution. You will understand how the App Router processes incoming HTTP requests, how React Server Components (RSC) serialize UI across the wire, how to decode production route tables (`○`, `ƒ`, `◐`), and how to migrate legacy Pages Router codebases to modern idiomatic architectures.
 
-## Use it as a reference
+---
 
-- "Which file do I create for X?" → [Project Structure](./02-project-structure.md)
-- "Why did my layout not re-render?" → [Pages and Layouts](./03-pages-and-layouts.md)
-- "This tutorial uses `getServerSideProps`" → [Pages Router](./04-pages-router.md)
+## 2. Directory Contents
 
-## Next
+| Note | Focus Area | Complexity | Key Concepts Covered |
+| :--- | :--- | :---: | :--- |
+| **[00-overview.md](file:///E:/Learning/engineering-notes/02-frontend/nextjs/01-fundamentals/00-overview.md)** | Core Philosophy | Beginner | Server-centric architecture, hybrid rendering, full-stack primitives |
+| **[01-app-router.md](file:///E:/Learning/engineering-notes/02-frontend/nextjs/01-fundamentals/01-app-router.md)** | App Directory | Beginner | The `app/` folder, shared layouts, templates, error boundaries |
+| **[02-project-structure.md](file:///E:/Learning/engineering-notes/02-frontend/nextjs/01-fundamentals/02-project-structure.md)** | Code Organization | Intermediate | Colocation, private folders `_components`, route groups `(marketing)` |
+| **[03-pages-and-layouts.md](file:///E:/Learning/engineering-notes/02-frontend/nextjs/01-fundamentals/03-pages-and-layouts.md)** | Layout Hierarchy | Intermediate | Nested layout nesting, state persistence across navigation, template resets |
+| **[04-pages-router.md](file:///E:/Learning/engineering-notes/02-frontend/nextjs/01-fundamentals/04-pages-router.md)** | Legacy Comparison | Intermediate | `pages/` directory, `getServerSideProps`, `getStaticProps`, legacy data fetching |
+| **[05-build-output-anatomy-and-route-table.md](file:///E:/Learning/engineering-notes/02-frontend/nextjs/01-fundamentals/05-build-output-anatomy-and-route-table.md)** | Build Artifacts | Advanced | Route symbols (`○`, `ƒ`, `◐` PPR), `.next/standalone/`, chunk manifests |
 
-[02 · Routing](../02-routing/README.md): dynamic routes, groups, parallel and intercepting routes, navigation.
+---
+
+## 3. Recommended Learning Path
+1. Review **00-overview** and **01-app-router** to build a solid mental model of Server-First UI rendering.
+2. Master **02-project-structure** and **03-pages-and-layouts** to design clean nested application shells.
+3. Study **05-build-output-anatomy-and-route-table** to understand production compilation artifacts and Partial Prerendering.
+4. Next module: [Module 02: Routing](file:///E:/Learning/engineering-notes/02-frontend/nextjs/02-routing/README.md).
