@@ -4,7 +4,7 @@
 
 | Overall Status | Current Batch | Completed Batches | Total Planned Batches |
 | :---: | :---: | :---: | :---: |
-| **IN PROGRESS** | **Batch 1** | 1 | 18 |
+| **IN PROGRESS** | **Batch 6** | 5 | 18 |
 
 ---
 
@@ -85,7 +85,7 @@
 
 ---
 
-## Batch 4: Strings & OOP Part 1 (In Progress)
+## Batch 4: Strings & OOP Part 1 (COMPLETED)
 - [x] `04-strings-and-text/00-string-methods.md`
 - [x] `04-strings-and-text/01-formatting-f-strings.md`
 - [x] `04-strings-and-text/02-unicode-and-encodings.md`
@@ -94,35 +94,37 @@
 - [x] `04-strings-and-text/05-text-processing-patterns.md`
 - [x] `04-strings-and-text/06-string-internals-and-interning.md`
 - [x] `04-strings-and-text/README.md` (Module 04 100% Complete)
-- [ ] `05-oop/00-classes-and-objects.md`
-- [ ] `05-oop/01-init-new-and-instance-lifecycle.md`
-- [ ] `05-oop/02-instance-vs-class-attributes.md`
-- [ ] `05-oop/03-methods-classmethod-staticmethod.md`
-- [ ] `05-oop/04-properties.md`
-- [ ] `05-oop/05-inheritance-and-mro.md`
-- [ ] `05-oop/06-super.md`
-- [ ] `05-oop/07-polymorphism-and-duck-typing.md`
+- [x] `05-oop/00-classes-and-objects.md`
+- [x] `05-oop/01-init-new-and-instance-lifecycle.md`
+- [x] `05-oop/02-instance-vs-class-attributes.md`
+- [x] `05-oop/03-methods-classmethod-staticmethod.md`
+- [x] `05-oop/04-properties.md`
+- [x] `05-oop/05-inheritance-and-mro.md`
+- [x] `05-oop/06-super.md`
+- [x] `05-oop/07-polymorphism-and-duck-typing.md`
 
 ---
 
-## Batch 5: OOP Part 2 & Modules (Pending)
-- [ ] `05-oop/08-abstract-base-classes-and-protocols.md`
-- [ ] `05-oop/09-dunder-methods-and-data-model.md`
-- [ ] `05-oop/10-operator-overloading.md`
-- [ ] `05-oop/11-dataclasses.md`
-- [ ] `05-oop/12-enums.md`
-- [ ] `05-oop/13-slots.md`
-- [ ] `05-oop/14-composition-vs-inheritance.md`
-- [ ] `05-oop/15-mixins.md`
-- [ ] `05-oop/16-weak-references-and-lifetime.md`
-- [ ] `06-modules-and-packages/00-modules-and-import-system.md`
-- [ ] `06-modules-and-packages/01-packages-and-init-py.md`
-- [ ] `06-modules-and-packages/02-relative-vs-absolute-imports.md`
-- [ ] `06-modules-and-packages/03-circular-imports.md`
-- [ ] `06-modules-and-packages/04-project-layout-src-vs-flat.md`
-- [ ] `06-modules-and-packages/05-main-and-entry-points.md`
-- [ ] `06-modules-and-packages/06-namespace-packages.md`
-- [ ] `06-modules-and-packages/07-importlib-and-hooks.md`
+## Batch 5: OOP Part 2 & Modules (COMPLETED)
+- [x] `05-oop/08-abstract-base-classes-and-protocols.md`
+- [x] `05-oop/09-dunder-methods-overview.md`
+- [x] `05-oop/10-operator-overloading.md`
+- [x] `05-oop/11-dataclasses.md`
+- [x] `05-oop/12-enums.md`
+- [x] `05-oop/13-slots.md`
+- [x] `05-oop/14-composition-vs-inheritance.md`
+- [x] `05-oop/15-mixins.md`
+- [x] `05-oop/16-weak-references.md`
+- [x] `05-oop/README.md` (Module 05 100% Complete)
+- [x] `06-modules-and-packages/00-import-system-and-sys-modules.md`
+- [x] `06-modules-and-packages/01-packages-and-init.md`
+- [x] `06-modules-and-packages/02-relative-vs-absolute-imports.md`
+- [x] `06-modules-and-packages/03-namespace-packages-pep-420.md`
+- [x] `06-modules-and-packages/04-main-py-entry-point.md`
+- [x] `06-modules-and-packages/05-circular-imports.md`
+- [x] `06-modules-and-packages/06-dynamic-imports-importlib.md`
+- [x] `06-modules-and-packages/07-package-resources-importlib-resources.md`
+- [x] `06-modules-and-packages/README.md` (Module 06 100% Complete)
 
 ---
 

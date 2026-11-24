@@ -4,6 +4,41 @@
 
 ---
 
+## [Module 06] - 2026-11-24 - Modules and Packages
+- **00-import-system-and-sys-modules.md**: Completed 13-section guide on import lifecycle, `sys.modules`, `sys.path`, `sys.meta_path`, finders, and `ModuleSpec`.
+- **01-packages-and-init.md**: Completed 13-section guide on regular packages, `__init__.py`, `__all__`, `__path__`, and module-level `__getattr__` (PEP 562).
+- **02-relative-vs-absolute-imports.md**: Completed 13-section guide on explicit relative dot notation, `__package__`, and running via `python -m`.
+- **03-namespace-packages-pep-420.md**: Completed 13-section guide on PEP 420 implicit namespace packages, `_NamespacePath`, and multi-directory distribution.
+- **04-main-py-entry-point.md**: Completed 13-section guide on direct package execution via `__main__.py`, CLI entry points, and zipapps (PEP 441).
+- **05-circular-imports.md**: Completed 13-section guide on cyclic dependencies, partially initialized modules, deferred imports, and `typing.TYPE_CHECKING`.
+- **06-dynamic-imports-importlib.md**: Completed 13-section guide on programmatic loading with `importlib.import_module`, `spec_from_file_location`, and plugin patterns.
+- **07-package-resources-importlib-resources.md**: Completed 13-section guide on modern non-code resource access with `importlib.resources.files()`, `Traversable`, and `as_file()`.
+- **06-modules-and-packages/README.md**: Updated syllabus table and module outcomes.
+
+---
+
+## [Module 05] - 2026-11-24 - Object-Oriented Programming (OOP)
+- **00-classes-and-objects.md**: Completed 13-section guide on classes, objects, namespaces, type instantiation, and the Python object model.
+- **01-init-new-and-instance-lifecycle.md**: Completed 13-section guide on `__new__` vs `__init__`, immutable subclassing, and singleton pattern mechanics.
+- **02-instance-vs-class-attributes.md**: Completed 13-section guide on instance dictionary vs class mapping proxy, attribute shadowing, and CPython split tables.
+- **03-methods-classmethod-staticmethod.md**: Completed 13-section guide on method descriptor binding, `@classmethod` alternative constructors, and `@staticmethod`.
+- **04-properties.md**: Completed 13-section guide on data descriptors, `@property`, setters, deleters, and lazy `@cached_property`.
+- **05-inheritance-and-mro.md**: Completed 13-section guide on single/multiple inheritance, diamond problem, and the C3 Linearization algorithm.
+- **06-super.md**: Completed 13-section guide on the `super()` built-in, compiler `__class__` cell, and cooperative multiple inheritance.
+- **07-polymorphism-and-duck-typing.md**: Completed 13-section guide on duck typing, dynamic dispatch, EAFP vs LBYL, and structural polymorphism.
+- **08-abstract-base-classes-and-protocols.md**: Completed 13-section guide on nominal subtyping (`abc.ABC`) vs structural subtyping (`typing.Protocol`).
+- **09-dunder-methods-overview.md**: Completed 13-section guide on Python Data Model dunders (`__repr__`, `__str__`, `__len__`, `__getitem__`, `__enter__`).
+- **10-operator-overloading.md**: Completed 13-section guide on arithmetic dunders, reflected dunders (`__radd__`), in-place mutation, and `NotImplemented`.
+- **11-dataclasses.md**: Completed 13-section guide on PEP 557 `@dataclass`, `slots=True`, `kw_only=True`, `frozen=True`, and `__post_init__`.
+- **12-enums.md**: Completed 13-section guide on `enum.Enum`, `IntEnum`, modern `StrEnum`, `Flag`, and bitwise flags.
+- **13-slots.md**: Completed 13-section guide on `__slots__` memory optimization, eliminating `__dict__`, and inheritance layout rules.
+- **14-composition-vs-inheritance.md**: Completed 13-section guide on "Favor composition over inheritance", delegation patterns, and `__getattr__` forwarding.
+- **15-mixins.md**: Completed 13-section guide on mixin architecture, cooperative MRO chains, slotted mixins, and ordering rules.
+- **16-weak-references.md**: Completed 13-section guide on `weakref` module, `WeakValueDictionary`, breaking reference cycles, and `weakref.finalize`.
+- **05-oop/README.md**: Updated syllabus table and module outcomes.
+
+---
+
 ## [Module 04] - 2026-11-24 - Strings & Text Processing
 - **00-string-methods.md**: Completed 13-section guide on search, casing, partition vs split, PEP 616 `removeprefix`/`removesuffix`, $O(n)$ `join()`, and Unicode `casefold()`.
 - **01-formatting-f-strings.md**: Completed 13-section guide on format specifier mini-language, alignment, digit grouping, `{expr=}`, and PEP 701 syntax.
