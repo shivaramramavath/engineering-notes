@@ -2,9 +2,9 @@
 
 ## Global Status Overview
 
-- **Overall Track Status**: In Progress (Modules 00 through 16 Complete, Executing Module 17)
+- **Overall Track Status**: In Progress (Modules 00 through 17 Complete, Executing Module 18)
 - **Total Planned Notes**: 283
-- **Total Completed Notes**: 232
+- **Total Completed Notes**: 248
 - **Total Modules**: 21 (00-setup through 20-cheatsheets)
 
 ---
@@ -30,8 +30,8 @@
 | **14** | [14-production-and-deployment/](file:///03-backend/spring-boot/14-production-and-deployment/) | 12 | 12 | Complete |
 | **15** | [15-architecture-and-patterns/](file:///03-backend/spring-boot/15-architecture-and-patterns/) | 14 | 14 | Complete |
 | **16** | [16-ai/](file:///03-backend/spring-boot/16-ai/) | 6 | 6 | Complete |
-| **17** | [17-projects/](file:///03-backend/spring-boot/17-projects/) | 16 | 0 | Pending |
+| **17** | [17-projects/](file:///03-backend/spring-boot/17-projects/) | 16 | 16 | Complete |
 | **18** | [18-system-design/](file:///03-backend/spring-boot/18-system-design/) | 15 | 0 | Pending |
 | **19** | [19-interview/](file:///03-backend/spring-boot/19-interview/) | 13 | 0 | Pending |
 | **20** | [20-cheatsheets/](file:///03-backend/spring-boot/20-cheatsheets/) | 13 | 0 | Pending |
-| **Total**| **All 21 Modules** | **283** | **232** | **82.0%** |
+| **Total**| **All 21 Modules** | **283** | **248** | **87.6%** |
