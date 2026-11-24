@@ -2,7 +2,7 @@
 
 > **Resumable Progress Checklist**: Updated continuously across every batch.
 
-## Summary Status: Batch 5 Complete, Batch 6 In Progress
+## Summary Status: Batch 6 Complete, Batch 7 In Progress
 
 | Batch | Scope | Status | Notes / Deliverables | Commit |
 | :--- | :--- | :---: | :---: | :---: |
@@ -11,9 +11,9 @@
 | **Batch 2** | Modules 02 Pydantic v2 & 03 Dependency Injection | **Complete** | 26 notes | 1705696 |
 | **Batch 3** | Modules 04 Routing & 05 Middleware, Streaming & Realtime | **Complete** | 24 notes | 81a6799 |
 | **Batch 4** | Modules 06 Databases & 07 Authentication & Security | **Complete** | 39 notes | 6d1be51 |
-| **Batch 5** | Modules 08 API Design & 09 Async & Concurrency | **Complete** | 25 notes | In Commit |
-| **Batch 6** | Modules 10 Background Processing & 11 Testing | **In Progress** | 29 notes | Pending |
-| **Batch 7** | Modules 12 Architecture, 13 Observability, 14 Performance, 15 Production, 16 AI/ML | Pending | 58 notes | Pending |
+| **Batch 5** | Modules 08 API Design & 09 Async & Concurrency | **Complete** | 25 notes | 0e008bf |
+| **Batch 6** | Modules 10 Background Processing & 11 Testing | **Complete** | 29 notes | In Commit |
+| **Batch 7** | Modules 12 Architecture, 13 Observability, 14 Performance, 15 Production, 16 AI/ML | **In Progress** | 58 notes | Pending |
 | **Batch 8** | Module 17 Reference Projects (Projects 01 - 08) | Pending | 8 complete reference applications | Pending |
 | **Batch 9** | Module 17 Reference Projects (Projects 09 - 16) & Catalog | Pending | 8 reference applications + Catalog | Pending |
 | **Batch 10** | Module 18 System Design & Module 19 Interview Preparation | Pending | 26 notes | Pending |
@@ -32,8 +32,8 @@
 - [x] Batch 3: Modules 04 and 05.
 - [x] Batch 4: Modules 06 and 07.
 - [x] Batch 5: Modules 08 and 09 (All 25 notes).
-- [/] Batch 6: Modules 10 and 11 (29 notes).
-- [ ] Batch 7: Modules 12, 13, 14, 15, 16.
+- [x] Batch 6: Modules 10 and 11 (All 29 notes: 14 in Module 10, 15 in Module 11).
+- [/] Batch 7: Modules 12, 13, 14, 15, 16 (58 notes).
 - [ ] Batch 8: Module 17 Part 1 (Projects 01-08).
 - [ ] Batch 9: Module 17 Part 2 (Projects 09-16).
 - [ ] Batch 10: Modules 18 and 19.
