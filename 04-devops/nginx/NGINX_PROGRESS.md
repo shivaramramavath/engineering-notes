@@ -76,14 +76,14 @@
 ---
 
 ## 7. Module 05: Security Hardening & Performance Engineering
-- [ ] `05-security-performance/README.md`
-- [ ] `05-security-performance/01-performance-tuning.md`
-- [ ] `05-security-performance/02-security-hardening.md`
-- [ ] `05-security-performance/03-waf-and-modsecurity-overview.md`
-- [ ] `05-security-performance/04-ddos-mitigation-patterns.md`
-- [ ] `05-security-performance/05-real-ip-and-trusted-proxies.md`
-- [ ] `05-security-performance/06-benchmarking-methodologies.md`
-- [ ] `05-security-performance/07-common-vulnerabilities-in-configs.md`
+- [x] `05-security-performance/README.md`
+- [x] `05-security-performance/01-performance-tuning.md`
+- [x] `05-security-performance/02-security-hardening.md`
+- [x] `05-security-performance/03-waf-and-modsecurity-overview.md`
+- [x] `05-security-performance/04-ddos-mitigation-patterns.md`
+- [x] `05-security-performance/05-real-ip-and-trusted-proxies.md`
+- [x] `05-security-performance/06-benchmarking-methodologies.md`
+- [x] `05-security-performance/07-common-vulnerabilities-in-configs.md`
 
 ---
 
