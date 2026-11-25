@@ -89,22 +89,22 @@
 ---
 
 ## 6. Module 04: Supervised Learning — Classification
-- [ ] `04-supervised-classification/README.md`
-- [ ] `04-supervised-classification/01-logistic-regression.md`
-- [ ] `04-supervised-classification/02-knn-classifier.md`
-- [ ] `04-supervised-classification/03-naive-bayes.md`
-- [ ] `04-supervised-classification/04-support-vector-machines.md`
-- [ ] `04-supervised-classification/05-decision-trees.md`
-- [ ] `04-supervised-classification/06-random-forest.md`
-- [ ] `04-supervised-classification/07-gradient-boosting.md`
-- [ ] `04-supervised-classification/08-bagging-boosting-stacking-voting.md`
-- [ ] `04-supervised-classification/09-multiclass-and-multilabel-strategies.md`
-- [ ] `04-supervised-classification/10-probability-calibration.md`
-- [ ] `04-supervised-classification/11-decision-thresholds-roc-and-pr.md`
-- [ ] `04-supervised-classification/12-cost-sensitive-classification.md`
-- [ ] `04-supervised-classification/13-linear-discriminant-analysis.md`
-- [ ] `04-supervised-classification/14-perceptron-and-simple-neural-nets.md`
-- [ ] `04-supervised-classification/15-choosing-a-classifier-guide.md`
+- [x] `04-supervised-classification/README.md`
+- [x] `04-supervised-classification/01-logistic-regression.md`
+- [x] `04-supervised-classification/02-knn-classifier.md`
+- [x] `04-supervised-classification/03-naive-bayes.md`
+- [x] `04-supervised-classification/04-support-vector-machines.md`
+- [x] `04-supervised-classification/05-decision-trees.md`
+- [x] `04-supervised-classification/06-random-forest.md`
+- [x] `04-supervised-classification/07-gradient-boosting.md`
+- [x] `04-supervised-classification/08-bagging-boosting-stacking-voting.md`
+- [x] `04-supervised-classification/09-multiclass-and-multilabel-strategies.md`
+- [x] `04-supervised-classification/10-probability-calibration.md`
+- [x] `04-supervised-classification/11-decision-thresholds-roc-and-pr.md`
+- [x] `04-supervised-classification/12-cost-sensitive-classification.md`
+- [x] `04-supervised-classification/13-linear-discriminant-analysis.md`
+- [x] `04-supervised-classification/14-perceptron-and-simple-neural-nets.md`
+- [x] `04-supervised-classification/15-choosing-a-classifier-guide.md`
 
 ---
 
