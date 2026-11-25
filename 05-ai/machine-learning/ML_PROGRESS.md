@@ -50,24 +50,24 @@
 ---
 
 ## 4. Module 02: Data Preparation & Preprocessing
-- [ ] `02-data-and-preprocessing/README.md`
-- [ ] `02-data-and-preprocessing/01-data-types-and-sources.md`
-- [ ] `02-data-and-preprocessing/02-data-collection-and-labelling.md`
-- [ ] `02-data-and-preprocessing/03-exploratory-data-analysis.md`
-- [ ] `02-data-and-preprocessing/04-data-cleaning.md`
-- [ ] `02-data-and-preprocessing/05-feature-scaling.md`
-- [ ] `02-data-and-preprocessing/06-encoding-categorical-features.md`
-- [ ] `02-data-and-preprocessing/07-text-and-date-features-basics.md`
-- [ ] `02-data-and-preprocessing/08-feature-engineering.md`
-- [ ] `02-data-and-preprocessing/09-feature-selection.md`
-- [ ] `02-data-and-preprocessing/10-handling-imbalanced-data.md`
-- [ ] `02-data-and-preprocessing/11-train-validation-test-splits-and-cross-validation.md`
-- [ ] `02-data-and-preprocessing/12-data-leakage.md`
-- [ ] `02-data-and-preprocessing/13-pipelines-and-columntransformer.md`
-- [ ] `02-data-and-preprocessing/14-data-augmentation-and-synthetic-data.md`
-- [ ] `02-data-and-preprocessing/15-data-quality-and-versioning.md`
-- [ ] `02-data-and-preprocessing/16-handling-missing-data-in-depth.md`
-- [ ] `02-data-and-preprocessing/17-outlier-detection-for-preprocessing.md`
+- [x] `02-data-and-preprocessing/README.md`
+- [x] `02-data-and-preprocessing/01-data-types-and-sources.md`
+- [x] `02-data-and-preprocessing/02-data-collection-and-labelling.md`
+- [x] `02-data-and-preprocessing/03-exploratory-data-analysis.md`
+- [x] `02-data-and-preprocessing/04-data-cleaning.md`
+- [x] `02-data-and-preprocessing/05-feature-scaling.md`
+- [x] `02-data-and-preprocessing/06-encoding-categorical-features.md`
+- [x] `02-data-and-preprocessing/07-text-and-date-features-basics.md`
+- [x] `02-data-and-preprocessing/08-feature-engineering.md`
+- [x] `02-data-and-preprocessing/09-feature-selection.md`
+- [x] `02-data-and-preprocessing/10-handling-imbalanced-data.md`
+- [x] `02-data-and-preprocessing/11-train-validation-test-splits-and-cross-validation.md`
+- [x] `02-data-and-preprocessing/12-data-leakage.md`
+- [x] `02-data-and-preprocessing/13-pipelines-and-columntransformer.md`
+- [x] `02-data-and-preprocessing/14-data-augmentation-and-synthetic-data.md`
+- [x] `02-data-and-preprocessing/15-data-quality-and-versioning.md`
+- [x] `02-data-and-preprocessing/16-handling-missing-data-in-depth.md`
+- [x] `02-data-and-preprocessing/17-outlier-detection-for-preprocessing.md`
 
 ---
 
