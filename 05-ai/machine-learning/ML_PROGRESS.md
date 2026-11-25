@@ -298,18 +298,18 @@
 ---
 
 ## 19. Module 17: Technical Interview Preparation
-- [ ] `17-interview/README.md`
-- [ ] `17-interview/01-ml-fundamentals-qa.md`
-- [ ] `17-interview/02-supervised-learning-qa.md`
-- [ ] `17-interview/03-unsupervised-learning-qa.md`
-- [ ] `17-interview/04-reinforcement-learning-qa.md`
-- [ ] `17-interview/05-evaluation-and-metrics-qa.md`
-- [ ] `17-interview/06-feature-engineering-and-preprocessing-qa.md`
-- [ ] `17-interview/07-overfitting-and-regularisation-qa.md`
-- [ ] `17-interview/08-mlops-and-deployment-qa.md`
-- [ ] `17-interview/09-coding-rounds.md`
-- [ ] `17-interview/10-ml-system-design-case-studies.md`
-- [ ] `17-interview/11-behavioural-and-project-discussion.md`
+- [x] `17-interview/README.md`
+- [x] `17-interview/01-ml-fundamentals-qa.md`
+- [x] `17-interview/02-supervised-learning-qa.md`
+- [x] `17-interview/03-unsupervised-learning-qa.md`
+- [x] `17-interview/04-reinforcement-learning-qa.md`
+- [x] `17-interview/05-evaluation-and-metrics-qa.md`
+- [x] `17-interview/06-feature-engineering-and-preprocessing-qa.md`
+- [x] `17-interview/07-overfitting-and-regularisation-qa.md`
+- [x] `17-interview/08-mlops-and-deployment-qa.md`
+- [x] `17-interview/09-coding-rounds.md`
+- [x] `17-interview/10-ml-system-design-case-studies.md`
+- [x] `17-interview/11-behavioural-and-project-discussion.md`
 
 ---
 
