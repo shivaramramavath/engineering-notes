@@ -65,13 +65,13 @@
 ---
 
 ## 6. Module 04: Internals & Architecture
-- [ ] `04-internals/README.md`
-- [ ] `04-internals/01-architecture-master-worker-and-event-loop.md`
-- [ ] `04-internals/02-request-lifecycle-and-phases.md`
-- [ ] `04-internals/03-config-parsing-and-reload-mechanics.md`
-- [ ] `04-internals/04-memory-buffers-and-shared-zones.md`
-- [ ] `04-internals/05-modules-and-dynamic-modules.md`
-- [ ] `04-internals/06-reading-nginx-source-code.md`
+- [x] `04-internals/README.md`
+- [x] `04-internals/01-architecture-master-worker-and-event-loop.md`
+- [x] `04-internals/02-request-lifecycle-and-phases.md`
+- [x] `04-internals/03-config-parsing-and-reload-mechanics.md`
+- [x] `04-internals/04-memory-buffers-and-shared-zones.md`
+- [x] `04-internals/05-modules-and-dynamic-modules.md`
+- [x] `04-internals/06-reading-nginx-source-code.md`
 
 ---
 
