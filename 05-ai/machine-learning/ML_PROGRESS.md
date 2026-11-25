@@ -183,17 +183,17 @@
 ---
 
 ## 11. Module 09: Training, Optimization & Validation
-- [ ] `09-training-and-optimisation/README.md`
-- [ ] `09-training-and-optimisation/01-loss-functions.md`
-- [ ] `09-training-and-optimisation/02-gradient-descent-variants.md`
-- [ ] `09-training-and-optimisation/03-learning-rate-and-schedules.md`
-- [ ] `09-training-and-optimisation/04-regularisation-l1-l2-dropout-early-stopping.md`
-- [ ] `09-training-and-optimisation/05-overfitting-and-underfitting-diagnostics.md`
-- [ ] `09-training-and-optimisation/06-hyperparameter-tuning.md`
-- [ ] `09-training-and-optimisation/07-cross-validation-strategies.md`
-- [ ] `09-training-and-optimisation/08-training-reproducibility-and-checkpoints.md`
-- [ ] `09-training-and-optimisation/09-handling-large-datasets.md`
-- [ ] `09-training-and-optimisation/10-compute-and-gpu-basics.md`
+- [x] `09-training-and-optimisation/README.md`
+- [x] `09-training-and-optimisation/01-loss-functions.md`
+- [x] `09-training-and-optimisation/02-gradient-descent-variants.md`
+- [x] `09-training-and-optimisation/03-learning-rate-and-schedules.md`
+- [x] `09-training-and-optimisation/04-regularisation-l1-l2-dropout-early-stopping.md`
+- [x] `09-training-and-optimisation/05-overfitting-and-underfitting-diagnostics.md`
+- [x] `09-training-and-optimisation/06-hyperparameter-tuning.md`
+- [x] `09-training-and-optimisation/07-cross-validation-strategies.md`
+- [x] `09-training-and-optimisation/08-training-reproducibility-and-checkpoints.md`
+- [x] `09-training-and-optimisation/09-handling-large-datasets.md`
+- [x] `09-training-and-optimisation/10-compute-and-gpu-basics.md`
 
 ---
 
