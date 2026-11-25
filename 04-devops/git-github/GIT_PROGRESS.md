@@ -2,7 +2,7 @@
 
 **Total Modules:** 12 (00 through 11)  
 **Total Target Notes:** 124 concept/project notes + 12 module READMEs + 1 track README = 137 files  
-**Overall Completion:** 15 / 124 notes (12%)  
+**Overall Completion:** 36 / 124 notes (29%)  
 
 ---
 
@@ -12,7 +12,7 @@
 |:-------|:------------:|:--------:|:-------|
 | **00-setup** | 5 | 5 | Complete |
 | **01-fundamentals** | 10 | 10 | Complete |
-| **02-commands** | 21 | 0 | In Progress |
+| **02-commands** | 21 | 21 | Complete |
 | **03-history-rewriting** | 8 | 0 | Pending |
 | **04-github-actions** | 26 | 0 | Pending |
 | **05-github-collaboration** | 11 | 0 | Pending |
@@ -49,29 +49,29 @@
 - [x] `01-fundamentals/09-hashes-and-sha-256.md`
 - [x] `01-fundamentals/10-git-internals-walkthrough.md`
 
-### Module 02: Essential Commands (0/21 Notes, 0/1 README)
-- [ ] `02-commands/README.md`
-- [ ] `02-commands/01-init-clone.md`
-- [ ] `02-commands/02-status-diff-log.md`
-- [ ] `02-commands/03-add-commit.md`
-- [ ] `02-commands/04-undoing-changes.md`
-- [ ] `02-commands/05-clean-rm-mv.md`
-- [ ] `02-commands/06-branching.md`
-- [ ] `02-commands/07-merging.md`
-- [ ] `02-commands/08-merge-conflicts-and-resolution-tools.md`
-- [ ] `02-commands/09-remotes.md`
-- [ ] `02-commands/10-tracking-upstream.md`
-- [ ] `02-commands/11-stash.md`
-- [ ] `02-commands/12-tags-and-releases.md`
-- [ ] `02-commands/13-diff-and-patch-and-format-patch.md`
-- [ ] `02-commands/14-blame-and-log-search.md`
-- [ ] `02-commands/15-bisect.md`
-- [ ] `02-commands/16-submodules-and-subtrees.md`
-- [ ] `02-commands/17-worktrees.md`
-- [ ] `02-commands/18-sparse-checkout-and-partial-clone.md`
-- [ ] `02-commands/19-git-lfs.md`
-- [ ] `02-commands/20-hooks.md`
-- [ ] `02-commands/21-aliases-and-productivity.md`
+### Module 02: Essential Commands (21/21 Notes, 1/1 README)
+- [x] `02-commands/README.md`
+- [x] `02-commands/01-init-clone.md`
+- [x] `02-commands/02-status-diff-log.md`
+- [x] `02-commands/03-add-commit.md`
+- [x] `02-commands/04-undoing-changes.md`
+- [x] `02-commands/05-clean-rm-mv.md`
+- [x] `02-commands/06-branching.md`
+- [x] `02-commands/07-merging.md`
+- [x] `02-commands/08-merge-conflicts-and-resolution.md`
+- [x] `02-commands/09-remotes.md`
+- [x] `02-commands/10-tracking-upstream.md`
+- [x] `02-commands/11-stash.md`
+- [x] `02-commands/12-tags-and-releases.md`
+- [x] `02-commands/13-diff-patch-and-format-patch.md`
+- [x] `02-commands/14-blame-and-log-search.md`
+- [x] `02-commands/15-bisect.md`
+- [x] `02-commands/16-submodules-and-subtrees.md`
+- [x] `02-commands/17-worktrees.md`
+- [x] `02-commands/18-sparse-checkout-and-partial-clone.md`
+- [x] `02-commands/19-git-lfs.md`
+- [x] `02-commands/20-hooks.md`
+- [x] `02-commands/21-aliases-and-productivity.md`
 
 ### Module 03: History Rewriting & Recovery (0/8 Notes, 0/1 README)
 - [ ] `03-history-rewriting/README.md`
