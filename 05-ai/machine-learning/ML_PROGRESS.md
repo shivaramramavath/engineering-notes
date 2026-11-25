@@ -172,13 +172,13 @@
 ---
 
 ## 10. Module 08: Time Series & Text Basics
-- [ ] `08-time-series-and-text-basics/README.md`
-- [ ] `08-time-series-and-text-basics/01-time-series-fundamentals.md`
-- [ ] `08-time-series-and-text-basics/02-classical-forecasting.md`
-- [ ] `08-time-series-and-text-basics/03-ml-for-time-series.md`
-- [ ] `08-time-series-and-text-basics/04-text-preprocessing-and-bag-of-words.md`
-- [ ] `08-time-series-and-text-basics/05-tf-idf-and-text-classification.md`
-- [ ] `08-time-series-and-text-basics/06-evaluating-forecasts.md`
+- [x] `08-time-series-and-text-basics/README.md`
+- [x] `08-time-series-and-text-basics/01-time-series-fundamentals.md`
+- [x] `08-time-series-and-text-basics/02-classical-forecasting.md`
+- [x] `08-time-series-and-text-basics/03-ml-for-time-series.md`
+- [x] `08-time-series-and-text-basics/04-text-preprocessing-and-bag-of-words.md`
+- [x] `08-time-series-and-text-basics/05-tf-idf-and-text-classification.md`
+- [x] `08-time-series-and-text-basics/06-word-embeddings-intro.md`
 
 ---
 
