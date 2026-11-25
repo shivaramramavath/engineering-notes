@@ -4,7 +4,7 @@
 
 | Overall Status | Current Batch | Completed Batches | Total Planned Batches |
 | :---: | :---: | :---: | :---: |
-| **IN PROGRESS** | **Batch 6** | 5 | 18 |
+| **IN PROGRESS** | **Batch 7** | 6 | 18 |
 
 ---
 
@@ -128,7 +128,7 @@
 
 ---
 
-## Batch 6: Exceptions & Iterators/Generators (Pending)
+## Batch 6: Exceptions & Iterators/Generators (COMPLETED)
 ### Module 07: Exceptions, Context Managers & Debugging (`07-exceptions-and-debugging`) (COMPLETED)
 - [x] `07-exceptions-and-debugging/00-exception-hierarchy.md`
 - [x] `07-exceptions-and-debugging/01-try-except-else-finally.md`
@@ -142,17 +142,17 @@
 - [x] `07-exceptions-and-debugging/09-debugging-tools.md`
 - [x] `07-exceptions-and-debugging/README.md` (Module 07 100% Complete)
 
-### Module 08: Iterators, Generators & Functional Programming (`08-iterators-generators-and-functional`)
-- [ ] `08-iterators-generators-and-functional/00-iterator-protocol.md`
-- [ ] `08-iterators-generators-and-functional/01-generators-and-yield-from.md`
-- [ ] `08-iterators-generators-and-functional/02-generator-pipelines.md`
-- [ ] `08-iterators-generators-and-functional/03-itertools.md`
-- [ ] `08-iterators-generators-and-functional/04-comprehensions-deep-dive.md`
-- [ ] `08-iterators-generators-and-functional/05-lazy-evaluation.md`
-- [ ] `08-iterators-generators-and-functional/06-functional-patterns.md`
-- [ ] `08-iterators-generators-and-functional/07-operator-module.md`
-- [ ] `08-iterators-generators-and-functional/08-coroutines-via-generators-history.md`
-- [ ] `08-iterators-generators-and-functional/README.md` (Update syllabus)
+### Module 08: Iterators, Generators & Functional Programming (`08-iterators-generators-and-functional`) (COMPLETED)
+- [x] `08-iterators-generators-and-functional/00-iterator-protocol.md`
+- [x] `08-iterators-generators-and-functional/01-generators-and-yield-from.md`
+- [x] `08-iterators-generators-and-functional/02-generator-pipelines.md`
+- [x] `08-iterators-generators-and-functional/03-itertools.md`
+- [x] `08-iterators-generators-and-functional/04-comprehensions-deep-dive.md`
+- [x] `08-iterators-generators-and-functional/05-lazy-evaluation.md`
+- [x] `08-iterators-generators-and-functional/06-functional-patterns.md`
+- [x] `08-iterators-generators-and-functional/07-operator-module.md`
+- [x] `08-iterators-generators-and-functional/08-coroutines-via-generators-history.md`
+- [x] `08-iterators-generators-and-functional/README.md` (Module 08 100% Complete)
 
 ---
 
