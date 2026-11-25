@@ -2,7 +2,7 @@
 
 **Total Modules:** 12 (00 through 11)  
 **Total Target Notes:** 124 concept/project notes + 12 module READMEs + 1 track README = 137 files  
-**Overall Completion:** 89 / 124 notes (72%)  
+**Overall Completion:** 97 / 124 notes (78%)  
 
 ---
 
@@ -17,7 +17,7 @@
 | **04-github-actions** | 26 | 26 | Complete |
 | **05-github-collaboration** | 11 | 11 | Complete |
 | **06-workflows-and-strategies** | 8 | 8 | Complete |
-| **07-github-security** | 8 | 0 | Pending |
+| **07-github-security** | 8 | 8 | Complete |
 | **08-gh-cli-and-api** | 4 | 0 | Pending |
 | **09-projects** | 8 | 0 | Pending |
 | **10-interview** | 8 | 0 | Pending |
@@ -138,16 +138,16 @@
 - [x] `06-workflows-and-strategies/07-environment-branching-anti-patterns.md`
 - [x] `06-workflows-and-strategies/08-git-for-teams-playbook.md`
 
-### Module 07: GitHub Enterprise Security & Compliance (0/8 Notes, 0/1 README)
-- [ ] `07-github-security/README.md`
-- [ ] `07-github-security/01-secret-scanning-and-push-protection.md`
-- [ ] `07-github-security/02-dependabot-and-dependency-review.md`
-- [ ] `07-github-security/03-code-scanning-codeql.md`
-- [ ] `07-github-security/04-signed-commits-and-vigilant-mode.md`
-- [ ] `07-github-security/05-security-policies-and-advisories.md`
-- [ ] `07-github-security/06-sbom-and-supply-chain-security.md`
-- [ ] `07-github-security/07-least-privilege-tokens-and-permissions.md`
-- [ ] `07-github-security/08-leaked-secret-response-runbook.md`
+### Module 07: GitHub Enterprise Security & Compliance (8/8 Notes, 1/1 README)
+- [x] `07-github-security/README.md`
+- [x] `07-github-security/01-secret-scanning-and-push-protection.md`
+- [x] `07-github-security/02-dependabot-and-dependency-review.md`
+- [x] `07-github-security/03-code-scanning-codeql.md`
+- [x] `07-github-security/04-signed-commits-and-vigilant-mode.md`
+- [x] `07-github-security/05-security-policies-and-advisories.md`
+- [x] `07-github-security/06-sbom-and-supply-chain-security.md`
+- [x] `07-github-security/07-least-privilege-tokens-and-permissions.md`
+- [x] `07-github-security/08-leaked-secret-response-runbook.md`
 
 ### Module 08: GitHub CLI & Developer APIs (0/4 Notes, 0/1 README)
 - [ ] `08-gh-cli-and-api/README.md`
