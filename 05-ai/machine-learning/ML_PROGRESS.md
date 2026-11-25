@@ -142,32 +142,32 @@
 ---
 
 ## 9. Module 07: Reinforcement Learning
-- [ ] `07-reinforcement-learning/README.md`
-- [ ] `07-reinforcement-learning/01-rl-fundamentals.md`
-- [ ] `07-reinforcement-learning/02-markov-decision-processes.md`
-- [ ] `07-reinforcement-learning/03-bellman-equations.md`
-- [ ] `07-reinforcement-learning/04-dynamic-programming.md`
-- [ ] `07-reinforcement-learning/05-monte-carlo-methods.md`
-- [ ] `07-reinforcement-learning/06-temporal-difference-learning.md`
-- [ ] `07-reinforcement-learning/07-q-learning.md`
-- [ ] `07-reinforcement-learning/08-sarsa-and-on-vs-off-policy.md`
-- [ ] `07-reinforcement-learning/09-exploration-vs-exploitation-and-multi-armed-bandits.md`
-- [ ] `07-reinforcement-learning/10-function-approximation.md`
-- [ ] `07-reinforcement-learning/11-deep-q-networks.md`
-- [ ] `07-reinforcement-learning/12-double-dueling-and-prioritised-dqn.md`
-- [ ] `07-reinforcement-learning/13-policy-gradient-reinforce.md`
-- [ ] `07-reinforcement-learning/14-actor-critic-a2c.md`
-- [ ] `07-reinforcement-learning/15-proximal-policy-optimisation.md`
-- [ ] `07-reinforcement-learning/16-ddpg-td3-and-sac.md`
-- [ ] `07-reinforcement-learning/17-model-based-rl.md`
-- [ ] `07-reinforcement-learning/18-multi-agent-rl-overview.md`
-- [ ] `07-reinforcement-learning/19-offline-rl-and-imitation-learning.md`
-- [ ] `07-reinforcement-learning/20-rlhf-connection-to-llms.md`
-- [ ] `07-reinforcement-learning/21-gymnasium-environments-and-custom-envs.md`
-- [ ] `07-reinforcement-learning/22-reward-shaping-and-reward-hacking.md`
-- [ ] `07-reinforcement-learning/23-rl-evaluation-and-reproducibility.md`
-- [ ] `07-reinforcement-learning/24-rl-limitations-and-when-to-use.md`
-- [ ] `07-reinforcement-learning/25-saving-loading-and-replaying-policies.md`
+- [x] `07-reinforcement-learning/README.md`
+- [x] `07-reinforcement-learning/01-rl-fundamentals.md`
+- [x] `07-reinforcement-learning/02-markov-decision-processes.md`
+- [x] `07-reinforcement-learning/03-bellman-equations.md`
+- [x] `07-reinforcement-learning/04-dynamic-programming.md`
+- [x] `07-reinforcement-learning/05-monte-carlo-methods.md`
+- [x] `07-reinforcement-learning/06-temporal-difference-learning.md`
+- [x] `07-reinforcement-learning/07-q-learning.md`
+- [x] `07-reinforcement-learning/08-sarsa-and-on-vs-off-policy.md`
+- [x] `07-reinforcement-learning/09-exploration-vs-exploitation-and-multi-armed-bandits.md`
+- [x] `07-reinforcement-learning/10-function-approximation.md`
+- [x] `07-reinforcement-learning/11-deep-q-networks.md`
+- [x] `07-reinforcement-learning/12-double-dueling-and-prioritised-dqn.md`
+- [x] `07-reinforcement-learning/13-policy-gradient-reinforce.md`
+- [x] `07-reinforcement-learning/14-actor-critic-a2c.md`
+- [x] `07-reinforcement-learning/15-proximal-policy-optimisation.md`
+- [x] `07-reinforcement-learning/16-ddpg-td3-and-sac.md`
+- [x] `07-reinforcement-learning/17-model-based-rl.md`
+- [x] `07-reinforcement-learning/18-multi-agent-rl-overview.md`
+- [x] `07-reinforcement-learning/19-offline-rl-and-imitation-learning.md`
+- [x] `07-reinforcement-learning/20-rlhf-connection-to-llms.md`
+- [x] `07-reinforcement-learning/21-gymnasium-environments-and-custom-envs.md`
+- [x] `07-reinforcement-learning/22-reward-shaping-and-reward-hacking.md`
+- [x] `07-reinforcement-learning/23-rl-evaluation-and-reproducibility.md`
+- [x] `07-reinforcement-learning/24-rl-limitations-and-when-to-use.md`
+- [x] `07-reinforcement-learning/25-saving-loading-and-replaying-policies.md`
 
 ---
 
