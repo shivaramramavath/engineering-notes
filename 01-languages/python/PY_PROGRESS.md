@@ -209,22 +209,22 @@
 - [x] `11-type-hints-and-static-typing/README.md` (Update syllabus)
 
 ### Module 12: Concurrency & Async (`12-concurrency`)
-- [ ] `12-concurrency/00-concurrency-models-overview.md`
-- [ ] `12-concurrency/01-threading-basics.md`
-- [ ] `12-concurrency/02-thread-safety-locks-and-semaphores.md`
-- [ ] `12-concurrency/03-multiprocessing-basics.md`
-- [ ] `12-concurrency/04-shared-memory-and-ipc.md`
-- [ ] `12-concurrency/05-concurrent-futures-executors.md`
-- [ ] `12-concurrency/06-asyncio-fundamentals.md`
-- [ ] `12-concurrency/07-asyncio-tasks-and-taskgroups.md`
-- [ ] `12-concurrency/08-asyncio-queues-and-streams.md`
-- [ ] `12-concurrency/09-mixing-sync-and-async.md`
-- [ ] `12-concurrency/10-free-threading-python313-no-gil.md`
-- [ ] `12-concurrency/11-subinterpreters.md`
-- [ ] `12-concurrency/12-concurrency-patterns-and-pitfalls.md`
-- [ ] `12-concurrency/13-async-context-managers-and-iterators.md`
-- [ ] `12-concurrency/14-event-loop-internals.md`
-- [ ] `12-concurrency/README.md` (Update syllabus)
+- [x] `12-concurrency/00-concurrency-models-overview.md`
+- [x] `12-concurrency/01-threading-basics.md`
+- [x] `12-concurrency/02-thread-safety-locks-and-semaphores.md`
+- [x] `12-concurrency/03-multiprocessing-basics.md`
+- [x] `12-concurrency/04-shared-memory-and-ipc.md`
+- [x] `12-concurrency/05-concurrent-futures-executors.md`
+- [x] `12-concurrency/06-asyncio-fundamentals.md`
+- [x] `12-concurrency/07-asyncio-tasks-and-taskgroups.md`
+- [x] `12-concurrency/08-asyncio-queues-and-streams.md`
+- [x] `12-concurrency/09-mixing-sync-and-async.md`
+- [x] `12-concurrency/10-free-threading-python313-no-gil.md`
+- [x] `12-concurrency/11-subinterpreters.md`
+- [x] `12-concurrency/12-concurrency-patterns-and-pitfalls.md`
+- [x] `12-concurrency/13-async-context-managers-and-iterators.md`
+- [x] `12-concurrency/14-event-loop-internals.md`
+- [x] `12-concurrency/README.md` (Update syllabus)
 
 ---
 
