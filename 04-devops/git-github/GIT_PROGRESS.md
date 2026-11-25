@@ -2,7 +2,7 @@
 
 **Total Modules:** 12 (00 through 11)  
 **Total Target Notes:** 124 concept/project notes + 12 module READMEs + 1 track README = 137 files  
-**Overall Completion:** 70 / 124 notes (56%)  
+**Overall Completion:** 81 / 124 notes (65%)  
 
 ---
 
@@ -15,7 +15,7 @@
 | **02-commands** | 21 | 21 | Complete |
 | **03-history-rewriting** | 8 | 8 | Complete |
 | **04-github-actions** | 26 | 26 | Complete |
-| **05-github-collaboration** | 11 | 0 | Pending |
+| **05-github-collaboration** | 11 | 11 | Complete |
 | **06-workflows-and-strategies** | 8 | 0 | Pending |
 | **07-github-security** | 8 | 0 | Pending |
 | **08-gh-cli-and-api** | 4 | 0 | Pending |
@@ -113,19 +113,19 @@
 - [x] `04-github-actions/25-composite-vs-javascript-vs-docker-actions.md`
 - [x] `04-github-actions/26-supply-chain-pinning-and-provenance.md`
 
-### Module 05: GitHub Collaboration & Governance (0/11 Notes, 0/1 README)
-- [ ] `05-github-collaboration/README.md`
-- [ ] `05-github-collaboration/01-pull-requests-and-code-review.md`
-- [ ] `05-github-collaboration/02-issues-labels-and-milestones.md`
-- [ ] `05-github-collaboration/03-github-projects-and-automation.md`
-- [ ] `05-github-collaboration/04-forks-and-contribution-workflow.md`
-- [ ] `05-github-collaboration/05-branch-protection-and-rulesets.md`
-- [ ] `05-github-collaboration/06-codeowners.md`
-- [ ] `05-github-collaboration/07-templates-and-community-health-files.md`
-- [ ] `05-github-collaboration/08-github-pages.md`
-- [ ] `05-github-collaboration/09-releases-and-packages.md`
-- [ ] `05-github-collaboration/10-discussions-wikis-and-notifications.md`
-- [ ] `05-github-collaboration/11-organisations-teams-and-permissions.md`
+### Module 05: GitHub Collaboration & Governance (11/11 Notes, 1/1 README)
+- [x] `05-github-collaboration/README.md`
+- [x] `05-github-collaboration/01-pull-requests-and-code-review.md`
+- [x] `05-github-collaboration/02-issues-labels-and-milestones.md`
+- [x] `05-github-collaboration/03-github-projects-and-automation.md`
+- [x] `05-github-collaboration/04-branch-protection-and-rulesets.md`
+- [x] `05-github-collaboration/05-codeowners-and-review-routing.md`
+- [x] `05-github-collaboration/06-issue-and-pr-templates.md`
+- [x] `05-github-collaboration/07-discussions-and-community.md`
+- [x] `05-github-collaboration/08-forking-and-open-source-contributions.md`
+- [x] `05-github-collaboration/09-github-pages-and-documentation.md`
+- [x] `05-github-collaboration/10-github-releases-and-packages.md`
+- [x] `05-github-collaboration/11-organisations-teams-and-permissions.md`
 
 ### Module 06: Workflows, Branching & Release Strategies (0/8 Notes, 0/1 README)
 - [ ] `06-workflows-and-strategies/README.md`
