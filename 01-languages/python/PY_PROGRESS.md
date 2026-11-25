@@ -193,20 +193,20 @@
 
 ## Batch 8: Static Typing & Concurrency (Pending)
 ### Module 11: Type Hints & Modern Typing (`11-type-hints-and-static-typing`)
-- [ ] `11-type-hints-and-static-typing/00-type-hints-basics.md`
-- [ ] `11-type-hints-and-static-typing/01-typing-module-core.md`
-- [ ] `11-type-hints-and-static-typing/02-generics-and-typevar-incl-new-syntax.md`
-- [ ] `11-type-hints-and-static-typing/03-protocols-and-structural-typing.md`
-- [ ] `11-type-hints-and-static-typing/04-paramspec-concatenate-and-callable-typing.md`
-- [ ] `11-type-hints-and-static-typing/05-annotated-and-runtime-use-of-hints.md`
-- [ ] `11-type-hints-and-static-typing/06-overloads-and-typeguard.md`
-- [ ] `11-type-hints-and-static-typing/07-mypy-and-pyright-in-practice.md`
-- [ ] `11-type-hints-and-static-typing/08-stubs-and-py-typed.md`
-- [ ] `11-type-hints-and-static-typing/09-deferred-annotations-and-forward-references.md`
-- [ ] `11-type-hints-and-static-typing/10-typing-best-practices.md`
-- [ ] `11-type-hints-and-static-typing/11-variance-and-type-narrowing.md`
-- [ ] `11-type-hints-and-static-typing/12-gradual-typing-migration.md`
-- [ ] `11-type-hints-and-static-typing/README.md` (Update syllabus)
+- [x] `11-type-hints-and-static-typing/00-type-hints-basics.md`
+- [x] `11-type-hints-and-static-typing/01-typing-module-core.md`
+- [x] `11-type-hints-and-static-typing/02-generics-and-typevar-incl-new-syntax.md`
+- [x] `11-type-hints-and-static-typing/03-protocols-and-structural-typing.md`
+- [x] `11-type-hints-and-static-typing/04-paramspec-concatenate-and-callable-typing.md`
+- [x] `11-type-hints-and-static-typing/05-annotated-and-runtime-use-of-hints.md`
+- [x] `11-type-hints-and-static-typing/06-overloads-and-typeguard.md`
+- [x] `11-type-hints-and-static-typing/07-mypy-and-pyright-in-practice.md`
+- [x] `11-type-hints-and-static-typing/08-stubs-and-py-typed.md`
+- [x] `11-type-hints-and-static-typing/09-deferred-annotations-and-forward-references.md`
+- [x] `11-type-hints-and-static-typing/10-typing-best-practices.md`
+- [x] `11-type-hints-and-static-typing/11-variance-and-type-narrowing.md`
+- [x] `11-type-hints-and-static-typing/12-gradual-typing-migration.md`
+- [x] `11-type-hints-and-static-typing/README.md` (Update syllabus)
 
 ### Module 12: Concurrency & Async (`12-concurrency`)
 - [ ] `12-concurrency/00-concurrency-models-overview.md`
