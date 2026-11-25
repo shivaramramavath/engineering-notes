@@ -112,4 +112,4 @@ High-density revision track for technical interviews:
 3. **Week 3: Nginx & Web Architecture Q&A**: Event loop, upstream load balancing, SSL handshakes, 502 vs 504 errors.
    - Cheatsheet & Q&A: [`nginx/08-reference/cheatsheet.md`](file:///04-devops/nginx/08-reference/cheatsheet.md), [`nginx/08-reference/interview-questions.md`](file:///04-devops/nginx/08-reference/interview-questions.md)
 4. **Week 4: AWS Cloud Architecture Q&A**: High availability, multi-AZ failover, VPC design, IAM evaluation logic.
-   - Cheatsheet & Q&A: [`aws/reference/cheatsheet.md`](file:///04-devops/aws/reference/cheatsheet.md), [`aws/reference/interview.md`](file:///04-devops/aws/reference/interview.md)
+   - Cheatsheet & Q&A: [`aws/10-cheatsheets/`](file:///04-devops/aws/10-cheatsheets/), [`aws/09-interview/`](file:///04-devops/aws/09-interview/)

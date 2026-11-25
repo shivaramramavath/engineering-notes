@@ -4238,46 +4238,145 @@ E:.
 |   |   ROADMAP.md
 |   |   
 |   +---aws
+|   |   |   AWS_AUDIT.md
+|   |   |   AWS_CHANGELOG.md
+|   |   |   AWS_COMPLETION_PLAN.md
+|   |   |   AWS_DECISIONS.md
+|   |   |   AWS_FACTS.md
+|   |   |   AWS_FINAL_REPORT.md
+|   |   |   AWS_PROGRESS.md
 |   |   |   README.md
 |   |   |   
 |   |   +---01-foundations
 |   |   |       01-what-is-aws.md
-|   |   |       02-accounts-regions-and-billing.md
-|   |   |       03-iam.md
-|   |   |       04-aws-cli.md
+|   |   |       02-shared-responsibility-and-well-architected.md
+|   |   |       03-accounts-regions-and-billing.md
+|   |   |       04-organizations-scp-and-control-tower.md
+|   |   |       05-iam-fundamentals.md
+|   |   |       06-iam-policy-evaluation-and-least-privilege.md
+|   |   |       07-iam-identity-center-and-sso.md
+|   |   |       08-aws-cli.md
+|   |   |       09-sdks-and-credential-provider-chain.md
+|   |   |       10-console-cloudshell-and-tagging.md
+|   |   |       11-global-infrastructure.md
+|   |   |       12-pricing-calculators-and-budgets.md
+|   |   |       README.md
 |   |   |       
 |   |   +---02-compute
 |   |   |       01-ec2.md
-|   |   |       02-lambda.md
-|   |   |       03-ecs-fargate.md
+|   |   |       02-ec2-autoscaling-and-launch-templates.md
+|   |   |       03-lambda.md
+|   |   |       04-lambda-deep-dive.md
+|   |   |       05-ecs-fargate.md
+|   |   |       06-ecs-deep-dive.md
+|   |   |       07-eks-fundamentals.md
+|   |   |       08-elastic-beanstalk-and-app-runner.md
+|   |   |       09-batch-and-step-functions.md
+|   |   |       10-graviton-and-spot-and-savings-plans.md
+|   |   |       README.md
 |   |   |       
 |   |   +---03-storage-and-databases
 |   |   |       01-s3.md
-|   |   |       02-dynamodb.md
-|   |   |       03-rds-and-aurora.md
+|   |   |       02-s3-deep-dive.md
+|   |   |       03-ebs-efs-and-fsx.md
+|   |   |       04-dynamodb.md
+|   |   |       05-dynamodb-data-modelling.md
+|   |   |       06-rds-and-aurora.md
+|   |   |       07-rds-operations.md
+|   |   |       08-elasticache-redis-and-memcached.md
+|   |   |       09-opensearch-service.md
+|   |   |       10-analytics-overview.md
+|   |   |       11-backup-and-disaster-recovery.md
+|   |   |       README.md
 |   |   |       
 |   |   +---04-networking
 |   |   |       01-vpc.md
-|   |   |       02-route53-and-cloudfront.md
-|   |   |       03-load-balancing-and-api-gateway.md
+|   |   |       02-vpc-deep-dive.md
+|   |   |       03-security-groups-and-nacls.md
+|   |   |       04-vpc-peering-transit-gateway-and-privatelink.md
+|   |   |       05-route53-and-dns-patterns.md
+|   |   |       06-cloudfront.md
+|   |   |       07-load-balancing.md
+|   |   |       08-api-gateway.md
+|   |   |       09-vpn-and-direct-connect-overview.md
+|   |   |       10-waf-shield-and-network-security.md
+|   |   |       README.md
 |   |   |       
 |   |   +---05-app-services
 |   |   |       01-sqs.md
 |   |   |       02-sns-and-eventbridge.md
-|   |   |       03-ses-email.md
-|   |   |       04-cognito.md
-|   |   |       05-bedrock.md
+|   |   |       03-kinesis-and-msk-overview.md
+|   |   |       04-step-functions.md
+|   |   |       05-ses-email.md
+|   |   |       06-cognito.md
+|   |   |       07-appsync-overview.md
+|   |   |       08-bedrock.md
+|   |   |       09-event-driven-patterns-on-aws.md
+|   |   |       README.md
 |   |   |       
 |   |   +---06-operations
 |   |   |       01-infrastructure-as-code.md
-|   |   |       02-ci-cd-to-aws.md
-|   |   |       03-security-and-secrets.md
-|   |   |       04-observability.md
-|   |   |       05-reliability-and-cost.md
+|   |   |       02-cloudformation.md
+|   |   |       03-cdk.md
+|   |   |       04-terraform-on-aws.md
+|   |   |       05-ci-cd-to-aws.md
+|   |   |       06-security-and-secrets.md
+|   |   |       07-security-services.md
+|   |   |       08-observability.md
+|   |   |       09-reliability-and-cost.md
+|   |   |       10-cost-optimisation-and-finops.md
+|   |   |       11-multi-account-strategy.md
+|   |   |       12-compliance-and-auditing-basics.md
+|   |   |       README.md
 |   |   |       
-|   |   \---reference
-|   |           cheatsheet.md
-|   |           interview.md
+|   |   +---07-architecture-patterns
+|   |   |       01-well-architected-pillars-in-practice.md
+|   |   |       02-three-tier-web-app.md
+|   |   |       03-serverless-api-pattern.md
+|   |   |       04-event-driven-architecture.md
+|   |   |       05-containers-on-aws-decision-guide.md
+|   |   |       06-multi-region-and-dr-strategies.md
+|   |   |       07-data-lake-pattern.md
+|   |   |       08-zero-trust-and-landing-zone.md
+|   |   |       09-migration-strategies.md
+|   |   |       10-choosing-the-right-service.md
+|   |   |       README.md
+|   |   |       
+|   |   +---08-projects
+|   |   |       01-static-site-on-s3-cloudfront.md
+|   |   |       02-serverless-rest-api.md
+|   |   |       03-containerised-app-on-ecs-fargate-with-alb.md
+|   |   |       04-three-tier-vpc-with-rds.md
+|   |   |       05-event-driven-order-pipeline.md
+|   |   |       06-secure-ci-cd-with-github-oidc.md
+|   |   |       07-terraform-landing-zone-basics.md
+|   |   |       08-observability-stack-on-cloudwatch.md
+|   |   |       README.md
+|   |   |       
+|   |   +---09-interview
+|   |   |       01-aws-fundamentals-qa.md
+|   |   |       02-iam-and-security-qa.md
+|   |   |       03-networking-qa.md
+|   |   |       04-compute-and-containers-qa.md
+|   |   |       05-storage-and-databases-qa.md
+|   |   |       06-serverless-and-messaging-qa.md
+|   |   |       07-architecture-and-scenario-questions.md
+|   |   |       08-cost-and-reliability-qa.md
+|   |   |       09-behavioural-and-project-discussion.md
+|   |   |       README.md
+|   |   |       
+|   |   \---10-cheatsheets
+|   |           01-cli-commands.md
+|   |           02-iam-policy-snippets.md
+|   |           03-vpc-cidr-and-routing.md
+|   |           04-s3-and-dynamodb.md
+|   |           05-lambda-and-api-gateway.md
+|   |           06-ecs-eks-quick-ref.md
+|   |           07-cloudwatch-queries.md
+|   |           08-terraform-and-cdk-snippets.md
+|   |           09-service-chooser.md
+|   |           10-limits-and-defaults.md
+|   |           README.md
 |   |           
 |   +---docker
 |   |   +---00_setup

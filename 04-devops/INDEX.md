@@ -143,46 +143,132 @@ This index categorizes all engineering notes across the five DevOps tracks: **Li
 
 ## 5. Amazon Web Services (AWS)
 
-### 5.1 Cloud Foundations & Compute
+### 5.1 Module 01: Foundations
 - [01-what-is-aws.md](file:///04-devops/aws/01-foundations/01-what-is-aws.md): Cloud computing models, AWS shared responsibility model, global infrastructure.
 - [02-accounts-regions-and-billing.md](file:///04-devops/aws/01-foundations/02-accounts-regions-and-billing.md): AWS Organizations, multi-account strategy, Regions, Availability Zones.
 - [03-iam.md](file:///04-devops/aws/01-foundations/03-iam.md): IAM users, groups, roles, policy evaluation logic, least privilege enforcement.
 - [04-aws-cli.md](file:///04-devops/aws/01-foundations/04-aws-cli.md): AWS CLI v2 configuration, credentials profiles, JMESPath querying.
+- [05-cloudshell-and-consoles.md](file:///04-devops/aws/01-foundations/05-cloudshell-and-consoles.md): CloudShell browser environment, console navigation, management tools.
+- [06-billing-and-budgets.md](file:///04-devops/aws/01-foundations/06-billing-and-budgets.md): AWS Budgets, anomaly detection, threshold alerts.
+- [07-iam-deep-dive.md](file:///04-devops/aws/01-foundations/07-iam-deep-dive.md): Permissions boundaries, session policies, advanced conditions.
+- [08-iam-roles-and-cross-account.md](file:///04-devops/aws/01-foundations/08-iam-roles-and-cross-account.md): Cross-account role assumption, external ID, confused deputy defense.
+- [09-iam-best-practices.md](file:///04-devops/aws/01-foundations/09-iam-best-practices.md): Least privilege auditing, IAM Access Analyzer, credential rotation.
+- [10-cloudtrail-basics.md](file:///04-devops/aws/01-foundations/10-cloudtrail-basics.md): Management and data event auditing, integrity validation.
+- [11-aws-pricing-models.md](file:///04-devops/aws/01-foundations/11-aws-pricing-models.md): On-Demand, Savings Plans, Reserved Instances, Spot capacity.
+- [12-cost-explorer-and-reports.md](file:///04-devops/aws/01-foundations/12-cost-explorer-and-reports.md): Cost Explorer analysis, Cost and Usage Reports (CUR).
+
+### 5.2 Module 02: Compute & Containers
 - [01-ec2.md](file:///04-devops/aws/02-compute/01-ec2.md): Elastic Compute Cloud: instance families, Graviton, EBS storage, security groups.
 - [02-lambda.md](file:///04-devops/aws/02-compute/02-lambda.md): Serverless functions: execution environments, concurrency, cold starts, event sources.
 - [03-ecs-fargate.md](file:///04-devops/aws/02-compute/03-ecs-fargate.md): Elastic Container Service: task definitions, services, Fargate serverless compute.
+- [04-eks-overview.md](file:///04-devops/aws/02-compute/04-eks-overview.md): Elastic Kubernetes Service: control plane, managed node groups, IRSA.
+- [05-app-runner.md](file:///04-devops/aws/02-compute/05-app-runner.md): Fully managed container application service for web endpoints.
+- [06-compute-decision-matrix.md](file:///04-devops/aws/02-compute/06-compute-decision-matrix.md): Systematic selection matrix across EC2, Lambda, Fargate, EKS, and App Runner.
+- [07-ec2-deep-dive.md](file:///04-devops/aws/02-compute/07-ec2-deep-dive.md): Nitro architecture, placement groups, network optimization, EBS-optimized instances.
+- [08-ami-and-launch-templates.md](file:///04-devops/aws/02-compute/08-ami-and-launch-templates.md): Golden AMI pipelines, Image Builder, versioned Launch Templates.
+- [09-auto-scaling-groups.md](file:///04-devops/aws/02-compute/09-auto-scaling-groups.md): Dynamic, scheduled, predictive scaling, Target Tracking policies.
+- [10-systems-manager.md](file:///04-devops/aws/02-compute/10-systems-manager.md): SSM Session Manager, Run Command, Patch Manager, State Manager.
 
-### 5.2 Storage, Databases & Networking
+### 5.3 Module 03: Storage & Databases
 - [01-s3.md](file:///04-devops/aws/03-storage-and-databases/01-s3.md): Simple Storage Service: buckets, storage classes, lifecycle policies, encryption.
 - [02-dynamodb.md](file:///04-devops/aws/03-storage-and-databases/02-dynamodb.md): Managed NoSQL: partition keys, sort keys, secondary indexes (GSI/LSI), TTL.
 - [03-rds-and-aurora.md](file:///04-devops/aws/03-storage-and-databases/03-rds-and-aurora.md): Relational Database Service & Amazon Aurora architecture, multi-AZ failover.
-- [01-vpc.md](file:///04-devops/aws/04-networking/01-vpc.md): Virtual Private Cloud: CIDR planning, public/private subnets, NAT Gateways, route tables.
-- [02-route53-and-cloudfront.md](file:///04-devops/aws/04-networking/02-route53-and-cloudfront.md): Route 53 DNS routing policies and CloudFront CDN global edge distribution.
-- [03-load-balancing-and-api-gateway.md](file:///04-devops/aws/04-networking/03-load-balancing-and-api-gateway.md): Application Load Balancer (ALB) vs Network Load Balancer (NLB), API Gateway.
+- [04-elasticache-redis.md](file:///04-devops/aws/03-storage-and-databases/04-elasticache-redis.md): In-memory caching, sub-millisecond data stores, cluster mode.
+- [05-ebs-deep-dive.md](file:///04-devops/aws/03-storage-and-databases/05-ebs-deep-dive.md): EBS gp3 vs io2 Block Express, fast snapshot restore, multi-attach.
+- [06-efs-and-shared-storage.md](file:///04-devops/aws/03-storage-and-databases/06-efs-and-shared-storage.md): Serverless POSIX NFS shared storage across EC2, Fargate, and Lambda.
+- [07-opensearch-overview.md](file:///04-devops/aws/03-storage-and-databases/07-opensearch-overview.md): Distributed search, log analytics, dashboard visualization.
+- [08-database-selection-guide.md](file:///04-devops/aws/03-storage-and-databases/08-database-selection-guide.md): Relational vs NoSQL vs In-Memory vs Graph selection matrix.
+- [09-redshift-overview.md](file:///04-devops/aws/03-storage-and-databases/09-redshift-overview.md): Cloud data warehousing, columnar storage, Redshift Serverless.
+- [10-aws-backup.md](file:///04-devops/aws/03-storage-and-databases/10-aws-backup.md): Centralized cross-service backup policies, cross-region vaults.
+- [11-database-migration-dms.md](file:///04-devops/aws/03-storage-and-databases/11-database-migration-dms.md): Continuous CDC replication, homogeneous and heterogeneous migrations.
 
-### 5.3 App Services & Cloud Operations
+### 5.4 Module 04: Networking & Content Delivery
+- [01-vpc.md](file:///04-devops/aws/04-networking/01-vpc.md): Virtual Private Cloud: CIDR planning, public/private subnets, NAT Gateways, route tables.
+- [02-vpc-deep-dive.md](file:///04-devops/aws/04-networking/02-vpc-deep-dive.md): VPC peering, secondary CIDRs, flow logs, prefix lists, DNS hostnames.
+- [03-security-groups-and-nacls.md](file:///04-devops/aws/04-networking/03-security-groups-and-nacls.md): Stateful vs stateless firewalling, ephemeral port routing.
+- [04-vpc-peering-transit-gateway-and-privatelink.md](file:///04-devops/aws/04-networking/04-vpc-peering-transit-gateway-and-privatelink.md): Hub-and-spoke transit networks and PrivateLink micro-segmentation.
+- [05-route53-and-dns-patterns.md](file:///04-devops/aws/04-networking/05-route53-and-dns-patterns.md): Routing policies, health check failover, private hosted zones.
+- [06-cloudfront.md](file:///04-devops/aws/04-networking/06-cloudfront.md): Global CDN, Origin Access Control (OAC), cache behaviors, edge functions.
+- [07-load-balancing.md](file:///04-devops/aws/04-networking/07-load-balancing.md): ALB vs NLB vs GLWB, cross-zone load balancing, mTLS.
+- [08-api-gateway.md](file:///04-devops/aws/04-networking/08-api-gateway.md): HTTP APIs vs REST APIs, WebSocket APIs, request throttling.
+- [09-vpn-and-direct-connect-overview.md](file:///04-devops/aws/04-networking/09-vpn-and-direct-connect-overview.md): Hybrid cloud connectivity, IPsec tunnels, dedicated telco circuits.
+- [10-waf-shield-and-network-security.md](file:///04-devops/aws/04-networking/10-waf-shield-and-network-security.md): Layer 7 WAF WebACLs, Layer 3/4 Shield DDoS protection.
+
+### 5.5 Module 05: Application Integration & Messaging
 - [01-sqs.md](file:///04-devops/aws/05-app-services/01-sqs.md): Simple Queue Service: standard vs FIFO queues, dead-letter queues (DLQ), visibility timeout.
 - [02-sns-and-eventbridge.md](file:///04-devops/aws/05-app-services/02-sns-and-eventbridge.md): Pub/Sub messaging with SNS and event-driven architectures with EventBridge.
-- [03-ses-email.md](file:///04-devops/aws/05-app-services/03-ses-email.md): Simple Email Service: DKIM, SPF verification, transactional email delivery.
-- [04-cognito.md](file:///04-devops/aws/05-app-services/04-cognito.md): User Pools, Identity Pools, JWT token verification, social federation.
-- [05-bedrock.md](file:///04-devops/aws/05-app-services/05-bedrock.md): Serverless generative AI: foundation model APIs, RAG knowledge bases, guardrails.
-- [01-infrastructure-as-code.md](file:///04-devops/aws/06-operations/01-infrastructure-as-code.md): Declarative cloud infrastructure using Terraform / OpenTofu and AWS CloudFormation / CDK.
-- [02-ci-cd-to-aws.md](file:///04-devops/aws/06-operations/02-ci-cd-to-aws.md): Deploying containers to ECS/EKS and serverless apps via GitHub Actions with OIDC.
-- [03-security-and-secrets.md](file:///04-devops/aws/06-operations/03-security-and-secrets.md): AWS Secrets Manager, Systems Manager Parameter Store, AWS KMS encryption keys.
-- [04-observability.md](file:///04-devops/aws/06-operations/04-observability.md): CloudWatch logs, metric alarms, X-Ray distributed tracing, Container Insights.
-- [05-reliability-and-cost.md](file:///04-devops/aws/06-operations/05-reliability-and-cost.md): AWS Well-Architected Framework, cost optimization, AWS Budgets, Cost Explorer.
+- [03-kinesis-and-msk-overview.md](file:///04-devops/aws/05-app-services/03-kinesis-and-msk-overview.md): Real-time streaming data ingestion with Kinesis and Managed Kafka.
+- [04-step-functions.md](file:///04-devops/aws/05-app-services/04-step-functions.md): Serverless visual workflow orchestration, Standard vs Express, Saga pattern.
+- [05-ses-email.md](file:///04-devops/aws/05-app-services/05-ses-email.md): Simple Email Service: DKIM, SPF verification, transactional email delivery.
+- [06-cognito.md](file:///04-devops/aws/05-app-services/06-cognito.md): User Pools, Identity Pools, JWT token verification, social federation.
+- [07-appsync-overview.md](file:///04-devops/aws/05-app-services/07-appsync-overview.md): Managed serverless GraphQL APIs with real-time WebSocket subscriptions.
+- [08-bedrock.md](file:///04-devops/aws/05-app-services/08-bedrock.md): Serverless generative AI: foundation model APIs, RAG knowledge bases, guardrails.
+- [09-event-driven-patterns-on-aws.md](file:///04-devops/aws/05-app-services/09-event-driven-patterns-on-aws.md): Choreography vs orchestration, event routing, transactional outbox.
+
+### 5.6 Module 06: Cloud Operations, Security & IaC
+- [01-infrastructure-as-code.md](file:///04-devops/aws/06-operations/01-infrastructure-as-code.md): Declarative cloud infrastructure paradigms, GitOps, drift detection.
+- [02-cloudformation.md](file:///04-devops/aws/06-operations/02-cloudformation.md): Native declarative templates, intrinsic functions, nested stacks, StackSets.
+- [03-cdk.md](file:///04-devops/aws/06-operations/03-cdk.md): AWS Cloud Development Kit (CDK v2), L1/L2/L3 constructs, cdk-nag.
+- [04-terraform-on-aws.md](file:///04-devops/aws/06-operations/04-terraform-on-aws.md): Terraform & OpenTofu on AWS, S3/DynamoDB remote state locking.
+- [05-ci-cd-to-aws.md](file:///04-devops/aws/06-operations/05-ci-cd-to-aws.md): GitHub Actions OIDC federation, CodeDeploy Blue/Green deployments.
+- [06-security-and-secrets.md](file:///04-devops/aws/06-operations/06-security-and-secrets.md): AWS Secrets Manager, Systems Manager Parameter Store, AWS KMS encryption keys.
+- [07-security-services.md](file:///04-devops/aws/06-operations/07-security-services.md): Amazon GuardDuty, AWS Security Hub, Amazon Inspector, Amazon Macie.
+- [08-observability.md](file:///04-devops/aws/06-operations/08-observability.md): CloudWatch logs, metric alarms, X-Ray distributed tracing, Container Insights.
+- [09-reliability-and-cost.md](file:///04-devops/aws/06-operations/09-reliability-and-cost.md): AWS Well-Architected Framework, cost optimization, AWS Budgets, Cost Explorer.
+- [10-cost-optimisation-and-finops.md](file:///04-devops/aws/06-operations/10-cost-optimisation-and-finops.md): FinOps principles, cost allocation tagging, rightsizing, Savings Plans.
+- [11-multi-account-strategy.md](file:///04-devops/aws/06-operations/11-multi-account-strategy.md): AWS Organizations, Control Tower, Service Control Policies (SCPs).
+- [12-compliance-and-auditing-basics.md](file:///04-devops/aws/06-operations/12-compliance-and-auditing-basics.md): Continuous compliance auditing, AWS Config, Audit Manager, CloudTrail.
+
+### 5.7 Module 07: Enterprise Architecture Patterns
+- [01-well-architected-pillars-in-practice.md](file:///04-devops/aws/07-architecture-patterns/01-well-architected-pillars-in-practice.md): 6 Well-Architected pillars, HRI assessments, risk remediation.
+- [02-three-tier-web-app.md](file:///04-devops/aws/07-architecture-patterns/02-three-tier-web-app.md): Multi-AZ decoupled public, private, and isolated database architecture.
+- [03-serverless-api-pattern.md](file:///04-devops/aws/07-architecture-patterns/03-serverless-api-pattern.md): API Gateway + Lambda ARM64 + DynamoDB Single-Table pattern.
+- [04-event-driven-architecture.md](file:///04-devops/aws/07-architecture-patterns/04-event-driven-architecture.md): EventBridge event buses, SQS buffering, DLQ handling, Step Functions sagas.
+- [05-containers-on-aws-decision-guide.md](file:///04-devops/aws/07-architecture-patterns/05-containers-on-aws-decision-guide.md): Comprehensive evaluation of App Runner, Fargate, ECS EC2, and EKS.
+- [06-multi-region-and-dr-strategies.md](file:///04-devops/aws/07-architecture-patterns/06-multi-region-and-dr-strategies.md): RTO/RPO calculation and the 4 DR tiers from backup to active-active.
+- [07-data-lake-pattern.md](file:///04-devops/aws/07-architecture-patterns/07-data-lake-pattern.md): S3 Medallion Lakehouse (Bronze/Silver/Gold), Glue Catalog, Athena, Lake Formation.
+- [08-zero-trust-and-landing-zone.md](file:///04-devops/aws/07-architecture-patterns/08-zero-trust-and-landing-zone.md): AWS Verified Access, PrivateLink micro-segmentation, Control Tower guardrails.
+- [09-migration-strategies.md](file:///04-devops/aws/07-architecture-patterns/09-migration-strategies.md): The 7 Rs of cloud migration, AWS MGN block replication, AWS DMS CDC.
+- [10-choosing-the-right-service.md](file:///04-devops/aws/07-architecture-patterns/10-choosing-the-right-service.md): Multi-dimensional architectural decision trees and flowcharts.
+
+### 5.8 Module 08: Production Reference Projects
+- [01-static-site-on-s3-cloudfront.md](file:///04-devops/aws/08-projects/01-static-site-on-s3-cloudfront.md): Production Static Site on S3 + CloudFront with OAC and AWS WAF.
+- [02-serverless-rest-api.md](file:///04-devops/aws/08-projects/02-serverless-rest-api.md): Serverless REST API with API Gateway HTTP API, Lambda ARM64, and DynamoDB.
+- [03-containerised-app-on-ecs-fargate-with-alb.md](file:///04-devops/aws/08-projects/03-containerised-app-on-ecs-fargate-with-alb.md): Microservice on ECS Fargate with ALB and Auto Scaling.
+- [04-three-tier-vpc-with-rds.md](file:///04-devops/aws/08-projects/04-three-tier-vpc-with-rds.md): Enterprise Three-Tier VPC with Amazon Aurora PostgreSQL Multi-AZ.
+- [05-event-driven-order-pipeline.md](file:///04-devops/aws/08-projects/05-event-driven-order-pipeline.md): Event-Driven Order Pipeline with EventBridge, SQS, and DLQ.
+- [06-secure-ci-cd-with-github-oidc.md](file:///04-devops/aws/08-projects/06-secure-ci-cd-with-github-oidc.md): Zero-static-key continuous deployment with GitHub Actions and OIDC.
+- [07-terraform-landing-zone-basics.md](file:///04-devops/aws/08-projects/07-terraform-landing-zone-basics.md): Terraform Landing Zone with AWS Organizations and SCPs.
+- [08-observability-stack-on-cloudwatch.md](file:///04-devops/aws/08-projects/08-observability-stack-on-cloudwatch.md): Enterprise Observability Stack on CloudWatch with Composite Alarms.
 
 ---
 
 ## 6. Interview Preparation & Quick Reference
 
-### 6.1 Interview Questions & Answers
+### 6.1 Technical Interview Preparation
+- [01-aws-fundamentals-qa.md](file:///04-devops/aws/09-interview/01-aws-fundamentals-qa.md): AWS Fundamentals, Regions, AZs, Shared Responsibility, and Billing.
+- [02-iam-and-security-qa.md](file:///04-devops/aws/09-interview/02-iam-and-security-qa.md): IAM Evaluation Logic, SCPs, Envelope Encryption, KMS, GuardDuty, and WAF.
+- [03-networking-qa.md](file:///04-devops/aws/09-interview/03-networking-qa.md): VPC Subnet Math, Security Groups vs NACLs, Transit Gateway, and PrivateLink.
+- [04-compute-and-containers-qa.md](file:///04-devops/aws/09-interview/04-compute-and-containers-qa.md): EC2 Lifecycle, Spot, SSM, Lambda Cold Starts, ECS Fargate, and EKS.
+- [05-storage-and-databases-qa.md](file:///04-devops/aws/09-interview/05-storage-and-databases-qa.md): S3 Strong Consistency, DynamoDB Partitioning, RDS Multi-AZ, and Aurora.
+- [06-serverless-and-messaging-qa.md](file:///04-devops/aws/09-interview/06-serverless-and-messaging-qa.md): SQS Standard vs FIFO, Long Polling, EventBridge, Step Functions Sagas.
+- [07-architecture-and-scenario-questions.md](file:///04-devops/aws/09-interview/07-architecture-and-scenario-questions.md): System Design Scenarios: 100k req/s API, Active-Active DR, Lakehouse.
+- [08-cost-and-reliability-qa.md](file:///04-devops/aws/09-interview/08-cost-and-reliability-qa.md): FinOps, Cost Allocation Tags, Compute Savings Plans, Well-Architected HRIs.
+- [09-behavioural-and-project-discussion.md](file:///04-devops/aws/09-interview/09-behavioural-and-project-discussion.md): Amazon Leadership Principles, STAR Framework, Blameless Post-Mortems.
 - [Linux Technical Interview Q&A](file:///04-devops/linux/reference/interview.md)
-- [AWS Cloud Technical Interview Q&A](file:///04-devops/aws/reference/interview.md)
 - [Nginx Gateway Technical Interview Q&A](file:///04-devops/nginx/08-reference/interview-questions.md)
 
 ### 6.2 Quick Reference Cheatsheets
+- [01-cli-commands.md](file:///04-devops/aws/10-cheatsheets/01-cli-commands.md): AWS CLI v2 essential commands, JMESPath queries, SSM shell, and S3 sync.
+- [02-iam-policy-snippets.md](file:///04-devops/aws/10-cheatsheets/02-iam-policy-snippets.md): Trust policies, S3 HTTPS/OAC policies, Organizations SCPs.
+- [03-vpc-cidr-and-routing.md](file:///04-devops/aws/10-cheatsheets/03-vpc-cidr-and-routing.md): Subnet math (/16 to /28), AWS 5 reserved IPs, 3-tier VPC blueprint.
+- [04-s3-and-dynamodb.md](file:///04-devops/aws/10-cheatsheets/04-s3-and-dynamodb.md): S3 lifecycle syntax, DynamoDB RCU/WCU calculation formulas, Boto3 SDK.
+- [05-lambda-and-api-gateway.md](file:///04-devops/aws/10-cheatsheets/05-lambda-and-api-gateway.md): Memory-to-vCPU scaling table, REPORT log line format, error code mapping.
+- [06-ecs-eks-quick-ref.md](file:///04-devops/aws/10-cheatsheets/06-ecs-eks-quick-ref.md): ECS Fargate task definitions, exit codes (137 OOM), Karpenter manifests.
+- [07-cloudwatch-queries.md](file:///04-devops/aws/10-cheatsheets/07-cloudwatch-queries.md): 10 production Logs Insights queries: top errors, cold starts, VPC flow.
+- [08-terraform-and-cdk-snippets.md](file:///04-devops/aws/10-cheatsheets/08-terraform-and-cdk-snippets.md): S3 state backend locking, provider default tags, CDK L2 constructs.
+- [09-service-chooser.md](file:///04-devops/aws/10-cheatsheets/09-service-chooser.md): "Which service for what" master table, symptom-to-cause diagnostic table.
+- [10-limits-and-defaults.md](file:///04-devops/aws/10-cheatsheets/10-limits-and-defaults.md): Hard vs soft platform limits across compute, storage, networking, messaging.
 - [Linux Commands & Sysadmin Cheatsheet](file:///04-devops/linux/reference/cheatsheet.md)
-- [AWS CLI & Services Cheatsheet](file:///04-devops/aws/reference/cheatsheet.md)
 - [GitHub Actions Workflow Cheatsheet](file:///04-devops/git-github/04_github_actions/CHEATSHEET.md)
 - [Nginx Directives Cheatsheet](file:///04-devops/nginx/08-reference/cheatsheet.md)

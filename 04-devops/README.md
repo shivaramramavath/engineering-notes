@@ -12,7 +12,7 @@ Welcome to the **DevOps & Cloud Systems Architecture** learning area. This area 
 | **Git & GitHub Actions** | [`git-github/`](file:///04-devops/git-github/) | Version control internals, object trees, history rewriting, CI/CD pipelines, reusable workflows, and OIDC | Git 2.56+, GitHub Actions Node 20 runners | In Progress (Foundation ready) |
 | **Docker Containers** | [`docker/`](file:///04-devops/docker/) | Container runtime internals, multi-stage builds, rootless execution, Compose v2, volumes, and networking | Docker Engine v28+, Compose v2.30+, Buildx | In Progress (Foundation ready) |
 | **Nginx Web Gateway** | [`nginx/`](file:///04-devops/nginx/) | Reverse proxying, TLS 1.3 termination, HTTP/3 (QUIC), load balancing, rate limiting, and edge security | Nginx 1.30+ Stable / 1.31+ Mainline | In Progress (Foundation ready) |
-| **Amazon Web Services (AWS)** | [`aws/`](file:///04-devops/aws/) | Cloud foundations, IAM least privilege, VPC networking, compute (EC2/ECS/Lambda), storage (S3/DynamoDB), and IaC | AWS CLI v2.22+, AL2023, Terraform/OpenTofu | In Progress (Foundation ready) |
+| **Amazon Web Services (AWS)** | [`aws/`](file:///04-devops/aws/) | Cloud foundations, IAM least privilege, VPC networking, compute (EC2/ECS/Lambda), storage (S3/DynamoDB), and IaC | AWS CLI v2.22+, AL2023, Terraform/OpenTofu | Complete (101 notes across 10 modules) |
 
 ---
 
