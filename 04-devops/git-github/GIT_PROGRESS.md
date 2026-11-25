@@ -2,7 +2,7 @@
 
 **Total Modules:** 12 (00 through 11)  
 **Total Target Notes:** 124 concept/project notes + 12 module READMEs + 1 track README = 137 files  
-**Overall Completion:** 36 / 124 notes (29%)  
+**Overall Completion:** 44 / 124 notes (35%)  
 
 ---
 
@@ -13,7 +13,7 @@
 | **00-setup** | 5 | 5 | Complete |
 | **01-fundamentals** | 10 | 10 | Complete |
 | **02-commands** | 21 | 21 | Complete |
-| **03-history-rewriting** | 8 | 0 | Pending |
+| **03-history-rewriting** | 8 | 8 | Complete |
 | **04-github-actions** | 26 | 0 | Pending |
 | **05-github-collaboration** | 11 | 0 | Pending |
 | **06-workflows-and-strategies** | 8 | 0 | Pending |
@@ -73,16 +73,16 @@
 - [x] `02-commands/20-hooks.md`
 - [x] `02-commands/21-aliases-and-productivity.md`
 
-### Module 03: History Rewriting & Recovery (0/8 Notes, 0/1 README)
-- [ ] `03-history-rewriting/README.md`
-- [ ] `03-history-rewriting/01-amend.md`
-- [ ] `03-history-rewriting/02-rebase.md`
-- [ ] `03-history-rewriting/03-cherry-pick.md`
-- [ ] `03-history-rewriting/04-reflog-and-recovery.md`
-- [ ] `03-history-rewriting/05-filter-repo-and-removing-secrets.md`
-- [ ] `03-history-rewriting/06-rewriting-shared-history-safely.md`
-- [ ] `03-history-rewriting/07-reset-vs-revert-vs-restore.md`
-- [ ] `03-history-rewriting/08-recovering-lost-work-playbook.md`
+### Module 03: History Rewriting & Recovery (8/8 Notes, 1/1 README)
+- [x] `03-history-rewriting/README.md`
+- [x] `03-history-rewriting/01-amend.md`
+- [x] `03-history-rewriting/02-rebase.md`
+- [x] `03-history-rewriting/03-cherry-pick.md`
+- [x] `03-history-rewriting/04-reflog-and-recovery.md`
+- [x] `03-history-rewriting/05-filter-repo-and-removing-secrets.md`
+- [x] `03-history-rewriting/06-rewriting-shared-history-safely.md`
+- [x] `03-history-rewriting/07-reset-vs-revert-vs-restore.md`
+- [x] `03-history-rewriting/08-recovering-lost-work-playbook.md`
 
 ### Module 04: GitHub Actions CI/CD (0/26 Notes, 0/1 README)
 - [ ] `04-github-actions/README.md`

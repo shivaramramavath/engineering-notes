@@ -1,33 +1,40 @@
-# 05 — History Rewriting
+# Module 03: History Rewriting & Recovery
 
-Everything in `02_git_commands` treats history as append-only — you add commits, undo them, or add new ones that reverse them. This section covers tools that actually **change existing commits**: their content, their order, or which branch they appear to belong to.
+## Overview
+This module explores Git's history-rewriting engine and disaster-recovery capabilities. It progresses from local commit editing (`amend`, `rebase -i`, `cherry-pick`) to repository-wide secret purging (`git-filter-repo`), safe collaborative force-push protocols (`--force-with-lease`, `--force-if-includes`), the architectural comparison of `reset` vs `revert` vs `restore`, and an emergency triage playbook for rescuing lost work.
 
-## In this section
+---
 
-| File                | Covers                                                                                                            |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `01_amend.md`       | Fixing the most recent commit in place — message, forgotten files, or both                                        |
-| `02_rebase.md`      | Replaying commits onto a new base, including interactive rebase for editing/reordering/squashing multiple commits |
-| `03_cherry-pick.md` | Copying a specific commit from one branch onto another, without merging everything else                           |
-| `04_reflog.md`      | Git's safety net — a log of every place `HEAD` has pointed, useful for recovering from a rewrite gone wrong       |
+## Learning Objectives
+By completing this module, you will:
+- Master single-commit and multi-commit history surgery using `git commit --amend` and interactive rebase (`git rebase -i`).
+- Understand autosquash workflows (`git commit --fixup` and `git rebase -i --autosquash`) to eliminate manual rebase reorganization.
+- Surgically port bug fixes and changes across branches using `git cherry-pick` and audit traceability (`-x`).
+- Navigate Git's append-only transaction ledger (`reflog`) to recover lost commits, branches, and discarded stashes.
+- Completely purge leaked passwords, private keys, and massive binaries across entire project histories using `git-filter-repo`.
+- Safely push rewritten histories to remote repositories using compare-and-swap leases (`--force-with-lease --force-if-includes`).
+- Understand the Three Trees architecture to choose precisely between `git reset`, `git revert`, and `git restore`.
+- Execute emergency disaster recovery runbooks for hard resets, deleted branches, detached HEADs, and teammate force-pushes.
 
-## The one rule that matters more than any command here
+---
 
-> **Never rewrite history that's already been pushed and might be shared with others.**
+## Curriculum Roadmap
 
-Amending, rebasing, and cherry-picking all create commits with **new hashes**, even when the content looks identical. If someone else has already pulled the original commits, rewriting them causes their local history to diverge from yours — leading to duplicated commits, confusing conflicts, or force-push headaches. Everything in this section is safe on commits that exist **only locally**; get much more cautious once something's been pushed and shared.
+| # | Topic | File | Summary |
+|---|---|---|---|
+| 01 | Amending Commits | [`01-amend.md`](./01-amend.md) | Modifying recent commits, changing messages, updating staged trees, and avoiding public branch hazards. |
+| 02 | Interactive Rebase & Linear History | [`02-rebase.md`](./02-rebase.md) | Moving commit bases, squash, fixup, drop, edit, exec test automation, autosquash, and the Golden Rule. |
+| 03 | Selective Porting (Cherry-Pick) | [`03-cherry-pick.md`](./03-cherry-pick.md) | Backporting production hotfixes, `-x` provenance tracking, non-committing picks (`-n`), and merge commit picks (`-m`). |
+| 04 | Reflog & Commit Rescue | [`04-reflog-and-recovery.md`](./04-reflog-and-recovery.md) | Git's internal flight recorder, relative time travel, reachability, dangling commits, and expiration rules. |
+| 05 | Purging Secrets & Bloat | [`05-filter-repo-and-removing-secrets.md`](./05-filter-repo-and-removing-secrets.md) | `git-filter-repo` Python engine, credential revocation, stripping large blobs, text replacement, and BFG comparison. |
+| 06 | Safe Force Pushes & Team Protocols | [`06-rewriting-shared-history-safely.md`](./06-rewriting-shared-history-safely.md) | Compare-and-swap pushing (`--force-with-lease`), `--force-if-includes`, auto-fetch protection, and branch governance. |
+| 07 | Reset vs Revert vs Restore Matrix | [`07-reset-vs-revert-vs-restore.md`](./07-reset-vs-revert-vs-restore.md) | The Three Trees architecture (HEAD, Index, Working Directory), public vs private history, and command decision trees. |
+| 08 | Lost Work Recovery Playbook | [`08-recovering-lost-work-playbook.md`](./08-recovering-lost-work-playbook.md) | Emergency triage runbook: accidental hard reset, deleted branch, ruined rebase, dropped stash, and fsck deep scans. |
 
-## Why learn this at all, then?
+---
 
-Because cleaning up your own local, unpushed history — before it becomes permanent and shared — makes for a much more readable project history. Squashing 15 "wip" commits into one clear commit, or fixing a typo in a message before anyone sees it, costs nothing and helps everyone reading `git log` later.
-
-## What you should be able to do after this section
-
-- Fix the last commit without creating a messy "fix typo" follow-up commit
-- Clean up a string of local commits into a small number of clear ones (interactive rebase)
-- Pull a single useful commit from another branch without merging everything else on it
-- Recover from a rebase or reset that went wrong, using `git reflog`
-
-## This is the last section
-
-At this point you've covered setup, fundamentals, day-to-day commands, and history rewriting — the practical core of using Git. From here, the best next step is using Git on a real project, and coming back to earlier sections as reference when something doesn't behave the way you expect.
+## Safety Guidelines for History Rewriting
+- **Rule 1 (The Golden Rule)**: Never rebase or rewrite commits that have been pushed to public, shared branches (`main`, `master`, `release/*`).
+- **Rule 2 (Compare-and-Swap)**: When pushing rebased feature branches, always use `git push --force-with-lease --force-if-includes`.
+- **Rule 3 (Credential Revocation)**: If credentials are leaked, revoke them in the cloud provider immediately before running history-scrubbing tools.
+- **Rule 4 (Triage Before Panic)**: If commits appear lost, check `git reflog` before running any cleaning or pruning commands.
