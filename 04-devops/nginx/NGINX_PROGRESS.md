@@ -114,15 +114,15 @@
 ---
 
 ## 10. Module 08: Technical Interview Preparation
-- [ ] `08-interview/README.md`
-- [ ] `08-interview/01-fundamentals-qa.md`
-- [ ] `08-interview/02-location-matching-and-rewrites-qa.md`
-- [ ] `08-interview/03-reverse-proxy-and-load-balancing-qa.md`
-- [ ] `08-interview/04-tls-and-security-qa.md`
-- [ ] `08-interview/05-performance-and-internals-qa.md`
-- [ ] `08-interview/06-production-troubleshooting-scenarios.md`
-- [ ] `08-interview/07-nginx-vs-alternatives-qa.md`
-- [ ] `08-interview/08-behavioural-and-architecture-discussion.md`
+- [x] `08-interview/README.md`
+- [x] `08-interview/01-fundamentals-qa.md`
+- [x] `08-interview/02-location-matching-and-rewrites-qa.md`
+- [x] `08-interview/03-reverse-proxy-and-load-balancing-qa.md`
+- [x] `08-interview/04-tls-and-security-qa.md`
+- [x] `08-interview/05-performance-and-internals-qa.md`
+- [x] `08-interview/06-production-troubleshooting-scenarios.md`
+- [x] `08-interview/07-nginx-vs-alternatives-qa.md`
+- [x] `08-interview/08-behavioural-and-architecture-discussion.md`
 
 ---
 
