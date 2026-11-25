@@ -72,19 +72,19 @@
 ---
 
 ## 5. Module 03: Supervised Learning — Regression
-- [ ] `03-supervised-regression/README.md`
-- [ ] `03-supervised-regression/01-linear-regression.md`
-- [ ] `03-supervised-regression/02-multiple-and-polynomial-regression.md`
-- [ ] `03-supervised-regression/03-regularisation-ridge-lasso-elasticnet.md`
-- [ ] `03-supervised-regression/04-knn-regression.md`
-- [ ] `03-supervised-regression/05-decision-tree-regression.md`
-- [ ] `03-supervised-regression/06-svr.md`
-- [ ] `03-supervised-regression/07-random-forest-regression.md`
-- [ ] `03-supervised-regression/08-gradient-boosting-regression.md`
-- [ ] `03-supervised-regression/09-generalised-linear-models.md`
-- [ ] `03-supervised-regression/10-quantile-regression.md`
-- [ ] `03-supervised-regression/11-regression-diagnostics.md`
-- [ ] `03-supervised-regression/12-regression-metrics-and-baselines.md`
+- [x] `03-supervised-regression/README.md`
+- [x] `03-supervised-regression/01-linear-regression.md`
+- [x] `03-supervised-regression/02-multiple-and-polynomial-regression.md`
+- [x] `03-supervised-regression/03-regularisation-ridge-lasso-elasticnet.md`
+- [x] `03-supervised-regression/04-knn-regression.md`
+- [x] `03-supervised-regression/05-decision-tree-regression.md`
+- [x] `03-supervised-regression/06-svr.md`
+- [x] `03-supervised-regression/07-random-forest-regression.md`
+- [x] `03-supervised-regression/08-gradient-boosting-regression.md`
+- [x] `03-supervised-regression/09-generalised-linear-models.md`
+- [x] `03-supervised-regression/10-quantile-regression.md`
+- [x] `03-supervised-regression/11-regression-diagnostics.md`
+- [x] `03-supervised-regression/12-regression-metrics-and-baselines.md`
 
 ---
 
