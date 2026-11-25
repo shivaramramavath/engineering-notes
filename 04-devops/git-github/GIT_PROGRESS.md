@@ -2,7 +2,7 @@
 
 **Total Modules:** 12 (00 through 11)  
 **Total Target Notes:** 124 concept/project notes + 12 module READMEs + 1 track README = 137 files  
-**Overall Completion:** 101 / 124 notes (81%)  
+**Overall Completion:** 109 / 124 notes (88%)  
 
 ---
 
@@ -19,7 +19,7 @@
 | **06-workflows-and-strategies** | 8 | 8 | Complete |
 | **07-github-security** | 8 | 8 | Complete |
 | **08-gh-cli-and-api** | 4 | 4 | Complete |
-| **09-projects** | 8 | 0 | Pending |
+| **09-projects** | 8 | 8 | Complete |
 | **10-interview** | 8 | 0 | Pending |
 | **11-cheatsheets** | 7 | 0 | Pending |
 | **Track Root** | 1 | 0 | Pending |
@@ -156,16 +156,16 @@
 - [x] `08-gh-cli-and-api/03-webhooks-and-apps.md`
 - [x] `08-gh-cli-and-api/04-automating-with-gh-and-actions.md`
 
-### Module 09: Production Reference Projects (0/8 Projects, 0/1 README)
-- [ ] `09-projects/README.md`
-- [ ] `09-projects/01-conflict-resolution-lab.md`
-- [ ] `09-projects/02-rebase-and-recovery-lab.md`
-- [ ] `09-projects/03-ci-pipeline-for-a-node-app.md`
-- [ ] `09-projects/04-docker-build-and-push-to-ghcr.md`
-- [ ] `09-projects/05-release-automation-with-conventional-commits.md`
-- [ ] `09-projects/06-monorepo-ci-with-path-filters.md`
-- [ ] `09-projects/07-reusable-workflow-library.md`
-- [ ] `09-projects/08-secure-deploy-with-oidc-and-approvals.md`
+### Module 09: Production Reference Projects (8/8 Projects, 1/1 README)
+- [x] `09-projects/README.md`
+- [x] `09-projects/01-conflict-resolution-lab.md`
+- [x] `09-projects/02-rebase-and-recovery-lab.md`
+- [x] `09-projects/03-ci-pipeline-for-a-node-app.md`
+- [x] `09-projects/04-docker-build-and-push-to-ghcr.md`
+- [x] `09-projects/05-release-automation-with-conventional-commits.md`
+- [x] `09-projects/06-monorepo-ci-with-path-filters.md`
+- [x] `09-projects/07-reusable-workflow-library.md`
+- [x] `09-projects/08-secure-deploy-with-oidc-and-approvals.md`
 
 ### Module 10: Technical Interview Preparation (0/8 Notes, 0/1 README)
 - [ ] `10-interview/README.md`
