@@ -2,7 +2,7 @@
 
 **Total Modules:** 12 (00 through 11)  
 **Total Target Notes:** 124 concept/project notes + 12 module READMEs + 1 track README = 137 files  
-**Overall Completion:** 81 / 124 notes (65%)  
+**Overall Completion:** 89 / 124 notes (72%)  
 
 ---
 
@@ -16,7 +16,7 @@
 | **03-history-rewriting** | 8 | 8 | Complete |
 | **04-github-actions** | 26 | 26 | Complete |
 | **05-github-collaboration** | 11 | 11 | Complete |
-| **06-workflows-and-strategies** | 8 | 0 | Pending |
+| **06-workflows-and-strategies** | 8 | 8 | Complete |
 | **07-github-security** | 8 | 0 | Pending |
 | **08-gh-cli-and-api** | 4 | 0 | Pending |
 | **09-projects** | 8 | 0 | Pending |
@@ -127,16 +127,16 @@
 - [x] `05-github-collaboration/10-github-releases-and-packages.md`
 - [x] `05-github-collaboration/11-organisations-teams-and-permissions.md`
 
-### Module 06: Workflows, Branching & Release Strategies (0/8 Notes, 0/1 README)
-- [ ] `06-workflows-and-strategies/README.md`
-- [ ] `06-workflows-and-strategies/01-trunk-based-development.md`
-- [ ] `06-workflows-and-strategies/02-gitflow-and-github-flow.md`
-- [ ] `06-workflows-and-strategies/03-release-branching-and-hotfixes.md`
-- [ ] `06-workflows-and-strategies/04-conventional-commits-and-semantic-versioning.md`
-- [ ] `06-workflows-and-strategies/05-changelogs-and-release-automation.md`
-- [ ] `06-workflows-and-strategies/06-monorepo-vs-polyrepo-and-git-at-scale.md`
-- [ ] `06-workflows-and-strategies/07-commit-message-and-pr-best-practices.md`
-- [ ] `06-workflows-and-strategies/08-git-for-teams-playbook.md`
+### Module 06: Workflows, Branching & Release Strategies (8/8 Notes, 1/1 README)
+- [x] `06-workflows-and-strategies/README.md`
+- [x] `06-workflows-and-strategies/01-trunk-based-development.md`
+- [x] `06-workflows-and-strategies/02-gitflow-and-github-flow.md`
+- [x] `06-workflows-and-strategies/03-release-branching-and-hotfixes.md`
+- [x] `06-workflows-and-strategies/04-conventional-commits-and-semantic-versioning.md`
+- [x] `06-workflows-and-strategies/05-feature-flags-and-dark-launching.md`
+- [x] `06-workflows-and-strategies/06-monorepo-vs-polyrepo-git-strategies.md`
+- [x] `06-workflows-and-strategies/07-environment-branching-anti-patterns.md`
+- [x] `06-workflows-and-strategies/08-git-for-teams-playbook.md`
 
 ### Module 07: GitHub Enterprise Security & Compliance (0/8 Notes, 0/1 README)
 - [ ] `07-github-security/README.md`
