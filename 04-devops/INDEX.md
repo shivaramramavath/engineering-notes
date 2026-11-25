@@ -87,31 +87,24 @@ This index categorizes all engineering notes across the five DevOps tracks: **Li
 
 ## 3. Docker Containers
 
-### 3.1 Fundamentals & CLI
-- [01-getting-started.md](file:///04-devops/docker/00_setup/getting-started.md): Docker Engine installation, verification, post-installation rootless steps.
-- [01-docker-vs-vm.md](file:///04-devops/docker/01_docker_fundamentals/01_docker-vs-vm.md): Hypervisor VMs vs kernel-level container virtualization.
-- [02-images-containers.md](file:///04-devops/docker/01_docker_fundamentals/02_images-containers.md): Read-only OCI image layers vs read-write container overlay layer.
-- [03-docker-architecture.md](file:///04-devops/docker/01_docker_fundamentals/03_docker-architecture.md): Client-Server architecture: Docker CLI, dockerd, containerd, and runc.
-- [01-run-ps-stop.md](file:///04-devops/docker/02_docker_commands/01_run-ps-stop.md): Container execution flags, port publishing, process listing, graceful stopping.
-- [02-logs-exec-inspect.md](file:///04-devops/docker/02_docker_commands/02_logs-exec-inspect.md): Streaming stdout/stderr logs, interactive shells, low-level JSON inspection.
-- [03-images.md](file:///04-devops/docker/02_docker_commands/03_images.md): Image tagging, repository pulling, pushing, history inspection.
-- [04-build.md](file:///04-devops/docker/02_docker_commands/04_build.md): Buildx context, cache mounts, build arguments (`--build-arg`).
-- [05-cleanup.md](file:///04-devops/docker/02_docker_commands/05_cleanup.md): Pruning dangling layers, stopped containers, unused volumes, and builder cache.
+### 3.1 Setup & Fundamentals
+- [README.md](file:///04-devops/docker/README.md): Master Docker track blueprint, architecture map, and module roadmap.
+- [00-setup/](file:///04-devops/docker/00-setup/README.md): Engine installation on Linux, macOS, and Windows, rootless Docker, contexts, and first container.
+- [01-fundamentals/](file:///04-devops/docker/01-fundamentals/README.md): Containers vs VMs, images vs containers, daemon architecture, OCI standards, Linux namespaces, cgroups v1/v2, UnionFS (`overlay2`), lifecycle states, and PID 1 signal handling.
 
-### 3.2 Dockerfiles & Networking
-- [01-dockerfile-basics.md](file:///04-devops/docker/03_dockerfile/01_dockerfile-basics.md): Core instructions: FROM, RUN, CMD, ENTRYPOINT, COPY, ENV, WORKDIR.
-- [02-layers-caching.md](file:///04-devops/docker/03_dockerfile/02_layers-caching.md): BuildKit cache invalidation rules, ordering dependencies before application code.
-- [03-multi-stage-builds.md](file:///04-devops/docker/03_dockerfile/03_multi-stage-builds.md): Minimizing production attack surface with multi-stage compilation.
-- [04-dockerignore.md](file:///04-devops/docker/03_dockerfile/04_dockerignore.md): Excluding `.git`, node_modules, and secrets from build contexts.
-- [01-volumes-bind-mounts.md](file:///04-devops/docker/04_volumes_networking/01_volumes-bind-mounts.md): Named volumes, host bind mounts, tmpfs in-memory mounts.
-- [02-networking.md](file:///04-devops/docker/04_volumes_networking/02_networking.md): Bridge networks, embedded DNS resolution, host networking, macvlan.
+### 3.2 Commands & Dockerfile Deep Dive
+- [02-commands/](file:///04-devops/docker/02-commands/README.md): CLI lifecycle (`run`, `stop`, `rm`), logs, inspect, stats, image management, build flags, cleanup, restart policies, and Go templates.
+- [03-dockerfile/](file:///04-devops/docker/03-dockerfile/README.md): Instruction reference, layer caching mechanics, multi-stage builds, `.dockerignore`, BuildKit/Buildx, multi-platform images, base image choice (Alpine vs Distroless), health checks, language recipes, Hadolint, and pinning.
 
-### 3.3 Compose & Production
-- [01-compose-basics.md](file:///04-devops/docker/05_docker_compose/01_compose-basics.md): `compose.yaml` specification, service dependencies, port mappings.
-- [02-compose-multi-service.md](file:///04-devops/docker/05_docker_compose/02_compose-multi-service.md): Multi-tier application orchestration (Frontend + API + DB + Redis).
-- [01-environments-secrets.md](file:///04-devops/docker/06_production/01_environments-secrets.md): Managing `.env` variables and Docker Secrets securely.
-- [02-image-optimization.md](file:///04-devops/docker/06_production/02_image-optimization.md): Alpine vs Distroless, stripping debug symbols, single-layer artifacts.
-- [03-docker-in-ci.md](file:///04-devops/docker/06_production/03_docker-in-ci.md): Running Docker inside CI pipelines safely with Docker-in-Docker or socket mounting.
+### 3.3 Storage, Networking & Compose v2
+- [04-volumes-and-networking/](file:///04-devops/docker/04-volumes-and-networking/README.md): Named volumes, bind mounts, `tmpfs`, volume backups, network drivers (bridge, host, overlay, macvlan), embedded DNS (`127.0.0.11`), iptables firewall bypass, and troubleshooting.
+- [05-compose/](file:///04-devops/docker/05-compose/README.md): Compose Spec blueprint, multi-service topologies, environment interpolation, `depends_on: condition: service_healthy`, profiles, multi-file merging, Compose Watch (`develop.watch`), and testing workflows.
+
+### 3.4 Production, Projects, Interview & Cheatsheets
+- [06-production/](file:///04-devops/docker/06-production/README.md): Secrets management, image optimization, CI/CD pipelines, container hardening (non-root, capabilities, seccomp), Trivy scanning, Cosign signing, registries, tagging, logging drivers, cgroups OOM handling, daemon tuning, Swarm, and K8s translation.
+- [07-projects/](file:///04-devops/docker/07-projects/README.md): 8 production reference projects (Node/Postgres/Redis, Python FastAPI/Celery, Spring Boot/MySQL, NGINX TLS Proxy, Minimal Go, Compose Watch DevEx, DevSecOps Pipeline, Local Registry).
+- [08-interview/](file:///04-devops/docker/08-interview/README.md): 125 deep technical Q&As across 5 domains, 10 complex incident triage scenarios, architectural trade-offs, and STAR behavioral scenarios.
+- [09-cheatsheets/](file:///04-devops/docker/09-cheatsheets/README.md): Rapid reference guides for CLI commands, Dockerfile syntax, Compose specification, networking & storage, Buildx & BuildKit, security checklist, debugging flowcharts, and top 25 errors & fixes.
 
 ---
 

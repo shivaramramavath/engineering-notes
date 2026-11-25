@@ -55,12 +55,12 @@ This roadmap outlines structured learning sequences, role-based tracks, and esti
   - *Read:* [`git-github/04_github_actions/`](file:///04-devops/git-github/04_github_actions/)
 
 ### Phase 3: Docker Containers (Weeks 8–10)
-- **Week 8: Container Mechanics**: Docker architecture, namespaces vs VMs, image layers, container execution flags.
-  - *Read:* [`docker/01_docker_fundamentals/`](file:///04-devops/docker/01_docker_fundamentals/), [`docker/02_docker_commands/`](file:///04-devops/docker/02_docker_commands/)
-- **Week 9: Production Dockerfiles & Storage**: BuildKit caching, multi-stage optimization, named volumes, bridge networks.
-  - *Read:* [`docker/03_dockerfile/`](file:///04-devops/docker/03_dockerfile/), [`docker/04_volumes_networking/`](file:///04-devops/docker/04_volumes_networking/)
-- **Week 10: Multi-Container Stacks & Hardening**: Compose v2 specification, secret management, non-root user execution, image scanning.
-  - *Read:* [`docker/05_docker_compose/`](file:///04-devops/docker/05_docker_compose/), [`docker/06_production/`](file:///04-devops/docker/06_production/)
+- **Week 8: Container Mechanics & Commands**: Docker architecture, namespaces vs VMs, image layers, container execution flags, CLI lifecycle.
+  - *Read:* [`docker/00-setup/`](file:///04-devops/docker/00-setup/), [`docker/01-fundamentals/`](file:///04-devops/docker/01-fundamentals/), [`docker/02-commands/`](file:///04-devops/docker/02-commands/)
+- **Week 9: Production Dockerfiles & Storage**: BuildKit caching, multi-stage optimization, named volumes, bridge networks, and troubleshooting.
+  - *Read:* [`docker/03-dockerfile/`](file:///04-devops/docker/03-dockerfile/), [`docker/04-volumes-and-networking/`](file:///04-devops/docker/04-volumes-and-networking/)
+- **Week 10: Multi-Container Stacks & Production**: Compose v2 specification, secret management, non-root user execution, image scanning, reference projects, and cheatsheets.
+  - *Read:* [`docker/05-compose/`](file:///04-devops/docker/05-compose/), [`docker/06-production/`](file:///04-devops/docker/06-production/), [`docker/07-projects/`](file:///04-devops/docker/07-projects/), [`docker/08-interview/`](file:///04-devops/docker/08-interview/), [`docker/09-cheatsheets/`](file:///04-devops/docker/09-cheatsheets/)
 
 ### Phase 4: Nginx Web Gateway (Weeks 11–12)
 - **Week 11: Reverse Proxy & TLS**: Virtual hosts, regex location matching, `proxy_pass` buffering, Let's Encrypt TLS 1.3 automation.

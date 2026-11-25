@@ -4379,45 +4379,137 @@ E:.
 |   |           README.md
 |   |           
 |   +---docker
-|   |   +---00_setup
-|   |   |       getting-started.md
+|   |   |   DOCKER_AUDIT.md
+|   |   |   DOCKER_CHANGELOG.md
+|   |   |   DOCKER_COMPLETION_PLAN.md
+|   |   |   DOCKER_DECISIONS.md
+|   |   |   DOCKER_FACTS.md
+|   |   |   DOCKER_FINAL_REPORT.md
+|   |   |   DOCKER_PROGRESS.md
+|   |   |   README.md
+|   |   |   
+|   |   +---00-setup
+|   |   |       01-getting-started.md
+|   |   |       02-install-on-linux-macos-windows.md
+|   |   |       03-rootless-and-post-install-steps.md
+|   |   |       04-docker-alternatives.md
+|   |   |       05-docker-context-and-remote-hosts.md
+|   |   |       06-first-container-walkthrough.md
 |   |   |       README.md
 |   |   |       
-|   |   +---01_docker_fundamentals
-|   |   |       01_docker-vs-vm.md
-|   |   |       02_images-containers.md
-|   |   |       03_docker-architecture.md
+|   |   +---01-fundamentals
+|   |   |       01-docker-vs-vm.md
+|   |   |       02-images-and-containers.md
+|   |   |       03-docker-architecture.md
+|   |   |       04-oci-standards-and-runtimes.md
+|   |   |       05-how-isolation-works.md
+|   |   |       06-image-layers-and-union-filesystems.md
+|   |   |       07-registries-and-image-naming.md
+|   |   |       08-container-lifecycle-and-states.md
+|   |   |       09-pid-1-signals-and-init.md
 |   |   |       README.md
 |   |   |       
-|   |   +---02_docker_commands
-|   |   |       01_run-ps-stop.md
-|   |   |       02_logs-exec-inspect.md
-|   |   |       03_images.md
-|   |   |       04_build.md
-|   |   |       05_cleanup.md
+|   |   +---02-commands
+|   |   |       01-run-ps-stop.md
+|   |   |       02-logs-exec-inspect.md
+|   |   |       03-images.md
+|   |   |       04-build.md
+|   |   |       05-cleanup.md
+|   |   |       06-resource-limits-cpu-memory.md
+|   |   |       07-restart-policies.md
+|   |   |       08-copying-files-and-exec-patterns.md
+|   |   |       09-docker-events-stats-and-top.md
+|   |   |       10-formatting-output-with-go-templates.md
 |   |   |       README.md
 |   |   |       
-|   |   +---03_dockerfile
-|   |   |       01_dockerfile-basics.md
-|   |   |       02_layers-caching.md
-|   |   |       03_multi-stage-builds.md
-|   |   |       04_dockerignore.md
+|   |   +---03-dockerfile
+|   |   |       01-dockerfile-basics.md
+|   |   |       02-instructions-reference.md
+|   |   |       03-layers-and-caching.md
+|   |   |       04-multi-stage-builds.md
+|   |   |       05-dockerignore.md
+|   |   |       06-buildkit-and-buildx.md
+|   |   |       07-multi-platform-images.md
+|   |   |       08-base-image-choice.md
+|   |   |       09-healthchecks.md
+|   |   |       10-language-recipes.md
+|   |   |       11-dockerfile-linting-with-hadolint.md
+|   |   |       12-reproducible-builds-and-pinning.md
 |   |   |       README.md
 |   |   |       
-|   |   +---04_volumes_networking
-|   |   |       01_volumes-bind-mounts.md
-|   |   |       02_networking.md
+|   |   +---04-volumes-and-networking
+|   |   |       01-volumes-and-bind-mounts.md
+|   |   |       02-tmpfs-and-storage-drivers.md
+|   |   |       03-backup-and-restore-of-volumes.md
+|   |   |       04-networking.md
+|   |   |       05-user-defined-networks-and-dns.md
+|   |   |       06-ports-publishing-and-firewalls.md
+|   |   |       07-container-to-host-and-container-to-container.md
+|   |   |       08-ipv6-and-proxies.md
+|   |   |       09-network-troubleshooting.md
 |   |   |       README.md
 |   |   |       
-|   |   +---05_docker_compose
-|   |   |       01_compose-basics.md
-|   |   |       02_compose-multi-service.md
+|   |   +---05-compose
+|   |   |       01-compose-basics.md
+|   |   |       02-compose-multi-service.md
+|   |   |       03-compose-file-reference.md
+|   |   |       04-env-files-and-interpolation.md
+|   |   |       05-depends-on-and-healthchecks.md
+|   |   |       06-profiles-and-overrides.md
+|   |   |       07-compose-watch-and-dev-workflows.md
+|   |   |       08-compose-for-testing.md
+|   |   |       09-compose-in-production-limits.md
+|   |   |       10-migrating-from-compose-v1.md
 |   |   |       README.md
 |   |   |       
-|   |   \---06_production
-|   |           01_environments-secrets.md
-|   |           02_image-optimization.md
-|   |           03_docker-in-ci.md
+|   |   +---06-production
+|   |   |       01-environments-and-secrets.md
+|   |   |       02-image-optimisation.md
+|   |   |       03-docker-in-ci.md
+|   |   |       04-image-security.md
+|   |   |       05-scanning-and-sbom.md
+|   |   |       06-image-signing-and-provenance.md
+|   |   |       07-registries.md
+|   |   |       08-tagging-and-release-strategies.md
+|   |   |       09-logging-drivers-and-monitoring.md
+|   |   |       10-resource-management-and-oom.md
+|   |   |       11-docker-daemon-configuration-and-troubleshooting.md
+|   |   |       12-swarm-overview-and-status.md
+|   |   |       13-from-docker-to-kubernetes.md
+|   |   |       14-anti-patterns-and-common-mistakes.md
+|   |   |       README.md
+|   |   |       
+|   |   +---07-projects
+|   |   |       01-node-api-with-postgres-and-redis.md
+|   |   |       02-python-fastapi-stack.md
+|   |   |       03-spring-boot-with-database.md
+|   |   |       04-nginx-reverse-proxy-with-tls-local.md
+|   |   |       05-multi-stage-minimal-go-image.md
+|   |   |       06-full-dev-environment-with-compose-watch.md
+|   |   |       07-secure-hardened-image-pipeline.md
+|   |   |       08-local-registry-and-mirroring.md
+|   |   |       README.md
+|   |   |       
+|   |   +---08-interview
+|   |   |       01-docker-basics-qa.md
+|   |   |       02-images-and-dockerfile-qa.md
+|   |   |       03-networking-and-volumes-qa.md
+|   |   |       04-compose-qa.md
+|   |   |       05-security-qa.md
+|   |   |       06-production-and-troubleshooting-scenarios.md
+|   |   |       07-docker-vs-kubernetes-and-vms.md
+|   |   |       08-behavioural-and-project-discussion.md
+|   |   |       README.md
+|   |   |       
+|   |   \---09-cheatsheets
+|   |           01-cli-commands.md
+|   |           02-dockerfile-instructions.md
+|   |           03-compose-syntax.md
+|   |           04-networking-and-volumes.md
+|   |           05-buildx-and-buildkit.md
+|   |           06-security-checklist.md
+|   |           07-debugging-flowchart.md
+|   |           08-common-errors-and-fixes.md
 |   |           README.md
 |   |           
 |   +---git-github
