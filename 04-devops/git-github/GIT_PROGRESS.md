@@ -2,7 +2,7 @@
 
 **Total Modules:** 12 (00 through 11)  
 **Total Target Notes:** 124 concept/project notes + 12 module READMEs + 1 track README = 137 files  
-**Overall Completion:** 5 / 124 notes (4%)  
+**Overall Completion:** 15 / 124 notes (12%)  
 
 ---
 
@@ -11,8 +11,8 @@
 | Module | Target Notes | Complete | Status |
 |:-------|:------------:|:--------:|:-------|
 | **00-setup** | 5 | 5 | Complete |
-| **01-fundamentals** | 10 | 0 | In Progress |
-| **02-commands** | 21 | 0 | Pending |
+| **01-fundamentals** | 10 | 10 | Complete |
+| **02-commands** | 21 | 0 | In Progress |
 | **03-history-rewriting** | 8 | 0 | Pending |
 | **04-github-actions** | 26 | 0 | Pending |
 | **05-github-collaboration** | 11 | 0 | Pending |
@@ -36,18 +36,18 @@
 - [x] `00-setup/04-gitconfig-in-depth.md`
 - [x] `00-setup/05-gitignore-and-gitattributes.md`
 
-### Module 01: Core Fundamentals (0/10 Notes, 0/1 README)
-- [ ] `01-fundamentals/README.md`
-- [ ] `01-fundamentals/01-git-vs-github.md`
-- [ ] `01-fundamentals/02-repositories.md`
-- [ ] `01-fundamentals/03-working-tree-and-staging-area.md`
-- [ ] `01-fundamentals/04-commits.md`
-- [ ] `01-fundamentals/05-git-objects.md`
-- [ ] `01-fundamentals/06-refs-branches-and-head.md`
-- [ ] `01-fundamentals/07-packfiles-and-garbage-collection.md`
-- [ ] `01-fundamentals/08-the-index-in-depth.md`
-- [ ] `01-fundamentals/09-hashes-and-sha-256.md`
-- [ ] `01-fundamentals/10-git-internals-walkthrough.md`
+### Module 01: Core Fundamentals (10/10 Notes, 1/1 README)
+- [x] `01-fundamentals/README.md`
+- [x] `01-fundamentals/01-git-vs-github.md`
+- [x] `01-fundamentals/02-repositories.md`
+- [x] `01-fundamentals/03-working-tree-and-staging-area.md`
+- [x] `01-fundamentals/04-commits.md`
+- [x] `01-fundamentals/05-git-objects.md`
+- [x] `01-fundamentals/06-refs-branches-and-head.md`
+- [x] `01-fundamentals/07-packfiles-and-garbage-collection.md`
+- [x] `01-fundamentals/08-the-index-in-depth.md`
+- [x] `01-fundamentals/09-hashes-and-sha-256.md`
+- [x] `01-fundamentals/10-git-internals-walkthrough.md`
 
 ### Module 02: Essential Commands (0/21 Notes, 0/1 README)
 - [ ] `02-commands/README.md`
