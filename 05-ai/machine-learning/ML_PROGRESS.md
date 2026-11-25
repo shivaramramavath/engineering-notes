@@ -314,15 +314,15 @@
 ---
 
 ## 20. Module 18: Quick Reference Cheatsheets
-- [ ] `18-cheatsheets/README.md`
-- [ ] `18-cheatsheets/01-algorithm-chooser-flowchart.md`
-- [ ] `18-cheatsheets/02-scikit-learn-api.md`
-- [ ] `18-cheatsheets/03-preprocessing-recipes.md`
-- [ ] `18-cheatsheets/04-metrics-formulas.md`
-- [ ] `18-cheatsheets/05-hyperparameters-by-algorithm.md`
-- [ ] `18-cheatsheets/06-supervised-vs-unsupervised-vs-rl-comparison.md`
-- [ ] `18-cheatsheets/07-rl-algorithms-table.md`
-- [ ] `18-cheatsheets/08-pytorch-snippets.md`
-- [ ] `18-cheatsheets/09-saving-and-loading-recipes.md`
-- [ ] `18-cheatsheets/10-math-formulas.md`
-- [ ] `18-cheatsheets/11-common-errors-and-fixes.md`
+- [x] `18-cheatsheets/README.md`
+- [x] `18-cheatsheets/01-algorithm-chooser-flowchart.md`
+- [x] `18-cheatsheets/02-scikit-learn-api.md`
+- [x] `18-cheatsheets/03-preprocessing-recipes.md`
+- [x] `18-cheatsheets/04-metrics-formulas.md`
+- [x] `18-cheatsheets/05-hyperparameters-by-algorithm.md`
+- [x] `18-cheatsheets/06-supervised-vs-unsupervised-vs-rl-comparison.md`
+- [x] `18-cheatsheets/07-rl-algorithms-table.md`
+- [x] `18-cheatsheets/08-pytorch-snippets.md`
+- [x] `18-cheatsheets/09-saving-and-loading-recipes.md`
+- [x] `18-cheatsheets/10-math-formulas.md`
+- [x] `18-cheatsheets/11-common-errors-and-fixes.md`
