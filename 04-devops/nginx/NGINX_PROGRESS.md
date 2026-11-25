@@ -101,15 +101,15 @@
 ---
 
 ## 9. Module 07: Production Reference Projects
-- [ ] `07-projects/README.md`
-- [ ] `07-projects/01-secure-gateway-stack.md`
-- [ ] `07-projects/02-spa-with-api-proxy.md`
-- [ ] `07-projects/03-static-site-caching-and-compression.md`
-- [ ] `07-projects/04-load-balanced-backend-cluster.md`
-- [ ] `07-projects/05-websocket-and-sse-realtime-proxy.md`
-- [ ] `07-projects/06-rate-limited-public-api-gateway.md`
-- [ ] `07-projects/07-tls-termination-and-certbot-automation.md`
-- [ ] `07-projects/08-canary-release-and-traffic-splitting.md`
+- [x] `07-projects/README.md`
+- [x] `07-projects/01-secure-gateway-stack.md`
+- [x] `07-projects/02-spa-with-api-proxy.md`
+- [x] `07-projects/03-static-site-caching-and-compression.md`
+- [x] `07-projects/04-load-balanced-backend-cluster.md`
+- [x] `07-projects/05-websocket-and-sse-realtime-proxy.md`
+- [x] `07-projects/06-rate-limited-public-api-gateway.md`
+- [x] `07-projects/07-tls-termination-and-certbot-automation.md`
+- [x] `07-projects/08-canary-release-and-traffic-splitting.md`
 
 ---
 

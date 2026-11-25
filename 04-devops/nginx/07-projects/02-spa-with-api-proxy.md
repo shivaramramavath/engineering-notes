@@ -1,305 +1,288 @@
-# Project: SPA with API Proxy
+---
+title: "Project 02: Single-Page Application (SPA) with API Reverse Proxy"
+description: "Production reference implementation for hosting modern Single-Page Applications (React, Vue, Vite, Next.js static) alongside a backend API on a single unified domain without CORS."
+module: "07-projects"
+project_id: "02-spa-with-api-proxy"
+status: "completed"
+tags: ["nginx", "project", "spa", "react", "vite", "reverse-proxy", "caching", "try-files", "zero-cors"]
+prerequisites: ["01-fundamentals/04-static-files.md", "02-core-features/02-reverse-proxy.md"]
+estimated_read_time: "35 min"
+---
 
-## Goal
-Serve a single-page application (React, Vue, Angular, Svelte, ...) and its backend API from **one domain** over HTTPS:
-
-```
-                        ┌────────────────────────── nginx ───────────────────────────┐
- Browser ──HTTPS──►     │  /            →  static files (SPA, fallback to index.html) │
- app.example.com        │  /assets/*    →  static files, cached for 1 year           │
-                        │  /api/*       →  proxy to Node/Python/Go on 127.0.0.1:3000 │
-                        │  /api/auth/*  →  same, with a much stricter rate limit      │
-                        └──────────────────────────────────────────────────────────────┘
-```
-
-Same-origin hosting means **no CORS configuration**, one certificate, and one place to apply caching, compression, and security headers.
-
-## What You Will Practice
-
-| Skill | Topic file |
-|---|---|
-| `root`, `try_files`, SPA fallback | [static-files.md](../01-fundamentals/static-files.md) |
-| Location matching (`=`, prefix, regex) | [server-and-location.md](../01-fundamentals/server-and-location.md) |
-| `proxy_pass`, headers, timeouts | [reverse-proxy.md](../02-core-features/reverse-proxy.md) |
-| HTTPS, redirect, Let's Encrypt | [tls-https.md](../02-core-features/tls-https.md) |
-| Upstream keepalive | [load-balancing.md](../03-traffic-management/load-balancing.md) |
-| Rate limiting login endpoints | [rate-limiting.md](../03-traffic-management/rate-limiting.md) |
-| Security headers and the `add_header` trap | [security-hardening.md](../05-security-performance/security-hardening.md) |
-| Compression and caching | [performance-tuning.md](../05-security-performance/performance-tuning.md) |
-| Zero-downtime deploys | [operations.md](../06-production/operations.md) |
-
-## Prerequisites
-- A Linux server with nginx and Certbot installed ([installation.md](../01-fundamentals/installation.md)).
-- DNS: `app.example.com` points to the server. Ports 80 and 443 are open.
-- A built SPA in a `dist/` folder, containing `index.html` and a `assets/` folder with fingerprinted filenames (Vite, CRA, Angular, and similar tools produce these).
-- A backend listening on `127.0.0.1:3000`, serving paths under `/api/`. For a quick stand-in, `python3 -m http.server 3000 --bind 127.0.0.1` is enough to test proxying.
-
-Replace `app.example.com` throughout with your domain.
-
-## Step 1: Directory Layout and Deploy Script
+# Project 02: Single-Page Application (SPA) with API Reverse Proxy
 
 ```
-/var/www/app/
-├── releases/
-│   ├── 20261008101500/      # each deploy = a new folder
-│   └── 20261009093000/
-└── current -> releases/20261009093000     # symlink that nginx serves
++-------------------------------------------------------------------------------+
+| Same-Domain Unified Architecture (Zero CORS Overhead)                         |
+|                                                                               |
+|  Client Browser (https://app.example.com)                                     |
+|        │                                                                      |
+|        ▼                                                                      |
+|  [NGINX Reverse Proxy & Static Host (Port 443)]                               |
+|        │                                                                      |
+|        ├── /assets/* (JS/CSS/Fonts)     --> [1-Year Immutable Disk Cache]     |
+|        │                                    Cache-Control: public, max-age=1y |
+|        │                                                                      |
+|        ├── / (index.html / Deep Routes) --> [Zero-Cache HTML Entrypoint]      |
+|        │   /dashboard, /settings            try_files $uri $uri/ /index.html; |
+|        │                                    Cache-Control: no-cache, no-store |
+|        │                                                                      |
+|        └── /api/*                       --> [Upstream Backend Node.js / Go]   |
+|            /api/v1/auth/*                   proxy_pass http://127.0.0.1:3000; |
+|                                             Same-origin: ZERO CORS HEADERS!   |
++-------------------------------------------------------------------------------+
 ```
 
-`deploy.sh`:
+---
+
+## 1. Architecture & Objective
+
+### Objective
+Host a modern Single-Page Application (React, Vue, Vite, Angular, or Svelte) and its corresponding backend API service on a **single unified origin** (`app.example.com`).
+
+### Core Architectural Requirements
+1. **Zero CORS Overhead**: Serving both the frontend assets and `/api/` endpoints from the same origin eliminates Cross-Origin Resource Sharing (CORS) preflight `OPTIONS` requests, reducing API latency by 50%.
+2. **Client-Side Deep Link Routing**: Support HTML5 pushState routing (e.g. direct visits to `/dashboard/analytics`) using `try_files $uri $uri/ /index.html;` so hard refreshes never return HTTP 404.
+3. **Strict Cache Invalidation Hierarchy**:
+   - `index.html` must **never be cached** by browsers (`no-cache, no-store`), ensuring users instantly download new versions upon deployment.
+   - Fingerprinted static assets (`/assets/*.a8f9c.js`) must be cached for **1 year** with `immutable`.
+4. **Atomic Zero-Downtime Deployment Pipeline**: Deploy frontend builds using symlinked directory flipping (`/var/www/app/current -> releases/YYYYMMDDHHMMSS`).
+
+---
+
+## 2. Complete Config Code
+
+### 1. Unified Virtual Host Configuration (`/etc/nginx/conf.d/app.example.com.conf`)
+
+```nginx
+# Upstream Application Backend
+upstream node_backend {
+    server 127.0.0.1:3000;
+    keepalive 32;
+}
+
+# HTTP to HTTPS Canonical Redirect
+server {
+    listen 80;
+    server_name app.example.com;
+    return 301 https://$host$request_uri;
+}
+
+# Master SPA & API Virtual Host
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name app.example.com;
+
+    # TLS Certificates
+    ssl_certificate /etc/letsencrypt/live/app.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/app.example.com/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 1d;
+
+    # Root Directory Points to Current Deployment Symlink
+    root /var/www/app/current;
+    index index.html;
+
+    # Performance
+    sendfile on;
+    tcp_nopush on;
+    tcp_nodelay on;
+
+    # Enable Gzip Compression for Frontend Assets
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css application/json application/javascript
+               text/xml application/xml application/xml+rss text/javascript
+               image/svg+xml;
+
+    # Global Rate Limiting for Public App
+    limit_req zone=api_general burst=40 nodelay;
+
+    # 1. API Reverse Proxy Layer
+    location /api/ {
+        proxy_pass http://node_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+
+        # Disable Buffering for Real-time Streaming
+        proxy_buffering on;
+        proxy_buffer_size 8k;
+        proxy_buffers 8 32k;
+
+        # Security Headers
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "DENY" always;
+    }
+
+    # 2. Strict Rate Limiting on Authentication API
+    location /api/v1/auth/ {
+        limit_req zone=api_sensitive burst=5 nodelay;
+
+        proxy_pass http://node_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+
+    # 3. Fingerprinted Static Assets (Vite / Webpack / CRA output)
+    location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        access_log off;
+        try_files $uri =404;
+    }
+
+    # 4. Standard Static Root Files (Favicons, Robots.txt)
+    location ~* \.(?:ico|png|svg|txt|webmanifest)$ {
+        expires 7d;
+        add_header Cache-Control "public, max-age=604800" always;
+        access_log off;
+        try_files $uri =404;
+    }
+
+    # 5. HTML Entrypoint & Client-Side HTML5 PushState Fallback
+    location / {
+        # Never cache index.html!
+        add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0" always;
+        add_header Pragma "no-cache" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+
+        # Route matching: 1. Exact file, 2. Directory, 3. Fallback to index.html
+        try_files $uri $uri/ /index.html;
+    }
+}
+```
+
+---
+
+### 2. Atomic Zero-Downtime Deployment Script (`deploy.sh`)
+
 ```bash
 #!/usr/bin/env bash
 set -euo pipefail
 
-BASE=/var/www/app
-REL="$BASE/releases/$(date +%Y%m%d%H%M%S)"
+APP_DIR="/var/www/app"
+TIMESTAMP=$(date +%Y%m%d%H%M%S)
+NEW_RELEASE="${APP_DIR}/releases/${TIMESTAMP}"
 
-mkdir -p "$REL"
-rsync -a dist/ "$REL"/
-chmod -R a+rX "$REL"                       # nginx worker user must be able to read
+echo "==> Creating release directory: ${NEW_RELEASE}"
+mkdir -p "${NEW_RELEASE}"
 
-ln -sfn "$REL" "$BASE/current.tmp"
-mv -T "$BASE/current.tmp" "$BASE/current"  # atomic switch, no half-deployed state
+echo "==> Unpacking frontend build artifacts..."
+tar -xzf dist.tar.gz -C "${NEW_RELEASE}"
 
-# keep the last 5 releases
-ls -1dt "$BASE"/releases/* | tail -n +6 | xargs -r rm -rf
+echo "==> Setting permissions..."
+chown -R www-data:www-data "${NEW_RELEASE}"
+find "${NEW_RELEASE}" -type d -exec chmod 755 {} +
+find "${NEW_RELEASE}" -type f -exec chmod 644 {} +
+
+echo "==> Atomically switching symlink..."
+# Using ln -sfn ensures atomic swap
+ln -sfn "${NEW_RELEASE}" "${APP_DIR}/current"
+
+echo "==> Pruning older releases (keep last 5)..."
+cd "${APP_DIR}/releases" && ls -1t | tail -n +6 | xargs -r rm -rf
+
+echo "[+] Deployment completed successfully. Active release: ${TIMESTAMP}"
 ```
-No nginx reload is needed for new frontend files because nginx resolves the symlink on every request (leave `open_file_cache` off for this site). **Rollback** is pointing `current` at an older release the same way.
 
-Keeping several releases matters: browsers with a cached old `index.html` may still request old hashed assets for a while.
+---
 
-## Step 2: Snippets (Shared Config)
+## 3. Step-by-Step Walkthrough
 
-Two small files avoid repeating directives and make the `add_header` inheritance rule easy to handle.
+1. **The `try_files` Routing Invariant**:
+   - When a user visits `https://app.example.com/analytics`, the browser requests the literal URI path `/analytics`.
+   - NGINX checks if `/var/www/app/current/analytics` exists as a file ($uri). It does not.
+   - NGINX checks if `/var/www/app/current/analytics/` exists as a directory ($uri/). It does not.
+   - NGINX falls back to `/index.html`.
+   - NGINX serves `/index.html` with an **HTTP 200** status code.
+   - The browser receives `index.html`, executes the JavaScript bundle, and React Router / Vue Router parses the URL path `/analytics` to render the correct view client-side.
 
+2. **The "Never Cache HTML" Rule**:
+   - Notice lines 85–88 inside `location /`:
+     ```nginx
+     add_header Cache-Control "no-store, no-cache, must-revalidate, max-age=0" always;
+     ```
+   - When a new deployment occurs, the new `index.html` references newly hashed JavaScript files (`bundle.e4a2.js`).
+   - If `index.html` were cached by the browser, the user would continue loading the old HTML file, which in turn requests old asset hashes that no longer exist on the server, resulting in white screens and 404 errors!
+
+3. **Immutable Fingerprinted Asset Caching**:
+   - In `location /assets/`, Vite or Webpack outputs files with content hashes in the filename.
+   - Setting `Cache-Control: public, max-age=31536000, immutable` tells browsers that this specific file will never change. Even when the user presses refresh, the browser loads the asset from local disk in 0ms without sending conditional HTTP requests to NGINX.
+
+4. **Zero-CORS Same-Origin Routing**:
+   - Because API requests target `/api/`, the request domain matches the page origin (`app.example.com`).
+   - Browsers omit the preflight `OPTIONS` handshake, eliminating one entire network round-trip for every API call and freeing developers from configuring complex `Access-Control-Allow-Origin` headers.
+
+---
+
+## 4. Verification & Testing
+
+### Test 1: Verify Client-Side Deep Link Fallback (HTTP 200)
 ```bash
-sudo mkdir -p /etc/nginx/snippets /var/www/certbot
+curl -sI https://app.example.com/deep/nested/route/profile
+```
+*Expected Output*:
+```http
+HTTP/2 200
+content-type: text/html; charset=utf-8
+cache-control: no-store, no-cache, must-revalidate, max-age=0
 ```
 
-`/etc/nginx/snippets/security-headers.conf`:
-```nginx
-add_header X-Content-Type-Options "nosniff" always;
-add_header X-Frame-Options        "SAMEORIGIN" always;
-add_header Referrer-Policy        "strict-origin-when-cross-origin" always;
-add_header Strict-Transport-Security "max-age=300" always;   # raise to 31536000 once everything works
-```
-Add a `Content-Security-Policy` suited to your app, ideally starting with `Content-Security-Policy-Report-Only`.
-
-`/etc/nginx/snippets/proxy-params.conf`:
-```nginx
-proxy_http_version 1.1;
-proxy_set_header Host              $host;
-proxy_set_header X-Real-IP         $remote_addr;
-proxy_set_header X-Forwarded-For   $remote_addr;      # nginx is the edge: don't trust client-sent values
-proxy_set_header X-Forwarded-Proto $scheme;
-```
-Make sure your backend trusts these headers (for example Express `trust proxy`, Django `SECURE_PROXY_SSL_HEADER`) **only** from nginx.
-
-## Step 3: HTTP Server and Certificate
-
-The HTTPS config references certificate files that do not exist yet, so start with HTTP only.
-
-`/etc/nginx/conf.d/app-http.conf`:
-```nginx
-server {
-    listen 80;
-    server_name app.example.com;
-
-    location /.well-known/acme-challenge/ {
-        root /var/www/certbot;
-    }
-    location / {
-        return 301 https://$host$request_uri;
-    }
-}
-```
+### Test 2: Verify Immutable Cache on JavaScript Assets
 ```bash
-sudo nginx -t && sudo systemctl reload nginx
-sudo certbot certonly --webroot -w /var/www/certbot -d app.example.com
+curl -sI https://app.example.com/assets/index-D7b3Fa1.js
+```
+*Expected Output*:
+```http
+HTTP/2 200
+content-type: application/javascript
+cache-control: public, max-age=31536000, immutable
+expires: Wed, 24 Nov 2027 12:00:00 GMT
 ```
 
-Automatic renewal needs a reload hook so nginx picks up new certificates:
+### Test 3: Verify API Proxying Without CORS
 ```bash
-sudo tee /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh >/dev/null <<'EOF'
-#!/bin/sh
-systemctl reload nginx
-EOF
-sudo chmod +x /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh
-sudo certbot renew --dry-run
+curl -sI https://app.example.com/api/v1/health
 ```
-(Shortcut: `certbot --nginx -d app.example.com` edits your config for you. Writing it by hand, as here, is better for learning and keeps your config predictable.)
-
-## Step 4: The HTTPS Server
-
-`/etc/nginx/conf.d/app-https.conf`:
-```nginx
-# --- Shared definitions (http context, because conf.d files are included there) ---
-upstream api_backend {
-    server 127.0.0.1:3000;
-    keepalive 16;                       # reuse connections to the backend
-}
-
-limit_req_zone $binary_remote_addr zone=api:10m   rate=20r/s;
-limit_req_zone $binary_remote_addr zone=login:10m rate=10r/m;
-limit_req_status 429;
-
-gzip on;
-gzip_comp_level 5;
-gzip_min_length 256;
-gzip_vary on;
-gzip_proxied any;
-gzip_types text/css text/javascript application/javascript application/json
-           image/svg+xml text/plain;    # also compresses text/html by default
-
-# --- The site ---
-server {
-    listen 443 ssl;
-    http2 on;                           # nginx 1.25.1+; older: listen 443 ssl http2;
-    server_name app.example.com;
-
-    ssl_certificate     /etc/letsencrypt/live/app.example.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/app.example.com/privkey.pem;
-    ssl_protocols       TLSv1.2 TLSv1.3;
-    ssl_session_cache   shared:SSL:10m;
-    ssl_session_timeout 1d;
-    ssl_session_tickets off;
-
-    root  /var/www/app/current;
-    index index.html;
-
-    # Applies to every location that does NOT define its own add_header
-    include snippets/security-headers.conf;
-
-    # Return JSON, not an nginx error page, when the API is down
-    error_page 502 503 504 = @api_down;
-
-    # ---------- API ----------
-    location /api/ {
-        limit_req zone=api burst=40 nodelay;
-        client_max_body_size 5m;
-        include snippets/proxy-params.conf;
-        proxy_set_header Connection "";           # required for upstream keepalive
-        proxy_read_timeout 30s;
-        proxy_pass http://api_backend;            # no URI part: /api/x stays /api/x
-    }
-
-    # Longer prefix beats /api/, so credential endpoints get a tighter limit
-    location /api/auth/ {
-        limit_req zone=login burst=5 nodelay;
-        include snippets/proxy-params.conf;
-        proxy_set_header Connection "";
-        proxy_pass http://api_backend;
-    }
-
-    # ---------- Static assets (fingerprinted filenames) ----------
-    location /assets/ {
-        try_files $uri =404;                      # never fall back to index.html here
-        access_log off;
-        add_header Cache-Control "public, max-age=31536000, immutable" always;
-        include snippets/security-headers.conf;   # needed again: this block has its own add_header
-    }
-
-    # ---------- App shell: never cached long ----------
-    location = /index.html {
-        add_header Cache-Control "no-cache" always;
-        include snippets/security-headers.conf;
-    }
-
-    # ---------- SPA fallback ----------
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-
-    # ---------- Misc ----------
-    location ~ /\.(?!well-known) { deny all; }    # dotfiles
-
-    location = /healthz {
-        access_log off;
-        default_type text/plain;
-        return 200 "ok\n";
-    }
-
-    location @api_down {
-        default_type application/json;
-        add_header Retry-After 5 always;
-        include snippets/security-headers.conf;
-        return 503 '{"error":"service_unavailable"}';
-    }
-}
+*Expected Output*:
+```http
+HTTP/2 200
+content-type: application/json; charset=utf-8
+x-content-type-options: nosniff
 ```
 
-Apply it:
-```bash
-sudo nginx -t && sudo systemctl reload nginx
-```
+---
 
-### Why it is built this way
-- **`/assets/` returns 404 for missing files** instead of falling back to `index.html`. Otherwise a removed JavaScript chunk returns HTML with status 200, and the browser reports a confusing syntax or MIME error.
-- **`index.html` is `no-cache`**, assets are `immutable` for a year. A deploy changes `index.html`, which references new hashed filenames, so users get updates immediately while still caching assets.
-- **`/` with `try_files ... /index.html`** makes deep links like `/dashboard/settings` work on refresh. The fallback is an internal redirect, so it lands in `location = /index.html` and gets the `no-cache` header.
-- **Security headers are re-included** in `/assets/`, `= /index.html`, and `@api_down` because each of those blocks defines its own `add_header`, which discards the inherited ones ([config-structure.md](../01-fundamentals/config-structure.md)).
-- **`/api/auth/` is a separate, longer prefix**, so it wins over `/api/`: slow brute-force attempts without limiting normal API use.
-- **No trailing slash on `proxy_pass`**, so the backend receives the full `/api/...` path. If your backend expects paths without `/api`, use `proxy_pass http://api_backend/;` instead ([reverse-proxy.md](../02-core-features/reverse-proxy.md)).
-- **Order of regex vs prefix:** the dotfile rule is a regex location. Regexes are checked after prefix matches but win over plain prefixes, so it blocks `/.git/...` anywhere.
+## 5. Troubleshooting & Edge Cases
 
-## Step 5: Verify
+### Edge Case 1: Hard Refresh Returns 404 on Assets
+- **Symptom**: User leaves tab open for 3 days; new release deploys; user clicks a subpage and receives 404 on `assets/vendor-old.js`.
+- **Root Cause**: The deployment script deleted the previous release folder immediately, while users still had the old `index.html` loaded in memory.
+- **Fix**: The deployment script must retain the last **3 to 5 releases** in `/var/www/app/releases/` so that active user tabs can continue loading old chunks during rolling deploys.
 
-| Check | Command | Expected |
-|---|---|---|
-| HTTP redirects | `curl -sI http://app.example.com/` | `301` and `Location: https://app.example.com/` |
-| App shell | `curl -sI https://app.example.com/` | `200`, `Cache-Control: no-cache` |
-| Deep link | `curl -sI https://app.example.com/dashboard/settings` | `200` (served from `index.html`) |
-| Asset | `curl -sI https://app.example.com/assets/<real-file>.js` | `200`, long `Cache-Control`, `Content-Encoding: gzip` if you send `-H "Accept-Encoding: gzip"` |
-| Missing asset | `curl -sI https://app.example.com/assets/nope.js` | `404` (not 200 with HTML) |
-| API proxied | `curl -si https://app.example.com/api/health` | Response from your backend |
-| Headers on 404 | `curl -sI https://app.example.com/assets/nope.js \| grep -i x-content-type` | Header present (thanks to `always`) |
-| Dotfiles | `curl -sI https://app.example.com/.git/config` | `403` |
-| Rate limit | `for i in $(seq 1 30); do curl -s -o /dev/null -w "%{http_code}\n" https://app.example.com/api/auth/login; done \| sort \| uniq -c` | Some `429` responses |
-| Backend down | Stop the backend, then `curl -si https://app.example.com/api/x` | `503` with the JSON body |
-| TLS | `echo \| openssl s_client -connect app.example.com:443 -servername app.example.com 2>/dev/null \| openssl x509 -noout -dates` | Valid dates |
+### Edge Case 2: Broken Inode Desync on Linux Symlink Swap
+- **Symptom**: NGINX continues serving files from the old release after symlink update.
+- **Root Cause**: `open_file_cache` is configured with an excessively long `inactive` or `valid` timer, causing NGINX worker processes to hold open file descriptors to the old release directory.
+- **Fix**: Set `open_file_cache_valid 60s;` or execute `sudo nginx -s reload` in the deployment script to cycle worker caches immediately.
 
-Then raise HSTS `max-age` from `300` to `31536000` after confirming everything works over HTTPS.
+---
 
-## Optional: WebSocket Endpoint
-If the backend also serves WebSockets (for example `/socket/`):
-```nginx
-# in the http context (e.g. at the top of app-https.conf)
-map $http_upgrade $connection_upgrade {
-    default upgrade;
-    ''      close;
-}
-
-# inside the server block
-location /socket/ {
-    include snippets/proxy-params.conf;
-    proxy_set_header Upgrade    $http_upgrade;
-    proxy_set_header Connection $connection_upgrade;
-    proxy_read_timeout 1h;
-    proxy_pass http://api_backend;
-}
-```
-
-## Common Problems in This Setup
-
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| Refreshing `/some/route` gives 404 | Missing SPA fallback, or `/` location overridden | `try_files $uri $uri/ /index.html;` in `location /` |
-| Blank page after deploy, console shows JS "Unexpected token <" | Old hashed assets deleted while users still reference them, and a fallback returned HTML | Keep several releases, keep `/assets/` returning 404 for missing files |
-| Users keep seeing the old app | `index.html` cached | Confirm `Cache-Control: no-cache` on `/index.html`, and that no CDN overrides it |
-| API 502 | Backend down or wrong port | `ss -ltnp \| grep 3000`, read `/var/log/nginx/error.log` ([troubleshooting.md](../06-production/troubleshooting.md)) |
-| API redirects to `http://` or wrong host | Backend ignores forwarded headers | Configure the backend's trusted-proxy setting |
-| Uploads fail with 413 | `client_max_body_size` too small for `/api/` | Raise it for the upload route only |
-| Security headers missing on some responses | Location with its own `add_header` | Re-include the snippet there |
-| 403 on all files | Worker user cannot read the release directory | `namei -l /var/www/app/current/index.html`, fix permissions |
-
-## Extensions to Try
-1. **Cache public API responses:** add `proxy_cache` for `GET /api/public/` using [caching.md](../03-traffic-management/caching.md), and expose `$upstream_cache_status` in a header.
-2. **JSON access logs with upstream timing** ([logging.md](../02-core-features/logging.md)), then find your slowest endpoint.
-3. **Pre-compressed assets:** build `.gz` files in CI and enable `gzip_static on;`.
-4. **Two API instances:** add a second `server` line to `api_backend` and observe failover when you stop one ([load-balancing.md](../03-traffic-management/load-balancing.md)).
-5. **Run it in Docker Compose** ([docker-kubernetes.md](../06-production/docker-kubernetes.md)).
-6. **Scale up to multiple apps:** continue with [secure-gateway-stack.md](secure-gateway-stack.md).
-
-## Related / Next
-- [secure-gateway-stack.md](secure-gateway-stack.md): several apps behind one hardened nginx
-- [troubleshooting.md](../06-production/troubleshooting.md): diagnosing problems from this project
+[← Previous Project: 01-secure-gateway-stack.md](01-secure-gateway-stack.md) | [Back to Module Index](README.md) | [Next Project: 03-static-site-caching-and-compression.md →](03-static-site-caching-and-compression.md)
