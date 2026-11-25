@@ -141,8 +141,3 @@ Execution is sequenced in batches of ~5 notes, prioritizing the modules required
 ├── 27-interview/
 └── 28-cheatsheets/
 ```
-"""
-
-report_file = r"E:\Learning\engineering-notes\01-languages\python\PY_COMPLETION_PLAN.md"
-with open(report_file, "w", encoding="utf-8") as f:
-    f.write(REPORT_MD.strip() + "\n")
