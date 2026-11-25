@@ -1206,6 +1206,293 @@ E:.
 |   |           concept-template.md
 |   |           project-template.md
 |   |           
+|   +---sql
+|   |   |   CONTRIBUTING.md
+|   |   |   LICENSE
+|   |   |   README.md
+|   |   |   ROADMAP.md
+|   |   |   
+|   |   +---00-setup
+|   |   |       00-what-is-sql.md
+|   |   |       01-install-postgresql-mysql.md
+|   |   |       02-clients-and-cli.md
+|   |   |       03-sample-databases.md
+|   |   |       README.md
+|   |   |       
+|   |   +---01-fundamentals
+|   |   |       00-sql-basics.md
+|   |   |       01-data-types.md
+|   |   |       02-null-values.md
+|   |   |       03-expressions-and-operators.md
+|   |   |       README.md
+|   |   |       
+|   |   +---02-querying
+|   |   |       00-select.md
+|   |   |       01-where.md
+|   |   |       02-between-in-like.md
+|   |   |       03-order-by.md
+|   |   |       04-distinct.md
+|   |   |       05-limit-offset.md
+|   |   |       README.md
+|   |   |       
+|   |   +---03-functions
+|   |   |       00-string-functions.md
+|   |   |       01-numeric-functions.md
+|   |   |       02-date-time-functions.md
+|   |   |       03-type-conversion.md
+|   |   |       04-case-and-conditionals.md
+|   |   |       README.md
+|   |   |       
+|   |   +---04-modifying-data
+|   |   |       00-insert.md
+|   |   |       01-update.md
+|   |   |       02-delete.md
+|   |   |       03-upsert.md
+|   |   |       04-returning.md
+|   |   |       README.md
+|   |   |       
+|   |   +---05-tables-and-constraints
+|   |   |       00-databases-and-schemas.md
+|   |   |       01-create-table.md
+|   |   |       02-alter-table.md
+|   |   |       03-drop-and-truncate.md
+|   |   |       04-constraints.md
+|   |   |       05-primary-and-foreign-keys.md
+|   |   |       06-defaults-and-generated-values.md
+|   |   |       README.md
+|   |   |       
+|   |   +---06-joins
+|   |   |       00-join-fundamentals.md
+|   |   |       01-inner-join.md
+|   |   |       02-outer-joins.md
+|   |   |       03-cross-join.md
+|   |   |       04-self-join.md
+|   |   |       05-multi-table-joins.md
+|   |   |       README.md
+|   |   |       
+|   |   +---07-aggregation
+|   |   |       00-aggregate-functions.md
+|   |   |       01-group-by-and-having.md
+|   |   |       02-conditional-aggregation.md
+|   |   |       03-grouping-sets.md
+|   |   |       README.md
+|   |   |       
+|   |   +---08-composing-queries
+|   |   |       00-subqueries.md
+|   |   |       01-correlated-subqueries.md
+|   |   |       02-exists.md
+|   |   |       03-ctes.md
+|   |   |       04-recursive-ctes.md
+|   |   |       05-set-operations.md
+|   |   |       README.md
+|   |   |       
+|   |   +---09-window-functions
+|   |   |       00-window-fundamentals.md
+|   |   |       01-window-frames.md
+|   |   |       02-ranking-and-distribution.md
+|   |   |       03-offset-and-value-functions.md
+|   |   |       04-running-totals.md
+|   |   |       README.md
+|   |   |       
+|   |   +---10-advanced-queries
+|   |   |       00-top-n-per-group.md
+|   |   |       01-gaps-and-islands.md
+|   |   |       02-deduplication.md
+|   |   |       03-pivot-and-unpivot.md
+|   |   |       04-pagination.md
+|   |   |       05-time-series.md
+|   |   |       06-cohort-and-retention.md
+|   |   |       07-funnel-analysis.md
+|   |   |       README.md
+|   |   |       
+|   |   +---11-schema-design
+|   |   |       00-relational-model.md
+|   |   |       01-entity-relationship-model.md
+|   |   |       02-functional-dependencies.md
+|   |   |       03-normalization.md
+|   |   |       04-denormalization.md
+|   |   |       05-surrogate-vs-natural-keys.md
+|   |   |       06-schema-patterns.md
+|   |   |       README.md
+|   |   |       
+|   |   +---12-indexes
+|   |   |       00-index-fundamentals.md
+|   |   |       01-b-tree-indexes.md
+|   |   |       02-composite-indexes.md
+|   |   |       03-covering-indexes.md
+|   |   |       04-partial-and-expression-indexes.md
+|   |   |       05-indexing-strategies.md
+|   |   |       06-index-maintenance.md
+|   |   |       README.md
+|   |   |       
+|   |   +---13-query-performance
+|   |   |       00-query-execution.md
+|   |   |       01-explain.md
+|   |   |       02-reading-plans.md
+|   |   |       03-join-algorithms.md
+|   |   |       04-statistics-and-cardinality.md
+|   |   |       05-sargable-queries.md
+|   |   |       06-query-optimization.md
+|   |   |       07-debugging-slow-queries.md
+|   |   |       README.md
+|   |   |       
+|   |   +---14-transactions
+|   |   |       00-transaction-fundamentals.md
+|   |   |       01-isolation-levels.md
+|   |   |       02-mvcc.md
+|   |   |       03-locks.md
+|   |   |       04-deadlocks.md
+|   |   |       05-locking-strategies.md
+|   |   |       06-concurrency-patterns.md
+|   |   |       README.md
+|   |   |       
+|   |   +---15-views-and-routines
+|   |   |       00-views.md
+|   |   |       01-materialized-views.md
+|   |   |       02-stored-routines.md
+|   |   |       03-triggers.md
+|   |   |       README.md
+|   |   |       
+|   |   +---16-security
+|   |   |       00-roles-and-privileges.md
+|   |   |       01-sql-injection.md
+|   |   |       02-row-level-security.md
+|   |   |       03-encryption.md
+|   |   |       04-auditing.md
+|   |   |       05-security-checklist.md
+|   |   |       README.md
+|   |   |       
+|   |   +---17-migrations
+|   |   |       00-migration-fundamentals.md
+|   |   |       01-versioned-migrations.md
+|   |   |       02-rollbacks.md
+|   |   |       03-zero-downtime-migrations.md
+|   |   |       README.md
+|   |   |       
+|   |   +---18-postgresql
+|   |   |       00-postgresql-architecture.md
+|   |   |       01-postgresql-types.md
+|   |   |       02-json-and-jsonb.md
+|   |   |       03-extensions.md
+|   |   |       04-full-text-search.md
+|   |   |       05-index-types.md
+|   |   |       06-vacuum-and-autovacuum.md
+|   |   |       07-postgresql-performance.md
+|   |   |       README.md
+|   |   |       
+|   |   +---19-mysql
+|   |   |       00-mysql-architecture.md
+|   |   |       01-innodb.md
+|   |   |       02-json.md
+|   |   |       03-full-text-search.md
+|   |   |       04-mysql-performance.md
+|   |   |       05-mysql-gotchas.md
+|   |   |       README.md
+|   |   |       
+|   |   +---20-nodejs-integration
+|   |   |       00-node-drivers.md
+|   |   |       01-connection-pooling.md
+|   |   |       02-node-transactions.md
+|   |   |       03-error-handling.md
+|   |   |       04-repository-pattern.md
+|   |   |       05-orm-vs-raw-sql.md
+|   |   |       06-prisma.md
+|   |   |       07-drizzle.md
+|   |   |       08-typeorm.md
+|   |   |       09-knex.md
+|   |   |       10-n-plus-one.md
+|   |   |       README.md
+|   |   |       
+|   |   +---21-production
+|   |   |       00-replication.md
+|   |   |       01-partitioning.md
+|   |   |       02-sharding.md
+|   |   |       03-backup-and-recovery.md
+|   |   |       04-monitoring.md
+|   |   |       05-scalability-patterns.md
+|   |   |       README.md
+|   |   |       
+|   |   +---22-practice
+|   |   |   |   README.md
+|   |   |   |   
+|   |   |   +---01-select-and-filter
+|   |   |   |       README.md
+|   |   |   |       
+|   |   |   +---02-joins
+|   |   |   |       README.md
+|   |   |   |       
+|   |   |   +---03-aggregation
+|   |   |   |       README.md
+|   |   |   |       
+|   |   |   +---04-subqueries-and-ctes
+|   |   |   |       README.md
+|   |   |   |       
+|   |   |   +---05-window-functions
+|   |   |   |       README.md
+|   |   |   |       
+|   |   |   +---06-advanced-queries
+|   |   |   |       README.md
+|   |   |   |       
+|   |   |   \---solutions
+|   |   |           README.md
+|   |   |           
+|   |   +---23-projects
+|   |   |   |   README.md
+|   |   |   |   
+|   |   |   +---01-library-database
+|   |   |   |       README.md
+|   |   |   |       
+|   |   |   +---02-ecommerce-database
+|   |   |   |       README.md
+|   |   |   |       
+|   |   |   +---03-inventory-management
+|   |   |   |       README.md
+|   |   |   |       
+|   |   |   +---04-banking-transactions
+|   |   |   |       README.md
+|   |   |   |       
+|   |   |   +---05-ticket-booking
+|   |   |   |       README.md
+|   |   |   |       
+|   |   |   +---06-audit-logging
+|   |   |   |       README.md
+|   |   |   |       
+|   |   |   +---07-analytics-dashboard
+|   |   |   |       README.md
+|   |   |   |       
+|   |   |   \---08-high-concurrency-order-system
+|   |   |           README.md
+|   |   |           
+|   |   +---24-interview
+|   |   |       00-sql-basics.md
+|   |   |       01-joins.md
+|   |   |       02-aggregation.md
+|   |   |       03-subqueries-and-ctes.md
+|   |   |       04-window-functions.md
+|   |   |       05-indexes.md
+|   |   |       06-normalization.md
+|   |   |       07-transactions.md
+|   |   |       08-query-optimization.md
+|   |   |       09-postgresql-and-mysql.md
+|   |   |       10-output-based-questions.md
+|   |   |       11-sql-system-design.md
+|   |   |       README.md
+|   |   |       
+|   |   \---25-cheatsheets
+|   |           00-sql-basics.md
+|   |           01-joins.md
+|   |           02-functions.md
+|   |           03-aggregation.md
+|   |           04-window-functions.md
+|   |           05-ctes-and-subqueries.md
+|   |           06-indexes.md
+|   |           07-transactions.md
+|   |           08-query-optimization.md
+|   |           09-postgresql.md
+|   |           10-mysql.md
+|   |           11-dialect-differences.md
+|   |           README.md
+|   |           
 |   \---typescript
 |       |   CONTRIBUTING.md
 |       |   GLOSSARY.md
@@ -1586,6 +1873,8 @@ E:.
 |               project-template.md
 |               
 +---02-frontend
+|   +---css
+|   +---html
 |   +---nextjs
 |   |   |   CONTRIBUTING.md
 |   |   |   GLOSSARY.md
@@ -4954,6 +5243,292 @@ E:.
 |   |           cheatsheet.md
 |   |           interview.md
 |   |           
+|   +---machine-learning
+|   |   |   CONTRIBUTING.md
+|   |   |   CONVENTIONS.md
+|   |   |   GLOSSARY.md
+|   |   |   INDEX.md
+|   |   |   ML_AUDIT.md
+|   |   |   ML_CHANGELOG.md
+|   |   |   ML_COMPLETION_PLAN.md
+|   |   |   ML_DECISIONS.md
+|   |   |   ML_FACTS.md
+|   |   |   ML_FINAL_REPORT.md
+|   |   |   ML_PROGRESS.md
+|   |   |   README.md
+|   |   |   ROADMAP.md
+|   |   |   
+|   |   +---00-setup
+|   |   |       01-what-is-ml-and-the-ai-landscape.md
+|   |   |       02-ml-workflow-and-problem-framing.md
+|   |   |       03-python-ml-environment.md
+|   |   |       04-reproducibility-and-determinism.md
+|   |   |       05-data-science-toolbox-tour.md
+|   |   |       README.md
+|   |   |       
+|   |   +---01-math-foundations
+|   |   |       01-linear-algebra-for-ml.md
+|   |   |       02-calculus-and-gradients.md
+|   |   |       03-probability-and-distributions.md
+|   |   |       04-statistics-and-hypothesis-testing.md
+|   |   |       05-information-theory.md
+|   |   |       06-optimisation-and-gradient-descent.md
+|   |   |       07-bias-variance-tradeoff.md
+|   |   |       08-curse-of-dimensionality.md
+|   |   |       09-maximum-likelihood-and-bayes.md
+|   |   |       README.md
+|   |   |       
+|   |   +---02-data-and-preprocessing
+|   |   |       01-data-types-and-sources.md
+|   |   |       02-data-collection-and-labelling.md
+|   |   |       03-exploratory-data-analysis.md
+|   |   |       04-data-cleaning.md
+|   |   |       05-feature-scaling.md
+|   |   |       06-encoding-categorical-features.md
+|   |   |       07-text-and-date-features-basics.md
+|   |   |       08-feature-engineering.md
+|   |   |       09-feature-selection.md
+|   |   |       10-handling-imbalanced-data.md
+|   |   |       11-train-validation-test-splits-and-cross-validation.md
+|   |   |       12-data-leakage.md
+|   |   |       13-pipelines-and-columntransformer.md
+|   |   |       14-data-augmentation-and-synthetic-data.md
+|   |   |       15-data-quality-and-versioning.md
+|   |   |       16-handling-missing-data-in-depth.md
+|   |   |       17-outlier-detection-for-preprocessing.md
+|   |   |       README.md
+|   |   |       
+|   |   +---03-supervised-regression
+|   |   |       01-linear-regression.md
+|   |   |       02-multiple-and-polynomial-regression.md
+|   |   |       03-regularisation-ridge-lasso-elasticnet.md
+|   |   |       04-knn-regression.md
+|   |   |       05-decision-tree-regression.md
+|   |   |       06-svr.md
+|   |   |       07-random-forest-regression.md
+|   |   |       08-gradient-boosting-regression.md
+|   |   |       09-generalised-linear-models.md
+|   |   |       10-quantile-regression.md
+|   |   |       11-regression-diagnostics.md
+|   |   |       12-regression-metrics-and-baselines.md
+|   |   |       README.md
+|   |   |       
+|   |   +---04-supervised-classification
+|   |   |       01-logistic-regression.md
+|   |   |       02-knn-classifier.md
+|   |   |       03-naive-bayes.md
+|   |   |       04-support-vector-machines.md
+|   |   |       05-decision-trees.md
+|   |   |       06-random-forest.md
+|   |   |       07-gradient-boosting.md
+|   |   |       08-bagging-boosting-stacking-voting.md
+|   |   |       09-multiclass-and-multilabel-strategies.md
+|   |   |       10-probability-calibration.md
+|   |   |       11-decision-thresholds-roc-and-pr.md
+|   |   |       12-cost-sensitive-classification.md
+|   |   |       13-linear-discriminant-analysis.md
+|   |   |       14-perceptron-and-simple-neural-nets.md
+|   |   |       15-choosing-a-classifier-guide.md
+|   |   |       README.md
+|   |   |       
+|   |   +---05-unsupervised-learning
+|   |   |       01-what-is-unsupervised-learning.md
+|   |   |       02-k-means.md
+|   |   |       03-hierarchical-clustering.md
+|   |   |       04-dbscan-and-hdbscan.md
+|   |   |       05-gaussian-mixture-models-and-em.md
+|   |   |       06-spectral-clustering.md
+|   |   |       07-choosing-k-and-cluster-validation.md
+|   |   |       08-pca.md
+|   |   |       09-svd-and-truncated-svd.md
+|   |   |       10-t-sne-and-umap.md
+|   |   |       11-ica-and-factor-analysis.md
+|   |   |       12-anomaly-detection.md
+|   |   |       13-association-rules.md
+|   |   |       14-density-estimation.md
+|   |   |       15-topic-modelling-lda.md
+|   |   |       16-recommender-systems-basics.md
+|   |   |       17-unsupervised-preprocessing-and-pitfalls.md
+|   |   |       README.md
+|   |   |       
+|   |   +---06-semi-and-self-supervised
+|   |   |       01-semi-supervised-learning.md
+|   |   |       02-self-training-and-label-propagation.md
+|   |   |       03-self-supervised-and-contrastive-learning-intro.md
+|   |   |       04-active-learning.md
+|   |   |       05-weak-supervision-and-label-noise.md
+|   |   |       06-transfer-learning-concepts.md
+|   |   |       README.md
+|   |   |       
+|   |   +---07-reinforcement-learning
+|   |   |       01-rl-fundamentals.md
+|   |   |       02-markov-decision-processes.md
+|   |   |       03-bellman-equations.md
+|   |   |       04-dynamic-programming.md
+|   |   |       05-monte-carlo-methods.md
+|   |   |       06-temporal-difference-learning.md
+|   |   |       07-q-learning.md
+|   |   |       08-sarsa-and-on-vs-off-policy.md
+|   |   |       09-exploration-vs-exploitation-and-multi-armed-bandits.md
+|   |   |       10-function-approximation.md
+|   |   |       11-deep-q-networks.md
+|   |   |       12-double-dueling-and-prioritised-dqn.md
+|   |   |       13-policy-gradient-reinforce.md
+|   |   |       14-actor-critic-a2c.md
+|   |   |       15-proximal-policy-optimisation.md
+|   |   |       16-ddpg-td3-and-sac.md
+|   |   |       17-model-based-rl.md
+|   |   |       18-multi-agent-rl-overview.md
+|   |   |       19-offline-rl-and-imitation-learning.md
+|   |   |       20-rlhf-connection-to-llms.md
+|   |   |       21-gymnasium-environments-and-custom-envs.md
+|   |   |       22-reward-shaping-and-reward-hacking.md
+|   |   |       23-rl-evaluation-and-reproducibility.md
+|   |   |       24-rl-limitations-and-when-to-use.md
+|   |   |       25-saving-loading-and-replaying-policies.md
+|   |   |       README.md
+|   |   |       
+|   |   +---08-time-series-and-text-basics
+|   |   |       01-time-series-fundamentals.md
+|   |   |       02-classical-forecasting.md
+|   |   |       03-ml-for-time-series.md
+|   |   |       04-text-preprocessing-and-bag-of-words.md
+|   |   |       05-tf-idf-and-text-classification.md
+|   |   |       06-word-embeddings-intro.md
+|   |   |       README.md
+|   |   |       
+|   |   +---09-training-and-optimisation
+|   |   |       01-loss-functions.md
+|   |   |       02-gradient-descent-variants.md
+|   |   |       03-learning-rate-and-schedules.md
+|   |   |       04-regularisation-l1-l2-dropout-early-stopping.md
+|   |   |       05-overfitting-and-underfitting-diagnostics.md
+|   |   |       06-hyperparameter-tuning.md
+|   |   |       07-cross-validation-strategies.md
+|   |   |       08-training-reproducibility-and-checkpoints.md
+|   |   |       09-handling-large-datasets.md
+|   |   |       10-compute-and-gpu-basics.md
+|   |   |       README.md
+|   |   |       
+|   |   +---10-evaluation-and-metrics
+|   |   |       01-classification-metrics.md
+|   |   |       02-regression-metrics.md
+|   |   |       03-clustering-metrics.md
+|   |   |       04-ranking-and-recommendation-metrics.md
+|   |   |       05-rl-metrics-and-learning-curves.md
+|   |   |       06-baselines-and-sanity-checks.md
+|   |   |       07-error-analysis.md
+|   |   |       08-statistical-significance-and-confidence-intervals.md
+|   |   |       09-a-b-testing-for-models.md
+|   |   |       10-evaluation-pitfalls.md
+|   |   |       README.md
+|   |   |       
+|   |   +---11-prediction-and-postprocessing
+|   |   |       01-inference-basics.md
+|   |   |       02-batch-vs-online-inference.md
+|   |   |       03-thresholds-and-decision-rules.md
+|   |   |       04-postprocessing-pipelines.md
+|   |   |       05-uncertainty-and-confidence.md
+|   |   |       06-explaining-predictions-at-inference.md
+|   |   |       07-input-validation-and-schema-checks.md
+|   |   |       08-latency-and-throughput.md
+|   |   |       README.md
+|   |   |       
+|   |   +---12-saving-loading-and-deployment
+|   |   |       01-saving-models-overview.md
+|   |   |       02-joblib-and-pickle-and-their-risks.md
+|   |   |       03-skops-and-safe-persistence.md
+|   |   |       04-onnx-export-and-runtime.md
+|   |   |       05-pytorch-state-dict-and-safetensors.md
+|   |   |       06-saving-full-pipelines.md
+|   |   |       07-model-versioning-and-registries.md
+|   |   |       08-model-cards-and-documentation.md
+|   |   |       09-serving-with-fastapi.md
+|   |   |       10-batch-scoring.md
+|   |   |       11-containerising-models.md
+|   |   |       12-compatibility-and-upgrading-libraries.md
+|   |   |       13-loading-untrusted-models-safely.md
+|   |   |       README.md
+|   |   |       
+|   |   +---13-interpretability-fairness-and-limitations
+|   |   |       01-feature-importance-and-permutation-importance.md
+|   |   |       02-partial-dependence-and-ice.md
+|   |   |       03-shap-and-lime.md
+|   |   |       04-fairness-and-bias.md
+|   |   |       05-privacy-and-data-protection.md
+|   |   |       06-causality-vs-correlation.md
+|   |   |       07-distribution-shift-and-concept-drift.md
+|   |   |       08-limitations-of-machine-learning.md
+|   |   |       09-responsible-ai-checklist.md
+|   |   |       README.md
+|   |   |       
+|   |   +---14-deep-learning-bridge
+|   |   |       01-from-linear-models-to-neural-networks.md
+|   |   |       02-backpropagation-intuition.md
+|   |   |       03-pytorch-basics.md
+|   |   |       04-saving-and-loading-pytorch-models.md
+|   |   |       05-when-to-use-deep-learning-vs-classical-ml.md
+|   |   |       README.md
+|   |   |       
+|   |   +---15-mlops-basics
+|   |   |       01-experiment-tracking.md
+|   |   |       02-data-and-model-versioning.md
+|   |   |       03-ml-pipelines-and-orchestration-overview.md
+|   |   |       04-monitoring-and-drift-detection.md
+|   |   |       05-retraining-strategies.md
+|   |   |       06-ci-cd-for-ml.md
+|   |   |       07-feature-stores-overview.md
+|   |   |       08-model-governance.md
+|   |   |       README.md
+|   |   |       
+|   |   +---16-projects
+|   |   |       01-house-price-regression.md
+|   |   |       02-spam-classifier-with-tf-idf.md
+|   |   |       03-customer-segmentation-with-kmeans-and-pca.md
+|   |   |       04-anomaly-detection-on-sensor-data.md
+|   |   |       05-movie-recommender.md
+|   |   |       06-credit-card-fraud-with-imbalanced-data.md
+|   |   |       07-sales-forecasting-baseline.md
+|   |   |       08-tabular-benchmark-boosting-vs-forests.md
+|   |   |       09-gridworld-q-learning.md
+|   |   |       10-cartpole-dqn-and-ppo.md
+|   |   |       11-bandit-simulator.md
+|   |   |       12-end-to-end-pipeline-save-load-and-fastapi-service.md
+|   |   |       README.md
+|   |   |       
+|   |   +---17-interview
+|   |   |       01-ml-fundamentals-qa.md
+|   |   |       02-supervised-learning-qa.md
+|   |   |       03-unsupervised-learning-qa.md
+|   |   |       04-reinforcement-learning-qa.md
+|   |   |       05-evaluation-and-metrics-qa.md
+|   |   |       06-feature-engineering-and-preprocessing-qa.md
+|   |   |       07-overfitting-and-regularisation-qa.md
+|   |   |       08-mlops-and-deployment-qa.md
+|   |   |       09-coding-rounds.md
+|   |   |       10-ml-system-design-case-studies.md
+|   |   |       11-behavioural-and-project-discussion.md
+|   |   |       README.md
+|   |   |       
+|   |   +---18-cheatsheets
+|   |   |       01-algorithm-chooser-flowchart.md
+|   |   |       02-scikit-learn-api.md
+|   |   |       03-preprocessing-recipes.md
+|   |   |       04-metrics-formulas.md
+|   |   |       05-hyperparameters-by-algorithm.md
+|   |   |       06-supervised-vs-unsupervised-vs-rl-comparison.md
+|   |   |       07-rl-algorithms-table.md
+|   |   |       08-pytorch-snippets.md
+|   |   |       09-saving-and-loading-recipes.md
+|   |   |       10-math-formulas.md
+|   |   |       11-common-errors-and-fixes.md
+|   |   |       README.md
+|   |   |       
+|   |   \---_templates
+|   |           algorithm-template.md
+|   |           concept-template.md
+|   |           project-template.md
+|   |           
 |   \---rag
 |       |   ARCHITECTURE.md
 |       |   auto-merging-retriever.md
@@ -5194,75 +5769,6 @@ E:.
 |               04-input-validation.md
 |               05-logging-and-audit.md
 |               
-+---07-system-design
-|   |   README.md
-|   |   
-|   +---01-fundamentals
-|   |       01-approach-and-requirements.md
-|   |       02-estimation.md
-|   |       03-scalability-and-availability.md
-|   |       04-consistency-and-cap.md
-|   |       
-|   +---02-building-blocks
-|   |       01-networking-essentials.md
-|   |       02-api-design.md
-|   |       03-load-balancing-and-api-gateway.md
-|   |       04-data-modeling-and-database-choice.md
-|   |       05-database-internals.md
-|   |       06-caching.md
-|   |       07-replication.md
-|   |       08-partitioning-and-routing.md
-|   |       09-messaging-and-streaming.md
-|   |       10-object-storage-and-cdn.md
-|   |       11-search-and-vector-databases.md
-|   |       
-|   +---03-distributed-systems
-|   |       01-consensus-and-coordination.md
-|   |       02-time-ordering-and-ids.md
-|   |       03-probabilistic-data-structures.md
-|   |       04-resilience-and-idempotency.md
-|   |       
-|   +---04-scaling-patterns
-|   |       01-scaling-reads.md
-|   |       02-scaling-writes.md
-|   |       03-real-time-updates.md
-|   |       04-contention-and-locking.md
-|   |       05-multi-step-processes.md
-|   |       06-long-running-tasks.md
-|   |       
-|   +---05-architecture-styles
-|   |       01-monolith-and-microservices.md
-|   |       02-event-driven-and-cqrs.md
-|   |       
-|   +---06-technologies
-|   |       01-kafka.md
-|   |       02-elasticsearch.md
-|   |       03-cassandra.md
-|   |       
-|   +---07-production
-|   |       01-observability-and-slos.md
-|   |       02-release-strategies.md
-|   |       03-security-and-access-patterns.md
-|   |       04-disaster-recovery-and-multi-region.md
-|   |       
-|   +---08-case-studies
-|   |       01-url-shortener.md
-|   |       02-rate-limiter.md
-|   |       03-chat-system.md
-|   |       04-news-feed.md
-|   |       05-ticket-booking.md
-|   |       06-video-streaming.md
-|   |       07-ride-matching.md
-|   |       08-web-crawler.md
-|   |       09-rag-and-llm-platform.md
-|   |       
-|   +---reference
-|   |       cheatsheet.md
-|   |       interview.md
-|   |       
-|   \---_templates
-|           case-study-template.md
-|           
 +---08-solid-design-patterns
 |   |   README.md
 |   |   
@@ -5345,293 +5851,6 @@ E:.
 |           00-overview (4).md
 |           01-maintainability-and-extensibility.md
 |           02-error-handling-design.md
-|           
-+---09-sql
-|   |   CONTRIBUTING.md
-|   |   LICENSE
-|   |   README.md
-|   |   ROADMAP.md
-|   |   
-|   +---00-setup
-|   |       00-what-is-sql.md
-|   |       01-install-postgresql-mysql.md
-|   |       02-clients-and-cli.md
-|   |       03-sample-databases.md
-|   |       README.md
-|   |       
-|   +---01-fundamentals
-|   |       00-sql-basics.md
-|   |       01-data-types.md
-|   |       02-null-values.md
-|   |       03-expressions-and-operators.md
-|   |       README.md
-|   |       
-|   +---02-querying
-|   |       00-select.md
-|   |       01-where.md
-|   |       02-between-in-like.md
-|   |       03-order-by.md
-|   |       04-distinct.md
-|   |       05-limit-offset.md
-|   |       README.md
-|   |       
-|   +---03-functions
-|   |       00-string-functions.md
-|   |       01-numeric-functions.md
-|   |       02-date-time-functions.md
-|   |       03-type-conversion.md
-|   |       04-case-and-conditionals.md
-|   |       README.md
-|   |       
-|   +---04-modifying-data
-|   |       00-insert.md
-|   |       01-update.md
-|   |       02-delete.md
-|   |       03-upsert.md
-|   |       04-returning.md
-|   |       README.md
-|   |       
-|   +---05-tables-and-constraints
-|   |       00-databases-and-schemas.md
-|   |       01-create-table.md
-|   |       02-alter-table.md
-|   |       03-drop-and-truncate.md
-|   |       04-constraints.md
-|   |       05-primary-and-foreign-keys.md
-|   |       06-defaults-and-generated-values.md
-|   |       README.md
-|   |       
-|   +---06-joins
-|   |       00-join-fundamentals.md
-|   |       01-inner-join.md
-|   |       02-outer-joins.md
-|   |       03-cross-join.md
-|   |       04-self-join.md
-|   |       05-multi-table-joins.md
-|   |       README.md
-|   |       
-|   +---07-aggregation
-|   |       00-aggregate-functions.md
-|   |       01-group-by-and-having.md
-|   |       02-conditional-aggregation.md
-|   |       03-grouping-sets.md
-|   |       README.md
-|   |       
-|   +---08-composing-queries
-|   |       00-subqueries.md
-|   |       01-correlated-subqueries.md
-|   |       02-exists.md
-|   |       03-ctes.md
-|   |       04-recursive-ctes.md
-|   |       05-set-operations.md
-|   |       README.md
-|   |       
-|   +---09-window-functions
-|   |       00-window-fundamentals.md
-|   |       01-window-frames.md
-|   |       02-ranking-and-distribution.md
-|   |       03-offset-and-value-functions.md
-|   |       04-running-totals.md
-|   |       README.md
-|   |       
-|   +---10-advanced-queries
-|   |       00-top-n-per-group.md
-|   |       01-gaps-and-islands.md
-|   |       02-deduplication.md
-|   |       03-pivot-and-unpivot.md
-|   |       04-pagination.md
-|   |       05-time-series.md
-|   |       06-cohort-and-retention.md
-|   |       07-funnel-analysis.md
-|   |       README.md
-|   |       
-|   +---11-schema-design
-|   |       00-relational-model.md
-|   |       01-entity-relationship-model.md
-|   |       02-functional-dependencies.md
-|   |       03-normalization.md
-|   |       04-denormalization.md
-|   |       05-surrogate-vs-natural-keys.md
-|   |       06-schema-patterns.md
-|   |       README.md
-|   |       
-|   +---12-indexes
-|   |       00-index-fundamentals.md
-|   |       01-b-tree-indexes.md
-|   |       02-composite-indexes.md
-|   |       03-covering-indexes.md
-|   |       04-partial-and-expression-indexes.md
-|   |       05-indexing-strategies.md
-|   |       06-index-maintenance.md
-|   |       README.md
-|   |       
-|   +---13-query-performance
-|   |       00-query-execution.md
-|   |       01-explain.md
-|   |       02-reading-plans.md
-|   |       03-join-algorithms.md
-|   |       04-statistics-and-cardinality.md
-|   |       05-sargable-queries.md
-|   |       06-query-optimization.md
-|   |       07-debugging-slow-queries.md
-|   |       README.md
-|   |       
-|   +---14-transactions
-|   |       00-transaction-fundamentals.md
-|   |       01-isolation-levels.md
-|   |       02-mvcc.md
-|   |       03-locks.md
-|   |       04-deadlocks.md
-|   |       05-locking-strategies.md
-|   |       06-concurrency-patterns.md
-|   |       README.md
-|   |       
-|   +---15-views-and-routines
-|   |       00-views.md
-|   |       01-materialized-views.md
-|   |       02-stored-routines.md
-|   |       03-triggers.md
-|   |       README.md
-|   |       
-|   +---16-security
-|   |       00-roles-and-privileges.md
-|   |       01-sql-injection.md
-|   |       02-row-level-security.md
-|   |       03-encryption.md
-|   |       04-auditing.md
-|   |       05-security-checklist.md
-|   |       README.md
-|   |       
-|   +---17-migrations
-|   |       00-migration-fundamentals.md
-|   |       01-versioned-migrations.md
-|   |       02-rollbacks.md
-|   |       03-zero-downtime-migrations.md
-|   |       README.md
-|   |       
-|   +---18-postgresql
-|   |       00-postgresql-architecture.md
-|   |       01-postgresql-types.md
-|   |       02-json-and-jsonb.md
-|   |       03-extensions.md
-|   |       04-full-text-search.md
-|   |       05-index-types.md
-|   |       06-vacuum-and-autovacuum.md
-|   |       07-postgresql-performance.md
-|   |       README.md
-|   |       
-|   +---19-mysql
-|   |       00-mysql-architecture.md
-|   |       01-innodb.md
-|   |       02-json.md
-|   |       03-full-text-search.md
-|   |       04-mysql-performance.md
-|   |       05-mysql-gotchas.md
-|   |       README.md
-|   |       
-|   +---20-nodejs-integration
-|   |       00-node-drivers.md
-|   |       01-connection-pooling.md
-|   |       02-node-transactions.md
-|   |       03-error-handling.md
-|   |       04-repository-pattern.md
-|   |       05-orm-vs-raw-sql.md
-|   |       06-prisma.md
-|   |       07-drizzle.md
-|   |       08-typeorm.md
-|   |       09-knex.md
-|   |       10-n-plus-one.md
-|   |       README.md
-|   |       
-|   +---21-production
-|   |       00-replication.md
-|   |       01-partitioning.md
-|   |       02-sharding.md
-|   |       03-backup-and-recovery.md
-|   |       04-monitoring.md
-|   |       05-scalability-patterns.md
-|   |       README.md
-|   |       
-|   +---22-practice
-|   |   |   README.md
-|   |   |   
-|   |   +---01-select-and-filter
-|   |   |       README.md
-|   |   |       
-|   |   +---02-joins
-|   |   |       README.md
-|   |   |       
-|   |   +---03-aggregation
-|   |   |       README.md
-|   |   |       
-|   |   +---04-subqueries-and-ctes
-|   |   |       README.md
-|   |   |       
-|   |   +---05-window-functions
-|   |   |       README.md
-|   |   |       
-|   |   +---06-advanced-queries
-|   |   |       README.md
-|   |   |       
-|   |   \---solutions
-|   |           README.md
-|   |           
-|   +---23-projects
-|   |   |   README.md
-|   |   |   
-|   |   +---01-library-database
-|   |   |       README.md
-|   |   |       
-|   |   +---02-ecommerce-database
-|   |   |       README.md
-|   |   |       
-|   |   +---03-inventory-management
-|   |   |       README.md
-|   |   |       
-|   |   +---04-banking-transactions
-|   |   |       README.md
-|   |   |       
-|   |   +---05-ticket-booking
-|   |   |       README.md
-|   |   |       
-|   |   +---06-audit-logging
-|   |   |       README.md
-|   |   |       
-|   |   +---07-analytics-dashboard
-|   |   |       README.md
-|   |   |       
-|   |   \---08-high-concurrency-order-system
-|   |           README.md
-|   |           
-|   +---24-interview
-|   |       00-sql-basics.md
-|   |       01-joins.md
-|   |       02-aggregation.md
-|   |       03-subqueries-and-ctes.md
-|   |       04-window-functions.md
-|   |       05-indexes.md
-|   |       06-normalization.md
-|   |       07-transactions.md
-|   |       08-query-optimization.md
-|   |       09-postgresql-and-mysql.md
-|   |       10-output-based-questions.md
-|   |       11-sql-system-design.md
-|   |       README.md
-|   |       
-|   \---25-cheatsheets
-|           00-sql-basics.md
-|           01-joins.md
-|           02-functions.md
-|           03-aggregation.md
-|           04-window-functions.md
-|           05-ctes-and-subqueries.md
-|           06-indexes.md
-|           07-transactions.md
-|           08-query-optimization.md
-|           09-postgresql.md
-|           10-mysql.md
-|           11-dialect-differences.md
-|           README.md
 |           
 \---prompts
         learning-repository-optimization-prompt.txt
