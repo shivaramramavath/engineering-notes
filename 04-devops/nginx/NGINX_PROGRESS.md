@@ -34,19 +34,19 @@
 ---
 
 ## 4. Module 02: Core Features & Protocols
-- [ ] `02-core-features/README.md`
-- [ ] `02-core-features/01-logging.md`
-- [ ] `02-core-features/02-reverse-proxy.md`
-- [ ] `02-core-features/03-tls-https.md`
-- [ ] `02-core-features/04-variables-and-rewrites.md`
-- [ ] `02-core-features/05-websockets-and-sse-proxying.md`
-- [ ] `02-core-features/06-http2-and-http3-quic.md`
-- [ ] `02-core-features/07-compression-gzip-and-brotli.md`
-- [ ] `02-core-features/08-headers-cors-and-security-headers.md`
-- [ ] `02-core-features/09-error-handling-and-custom-pages.md`
-- [ ] `02-core-features/10-redirects-and-canonical-urls.md`
-- [ ] `02-core-features/11-acme-and-certbot-automation.md`
-- [ ] `02-core-features/12-njs-and-extensibility.md`
+- [x] `02-core-features/README.md`
+- [x] `02-core-features/01-logging.md`
+- [x] `02-core-features/02-reverse-proxy.md`
+- [x] `02-core-features/03-tls-https.md`
+- [x] `02-core-features/04-variables-and-rewrites.md`
+- [x] `02-core-features/05-websockets-and-sse-proxying.md`
+- [x] `02-core-features/06-http2-and-http3-quic.md`
+- [x] `02-core-features/07-compression-gzip-and-brotli.md`
+- [x] `02-core-features/08-headers-cors-and-security-headers.md`
+- [x] `02-core-features/09-error-handling-and-custom-pages.md`
+- [x] `02-core-features/10-redirects-and-canonical-urls.md`
+- [x] `02-core-features/11-acme-and-certbot-automation.md`
+- [x] `02-core-features/12-njs-and-extensibility.md`
 
 ---
 
