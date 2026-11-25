@@ -88,27 +88,100 @@ This index categorizes all engineering notes across the five DevOps tracks: **Li
 
 ## 4. Nginx Web Gateway
 
-### 4.1 Fundamentals & Core Features
-- [01-config-structure.md](file:///04-devops/nginx/01-fundamentals/config-structure.md): `nginx.conf` context hierarchy (`main`, `events`, `http`, `server`, `location`).
-- [02-installation.md](file:///04-devops/nginx/01-fundamentals/installation.md): Package installation vs compiling with custom modules, directory layouts.
-- [03-server-and-location.md](file:///04-devops/nginx/01-fundamentals/server-and-location.md): Virtual hosts, regex location matching precedence rules.
-- [04-static-files.md](file:///04-devops/nginx/01-fundamentals/static-files.md): High-performance static delivery: `sendfile`, `tcp_nopush`, `tcp_nodelay`, gzip.
-- [01-logging.md](file:///04-devops/nginx/02-core-features/logging.md): Access log formats, JSON structured logging for ELK/Loki, error log levels.
-- [02-reverse-proxy.md](file:///04-devops/nginx/02-core-features/reverse-proxy.md): Reverse proxying (`proxy_pass`), header propagation, connection buffering.
-- [03-tls-https.md](file:///04-devops/nginx/02-core-features/tls-https.md): TLS 1.3 configuration, Let's Encrypt / Certbot automation, cipher hardening.
-- [04-variables-and-rewrites.md](file:///04-devops/nginx/02-core-features/variables-and-rewrites.md): Built-in Nginx variables, URL rewriting, 301/302 redirects.
+### 4.1 Track Overview & Modules
+- [README.md](file:///04-devops/nginx/README.md): Master NGINX track architecture, module catalog, and engineering invariants.
+- [ROADMAP.md](file:///04-devops/nginx/ROADMAP.md): 9-stage learning roadmap, checkpoints, and fast-track learning pathways.
 
-### 4.2 Traffic Management & Production
-- [01-caching.md](file:///04-devops/nginx/03-traffic-management/caching.md): Reverse proxy caching (`proxy_cache`), cache keys, cache purging, bypass rules.
-- [02-load-balancing.md](file:///04-devops/nginx/03-traffic-management/load-balancing.md): Upstream pools, Round Robin, Least Connections, IP Hash, active health checks.
-- [03-rate-limiting.md](file:///04-devops/nginx/03-traffic-management/rate-limiting.md): Leaky bucket algorithm, `limit_req_zone`, burst handling, connection limiting.
-- [01-architecture.md](file:///04-devops/nginx/04-internals/architecture.md): Master-Worker asynchronous non-blocking event-driven epoll architecture.
-- [02-request-lifecycle.md](file:///04-devops/nginx/04-internals/request-lifecycle.md): 11 internal processing phases from POST_READ to LOG.
-- [01-performance-tuning.md](file:///04-devops/nginx/05-security-performance/performance-tuning.md): Worker affinity, file descriptor limits (`worker_rlimit_nofile`), buffer sizes.
-- [02-security-hardening.md](file:///04-devops/nginx/05-security-performance/security-hardening.md): Security headers (HSTS, CSP), blocking bad user agents, mitigating Slowloris.
-- [01-docker-kubernetes.md](file:///04-devops/nginx/06-production/docker-kubernetes.md): Running Nginx in Docker containers and Kubernetes Ingress controllers.
-- [02-operations.md](file:///04-devops/nginx/06-production/operations.md): Zero-downtime binary upgrades and configuration reloading (`kill -HUP`).
-- [03-troubleshooting.md](file:///04-devops/nginx/06-production/troubleshooting.md): Diagnosing 502 Bad Gateway, 504 Gateway Timeout, and 413 Payload Too Large.
+### 4.2 Module 01: Core Fundamentals
+- [01-installation.md](file:///04-devops/nginx/01-fundamentals/01-installation.md): Package installation (APT/YUM), source builds, OpenSSL 3.0+ flags, directory trees.
+- [02-config-structure.md](file:///04-devops/nginx/01-fundamentals/02-config-structure.md): Directives, context hierarchy (`main`, `http`, `server`, `location`), inheritance rules.
+- [03-server-and-location.md](file:///04-devops/nginx/01-fundamentals/03-server-and-location.md): Strict location precedence (`=`, `^~`, `~`, `~*`, prefix) and the "If is Evil" anti-pattern.
+- [04-static-files.md](file:///04-devops/nginx/01-fundamentals/04-static-files.md): Static file serving, `root` vs `alias` traps, MIME types, SPA fallbacks.
+- [05-directives-reference-by-context.md](file:///04-devops/nginx/01-fundamentals/05-directives-reference-by-context.md): Comprehensive context matrix of NGINX directives.
+- [06-command-line-and-signals.md](file:///04-devops/nginx/01-fundamentals/06-command-line-and-signals.md): Master-Worker signals (`HUP`, `QUIT`, `USR1`, `USR2`) and CLI flags (`-t`, `-T`).
+- [07-default-server-and-catch-all-hosts.md](file:///04-devops/nginx/01-fundamentals/07-default-server-and-catch-all-hosts.md): Default server, SSL catch-all fallback, HTTP 444 probe drops.
+
+### 4.3 Module 02: Core Features & Protocols
+- [01-logging.md](file:///04-devops/nginx/02-core-features/01-logging.md): High-speed logging, JSON formats, upstream response timing, buffer flushing.
+- [02-reverse-proxy.md](file:///04-devops/nginx/02-core-features/02-reverse-proxy.md): Reverse proxying (`proxy_pass`), trailing slashes, header mutations, buffer sizing.
+- [03-tls-https.md](file:///04-devops/nginx/02-core-features/03-tls-https.md): Modern TLS 1.3/1.2, Mozilla Modern ciphers, OCSP Stapling, mTLS.
+- [04-variables-and-rewrites.md](file:///04-devops/nginx/02-core-features/04-variables-and-rewrites.md): Built-in variables, declarative `map` blocks, rewrite flags (`last`, `break`).
+- [05-websockets-and-sse-proxying.md](file:///04-devops/nginx/02-core-features/05-websockets-and-sse-proxying.md): Real-time WebSockets, hop-by-hop headers, unbuffered SSE streaming.
+- [06-http2-and-http3-quic.md](file:///04-devops/nginx/02-core-features/06-http2-and-http3-quic.md): Modern standalone `http2 on;`, HTTP/3 QUIC over UDP port 443 (`quic reuseport`).
+- [07-compression-gzip-and-brotli.md](file:///04-devops/nginx/02-core-features/07-compression-gzip-and-brotli.md): Wire compression, `gzip_static`, dynamic Brotli, BREACH defense.
+- [08-headers-cors-and-security-headers.md](file:///04-devops/nginx/02-core-features/08-headers-cors-and-security-headers.md): HSTS preload, CSP, fixing `add_header` inheritance, CORS preflight.
+- [09-error-handling-and-custom-pages.md](file:///04-devops/nginx/02-core-features/09-error-handling-and-custom-pages.md): Intercepting backend errors, branded error pages, JSON payloads.
+- [10-redirects-and-canonical-urls.md](file:///04-devops/nginx/02-core-features/10-redirects-and-canonical-urls.md): HTTPS redirects, apex to `www`, trailing slash normalization.
+- [11-acme-and-certbot-automation.md](file:///04-devops/nginx/02-core-features/11-acme-and-certbot-automation.md): Automated Let's Encrypt certificates, webroot challenges, renewal timers.
+- [12-njs-and-extensibility.md](file:///04-devops/nginx/02-core-features/12-njs-and-extensibility.md): NGINX JavaScript (njs / QuickJS), JWT validation, dynamic routing.
+
+### 4.4 Module 03: Traffic Management, Caching & Upstreams
+- [01-caching.md](file:///04-devops/nginx/03-traffic-management/01-caching.md): High-throughput edge caching, 1s microcaching, Cache Lock stampede defense.
+- [02-load-balancing.md](file:///04-devops/nginx/03-traffic-management/02-load-balancing.md): Load balancing algorithms, upstream `keepalive` connection pooling.
+- [03-rate-limiting.md](file:///04-devops/nginx/03-traffic-management/03-rate-limiting.md): Leaky bucket rate limiting (`limit_req_zone`, `burst`, `nodelay`, `delay`).
+- [04-auth-request-and-sso-gateways.md](file:///04-devops/nginx/03-traffic-management/04-auth-request-and-sso-gateways.md): Perimeter SSO authentication, OAuth2/OIDC integration.
+- [05-geo-and-map-based-routing.md](file:///04-devops/nginx/03-traffic-management/05-geo-and-map-based-routing.md): GeoIP2 country routing, CIDR classification, clean `map` logic.
+- [06-canary-and-blue-green-deployments.md](file:///04-devops/nginx/03-traffic-management/06-canary-and-blue-green-deployments.md): Canary traffic splitting via `split_clients`, cookie/header stickiness.
+- [07-connection-limiting-and-concurrency.md](file:///04-devops/nginx/03-traffic-management/07-connection-limiting-and-concurrency.md): Concurrency limits (`limit_conn`), bandwidth rate limits (`limit_rate`).
+- [08-circuit-breaking-and-upstream-health-checks.md](file:///04-devops/nginx/03-traffic-management/08-circuit-breaking-and-upstream-health-checks.md): Passive health checks, active probes, graceful degradation.
+- [09-sendfile-and-large-file-delivery.md](file:///04-devops/nginx/03-traffic-management/09-sendfile-and-large-file-delivery.md): Zero-copy kernel streaming (`sendfile`), large file slicing.
+
+### 4.5 Module 04: Internals & Architecture
+- [01-architecture-master-worker-and-event-loop.md](file:///04-devops/nginx/04-internals/01-architecture-master-worker-and-event-loop.md): Master-Worker architecture, POSIX signals, non-blocking `epoll` event loops.
+- [02-request-lifecycle-and-phases.md](file:///04-devops/nginx/04-internals/02-request-lifecycle-and-phases.md): The 11 HTTP Request Execution Phases from POST_READ to LOG.
+- [03-config-parsing-and-reload-mechanics.md](file:///04-devops/nginx/04-internals/03-config-parsing-and-reload-mechanics.md): Config AST trees, atomic zero-downtime `SIGHUP` reload sequence.
+- [04-memory-buffers-and-shared-zones.md](file:///04-devops/nginx/04-internals/04-memory-buffers-and-shared-zones.md): Memory pools (`ngx_pool_t`) and slab allocators (`ngx_slab_pool_t`).
+- [05-modules-and-dynamic-modules.md](file:///04-devops/nginx/04-internals/05-modules-and-dynamic-modules.md): C module architecture (`ngx_module_t`) and dynamic module loading.
+- [06-reading-nginx-source-code.md](file:///04-devops/nginx/04-internals/06-reading-nginx-source-code.md): C source tree navigation (`src/core`, `src/http`), writing a C filter module.
+
+### 4.6 Module 05: Security Hardening & Performance
+- [01-performance-tuning.md](file:///04-devops/nginx/05-security-performance/01-performance-tuning.md): Linux kernel tuning (`sysctl`), worker affinity, file descriptor limits.
+- [02-security-hardening.md](file:///04-devops/nginx/05-security-performance/02-security-hardening.md): Server token masking, unprivileged user, directory traversal defenses.
+- [03-waf-and-modsecurity-overview.md](file:///04-devops/nginx/05-security-performance/03-waf-and-modsecurity-overview.md): ModSecurity v3 and OWASP Core Rule Set (CRS) v4.
+- [04-ddos-mitigation-patterns.md](file:///04-devops/nginx/05-security-performance/04-ddos-mitigation-patterns.md): Layer 7 anti-DDoS, Slowloris defense, TCP syncookies, connection capping.
+- [05-real-ip-and-trusted-proxies.md](file:///04-devops/nginx/05-security-performance/05-real-ip-and-trusted-proxies.md): Real IP module, recursive header unwinding behind CDNs and ALBs.
+- [06-benchmarking-methodologies.md](file:///04-devops/nginx/05-security-performance/06-benchmarking-methodologies.md): Load testing methodologies (wrk, vegeta, k6), latency percentiles.
+- [07-common-vulnerabilities-in-configs.md](file:///04-devops/nginx/05-security-performance/07-common-vulnerabilities-in-configs.md): Top config security flaws: off-by-slash `alias` traversal, CRLF injection.
+
+### 4.7 Module 06: Production Operations, Cloud & Kubernetes
+- [01-docker-and-containers.md](file:///04-devops/nginx/06-production-cloud-kubernetes/01-docker-and-containers.md): Containers, non-root execution, `envsubst` templating.
+- [02-kubernetes-ingress-and-gateway-api.md](file:///04-devops/nginx/06-production-cloud-kubernetes/02-kubernetes-ingress-and-gateway-api.md): March 2026 EOL of `ingress-nginx` and Kubernetes Gateway API migration.
+- [03-operations-zero-downtime-reloads-and-ci.md](file:///04-devops/nginx/06-production-cloud-kubernetes/03-operations-zero-downtime-reloads-and-ci.md): Zero-downtime reloads, automated CI/CD config linting pipelines.
+- [04-troubleshooting-playbooks.md](file:///04-devops/nginx/06-production-cloud-kubernetes/04-troubleshooting-playbooks.md): On-call playbooks for 502, 504, 403, 413, 400, and memory leaks.
+- [05-monitoring-metrics-and-observability.md](file:///04-devops/nginx/06-production-cloud-kubernetes/05-monitoring-metrics-and-observability.md): Prometheus exporter, Grafana dashboards, OpenTelemetry distributed tracing.
+- [06-high-availability-and-vrrp.md](file:///04-devops/nginx/06-production-cloud-kubernetes/06-high-availability-and-vrrp.md): Active-Passive HA with Keepalived VRRP and Virtual IPs.
+- [07-cdn-and-edge-integration.md](file:///04-devops/nginx/06-production-cloud-kubernetes/07-cdn-and-edge-integration.md): Multi-tier CDN integration, Cloudflare / CloudFront caching tiers.
+- [08-nginx-vs-alternatives.md](file:///04-devops/nginx/06-production-cloud-kubernetes/08-nginx-vs-alternatives.md): Comprehensive comparison: NGINX vs HAProxy, Traefik, Caddy, Envoy, Apache.
+
+### 4.8 Module 07: Production Reference Projects
+- [01-secure-gateway-stack.md](file:///04-devops/nginx/07-projects/01-secure-gateway-stack.md): Multi-site hardened reverse proxy with A+ SSL Labs rating and rate limiting.
+- [02-spa-with-api-proxy.md](file:///04-devops/nginx/07-projects/02-spa-with-api-proxy.md): Production SPA hosting (React/Vue) with static asset immutability and API proxy.
+- [03-static-site-caching-and-compression.md](file:///04-devops/nginx/07-projects/03-static-site-caching-and-compression.md): High-throughput static platform with pre-compressed Brotli/Gzip.
+- [04-load-balanced-backend-cluster.md](file:///04-devops/nginx/07-projects/04-load-balanced-backend-cluster.md): Resilient multi-node cluster with least-conn and `keepalive 64` pools.
+- [05-websocket-and-sse-realtime-proxy.md](file:///04-devops/nginx/07-projects/05-websocket-and-sse-realtime-proxy.md): Real-time messaging gateway for persistent WebSockets and unbuffered SSE.
+- [06-rate-limited-public-api-gateway.md](file:///04-devops/nginx/07-projects/06-rate-limited-public-api-gateway.md): Public API gateway with tiered rate limits and brute-force defenses.
+- [07-tls-termination-and-certbot-automation.md](file:///04-devops/nginx/07-projects/07-tls-termination-and-certbot-automation.md): Automated enterprise TLS with dual ECDSA/RSA fallback and systemd timers.
+- [08-canary-release-and-traffic-splitting.md](file:///04-devops/nginx/07-projects/08-canary-release-and-traffic-splitting.md): Canary traffic splitting via `split_clients` with beta tester stickiness.
+
+### 4.9 Module 08: Technical Interview Preparation
+- [01-fundamentals-qa.md](file:///04-devops/nginx/08-interview/01-fundamentals-qa.md): Core concepts, process model, static files, and syntax.
+- [02-location-matching-and-rewrites-qa.md](file:///04-devops/nginx/08-interview/02-location-matching-and-rewrites-qa.md): Location precedence traps, rewrite flags, declarative `map`.
+- [03-reverse-proxy-and-load-balancing-qa.md](file:///04-devops/nginx/08-interview/03-reverse-proxy-and-load-balancing-qa.md): Proxy buffering, trailing slash differences, keepalive pools.
+- [04-tls-and-security-qa.md](file:///04-devops/nginx/08-interview/04-tls-and-security-qa.md): Modern TLS, OCSP stapling, HTTP/3 QUIC, DDoS mitigation.
+- [05-performance-and-internals-qa.md](file:///04-devops/nginx/08-interview/05-performance-and-internals-qa.md): Epoll event loops, non-blocking I/O, worker affinity, request phases.
+- [06-production-troubleshooting-scenarios.md](file:///04-devops/nginx/08-interview/06-production-troubleshooting-scenarios.md): Real-world triage scenarios for 502, 504, reload failures, CPU spikes.
+- [07-nginx-vs-alternatives-qa.md](file:///04-devops/nginx/08-interview/07-nginx-vs-alternatives-qa.md): Architectural trade-offs: NGINX vs Envoy, HAProxy, Traefik, Caddy.
+- [08-behavioural-and-architecture-discussion.md](file:///04-devops/nginx/08-interview/08-behavioural-and-architecture-discussion.md): Staff/Principal-level system design trade-offs and capacity planning.
+
+### 4.10 Module 09: Quick Reference Cheatsheets
+- [01-directives-quick-reference.md](file:///04-devops/nginx/09-cheatsheets/01-directives-quick-reference.md): Core contexts, inheritance rules, syntax summaries.
+- [02-location-matching-table.md](file:///04-devops/nginx/09-cheatsheets/02-location-matching-table.md): Precedence matrices, matching flags (`=`, `^~`, `~`, prefix), trap resolutions.
+- [03-proxy-and-headers-snippets.md](file:///04-devops/nginx/09-cheatsheets/03-proxy-and-headers-snippets.md): `proxy_pass` rules, WebSocket upgrades, keepalive pools, Real IP headers.
+- [04-tls-and-ssl-snippets.md](file:///04-devops/nginx/09-cheatsheets/04-tls-and-ssl-snippets.md): Mozilla Modern ciphers, TLS 1.3/1.2, HTTP/2, HTTP/3 QUIC.
+- [05-caching-and-rate-limiting-snippets.md](file:///04-devops/nginx/09-cheatsheets/05-caching-and-rate-limiting-snippets.md): Microcaching (1s TTL), Cache Lock, `limit_req`, `limit_conn`.
+- [06-security-headers-snippets.md](file:///04-devops/nginx/09-cheatsheets/06-security-headers-snippets.md): HSTS preload, strict CSP, Permissions-Policy, CORS preflight.
+- [07-http-error-codes-and-fixes.md](file:///04-devops/nginx/09-cheatsheets/07-http-error-codes-and-fixes.md): Diagnostic lookup for 301 loops, 400, 403, 404, 413, 429, 444, 500, 502, 504.
+- [08-cli-commands-and-signals.md](file:///04-devops/nginx/09-cheatsheets/08-cli-commands-and-signals.md): CLI flags (`-t`, `-T`, `-V`), UNIX signals, zero-downtime upgrades, socket tracing.
 
 ---
 

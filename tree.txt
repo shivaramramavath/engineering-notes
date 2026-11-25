@@ -4683,87 +4683,171 @@ E:.
 |   |           README.md
 |   |           
 |   +---linux
+|   |   |   LINUX_AUDIT.md
+|   |   |   LINUX_CHANGELOG.md
+|   |   |   LINUX_COMPLETION_PLAN.md
+|   |   |   LINUX_DECISIONS.md
+|   |   |   LINUX_FACTS.md
+|   |   |   LINUX_PROGRESS.md
 |   |   |   README.md
 |   |   |   
 |   |   +---01-fundamentals
 |   |   |       01-getting-started.md
-|   |   |       02-filesystem-and-navigation.md
-|   |   |       03-working-with-files.md
-|   |   |       04-users-and-groups.md
-|   |   |       05-permissions.md
+|   |   |       02-linux-architecture.md
+|   |   |       03-filesystem-hierarchy-and-navigation.md
+|   |   |       04-working-with-files.md
+|   |   |       05-links-inodes-and-file-types.md
+|   |   |       06-users-and-groups.md
+|   |   |       07-permissions.md
+|   |   |       08-sudo-and-privilege.md
+|   |   |       09-man-pages-and-getting-help.md
+|   |   |       10-environment-variables-and-startup-files.md
+|   |   |       11-boot-process.md
+|   |   |       README.md
 |   |   |       
 |   |   +---02-shell
 |   |   |       01-shell-basics.md
-|   |   |       02-text-processing.md
-|   |   |       03-bash-scripting.md
-|   |   |       04-vim-and-tmux.md
+|   |   |       04-text-processing.md
+|   |   |       07-bash-scripting.md
+|   |   |       10-vim-and-tmux.md
 |   |   |       
 |   |   +---03-system
 |   |   |       01-processes-and-signals.md
-|   |   |       02-package-management.md
-|   |   |       03-systemd-and-services.md
-|   |   |       04-cron-and-timers.md
-|   |   |       05-storage-and-filesystems.md
+|   |   |       03-package-management.md
+|   |   |       04-systemd-and-services.md
+|   |   |       06-cron-and-timers.md
+|   |   |       07-storage-and-filesystems.md
 |   |   |       
 |   |   +---04-networking
 |   |   |       01-networking-basics.md
-|   |   |       02-ssh.md
-|   |   |       03-firewall.md
+|   |   |       04-ssh.md
+|   |   |       05-firewall.md
 |   |   |       
 |   |   +---05-production
 |   |   |       01-server-hardening.md
-|   |   |       02-troubleshooting.md
-|   |   |       03-performance.md
+|   |   |       05-troubleshooting.md
+|   |   |       06-performance.md
 |   |   |       
 |   |   +---06-advanced
 |   |   |       01-namespaces-and-cgroups.md
-|   |   |       02-advanced-debugging.md
+|   |   |       03-advanced-debugging.md
 |   |   |       
-|   |   \---reference
-|   |           cheatsheet.md
-|   |           interview.md
+|   |   +---08-interview
+|   |   |       01-linux-basics-qa.md
+|   |   |       
+|   |   \---09-cheatsheets
+|   |           01-commands-by-task.md
 |   |           
 |   +---nginx
+|   |   |   NGINX_AUDIT.md
+|   |   |   NGINX_CHANGELOG.md
+|   |   |   NGINX_COMPLETION_PLAN.md
+|   |   |   NGINX_DECISIONS.md
+|   |   |   NGINX_FACTS.md
+|   |   |   NGINX_FINAL_REPORT.md
+|   |   |   NGINX_PROGRESS.md
 |   |   |   README.md
 |   |   |   ROADMAP.md
 |   |   |   
 |   |   +---01-fundamentals
-|   |   |       config-structure.md
-|   |   |       installation.md
-|   |   |       server-and-location.md
-|   |   |       static-files.md
+|   |   |       01-installation.md
+|   |   |       02-config-structure.md
+|   |   |       03-server-and-location.md
+|   |   |       04-static-files.md
+|   |   |       05-directives-reference-by-context.md
+|   |   |       06-command-line-and-signals.md
+|   |   |       07-default-server-and-catch-all-hosts.md
+|   |   |       README.md
 |   |   |       
 |   |   +---02-core-features
-|   |   |       logging.md
-|   |   |       reverse-proxy.md
-|   |   |       tls-https.md
-|   |   |       variables-and-rewrites.md
+|   |   |       01-logging.md
+|   |   |       02-reverse-proxy.md
+|   |   |       03-tls-https.md
+|   |   |       04-variables-and-rewrites.md
+|   |   |       05-websockets-and-sse-proxying.md
+|   |   |       06-http2-and-http3-quic.md
+|   |   |       07-compression-gzip-and-brotli.md
+|   |   |       08-headers-cors-and-security-headers.md
+|   |   |       09-error-handling-and-custom-pages.md
+|   |   |       10-redirects-and-canonical-urls.md
+|   |   |       11-acme-and-certbot-automation.md
+|   |   |       12-njs-and-extensibility.md
+|   |   |       README.md
 |   |   |       
 |   |   +---03-traffic-management
-|   |   |       caching.md
-|   |   |       load-balancing.md
-|   |   |       rate-limiting.md
+|   |   |       01-caching.md
+|   |   |       02-load-balancing.md
+|   |   |       03-rate-limiting.md
+|   |   |       04-auth-request-and-sso-gateways.md
+|   |   |       05-geo-and-map-based-routing.md
+|   |   |       06-canary-and-blue-green-deployments.md
+|   |   |       07-connection-limiting-and-concurrency.md
+|   |   |       08-circuit-breaking-and-upstream-health-checks.md
+|   |   |       09-sendfile-and-large-file-delivery.md
+|   |   |       README.md
 |   |   |       
 |   |   +---04-internals
-|   |   |       architecture.md
-|   |   |       request-lifecycle.md
+|   |   |       01-architecture-master-worker-and-event-loop.md
+|   |   |       02-request-lifecycle-and-phases.md
+|   |   |       03-config-parsing-and-reload-mechanics.md
+|   |   |       04-memory-buffers-and-shared-zones.md
+|   |   |       05-modules-and-dynamic-modules.md
+|   |   |       06-reading-nginx-source-code.md
+|   |   |       README.md
 |   |   |       
 |   |   +---05-security-performance
-|   |   |       performance-tuning.md
-|   |   |       security-hardening.md
+|   |   |       01-performance-tuning.md
+|   |   |       02-security-hardening.md
+|   |   |       03-waf-and-modsecurity-overview.md
+|   |   |       04-ddos-mitigation-patterns.md
+|   |   |       05-real-ip-and-trusted-proxies.md
+|   |   |       06-benchmarking-methodologies.md
+|   |   |       07-common-vulnerabilities-in-configs.md
+|   |   |       README.md
 |   |   |       
 |   |   +---06-production
-|   |   |       docker-kubernetes.md
-|   |   |       operations.md
-|   |   |       troubleshooting.md
+|   |   |       01-docker-and-containers.md
+|   |   |       02-kubernetes-ingress-and-gateway-api.md
+|   |   |       03-operations-zero-downtime-reloads-and-ci.md
+|   |   |       04-troubleshooting-playbooks.md
+|   |   |       05-monitoring-metrics-and-observability.md
+|   |   |       06-high-availability-and-vrrp.md
+|   |   |       07-cdn-and-edge-integration.md
+|   |   |       08-nginx-vs-alternatives.md
+|   |   |       README.md
 |   |   |       
 |   |   +---07-projects
-|   |   |       secure-gateway-stack.md
-|   |   |       spa-with-api-proxy.md
+|   |   |       01-secure-gateway-stack.md
+|   |   |       02-spa-with-api-proxy.md
+|   |   |       03-static-site-caching-and-compression.md
+|   |   |       04-load-balanced-backend-cluster.md
+|   |   |       05-websocket-and-sse-realtime-proxy.md
+|   |   |       06-rate-limited-public-api-gateway.md
+|   |   |       07-tls-termination-and-certbot-automation.md
+|   |   |       08-canary-release-and-traffic-splitting.md
+|   |   |       README.md
 |   |   |       
-|   |   \---08-reference
-|   |           cheatsheet.md
-|   |           interview-questions.md
+|   |   +---08-interview
+|   |   |       01-fundamentals-qa.md
+|   |   |       02-location-matching-and-rewrites-qa.md
+|   |   |       03-reverse-proxy-and-load-balancing-qa.md
+|   |   |       04-tls-and-security-qa.md
+|   |   |       05-performance-and-internals-qa.md
+|   |   |       06-production-troubleshooting-scenarios.md
+|   |   |       07-nginx-vs-alternatives-qa.md
+|   |   |       08-behavioural-and-architecture-discussion.md
+|   |   |       README.md
+|   |   |       
+|   |   \---09-cheatsheets
+|   |           01-directives-quick-reference.md
+|   |           02-location-matching-table.md
+|   |           03-proxy-and-headers-snippets.md
+|   |           04-tls-and-ssl-snippets.md
+|   |           05-caching-and-rate-limiting-snippets.md
+|   |           06-security-headers-snippets.md
+|   |           07-http-error-codes-and-fixes.md
+|   |           08-cli-commands-and-signals.md
+|   |           README.md
 |   |           
 |   \---_templates
 |           concept-template.md
