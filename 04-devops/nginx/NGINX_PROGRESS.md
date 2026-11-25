@@ -127,12 +127,12 @@
 ---
 
 ## 11. Module 09: Quick Reference Cheatsheets
-- [ ] `09-cheatsheets/README.md`
-- [ ] `09-cheatsheets/01-directives-quick-reference.md`
-- [ ] `09-cheatsheets/02-location-matching-table.md`
-- [ ] `09-cheatsheets/03-proxy-and-headers-snippets.md`
-- [ ] `09-cheatsheets/04-tls-and-ssl-snippets.md`
-- [ ] `09-cheatsheets/05-caching-and-rate-limiting-snippets.md`
-- [ ] `09-cheatsheets/06-security-headers-snippets.md`
-- [ ] `09-cheatsheets/07-http-error-codes-and-fixes.md`
-- [ ] `09-cheatsheets/08-cli-commands-and-signals.md`
+- [x] `09-cheatsheets/README.md`
+- [x] `09-cheatsheets/01-directives-quick-reference.md`
+- [x] `09-cheatsheets/02-location-matching-table.md`
+- [x] `09-cheatsheets/03-proxy-and-headers-snippets.md`
+- [x] `09-cheatsheets/04-tls-and-ssl-snippets.md`
+- [x] `09-cheatsheets/05-caching-and-rate-limiting-snippets.md`
+- [x] `09-cheatsheets/06-security-headers-snippets.md`
+- [x] `09-cheatsheets/07-http-error-codes-and-fixes.md`
+- [x] `09-cheatsheets/08-cli-commands-and-signals.md`
