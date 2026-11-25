@@ -88,15 +88,15 @@
 ---
 
 ## 8. Module 06: Production Operations, Cloud & Kubernetes
-- [ ] `06-production/README.md`
-- [ ] `06-production/01-docker-and-containers.md`
-- [ ] `06-production/02-kubernetes-ingress-and-gateway-api.md`
-- [ ] `06-production/03-operations-zero-downtime-reloads-and-ci.md`
-- [ ] `06-production/04-troubleshooting-playbooks.md`
-- [ ] `06-production/05-monitoring-metrics-and-observability.md`
-- [ ] `06-production/06-high-availability-and-vrrp.md`
-- [ ] `06-production/07-cdn-and-edge-integration.md`
-- [ ] `06-production/08-nginx-vs-alternatives.md`
+- [x] `06-production/README.md`
+- [x] `06-production/01-docker-and-containers.md`
+- [x] `06-production/02-kubernetes-ingress-and-gateway-api.md`
+- [x] `06-production/03-operations-zero-downtime-reloads-and-ci.md`
+- [x] `06-production/04-troubleshooting-playbooks.md`
+- [x] `06-production/05-monitoring-metrics-and-observability.md`
+- [x] `06-production/06-high-availability-and-vrrp.md`
+- [x] `06-production/07-cdn-and-edge-integration.md`
+- [x] `06-production/08-nginx-vs-alternatives.md`
 
 ---
 
