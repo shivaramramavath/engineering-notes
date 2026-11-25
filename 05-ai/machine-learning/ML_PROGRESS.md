@@ -268,15 +268,15 @@
 ---
 
 ## 17. Module 15: MLOps Basics
-- [ ] `15-mlops-basics/README.md`
-- [ ] `15-mlops-basics/01-experiment-tracking.md`
-- [ ] `15-mlops-basics/02-data-and-model-versioning.md`
-- [ ] `15-mlops-basics/03-ml-pipelines-and-orchestration-overview.md`
-- [ ] `15-mlops-basics/04-monitoring-and-drift-detection.md`
-- [ ] `15-mlops-basics/05-retraining-strategies.md`
-- [ ] `15-mlops-basics/06-ci-cd-for-ml.md`
-- [ ] `15-mlops-basics/07-feature-stores-overview.md`
-- [ ] `15-mlops-basics/08-model-governance.md`
+- [x] `15-mlops-basics/README.md`
+- [x] `15-mlops-basics/01-experiment-tracking.md`
+- [x] `15-mlops-basics/02-data-and-model-versioning.md`
+- [x] `15-mlops-basics/03-ml-pipelines-and-orchestration-overview.md`
+- [x] `15-mlops-basics/04-monitoring-and-drift-detection.md`
+- [x] `15-mlops-basics/05-retraining-strategies.md`
+- [x] `15-mlops-basics/06-ci-cd-for-ml.md`
+- [x] `15-mlops-basics/07-feature-stores-overview.md`
+- [x] `15-mlops-basics/08-model-governance.md`
 
 ---
 
