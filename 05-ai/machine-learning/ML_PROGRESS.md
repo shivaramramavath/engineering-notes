@@ -36,16 +36,16 @@
 ---
 
 ## 3. Module 01: Math Foundations for Machine Learning
-- [ ] `01-math-foundations/README.md`
-- [ ] `01-math-foundations/01-linear-algebra-for-ml.md`
-- [ ] `01-math-foundations/02-calculus-and-gradients.md`
-- [ ] `01-math-foundations/03-probability-and-distributions.md`
-- [ ] `01-math-foundations/04-statistics-and-hypothesis-testing.md`
-- [ ] `01-math-foundations/05-information-theory.md`
-- [ ] `01-math-foundations/06-optimisation-and-gradient-descent.md`
-- [ ] `01-math-foundations/07-bias-variance-tradeoff.md`
-- [ ] `01-math-foundations/08-curse-of-dimensionality.md`
-- [ ] `01-math-foundations/09-maximum-likelihood-and-bayes.md`
+- [x] `01-math-foundations/README.md`
+- [x] `01-math-foundations/01-linear-algebra-for-ml.md`
+- [x] `01-math-foundations/02-calculus-and-gradients.md`
+- [x] `01-math-foundations/03-probability-and-distributions.md`
+- [x] `01-math-foundations/04-statistics-and-hypothesis-testing.md`
+- [x] `01-math-foundations/05-information-theory.md`
+- [x] `01-math-foundations/06-optimisation-and-gradient-descent.md`
+- [x] `01-math-foundations/07-bias-variance-tradeoff.md`
+- [x] `01-math-foundations/08-curse-of-dimensionality.md`
+- [x] `01-math-foundations/09-maximum-likelihood-and-bayes.md`
 
 ---
 
