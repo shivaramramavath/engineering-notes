@@ -2,7 +2,7 @@
 
 **Total Modules:** 12 (00 through 11)  
 **Total Target Notes:** 124 concept/project notes + 12 module READMEs + 1 track README = 137 files  
-**Overall Completion:** 97 / 124 notes (78%)  
+**Overall Completion:** 101 / 124 notes (81%)  
 
 ---
 
@@ -18,7 +18,7 @@
 | **05-github-collaboration** | 11 | 11 | Complete |
 | **06-workflows-and-strategies** | 8 | 8 | Complete |
 | **07-github-security** | 8 | 8 | Complete |
-| **08-gh-cli-and-api** | 4 | 0 | Pending |
+| **08-gh-cli-and-api** | 4 | 4 | Complete |
 | **09-projects** | 8 | 0 | Pending |
 | **10-interview** | 8 | 0 | Pending |
 | **11-cheatsheets** | 7 | 0 | Pending |
@@ -149,12 +149,12 @@
 - [x] `07-github-security/07-least-privilege-tokens-and-permissions.md`
 - [x] `07-github-security/08-leaked-secret-response-runbook.md`
 
-### Module 08: GitHub CLI & Developer APIs (0/4 Notes, 0/1 README)
-- [ ] `08-gh-cli-and-api/README.md`
-- [ ] `08-gh-cli-and-api/01-gh-cli-essentials.md`
-- [ ] `08-gh-cli-and-api/02-github-rest-and-graphql-api.md`
-- [ ] `08-gh-cli-and-api/03-webhooks-and-apps.md`
-- [ ] `08-gh-cli-and-api/04-automating-with-gh-and-actions.md`
+### Module 08: GitHub CLI & Developer APIs (4/4 Notes, 1/1 README)
+- [x] `08-gh-cli-and-api/README.md`
+- [x] `08-gh-cli-and-api/01-gh-cli-essentials.md`
+- [x] `08-gh-cli-and-api/02-github-rest-and-graphql-api.md`
+- [x] `08-gh-cli-and-api/03-webhooks-and-apps.md`
+- [x] `08-gh-cli-and-api/04-automating-with-gh-and-actions.md`
 
 ### Module 09: Production Reference Projects (0/8 Projects, 0/1 README)
 - [ ] `09-projects/README.md`
