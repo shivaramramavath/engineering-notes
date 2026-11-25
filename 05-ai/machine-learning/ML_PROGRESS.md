@@ -131,13 +131,13 @@
 ---
 
 ## 8. Module 06: Semi-Supervised & Self-Supervised Learning
-- [ ] `06-semi-and-self-supervised/README.md`
-- [ ] `06-semi-and-self-supervised/01-semi-supervised-learning.md`
-- [ ] `06-semi-and-self-supervised/02-self-training-and-label-propagation.md`
-- [ ] `06-semi-and-self-supervised/03-self-supervised-and-contrastive-learning-intro.md`
-- [ ] `06-semi-and-self-supervised/04-active-learning.md`
-- [ ] `06-semi-and-self-supervised/05-weak-supervision-and-label-noise.md`
-- [ ] `06-semi-and-self-supervised/06-transfer-learning-concepts.md`
+- [x] `06-semi-and-self-supervised/README.md`
+- [x] `06-semi-and-self-supervised/01-semi-supervised-learning.md`
+- [x] `06-semi-and-self-supervised/02-self-training-and-label-propagation.md`
+- [x] `06-semi-and-self-supervised/03-self-supervised-and-contrastive-learning-intro.md`
+- [x] `06-semi-and-self-supervised/04-active-learning.md`
+- [x] `06-semi-and-self-supervised/05-weak-supervision-and-label-noise.md`
+- [x] `06-semi-and-self-supervised/06-transfer-learning-concepts.md`
 
 ---
 
