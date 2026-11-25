@@ -2,7 +2,7 @@
 
 **Total Modules:** 12 (00 through 11)  
 **Total Target Notes:** 124 concept/project notes + 12 module READMEs + 1 track README = 137 files  
-**Overall Completion:** 44 / 124 notes (35%)  
+**Overall Completion:** 70 / 124 notes (56%)  
 
 ---
 
@@ -14,7 +14,7 @@
 | **01-fundamentals** | 10 | 10 | Complete |
 | **02-commands** | 21 | 21 | Complete |
 | **03-history-rewriting** | 8 | 8 | Complete |
-| **04-github-actions** | 26 | 0 | Pending |
+| **04-github-actions** | 26 | 26 | Complete |
 | **05-github-collaboration** | 11 | 0 | Pending |
 | **06-workflows-and-strategies** | 8 | 0 | Pending |
 | **07-github-security** | 8 | 0 | Pending |
@@ -84,34 +84,34 @@
 - [x] `03-history-rewriting/07-reset-vs-revert-vs-restore.md`
 - [x] `03-history-rewriting/08-recovering-lost-work-playbook.md`
 
-### Module 04: GitHub Actions CI/CD (0/26 Notes, 0/1 README)
-- [ ] `04-github-actions/README.md`
-- [ ] `04-github-actions/01-core-concepts.md`
-- [ ] `04-github-actions/02-workflow-syntax.md`
-- [ ] `04-github-actions/03-events-and-triggers.md`
-- [ ] `04-github-actions/04-jobs-and-steps.md`
-- [ ] `04-github-actions/05-actions-and-marketplace.md`
-- [ ] `04-github-actions/06-runners.md`
-- [ ] `04-github-actions/07-variables-and-secrets.md`
-- [ ] `04-github-actions/08-contexts-expressions-conditions.md`
-- [ ] `04-github-actions/09-artifacts-caching-dependencies.md`
-- [ ] `04-github-actions/10-matrix-and-concurrency.md`
-- [ ] `04-github-actions/11-permissions-and-environments.md`
-- [ ] `04-github-actions/12-reusable-workflows.md`
-- [ ] `04-github-actions/13-custom-actions.md`
-- [ ] `04-github-actions/14-ci-pipelines.md`
-- [ ] `04-github-actions/15-cd-and-deployment.md`
-- [ ] `04-github-actions/16-docker-ci-cd.md`
-- [ ] `04-github-actions/17-security-hardening.md`
-- [ ] `04-github-actions/18-debugging-and-workflow-commands.md`
-- [ ] `04-github-actions/19-release-automation.md`
-- [ ] `04-github-actions/20-oidc-and-cloud-auth.md`
-- [ ] `04-github-actions/21-self-hosted-runners-and-scaling.md`
-- [ ] `04-github-actions/22-workflow-performance-and-cost.md`
-- [ ] `04-github-actions/23-testing-workflows-locally.md`
-- [ ] `04-github-actions/24-monorepo-and-path-filters.md`
-- [ ] `04-github-actions/25-composite-vs-javascript-vs-docker-actions.md`
-- [ ] `04-github-actions/26-supply-chain-pinning-and-provenance.md`
+### Module 04: GitHub Actions CI/CD (26/26 Notes, 1/1 README)
+- [x] `04-github-actions/README.md`
+- [x] `04-github-actions/01-core-concepts.md`
+- [x] `04-github-actions/02-workflow-syntax.md`
+- [x] `04-github-actions/03-events-and-triggers.md`
+- [x] `04-github-actions/04-jobs-and-steps.md`
+- [x] `04-github-actions/05-actions-and-marketplace.md`
+- [x] `04-github-actions/06-runners.md`
+- [x] `04-github-actions/07-variables-and-secrets.md`
+- [x] `04-github-actions/08-contexts-expressions-conditions.md`
+- [x] `04-github-actions/09-artifacts-caching-dependencies.md`
+- [x] `04-github-actions/10-matrix-and-concurrency.md`
+- [x] `04-github-actions/11-permissions-and-environments.md`
+- [x] `04-github-actions/12-reusable-workflows.md`
+- [x] `04-github-actions/13-custom-actions.md`
+- [x] `04-github-actions/14-ci-pipelines.md`
+- [x] `04-github-actions/15-cd-and-deployment.md`
+- [x] `04-github-actions/16-docker-ci-cd.md`
+- [x] `04-github-actions/17-security-hardening.md`
+- [x] `04-github-actions/18-debugging-and-workflow-commands.md`
+- [x] `04-github-actions/19-release-automation.md`
+- [x] `04-github-actions/20-oidc-and-cloud-auth.md`
+- [x] `04-github-actions/21-self-hosted-runners-and-scaling.md`
+- [x] `04-github-actions/22-workflow-performance-and-cost.md`
+- [x] `04-github-actions/23-testing-workflows-locally.md`
+- [x] `04-github-actions/24-monorepo-and-path-filters.md`
+- [x] `04-github-actions/25-composite-vs-javascript-vs-docker-actions.md`
+- [x] `04-github-actions/26-supply-chain-pinning-and-provenance.md`
 
 ### Module 05: GitHub Collaboration & Governance (0/11 Notes, 0/1 README)
 - [ ] `05-github-collaboration/README.md`
