@@ -281,19 +281,19 @@
 ---
 
 ## 18. Module 16: Production Reference Projects
-- [ ] `16-projects/README.md`
-- [ ] `16-projects/01-house-price-regression.md`
-- [ ] `16-projects/02-spam-classifier-with-tf-idf.md`
-- [ ] `16-projects/03-customer-segmentation-with-kmeans-and-pca.md`
-- [ ] `16-projects/04-anomaly-detection-on-sensor-data.md`
-- [ ] `16-projects/05-movie-recommender.md`
-- [ ] `16-projects/06-credit-card-fraud-with-imbalanced-data.md`
-- [ ] `16-projects/07-sales-forecasting-baseline.md`
-- [ ] `16-projects/08-tabular-benchmark-boosting-vs-forests.md`
-- [ ] `16-projects/09-gridworld-q-learning.md`
-- [ ] `16-projects/10-cartpole-dqn-and-ppo.md`
-- [ ] `16-projects/11-bandit-simulator.md`
-- [ ] `16-projects/12-end-to-end-pipeline-save-load-and-fastapi-service.md`
+- [x] `16-projects/README.md`
+- [x] `16-projects/01-house-price-regression.md`
+- [x] `16-projects/02-spam-classifier-with-tf-idf.md`
+- [x] `16-projects/03-customer-segmentation-with-kmeans-and-pca.md`
+- [x] `16-projects/04-anomaly-detection-on-sensor-data.md`
+- [x] `16-projects/05-movie-recommender.md`
+- [x] `16-projects/06-credit-card-fraud-with-imbalanced-data.md`
+- [x] `16-projects/07-sales-forecasting-baseline.md`
+- [x] `16-projects/08-tabular-benchmark-boosting-vs-forests.md`
+- [x] `16-projects/09-gridworld-q-learning.md`
+- [x] `16-projects/10-cartpole-dqn-and-ppo.md`
+- [x] `16-projects/11-bandit-simulator.md`
+- [x] `16-projects/12-end-to-end-pipeline-save-load-and-fastapi-service.md`
 
 ---
 
