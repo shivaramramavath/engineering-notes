@@ -258,12 +258,12 @@
 ---
 
 ## 16. Module 14: Deep Learning Bridge
-- [ ] `14-deep-learning-bridge/README.md`
-- [ ] `14-deep-learning-bridge/01-from-linear-models-to-neural-networks.md`
-- [ ] `14-deep-learning-bridge/02-backpropagation-intuition.md`
-- [ ] `14-deep-learning-bridge/03-pytorch-basics.md`
-- [ ] `14-deep-learning-bridge/04-saving-and-loading-pytorch-models.md`
-- [ ] `14-deep-learning-bridge/05-when-to-use-deep-learning-vs-classical-ml.md`
+- [x] `14-deep-learning-bridge/README.md`
+- [x] `14-deep-learning-bridge/01-from-linear-models-to-neural-networks.md`
+- [x] `14-deep-learning-bridge/02-backpropagation-intuition.md`
+- [x] `14-deep-learning-bridge/03-pytorch-basics.md`
+- [x] `14-deep-learning-bridge/04-saving-and-loading-pytorch-models.md`
+- [x] `14-deep-learning-bridge/05-when-to-use-deep-learning-vs-classical-ml.md`
 
 ---
 
