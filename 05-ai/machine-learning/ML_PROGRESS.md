@@ -226,20 +226,20 @@
 ---
 
 ## 14. Module 12: Saving, Loading & Deployment
-- [ ] `12-saving-loading-and-deployment/README.md`
-- [ ] `12-saving-loading-and-deployment/01-saving-models-overview.md`
-- [ ] `12-saving-loading-and-deployment/02-joblib-and-pickle-and-their-risks.md`
-- [ ] `12-saving-loading-and-deployment/03-skops-and-safe-persistence.md`
-- [ ] `12-saving-loading-and-deployment/04-onnx-export-and-runtime.md`
-- [ ] `12-saving-loading-and-deployment/05-pytorch-state-dict-and-safetensors.md`
-- [ ] `12-saving-loading-and-deployment/06-saving-full-pipelines.md`
-- [ ] `12-saving-loading-and-deployment/07-model-versioning-and-registries.md`
-- [ ] `12-saving-loading-and-deployment/08-model-cards-and-documentation.md`
-- [ ] `12-saving-loading-and-deployment/09-serving-with-fastapi.md`
-- [ ] `12-saving-loading-and-deployment/10-batch-scoring.md`
-- [ ] `12-saving-loading-and-deployment/11-containerising-models.md`
-- [ ] `12-saving-loading-and-deployment/12-compatibility-and-upgrading-libraries.md`
-- [ ] `12-saving-loading-and-deployment/13-loading-untrusted-models-safely.md`
+- [x] `12-saving-loading-and-deployment/README.md`
+- [x] `12-saving-loading-and-deployment/01-saving-models-overview.md`
+- [x] `12-saving-loading-and-deployment/02-joblib-and-pickle-and-their-risks.md`
+- [x] `12-saving-loading-and-deployment/03-skops-and-safe-persistence.md`
+- [x] `12-saving-loading-and-deployment/04-onnx-export-and-runtime.md`
+- [x] `12-saving-loading-and-deployment/05-pytorch-state-dict-and-safetensors.md`
+- [x] `12-saving-loading-and-deployment/06-saving-full-pipelines.md`
+- [x] `12-saving-loading-and-deployment/07-model-versioning-and-registries.md`
+- [x] `12-saving-loading-and-deployment/08-model-cards-and-documentation.md`
+- [x] `12-saving-loading-and-deployment/09-serving-with-fastapi.md`
+- [x] `12-saving-loading-and-deployment/10-batch-scoring.md`
+- [x] `12-saving-loading-and-deployment/11-containerising-models.md`
+- [x] `12-saving-loading-and-deployment/12-compatibility-and-upgrading-libraries.md`
+- [x] `12-saving-loading-and-deployment/13-loading-untrusted-models-safely.md`
 
 ---
 
