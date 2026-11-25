@@ -2,7 +2,7 @@
 
 **Total Modules:** 12 (00 through 11)  
 **Total Target Notes:** 124 concept/project notes + 12 module READMEs + 1 track README = 137 files  
-**Overall Completion:** 0 / 124 notes (0%)  
+**Overall Completion:** 5 / 124 notes (4%)  
 
 ---
 
@@ -10,8 +10,8 @@
 
 | Module | Target Notes | Complete | Status |
 |:-------|:------------:|:--------:|:-------|
-| **00-setup** | 5 | 0 | In Progress |
-| **01-fundamentals** | 10 | 0 | Pending |
+| **00-setup** | 5 | 5 | Complete |
+| **01-fundamentals** | 10 | 0 | In Progress |
 | **02-commands** | 21 | 0 | Pending |
 | **03-history-rewriting** | 8 | 0 | Pending |
 | **04-github-actions** | 26 | 0 | Pending |
@@ -28,13 +28,13 @@
 
 ## Detailed Checklist
 
-### Module 00: Setup & Installation (0/5 Notes, 0/1 README)
-- [ ] `00-setup/README.md`
-- [ ] `00-setup/01-getting-started.md`
-- [ ] `00-setup/02-install-and-configuration.md`
-- [ ] `00-setup/03-ssh-keys-and-gpg-or-ssh-signing.md`
-- [ ] `00-setup/04-gitconfig-in-depth.md`
-- [ ] `00-setup/05-gitignore-and-gitattributes.md`
+### Module 00: Setup & Installation (5/5 Notes, 1/1 README)
+- [x] `00-setup/README.md`
+- [x] `00-setup/01-getting-started.md`
+- [x] `00-setup/02-install-and-configuration.md`
+- [x] `00-setup/03-ssh-keys-and-gpg-or-ssh-signing.md`
+- [x] `00-setup/04-gitconfig-in-depth.md`
+- [x] `00-setup/05-gitignore-and-gitattributes.md`
 
 ### Module 01: Core Fundamentals (0/10 Notes, 0/1 README)
 - [ ] `01-fundamentals/README.md`
