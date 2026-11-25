@@ -157,21 +157,21 @@
 ---
 
 ## Batch 7: Files & Standard Library (Pending)
-### Module 09: Files, Streams & OS (`09-files-and-io`)
-- [ ] `09-files-and-io/00-pathlib.md`
-- [ ] `09-files-and-io/01-reading-and-writing-files.md`
-- [ ] `09-files-and-io/02-text-vs-binary-and-encodings.md`
-- [ ] `09-files-and-io/03-csv-json-toml-yaml.md`
-- [ ] `09-files-and-io/04-pickle-and-its-risks.md`
-- [ ] `09-files-and-io/05-sqlite3-basics.md`
-- [ ] `09-files-and-io/06-io-streams-stringio-bytesio.md`
-- [ ] `09-files-and-io/07-tempfile-shutil-and-os.md`
-- [ ] `09-files-and-io/08-zip-and-compression.md`
-- [ ] `09-files-and-io/09-command-line-args-argparse-click-typer.md`
-- [ ] `09-files-and-io/10-environment-variables-and-config.md`
-- [ ] `09-files-and-io/11-subprocess.md`
-- [ ] `09-files-and-io/12-file-locking-and-atomic-writes.md`
-- [ ] `09-files-and-io/README.md` (Update syllabus)
+### Module 09: Files, Streams & OS (`09-files-and-io`) (COMPLETED)
+- [x] `09-files-and-io/00-pathlib.md`
+- [x] `09-files-and-io/01-reading-and-writing-files.md`
+- [x] `09-files-and-io/02-text-vs-binary-and-encodings.md`
+- [x] `09-files-and-io/03-csv-json-toml-yaml.md`
+- [x] `09-files-and-io/04-pickle-and-its-risks.md`
+- [x] `09-files-and-io/05-sqlite3-basics.md`
+- [x] `09-files-and-io/06-io-streams-stringio-bytesio.md`
+- [x] `09-files-and-io/07-tempfile-shutil-and-os.md`
+- [x] `09-files-and-io/08-zip-and-compression.md`
+- [x] `09-files-and-io/09-command-line-args-argparse-click-typer.md`
+- [x] `09-files-and-io/10-environment-variables-and-config.md`
+- [x] `09-files-and-io/11-subprocess.md`
+- [x] `09-files-and-io/12-file-locking-and-atomic-writes.md`
+- [x] `09-files-and-io/README.md` (Module 09 100% Complete)
 
 ### Module 10: Standard Library Tour (`10-standard-library-tour`)
 - [ ] `10-standard-library-tour/00-math-and-random-and-secrets.md`
