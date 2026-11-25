@@ -109,24 +109,24 @@
 ---
 
 ## 7. Module 05: Unsupervised Learning
-- [ ] `05-unsupervised-learning/README.md`
-- [ ] `05-unsupervised-learning/01-what-is-unsupervised-learning.md`
-- [ ] `05-unsupervised-learning/02-k-means.md`
-- [ ] `05-unsupervised-learning/03-hierarchical-clustering.md`
-- [ ] `05-unsupervised-learning/04-dbscan-and-hdbscan.md`
-- [ ] `05-unsupervised-learning/05-gaussian-mixture-models-and-em.md`
-- [ ] `05-unsupervised-learning/06-spectral-clustering.md`
-- [ ] `05-unsupervised-learning/07-choosing-k-and-cluster-validation.md`
-- [ ] `05-unsupervised-learning/08-pca.md`
-- [ ] `05-unsupervised-learning/09-svd-and-truncated-svd.md`
-- [ ] `05-unsupervised-learning/10-t-sne-and-umap.md`
-- [ ] `05-unsupervised-learning/11-ica-and-factor-analysis.md`
-- [ ] `05-unsupervised-learning/12-anomaly-detection.md`
-- [ ] `05-unsupervised-learning/13-association-rules.md`
-- [ ] `05-unsupervised-learning/14-density-estimation.md`
-- [ ] `05-unsupervised-learning/15-topic-modelling-lda.md`
-- [ ] `05-unsupervised-learning/16-recommender-systems-basics.md`
-- [ ] `05-unsupervised-learning/17-unsupervised-preprocessing-and-pitfalls.md`
+- [x] `05-unsupervised-learning/README.md`
+- [x] `05-unsupervised-learning/01-what-is-unsupervised-learning.md`
+- [x] `05-unsupervised-learning/02-k-means.md`
+- [x] `05-unsupervised-learning/03-hierarchical-clustering.md`
+- [x] `05-unsupervised-learning/04-dbscan-and-hdbscan.md`
+- [x] `05-unsupervised-learning/05-gaussian-mixture-models-and-em.md`
+- [x] `05-unsupervised-learning/06-spectral-clustering.md`
+- [x] `05-unsupervised-learning/07-choosing-k-and-cluster-validation.md`
+- [x] `05-unsupervised-learning/08-pca.md`
+- [x] `05-unsupervised-learning/09-svd-and-truncated-svd.md`
+- [x] `05-unsupervised-learning/10-t-sne-and-umap.md`
+- [x] `05-unsupervised-learning/11-ica-and-factor-analysis.md`
+- [x] `05-unsupervised-learning/12-anomaly-detection.md`
+- [x] `05-unsupervised-learning/13-association-rules.md`
+- [x] `05-unsupervised-learning/14-density-estimation.md`
+- [x] `05-unsupervised-learning/15-topic-modelling-lda.md`
+- [x] `05-unsupervised-learning/16-recommender-systems-basics.md`
+- [x] `05-unsupervised-learning/17-unsupervised-preprocessing-and-pitfalls.md`
 
 ---
 
