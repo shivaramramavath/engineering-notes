@@ -51,16 +51,16 @@
 ---
 
 ## 5. Module 03: Traffic Management, Caching & Upstreams
-- [ ] `03-traffic-management/README.md`
-- [ ] `03-traffic-management/01-caching.md`
-- [ ] `03-traffic-management/02-load-balancing.md`
-- [ ] `03-traffic-management/03-rate-limiting.md`
-- [ ] `03-traffic-management/04-auth-request-and-sso-gateways.md`
-- [ ] `03-traffic-management/05-geo-and-map-based-routing.md`
-- [ ] `03-traffic-management/06-canary-and-blue-green-deployments.md`
-- [ ] `03-traffic-management/07-stream-module-tcp-and-udp-proxying.md`
-- [ ] `03-traffic-management/08-mirroring-and-split-clients.md`
-- [ ] `03-traffic-management/09-sendfile-and-large-file-delivery.md`
+- [x] `03-traffic-management/README.md`
+- [x] `03-traffic-management/01-caching.md`
+- [x] `03-traffic-management/02-load-balancing.md`
+- [x] `03-traffic-management/03-rate-limiting.md`
+- [x] `03-traffic-management/04-auth-request-and-sso-gateways.md`
+- [x] `03-traffic-management/05-geo-and-map-based-routing.md`
+- [x] `03-traffic-management/06-canary-and-blue-green-deployments.md`
+- [x] `03-traffic-management/07-connection-limiting-and-concurrency.md`
+- [x] `03-traffic-management/08-circuit-breaking-and-upstream-health-checks.md`
+- [x] `03-traffic-management/09-sendfile-and-large-file-delivery.md`
 
 ---
 
