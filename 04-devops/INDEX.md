@@ -40,48 +40,26 @@ This index categorizes all engineering notes across the five DevOps tracks: **Li
 
 ## 2. Git & GitHub Actions
 
-### 2.1 Git Core Architecture
-- [01-getting-started.md](file:///04-devops/git-github/00_setup/getting-started.md): Git installation, global config, credential helpers, default branch `main`.
-- [01-git-vs-github.md](file:///04-devops/git-github/01_git_fundamentals/01_git-vs-github.md): Distributed version control vs centralized forge collaboration.
-- [02-repositories.md](file:///04-devops/git-github/01_git_fundamentals/02_repositories.md): Local `.git` folder structure, bare repositories, remote mirrors.
-- [03-working-tree-staging-area.md](file:///04-devops/git-github/01_git_fundamentals/03_working-tree-staging-area.md): The three states: Working Directory, Staging Area (Index), and Git Directory.
-- [04-commits.md](file:///04-devops/git-github/01_git_fundamentals/04_commits.md): Anatomy of a cryptographic commit object, author vs committer, PGP signing.
-- [05-git-objects.md](file:///04-devops/git-github/01_git_fundamentals/05_git-objects.md): Git object database: Blobs, Trees, Commits, and Annotated Tags.
+### 2.1 Track Architecture & Setup
+- [README.md](file:///04-devops/git-github/README.md): Master Git & GitHub track blueprint, architecture map, and module roadmap.
+- [00-setup/](file:///04-devops/git-github/00-setup/README.md): Installation on Linux/macOS/Windows, SSH keys, GPG/SSH commit signing, `.gitconfig` hierarchy, `.gitignore`, and `.gitattributes`.
+- [01-fundamentals/](file:///04-devops/git-github/01-fundamentals/README.md): Git vs GitHub, repositories, three trees (Working Tree, Index, HEAD), commit objects, object database, refs, packfiles, SHA-1 vs SHA-256.
 
-### 2.2 Git Commands & History Rewriting
-- [01-init-clone.md](file:///04-devops/git-github/02_git_commands/01_init-clone.md): Repository initialization, shallow clones (`--depth`), sparse checkout.
-- [02-status-diff-log.md](file:///04-devops/git-github/02_git_commands/02_status-diff-log.md): Status flags, diff patch inspection, custom log graphing.
-- [03-add-commit.md](file:///04-devops/git-github/02_git_commands/03_add-commit.md): Patch staging (`git add -p`), conventional commits, message structure.
-- [04-undoing-changes.md](file:///04-devops/git-github/02_git_commands/04_undoing-changes.md): `git restore`, `git reset` (soft, mixed, hard), `git revert`.
-- [05-clean-rm-mv.md](file:///04-devops/git-github/02_git_commands/05_clean-rm-mv.md): Unversioned file cleaning, untracking files, moving files cleanly.
-- [06-branching.md](file:///04-devops/git-github/02_git_commands/06_branching.md): Branch pointers, `git switch`, branch topology, deletion safety.
-- [07-merging.md](file:///04-devops/git-github/02_git_commands/07_merging.md): Fast-forward vs 3-way recursive merge, conflict resolution, merge commits.
-- [08-remotes.md](file:///04-devops/git-github/02_git_commands/08_remotes.md): Fetching, pulling, pushing, remote tracking references.
-- [09-tracking-upstream.md](file:///04-devops/git-github/02_git_commands/09_tracking-upstream.md): Setting upstream tracking, syncing open-source forks.
-- [01-amend.md](file:///04-devops/git-github/03_history_rewriting/01_amend.md): Amending previous commit message and staged payload.
-- [02-rebase.md](file:///04-devops/git-github/03_history_rewriting/02_rebase.md): Interactive rebase (`git rebase -i`), squashing, fixing up, reordering commits.
-- [03-cherry-pick.md](file:///04-devops/git-github/03_history_rewriting/03_cherry-pick.md): Applying targeted commits across divergent branches.
-- [04-reflog.md](file:///04-devops/git-github/03_history_rewriting/04_reflog.md): Disaster recovery using `git reflog` to resurrect detached/lost commits.
+### 2.2 Core Operations & History Rewriting
+- [02-commands/](file:///04-devops/git-github/02-commands/README.md): Essential commands: init, clone, status, diff, log, add, commit, undoing, clean, branching, merging, conflicts, remotes, stash, tags, patches, blame, bisect, submodules, worktrees, sparse-checkout, LFS, hooks, and aliases.
+- [03-history-rewriting/](file:///04-devops/git-github/03-history-rewriting/README.md): History surgery: amend, interactive rebase, cherry-pick, `git reflog`, `git-filter-repo` secret purging, shared history safety, reset vs revert vs restore, lost work recovery playbook.
 
-### 2.3 GitHub Actions CI/CD
-- [01-core-concepts.md](file:///04-devops/git-github/04_github_actions/01_core-concepts.md): Workflows, jobs, steps, runners, event triggers.
-- [02-workflow-syntax.md](file:///04-devops/git-github/04_github_actions/02_workflow-syntax.md): YAML schema, name, env, defaults, and concurrency keys.
-- [03-events-and-triggers.md](file:///04-devops/git-github/04_github_actions/03_events-and-triggers.md): Push, pull_request, workflow_dispatch, schedule (cron), filters.
-- [04-jobs-and-steps.md](file:///04-devops/git-github/04_github_actions/04_jobs-and-steps.md): Job execution order, `needs` DAG dependencies, outputs.
-- [05-actions-and-marketplace.md](file:///04-devops/git-github/04_github_actions/05_actions-and-marketplace.md): Verified actions, SHA pinning for security (`@v4` vs commit SHA).
-- [06-runners.md](file:///04-devops/git-github/04_github_actions/06_runners.md): GitHub-hosted runners vs self-hosted runner infrastructure.
-- [07-variables-and-secrets.md](file:///04-devops/git-github/04_github_actions/07_variables-and-secrets.md): Encrypted repository secrets, environment variables, masked logging.
-- [08-contexts-expressions-conditions.md](file:///04-devops/git-github/04_github_actions/08_contexts-expressions-conditions.md): `github`, `env`, `secrets` contexts; expression interpolation.
-- [09-artifacts-caching-dependencies.md](file:///04-devops/git-github/04_github_actions/09_artifacts-caching-dependencies.md): `actions/cache` and artifact passing across workflow jobs.
-- [10-matrix-and-concurrency.md](file:///04-devops/git-github/04_github_actions/10_matrix-and-concurrency.md): Multi-OS, multi-version test matrices; build deduplication.
-- [11-permissions-and-environments.md](file:///04-devops/git-github/04_github_actions/11_permissions-and-environments.md): Principle of least privilege `permissions` and deployment protection rules.
-- [12-reusable-workflows.md](file:///04-devops/git-github/04_github_actions/12_reusable-workflows.md): Modular `workflow_call` pipelines and enterprise templates.
-- [13-custom-actions.md](file:///04-devops/git-github/04_github_actions/13_custom-actions.md): Composite actions vs Docker container actions.
-- [14-ci-pipelines.md](file:///04-devops/git-github/04_github_actions/14_ci-pipelines.md): End-to-end linting, testing, and security scanning pipeline.
-- [15-cd-and-deployment.md](file:///04-devops/git-github/04_github_actions/15_cd-and-deployment.md): Automated staging/production release deployments.
-- [16-docker-ci-cd.md](file:///04-devops/git-github/04_github_actions/16_docker-ci-cd.md): Multi-platform image building and publishing to Docker Hub / GitHub GHCR.
-- [17-security-hardening.md](file:///04-devops/git-github/04_github_actions/17_security-hardening.md): OIDC cloud credential exchange, secret leakage prevention, dependency audits.
-- [18-debugging-and-workflow-commands.md](file:///04-devops/git-github/04_github_actions/18_debugging-and-workflow-commands.md): Action debugging flags, runner SSH debugging, workflow command tokens.
+### 2.3 CI/CD, Collaboration & Security
+- [04-github-actions/](file:///04-devops/git-github/04-github-actions/README.md): Complete CI/CD reference: syntax, events, jobs/steps, runners, variables/secrets, expressions, caching, matrix, permissions, environments, reusable workflows, custom actions, pipelines, Docker CI/CD, hardening, debugging, releases, OIDC cloud auth, ARC runners, cost optimization, local testing (`act`), monorepo path filters, and artifact provenance.
+- [05-github-collaboration/](file:///04-devops/git-github/05-github-collaboration/README.md): PR lifecycle, code review, issues, milestones, Projects (v2), branch protection & modern Rulesets, `CODEOWNERS`, YAML issue forms, Discussions, forking, GitHub Pages, GHCR packages, and enterprise RBAC.
+- [06-workflows-and-strategies/](file:///04-devops/git-github/06-workflows-and-strategies/README.md): Trunk-Based Development (<24h), GitFlow vs GitHub Flow, release branching, hotfixes, Conventional Commits, Semantic Versioning, Feature Flags, dark launching, monorepo vs polyrepo, environment branching anti-patterns, and team operational playbooks.
+- [07-github-security/](file:///04-devops/git-github/07-github-security/README.md): Enterprise security: Secret scanning, pre-receive push protection, Dependabot SCA, CodeQL semantic SAST, signed commits & Vigilant Mode, `SECURITY.md`, Private Vulnerability Reporting, SBOM (SPDX/CycloneDX), Sigstore attestations, least-privilege tokens, OIDC, and leaked secret runbook.
+
+### 2.4 Developer Tools, Projects, Interview & Cheatsheets
+- [08-gh-cli-and-api/](file:///04-devops/git-github/08-gh-cli-and-api/README.md): GitHub CLI (`gh`), `--json` and `--jq` formatting, REST (v3) vs GraphQL (v4) APIs, cursor pagination, rate limits, webhooks with HMAC validation, GitHub Apps architecture, and `gh` automation in Actions.
+- [09-projects/](file:///04-devops/git-github/09-projects/README.md): 8 production reference projects: Conflict resolution lab, rebase & recovery lab, complete Node CI pipeline, multi-arch Docker buildx to GHCR, release automation with conventional commits, monorepo selective CI, reusable workflow library, and zero-secret OIDC cloud deployment.
+- [10-interview/](file:///04-devops/git-github/10-interview/README.md): 140+ technical interview questions and case studies across fundamentals, branching/merging, internals & data structures, 15 troubleshooting scenarios, collaboration governance, Actions CI/CD architecture, security engineering, and 12 Staff-level behavioral case studies.
+- [11-cheatsheets/](file:///04-devops/git-github/11-cheatsheets/README.md): Rapid reference guides: Git commands, undo & recovery matrix, branching models, Actions syntax, GitHub CLI (`gh`), `.gitconfig` baseline & aliases, and top 20 common errors & fixes.
 
 ---
 

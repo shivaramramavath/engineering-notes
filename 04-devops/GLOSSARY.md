@@ -22,11 +22,13 @@ This glossary provides authoritative definitions and architectural context for f
 - **CIDR (Classless Inter-Domain Routing)**: An IP address allocation notation (`10.0.0.0/16`) specifying the network prefix and total number of available host addresses in a subnet.
 - **CloudFront**: AWS's global Content Delivery Network (CDN) service that caches static and dynamic web content at edge locations worldwide to reduce user latency.
 - **CloudWatch**: An AWS observability and monitoring service collecting metrics, logs, events, and alarms across cloud infrastructure and application workloads.
+- **CodeQL**: GitHub's semantic relational static analysis engine (SAST) that compiles source code into databases to track untrusted dataflow and taint vulnerabilities.
 - **Container**: An isolated, lightweight userspace runtime instance running directly on the host kernel, created using Linux namespaces, cgroups, and a layered root filesystem.
 - **Containerd**: An industry-standard, lightweight container runtime manager supervising the complete container lifecycle (image transfer, execution via runc, storage attachment, network plumbing).
 
 ## D
 - **Daemon**: A background service process operating without an attached controlling terminal, typically managed by systemd on Linux (`dockerd`, `sshd`, `nginx`).
+- **Dependabot**: GitHub's automated Software Composition Analysis (SCA) engine that detects CVE vulnerabilities in dependencies and opens automated pull requests.
 - **Dockerfile**: A declarative text file containing sequential instructions (`FROM`, `RUN`, `COPY`, `ENTRYPOINT`) used by BuildKit to construct an OCI container image.
 - **DynamoDB**: A fully managed, serverless NoSQL database service on AWS providing single-digit millisecond latency at any scale using partition keys and sort keys.
 
@@ -41,6 +43,7 @@ This glossary provides authoritative definitions and architectural context for f
 - **Fargate**: A serverless compute engine for containers on AWS that runs ECS tasks or EKS pods without requiring management of underlying EC2 virtual machines.
 
 ## G
+- **GHAS (GitHub Advanced Security)**: An enterprise security suite providing pre-receive push protection, secret scanning, CodeQL SAST, and Dependabot governance.
 - **Git**: A distributed version control system tracking changes in source code using an immutable directed acyclic graph (DAG) of cryptographic commit objects.
 - **GitHub Actions**: A cloud-native CI/CD and workflow automation platform integrated into GitHub repositories, driven by YAML workflow definitions.
 - **Graviton**: Custom 64-bit ARM-based processors designed by AWS (Graviton3, Graviton4) offering up to 40% superior price-performance over traditional x86_64 architectures.
@@ -86,24 +89,29 @@ This glossary provides authoritative definitions and architectural context for f
 
 ## R
 - **Rebase**: A Git operation that takes commits from one branch and replays them sequentially onto the tip of another base branch, maintaining a linear commit history.
+- **Reflog**: A local append-only log in Git tracking every movement of `HEAD` and branch references, enabling forensic recovery of deleted commits and branches.
 - **Region**: A distinct geographic area worldwide containing multiple isolated, physically separated Availability Zones (e.g. `us-east-1`, `eu-west-1`).
 - **Registry**: A hosted repository service storing and distributing versioned OCI container images (Docker Hub, Amazon ECR, GitHub GHCR).
 - **Reverse Proxy**: A server intermediary sitting in front of web servers, intercepting client requests to handle TLS termination, caching, load balancing, and routing.
 - **Route 53**: A highly available and scalable cloud Domain Name System (DNS) web service provided by AWS.
+- **Ruleset**: A modern GitHub policy engine enforcing branch and tag protection with evaluation modes, multi-target matching, and granular bypass actors.
 
 ## S
 - **S3 (Simple Storage Service)**: An object storage service provided by AWS offering industry-leading scalability, data availability, security, and 11 nines of durability.
+- **SBOM (Software Bill of Materials)**: A machine-readable inventory of software packages, dependencies, and licenses (SPDX or CycloneDX) used to audit supply chain risks.
 - **SELinux (Security-Enhanced Linux)**: A Linux kernel security module implementing mandatory access control (MAC) based on security contexts and labels. Default on RHEL/Fedora/AL2023.
 - **Systemd**: The standard system and service manager for Linux, initializing userspace, supervising services, mounting filesystems, and managing system timers.
 
 ## T
 - **TLS (Transport Layer Security)**: A cryptographic protocol designed to provide end-to-end communication security over computer networks (HTTPS). Modern standards mandate TLS 1.2 and TLS 1.3.
 - **Tree**: In Git, an immutable object representing a directory listing, associating mode bits and file names with corresponding blob and child tree SHA identifiers.
+- **Trunk-Based Development**: A high-velocity software delivery model where engineers merge short-lived branches (<24h) frequently into trunk, enabled by feature flags.
 
 ## U
 - **Upstream**: In Nginx, a configuration block (`upstream { ... }`) defining a pool of backend application servers for load balancing and proxy forwarding.
 
 ## V
+- **Vigilant Mode**: A GitHub security feature that marks all unsigned commits authored under your verified email addresses with an "Unverified" warning badge.
 - **VPC (Virtual Private Cloud)**: A logically isolated, user-defined virtual network within the AWS cloud where compute and data resources are launched with dedicated IP ranges.
 
 ## W

@@ -47,12 +47,12 @@ This roadmap outlines structured learning sequences, role-based tracks, and esti
   - *Read:* [`linux/04-networking/`](file:///04-devops/linux/04-networking/), [`linux/05-production/`](file:///04-devops/linux/05-production/), [`linux/06-advanced/`](file:///04-devops/linux/06-advanced/)
 
 ### Phase 2: Git & GitHub Actions (Weeks 5–7)
-- **Week 5: Git Internals**: Blobs, trees, commits, staging area mechanics, branch pointers, commit graphs.
-  - *Read:* [`git-github/01_git_fundamentals/`](file:///04-devops/git-github/01_git_fundamentals/)
-- **Week 6: Daily Workflow & History Rewriting**: Patch staging, merge strategies, interactive rebase (`git rebase -i`), reflog disaster recovery.
-  - *Read:* [`git-github/02_git_commands/`](file:///04-devops/git-github/02_git_commands/), [`git-github/03_history_rewriting/`](file:///04-devops/git-github/03_history_rewriting/)
-- **Week 7: GitHub Actions CI/CD**: Workflow syntax, runners, build matrices, caching, artifact management, automated test pipelines.
-  - *Read:* [`git-github/04_github_actions/`](file:///04-devops/git-github/04_github_actions/)
+- **Week 5: Git Internals & Core Operations**: Three trees, blobs, trees, commits, packfiles, branching, merge conflict resolution, and working tree commands.
+  - *Read:* [`git-github/00-setup/`](file:///04-devops/git-github/00-setup/), [`git-github/01-fundamentals/`](file:///04-devops/git-github/01-fundamentals/), [`git-github/02-commands/`](file:///04-devops/git-github/02-commands/)
+- **Week 6: History Rewriting, Workflows & Governance**: Interactive rebase, `git reflog`, `git-filter-repo`, Trunk-Based Development, Rulesets, and `CODEOWNERS`.
+  - *Read:* [`git-github/03-history-rewriting/`](file:///04-devops/git-github/03-history-rewriting/), [`git-github/05-github-collaboration/`](file:///04-devops/git-github/05-github-collaboration/), [`git-github/06-workflows-and-strategies/`](file:///04-devops/git-github/06-workflows-and-strategies/)
+- **Week 7: GitHub Actions CI/CD & DevSecOps**: Complete workflow syntax, caching, matrix testing, OIDC cloud federation, Secret Scanning, CodeQL SAST, and reference projects.
+  - *Read:* [`git-github/04-github-actions/`](file:///04-devops/git-github/04-github-actions/), [`git-github/07-github-security/`](file:///04-devops/git-github/07-github-security/), [`git-github/09-projects/`](file:///04-devops/git-github/09-projects/)
 
 ### Phase 3: Docker Containers (Weeks 8–10)
 - **Week 8: Container Mechanics & Commands**: Docker architecture, namespaces vs VMs, image layers, container execution flags, CLI lifecycle.

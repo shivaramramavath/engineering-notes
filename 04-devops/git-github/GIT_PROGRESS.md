@@ -22,7 +22,7 @@
 | **09-projects** | 8 | 8 | Complete |
 | **10-interview** | 8 | 8 | Complete |
 | **11-cheatsheets** | 7 | 7 | Complete |
-| **Track Root** | 1 | 0 | Pending |
+| **Track Root** | 1 | 1 | Complete |
 
 ---
 
