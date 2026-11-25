@@ -22,14 +22,14 @@
 ---
 
 ## 3. Module 01: Core Fundamentals
-- [ ] `01-fundamentals/README.md`
-- [ ] `01-fundamentals/01-installation.md`
-- [ ] `01-fundamentals/02-config-structure.md`
-- [ ] `01-fundamentals/03-server-and-location.md`
-- [ ] `01-fundamentals/04-static-files.md`
-- [ ] `01-fundamentals/05-directives-reference-by-context.md`
-- [ ] `01-fundamentals/06-command-line-and-signals.md`
-- [ ] `01-fundamentals/07-default-server-and-catch-all-hosts.md`
+- [x] `01-fundamentals/README.md`
+- [x] `01-fundamentals/01-installation.md`
+- [x] `01-fundamentals/02-config-structure.md`
+- [x] `01-fundamentals/03-server-and-location.md`
+- [x] `01-fundamentals/04-static-files.md`
+- [x] `01-fundamentals/05-directives-reference-by-context.md`
+- [x] `01-fundamentals/06-command-line-and-signals.md`
+- [x] `01-fundamentals/07-default-server-and-catch-all-hosts.md`
 
 ---
 
