@@ -198,17 +198,17 @@
 ---
 
 ## 12. Module 10: Evaluation & Metrics
-- [ ] `10-evaluation-and-metrics/README.md`
-- [ ] `10-evaluation-and-metrics/01-classification-metrics.md`
-- [ ] `10-evaluation-and-metrics/02-regression-metrics.md`
-- [ ] `10-evaluation-and-metrics/03-clustering-metrics.md`
-- [ ] `10-evaluation-and-metrics/04-ranking-and-recommendation-metrics.md`
-- [ ] `10-evaluation-and-metrics/05-rl-metrics-and-learning-curves.md`
-- [ ] `10-evaluation-and-metrics/06-baselines-and-sanity-checks.md`
-- [ ] `10-evaluation-and-metrics/07-error-analysis.md`
-- [ ] `10-evaluation-and-metrics/08-statistical-significance-and-confidence-intervals.md`
-- [ ] `10-evaluation-and-metrics/09-a-b-testing-for-models.md`
-- [ ] `10-evaluation-and-metrics/10-evaluation-pitfalls.md`
+- [x] `10-evaluation-and-metrics/README.md`
+- [x] `10-evaluation-and-metrics/01-classification-metrics.md`
+- [x] `10-evaluation-and-metrics/02-regression-metrics.md`
+- [x] `10-evaluation-and-metrics/03-clustering-metrics.md`
+- [x] `10-evaluation-and-metrics/04-ranking-and-recommendation-metrics.md`
+- [x] `10-evaluation-and-metrics/05-rl-metrics-and-learning-curves.md`
+- [x] `10-evaluation-and-metrics/06-baselines-and-sanity-checks.md`
+- [x] `10-evaluation-and-metrics/07-error-analysis.md`
+- [x] `10-evaluation-and-metrics/08-statistical-significance-and-confidence-intervals.md`
+- [x] `10-evaluation-and-metrics/09-a-b-testing-for-models.md`
+- [x] `10-evaluation-and-metrics/10-evaluation-pitfalls.md`
 
 ---
 
