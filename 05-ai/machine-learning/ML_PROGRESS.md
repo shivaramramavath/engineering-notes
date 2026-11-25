@@ -213,15 +213,15 @@
 ---
 
 ## 13. Module 11: Prediction & Postprocessing
-- [ ] `11-prediction-and-postprocessing/README.md`
-- [ ] `11-prediction-and-postprocessing/01-inference-basics.md`
-- [ ] `11-prediction-and-postprocessing/02-batch-vs-online-inference.md`
-- [ ] `11-prediction-and-postprocessing/03-thresholds-and-decision-rules.md`
-- [ ] `11-prediction-and-postprocessing/04-postprocessing-pipelines.md`
-- [ ] `11-prediction-and-postprocessing/05-uncertainty-and-confidence.md`
-- [ ] `11-prediction-and-postprocessing/06-explaining-predictions-at-inference.md`
-- [ ] `11-prediction-and-postprocessing/07-input-validation-and-schema-checks.md`
-- [ ] `11-prediction-and-postprocessing/08-latency-and-throughput.md`
+- [x] `11-prediction-and-postprocessing/README.md`
+- [x] `11-prediction-and-postprocessing/01-inference-basics.md`
+- [x] `11-prediction-and-postprocessing/02-batch-vs-online-inference.md`
+- [x] `11-prediction-and-postprocessing/03-thresholds-and-decision-rules.md`
+- [x] `11-prediction-and-postprocessing/04-postprocessing-pipelines.md`
+- [x] `11-prediction-and-postprocessing/05-uncertainty-and-confidence.md`
+- [x] `11-prediction-and-postprocessing/06-explaining-predictions-at-inference.md`
+- [x] `11-prediction-and-postprocessing/07-input-validation-and-schema-checks.md`
+- [x] `11-prediction-and-postprocessing/08-latency-and-throughput.md`
 
 ---
 
