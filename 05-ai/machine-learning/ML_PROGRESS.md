@@ -244,16 +244,16 @@
 ---
 
 ## 15. Module 13: Interpretability, Fairness & Limitations
-- [ ] `13-interpretability-fairness-and-limitations/README.md`
-- [ ] `13-interpretability-fairness-and-limitations/01-feature-importance-and-permutation-importance.md`
-- [ ] `13-interpretability-fairness-and-limitations/02-partial-dependence-and-ice.md`
-- [ ] `13-interpretability-fairness-and-limitations/03-shap-and-lime.md`
-- [ ] `13-interpretability-fairness-and-limitations/04-fairness-and-bias.md`
-- [ ] `13-interpretability-fairness-and-limitations/05-privacy-and-data-protection.md`
-- [ ] `13-interpretability-fairness-and-limitations/06-causality-vs-correlation.md`
-- [ ] `13-interpretability-fairness-and-limitations/07-distribution-shift-and-concept-drift.md`
-- [ ] `13-interpretability-fairness-and-limitations/08-limitations-of-machine-learning.md`
-- [ ] `13-interpretability-fairness-and-limitations/09-responsible-ai-checklist.md`
+- [x] `13-interpretability-fairness-and-limitations/README.md`
+- [x] `13-interpretability-fairness-and-limitations/01-feature-importance-and-permutation-importance.md`
+- [x] `13-interpretability-fairness-and-limitations/02-partial-dependence-and-ice.md`
+- [x] `13-interpretability-fairness-and-limitations/03-shap-and-lime.md`
+- [x] `13-interpretability-fairness-and-limitations/04-fairness-and-bias.md`
+- [x] `13-interpretability-fairness-and-limitations/05-privacy-and-data-protection.md`
+- [x] `13-interpretability-fairness-and-limitations/06-causality-vs-correlation.md`
+- [x] `13-interpretability-fairness-and-limitations/07-distribution-shift-and-concept-drift.md`
+- [x] `13-interpretability-fairness-and-limitations/08-limitations-of-machine-learning.md`
+- [x] `13-interpretability-fairness-and-limitations/09-responsible-ai-checklist.md`
 
 ---
 
