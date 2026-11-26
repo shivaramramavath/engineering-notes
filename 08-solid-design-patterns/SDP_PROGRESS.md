@@ -1,0 +1,359 @@
+# SOLID, Design Principles & Design Patterns Progress (SDP_PROGRESS.md)
+
+**Overall Track Status:** In Progress (0% Complete)  
+**Verification Toolchain:** Java 25 LTS, TypeScript 5.8 (Node 24 native), Python 3.14  
+**Format:** 17-Section Problem-First Template
+
+---
+
+## Module Progress Summary
+
+| Module | Name | Total Notes | Completed | Status |
+|---|---|:---:|:---:|---|
+| **00** | Root Governance (README, INDEX, GLOSSARY, ROADMAP, CONTRIBUTING) | 5 | 5 | Complete |
+| **01** | Foundations (`01-foundations/`) | 11 | 11 | Complete |
+| **02** | SOLID Principles (`02-solid-principles/`) | 10 | 10 | Complete |
+| **03** | General Design Principles (`03-design-principles/`) | 21 | 0 | Pending |
+| **04** | Patterns Introduction (`04-patterns-intro/`) | 6 | 0 | Pending |
+| **05** | Creational Patterns (`05-creational-patterns/`) | 12 | 0 | Pending |
+| **06** | Structural Patterns (`06-structural-patterns/`) | 12 | 0 | Pending |
+| **07** | Behavioral Patterns (`07-behavioral-patterns/`) | 16 | 0 | Pending |
+| **08** | Concurrency Patterns (`08-concurrency-patterns/`) | 14 | 0 | Pending |
+| **09** | Enterprise Application Patterns (`09-enterprise-application-patterns/`) | 17 | 0 | Pending |
+| **10** | Architecture (`10-architecture/`) | 15 | 0 | Pending |
+| **11** | Distributed & Cloud Patterns (`11-distributed-and-cloud-patterns/`) | 21 | 0 | Pending |
+| **12** | Functional & Modern Idioms (`12-functional-and-modern-idioms/`) | 11 | 0 | Pending |
+| **13** | Anti-Patterns & Code Smells (`13-anti-patterns-and-code-smells/`) | 21 | 0 | Pending |
+| **14** | Refactoring (`14-refactoring/`) | 8 | 0 | Pending |
+| **15** | Testing & Debugging (`15-testing-and-debugging/`) | 8 | 0 | Pending |
+| **16** | Production (`16-production/`) | 11 | 0 | Pending |
+| **17** | Real-World Case Studies (`17-case-studies/`) | 13 | 0 | Pending |
+| **18** | Pattern Selection (`18-pattern-selection/`) | 7 | 0 | Pending |
+| **19** | Technical Interview Guides (`19-interview/`) | 11 | 0 | Pending |
+| **20** | Operational Cheatsheets (`20-cheatsheets/`) | 10 | 0 | Pending |
+
+---
+
+## Detailed Notes Checklist
+
+### Module 00: Track Root Governance
+- [x] `README.md`
+- [x] `INDEX.md`
+- [x] `GLOSSARY.md`
+- [x] `ROADMAP.md`
+- [x] `CONTRIBUTING.md`
+
+### Module 01: Foundations (`01-foundations/`)
+- [x] `01-foundations/README.md`
+- [x] `01-foundations/00-overview.md`
+- [x] `01-foundations/01-oop-pillars.md`
+- [x] `01-foundations/02-composition-vs-inheritance.md`
+- [x] `01-foundations/03-coupling-and-cohesion.md`
+- [x] `01-foundations/04-programming-to-interfaces.md`
+- [x] `01-foundations/05-abstraction-and-information-hiding.md`
+- [x] `01-foundations/06-encapsulate-what-varies.md`
+- [x] `01-foundations/07-immutability-and-value-objects.md`
+- [x] `01-foundations/08-command-query-separation.md`
+- [x] `01-foundations/09-design-by-contract-and-defensive-programming.md`
+- [x] `01-foundations/10-what-is-good-design.md`
+
+### Module 02: SOLID Principles (`02-solid-principles/`)
+- [x] `02-solid-principles/README.md`
+- [x] `02-solid-principles/00-overview.md`
+- [x] `02-solid-principles/01-single-responsibility.md`
+- [x] `02-solid-principles/02-open-closed.md`
+- [x] `02-solid-principles/03-liskov-substitution.md`
+- [x] `02-solid-principles/04-interface-segregation.md`
+- [x] `02-solid-principles/05-dependency-inversion.md`
+- [x] `02-solid-principles/06-solid-in-practice.md`
+- [x] `02-solid-principles/07-solid-violations-spotting-guide.md`
+- [x] `02-solid-principles/08-solid-and-functional-programming.md`
+- [x] `02-solid-principles/09-criticisms-and-limits-of-solid.md`
+
+### Module 03: General Design Principles (`03-design-principles/`)
+- [ ] `03-design-principles/README.md`
+- [ ] `03-design-principles/00-overview.md`
+- [ ] `03-design-principles/01-dry-and-rule-of-three.md`
+- [ ] `03-design-principles/02-kiss-principle.md`
+- [ ] `03-design-principles/03-yagni.md`
+- [ ] `03-design-principles/04-law-of-demeter.md`
+- [ ] `03-design-principles/05-separation-of-concerns.md`
+- [ ] `03-design-principles/06-tell-dont-ask.md`
+- [ ] `03-design-principles/07-principle-of-least-astonishment.md`
+- [ ] `03-design-principles/08-fail-fast-principle.md`
+- [ ] `03-design-principles/09-boy-scout-rule-and-continuous-refactoring.md`
+- [ ] `03-design-principles/10-high-cohesion-low-coupling-in-practice.md`
+- [ ] `03-design-principles/11-orthogonality.md`
+- [ ] `03-design-principles/12-postels-law-robustness-principle.md`
+- [ ] `03-design-principles/13-hollywood-principle-and-inversion-of-control.md`
+- [ ] `03-design-principles/14-grasp-principles.md`
+- [ ] `03-design-principles/15-package-and-component-principles.md`
+- [ ] `03-design-principles/16-premature-optimisation-and-measuring.md`
+- [ ] `03-design-principles/17-idempotency-principle.md`
+- [ ] `03-design-principles/18-conways-law-and-socio-technical-design.md`
+- [ ] `03-design-principles/19-principles-conflicts-and-trade-offs.md`
+- [ ] `03-design-principles/20-principles-cheat-sheet.md`
+
+### Module 04: Patterns Introduction (`04-patterns-intro/`)
+- [ ] `04-patterns-intro/README.md`
+- [ ] `04-patterns-intro/00-overview.md`
+- [ ] `04-patterns-intro/01-what-are-patterns.md`
+- [ ] `04-patterns-intro/02-how-to-read-and-choose-patterns.md`
+- [ ] `04-patterns-intro/03-dependency-injection.md`
+- [ ] `04-patterns-intro/04-inversion-of-control-containers.md`
+- [ ] `04-patterns-intro/05-pattern-languages-and-catalogues-history.md`
+
+### Module 05: Creational Patterns (`05-creational-patterns/`)
+- [ ] `05-creational-patterns/README.md`
+- [ ] `05-creational-patterns/00-overview.md`
+- [ ] `05-creational-patterns/01-singleton.md`
+- [ ] `05-creational-patterns/02-factory-method.md`
+- [ ] `05-creational-patterns/03-abstract-factory.md`
+- [ ] `05-creational-patterns/04-builder.md`
+- [ ] `05-creational-patterns/05-prototype.md`
+- [ ] `05-creational-patterns/06-simple-factory-and-static-factory-methods.md`
+- [ ] `05-creational-patterns/07-object-pool.md`
+- [ ] `05-creational-patterns/08-lazy-initialisation-and-holder.md`
+- [ ] `05-creational-patterns/09-multiton-and-registry.md`
+- [ ] `05-creational-patterns/10-dependency-injection-vs-factories.md`
+- [ ] `05-creational-patterns/11-creational-patterns-comparison.md`
+
+### Module 06: Structural Patterns (`06-structural-patterns/`)
+- [ ] `06-structural-patterns/README.md`
+- [ ] `06-structural-patterns/00-overview.md`
+- [ ] `06-structural-patterns/01-adapter.md`
+- [ ] `06-structural-patterns/02-bridge.md`
+- [ ] `06-structural-patterns/03-composite.md`
+- [ ] `06-structural-patterns/04-decorator.md`
+- [ ] `06-structural-patterns/05-facade.md`
+- [ ] `06-structural-patterns/06-flyweight.md`
+- [ ] `06-structural-patterns/07-proxy.md`
+- [ ] `06-structural-patterns/08-null-object.md`
+- [ ] `06-structural-patterns/09-private-class-data-and-immutable-objects.md`
+- [ ] `06-structural-patterns/10-extension-object-and-mixins-and-traits.md`
+- [ ] `06-structural-patterns/11-structural-patterns-comparison.md`
+
+### Module 07: Behavioral Patterns (`07-behavioral-patterns/`)
+- [ ] `07-behavioral-patterns/README.md`
+- [ ] `07-behavioral-patterns/00-overview.md`
+- [ ] `07-behavioral-patterns/01-strategy.md`
+- [ ] `07-behavioral-patterns/02-observer.md`
+- [ ] `07-behavioral-patterns/03-command.md`
+- [ ] `07-behavioral-patterns/04-state.md`
+- [ ] `07-behavioral-patterns/05-template-method.md`
+- [ ] `07-behavioral-patterns/06-chain-of-responsibility.md`
+- [ ] `07-behavioral-patterns/07-iterator.md`
+- [ ] `07-behavioral-patterns/08-mediator.md`
+- [ ] `07-behavioral-patterns/09-memento.md`
+- [ ] `07-behavioral-patterns/10-visitor.md`
+- [ ] `07-behavioral-patterns/11-interpreter.md`
+- [ ] `07-behavioral-patterns/12-specification-as-behavioural.md`
+- [ ] `07-behavioral-patterns/13-event-bus.md`
+- [ ] `07-behavioral-patterns/14-blackboard-and-publish-subscribe-variants.md`
+- [ ] `07-behavioral-patterns/15-behavioural-patterns-comparison.md`
+
+### Module 08: Concurrency Patterns (`08-concurrency-patterns/`)
+- [ ] `08-concurrency-patterns/README.md`
+- [ ] `08-concurrency-patterns/00-overview.md`
+- [ ] `08-concurrency-patterns/01-thread-pool-and-executor.md`
+- [ ] `08-concurrency-patterns/02-producer-consumer.md`
+- [ ] `08-concurrency-patterns/03-monitor-object-and-lock-patterns.md`
+- [ ] `08-concurrency-patterns/04-read-write-lock.md`
+- [ ] `08-concurrency-patterns/05-active-object.md`
+- [ ] `08-concurrency-patterns/06-future-and-promise.md`
+- [ ] `08-concurrency-patterns/07-reactor-and-proactor.md`
+- [ ] `08-concurrency-patterns/08-immutability-and-thread-confinement.md`
+- [ ] `08-concurrency-patterns/09-actor-model.md`
+- [ ] `08-concurrency-patterns/10-double-checked-locking-and-why-it-fails.md`
+- [ ] `08-concurrency-patterns/11-async-await-patterns.md`
+- [ ] `08-concurrency-patterns/12-structured-concurrency-pattern.md`
+- [ ] `08-concurrency-patterns/13-backpressure-and-flow-control.md`
+
+### Module 09: Enterprise Application Patterns (`09-enterprise-application-patterns/`)
+- [ ] `09-enterprise-application-patterns/README.md`
+- [ ] `09-enterprise-application-patterns/00-overview.md`
+- [ ] `09-enterprise-application-patterns/01-repository.md`
+- [ ] `09-enterprise-application-patterns/02-unit-of-work.md`
+- [ ] `09-enterprise-application-patterns/03-data-mapper-vs-active-record.md`
+- [ ] `09-enterprise-application-patterns/04-specification.md`
+- [ ] `09-enterprise-application-patterns/05-service-layer.md`
+- [ ] `09-enterprise-application-patterns/06-data-transfer-object.md`
+- [ ] `09-enterprise-application-patterns/07-identity-map.md`
+- [ ] `09-enterprise-application-patterns/08-lazy-loading.md`
+- [ ] `09-enterprise-application-patterns/09-gateway-and-adapter-for-external-systems.md`
+- [ ] `09-enterprise-application-patterns/10-domain-model-vs-transaction-script.md`
+- [ ] `09-enterprise-application-patterns/11-anemic-vs-rich-domain-model.md`
+- [ ] `09-enterprise-application-patterns/12-mvc-mvp-mvvm.md`
+- [ ] `09-enterprise-application-patterns/13-plugin-and-registry.md`
+- [ ] `09-enterprise-application-patterns/14-optimistic-and-pessimistic-locking-patterns.md`
+- [ ] `09-enterprise-application-patterns/15-value-object-entity-aggregate.md`
+- [ ] `09-enterprise-application-patterns/16-domain-events.md`
+
+### Module 10: Architecture (`10-architecture/`)
+- [ ] `10-architecture/README.md`
+- [ ] `10-architecture/00-overview.md`
+- [ ] `10-architecture/01-layered.md`
+- [ ] `10-architecture/02-clean-hexagonal-onion.md`
+- [ ] `10-architecture/03-modular-monolith.md`
+- [ ] `10-architecture/04-domain-driven-design.md`
+- [ ] `10-architecture/05-event-driven.md`
+- [ ] `10-architecture/06-microservices-and-when-not-to.md`
+- [ ] `10-architecture/07-cqrs-and-event-sourcing.md`
+- [ ] `10-architecture/08-serverless-and-function-patterns.md`
+- [ ] `10-architecture/09-pipes-and-filters.md`
+- [ ] `10-architecture/10-micro-kernel-and-plugin.md`
+- [ ] `10-architecture/11-space-based-and-cell-based.md`
+- [ ] `10-architecture/12-architecture-decision-records.md`
+- [ ] `10-architecture/13-architecture-fitness-functions.md`
+- [ ] `10-architecture/14-evolutionary-architecture.md`
+
+### Module 11: Distributed & Cloud Patterns (`11-distributed-and-cloud-patterns/`)
+- [ ] `11-distributed-and-cloud-patterns/README.md`
+- [ ] `11-distributed-and-cloud-patterns/00-overview.md`
+- [ ] `11-distributed-and-cloud-patterns/01-circuit-breaker.md`
+- [ ] `11-distributed-and-cloud-patterns/02-retry-with-backoff-and-jitter.md`
+- [ ] `11-distributed-and-cloud-patterns/03-timeout-and-deadline.md`
+- [ ] `11-distributed-and-cloud-patterns/04-bulkhead.md`
+- [ ] `11-distributed-and-cloud-patterns/05-rate-limiter-and-throttling.md`
+- [ ] `11-distributed-and-cloud-patterns/06-idempotency-key-and-idempotent-consumer.md`
+- [ ] `11-distributed-and-cloud-patterns/07-saga-pattern.md`
+- [ ] `11-distributed-and-cloud-patterns/08-transactional-outbox.md`
+- [ ] `11-distributed-and-cloud-patterns/09-cqrs-read-models.md`
+- [ ] `11-distributed-and-cloud-patterns/10-cache-aside-and-write-through.md`
+- [ ] `11-distributed-and-cloud-patterns/11-api-gateway-and-bff.md`
+- [ ] `11-distributed-and-cloud-patterns/12-sidecar-and-ambassador.md`
+- [ ] `11-distributed-and-cloud-patterns/13-strangler-fig-migration.md`
+- [ ] `11-distributed-and-cloud-patterns/14-anti-corruption-layer.md`
+- [ ] `11-distributed-and-cloud-patterns/15-service-discovery-and-load-balancing.md`
+- [ ] `11-distributed-and-cloud-patterns/16-leader-election-and-distributed-lock.md`
+- [ ] `11-distributed-and-cloud-patterns/17-sharding-and-partitioning.md`
+- [ ] `11-distributed-and-cloud-patterns/18-health-check-and-graceful-degradation.md`
+- [ ] `11-distributed-and-cloud-patterns/19-feature-flags-and-dark-launch.md`
+- [ ] `11-distributed-and-cloud-patterns/20-blue-green-and-canary.md`
+
+### Module 12: Functional & Modern Idioms (`12-functional-and-modern-idioms/`)
+- [ ] `12-functional-and-modern-idioms/README.md`
+- [ ] `12-functional-and-modern-idioms/00-overview.md`
+- [ ] `12-functional-and-modern-idioms/01-patterns-as-functions.md`
+- [ ] `12-functional-and-modern-idioms/02-pipelines-and-middleware.md`
+- [ ] `12-functional-and-modern-idioms/03-option-result-either-and-railway-oriented-error-handling.md`
+- [ ] `12-functional-and-modern-idioms/04-currying-partial-application-and-composition.md`
+- [ ] `12-functional-and-modern-idioms/05-memoisation.md`
+- [ ] `12-functional-and-modern-idioms/06-immutability-and-persistent-data.md`
+- [ ] `12-functional-and-modern-idioms/07-algebraic-data-types-and-sealed-hierarchies.md`
+- [ ] `12-functional-and-modern-idioms/08-dependency-injection-in-functional-style.md`
+- [ ] `12-functional-and-modern-idioms/09-reactive-and-streams-patterns.md`
+- [ ] `12-functional-and-modern-idioms/10-when-fp-replaces-oop-patterns.md`
+
+### Module 13: Anti-Patterns & Code Smells (`13-anti-patterns-and-code-smells/`)
+- [ ] `13-anti-patterns-and-code-smells/README.md`
+- [ ] `13-anti-patterns-and-code-smells/00-overview.md`
+- [ ] `13-anti-patterns-and-code-smells/01-god-object-and-blob.md`
+- [ ] `13-anti-patterns-and-code-smells/02-spaghetti-code.md`
+- [ ] `13-anti-patterns-and-code-smells/03-golden-hammer.md`
+- [ ] `13-anti-patterns-and-code-smells/04-copy-paste-programming.md`
+- [ ] `13-anti-patterns-and-code-smells/05-lava-flow-and-dead-code.md`
+- [ ] `13-anti-patterns-and-code-smells/06-singleton-abuse-and-global-state.md`
+- [ ] `13-anti-patterns-and-code-smells/07-service-locator-abuse.md`
+- [ ] `13-anti-patterns-and-code-smells/08-anemic-domain-model.md`
+- [ ] `13-anti-patterns-and-code-smells/09-big-ball-of-mud.md`
+- [ ] `13-anti-patterns-and-code-smells/10-premature-optimisation-and-abstraction.md`
+- [ ] `13-anti-patterns-and-code-smells/11-cargo-cult-and-resume-driven-development.md`
+- [ ] `13-anti-patterns-and-code-smells/12-primitive-obsession.md`
+- [ ] `13-anti-patterns-and-code-smells/13-feature-envy-and-inappropriate-intimacy.md`
+- [ ] `13-anti-patterns-and-code-smells/14-shotgun-surgery-and-divergent-change.md`
+- [ ] `13-anti-patterns-and-code-smells/15-long-method-and-large-class.md`
+- [ ] `13-anti-patterns-and-code-smells/16-magic-numbers-and-strings.md`
+- [ ] `13-anti-patterns-and-code-smells/17-boolean-flags-and-flag-arguments.md`
+- [ ] `13-anti-patterns-and-code-smells/18-deep-inheritance-and-yo-yo-problem.md`
+- [ ] `13-anti-patterns-and-code-smells/19-leaky-abstractions.md`
+- [ ] `13-anti-patterns-and-code-smells/20-smell-to-refactoring-map.md`
+
+### Module 14: Refactoring (`14-refactoring/`)
+- [ ] `14-refactoring/README.md`
+- [ ] `14-refactoring/00-overview.md`
+- [ ] `14-refactoring/01-refactoring-workflow-and-safety-nets.md`
+- [ ] `14-refactoring/02-refactoring-catalogue.md`
+- [ ] `14-refactoring/03-refactoring-to-patterns.md`
+- [ ] `14-refactoring/04-legacy-code-and-characterisation-tests.md`
+- [ ] `14-refactoring/05-strangler-and-branch-by-abstraction.md`
+- [ ] `14-refactoring/06-automated-refactoring-tools.md`
+- [ ] `14-refactoring/07-measuring-design-quality.md`
+
+### Module 15: Testing & Debugging (`15-testing-and-debugging/`)
+- [ ] `15-testing-and-debugging/README.md`
+- [ ] `15-testing-and-debugging/00-overview.md`
+- [ ] `15-testing-and-debugging/01-testable-design.md`
+- [ ] `15-testing-and-debugging/02-test-doubles.md`
+- [ ] `15-testing-and-debugging/03-designing-for-testability-with-seams.md`
+- [ ] `15-testing-and-debugging/04-tdd-and-design.md`
+- [ ] `15-testing-and-debugging/05-testing-patterns.md`
+- [ ] `15-testing-and-debugging/06-debugging-design-issues.md`
+- [ ] `15-testing-and-debugging/07-architecture-tests.md`
+
+### Module 16: Production (`16-production/`)
+- [ ] `16-production/README.md`
+- [ ] `16-production/00-overview.md`
+- [ ] `16-production/01-maintainability-and-extensibility.md`
+- [ ] `16-production/02-error-handling-design.md`
+- [ ] `16-production/03-logging-observability-and-design.md`
+- [ ] `16-production/04-configuration-and-feature-toggle-design.md`
+- [ ] `16-production/05-api-design-and-versioning.md`
+- [ ] `16-production/06-backward-compatibility-and-deprecation.md`
+- [ ] `16-production/07-security-by-design.md`
+- [ ] `16-production/08-performance-aware-design.md`
+- [ ] `16-production/09-documentation-and-design-reviews.md`
+- [ ] `16-production/10-design-review-checklist.md`
+
+### Module 17: Case Studies (`17-case-studies/`)
+- [ ] `17-case-studies/README.md`
+- [ ] `17-case-studies/00-overview.md`
+- [ ] `17-case-studies/01-text-editor.md`
+- [ ] `17-case-studies/02-notification-system.md`
+- [ ] `17-case-studies/03-payment-gateway-integration.md`
+- [ ] `17-case-studies/04-parking-lot.md`
+- [ ] `17-case-studies/05-elevator-controller.md`
+- [ ] `17-case-studies/06-logging-framework.md`
+- [ ] `17-case-studies/07-plugin-based-application.md`
+- [ ] `17-case-studies/08-e-commerce-checkout.md`
+- [ ] `17-case-studies/09-game-engine-entities.md`
+- [ ] `17-case-studies/10-rate-limiter-library.md`
+- [ ] `17-case-studies/11-workflow-engine.md`
+- [ ] `17-case-studies/12-http-middleware-pipeline.md`
+
+### Module 18: Pattern Selection (`18-pattern-selection/`)
+- [ ] `18-pattern-selection/README.md`
+- [ ] `18-pattern-selection/00-overview.md`
+- [ ] `18-pattern-selection/01-decision-trees-by-problem.md`
+- [ ] `18-pattern-selection/02-pattern-comparison-matrices.md`
+- [ ] `18-pattern-selection/03-principles-vs-patterns-map.md`
+- [ ] `18-pattern-selection/04-language-idioms-map.md`
+- [ ] `18-pattern-selection/05-pattern-combinations-and-composites.md`
+- [ ] `18-pattern-selection/06-over-engineering-checklist.md`
+
+### Module 19: Technical Interview Preparation (`19-interview/`)
+- [ ] `19-interview/README.md`
+- [ ] `19-interview/00-overview.md`
+- [ ] `19-interview/01-solid-and-principles-qa.md`
+- [ ] `19-interview/02-creational-patterns-qa.md`
+- [ ] `19-interview/03-structural-patterns-qa.md`
+- [ ] `19-interview/04-behavioural-patterns-qa.md`
+- [ ] `19-interview/05-architecture-and-distributed-patterns-qa.md`
+- [ ] `19-interview/06-anti-patterns-and-refactoring-qa.md`
+- [ ] `19-interview/07-spot-the-violation-and-refactor-challenges.md`
+- [ ] `19-interview/08-low-level-design-problems.md`
+- [ ] `19-interview/09-pattern-identification-from-code.md`
+- [ ] `19-interview/10-behavioural-and-project-discussion.md`
+
+### Module 20: Operational Cheatsheets (`20-cheatsheets/`)
+- [ ] `20-cheatsheets/README.md`
+- [ ] `20-cheatsheets/00-overview.md`
+- [ ] `20-cheatsheets/01-solid-one-page.md`
+- [ ] `20-cheatsheets/02-principles-dry-kiss-yagni-and-more.md`
+- [ ] `20-cheatsheets/03-gof-patterns-at-a-glance.md`
+- [ ] `20-cheatsheets/04-pattern-categories-and-intent-table.md`
+- [ ] `20-cheatsheets/05-uml-and-mermaid-diagram-recipes.md`
+- [ ] `20-cheatsheets/06-anti-patterns-and-smells-quick-ref.md`
+- [ ] `20-cheatsheets/07-refactoring-moves.md`
+- [ ] `20-cheatsheets/08-pattern-selection-flowchart.md`
+- [ ] `20-cheatsheets/09-java-ts-python-idiom-table.md`

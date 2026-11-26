@@ -1,71 +1,139 @@
 # Foundations: Overview
 
-SOLID and design patterns are not new ideas on top of OOP. They are answers to a few problems that OOP creates when code grows: classes that know too much about each other, hierarchies that are hard to change, and behavior that is hard to swap or test. This folder covers the ideas those answers are built on.
+> **One-line summary:** SOLID principles and design patterns are not academic decorations added on top of OOP—they are systematic engineering solutions to the universal problems of tight coupling, fragile base classes, and escalating cost of change.
 
-If you skip it, SOLID reads like a list of rules to memorize. If you read it first, each principle looks like a consequence of something you already understand.
-
-## The core problem
-
-Software changes. The goal of everything in this repository is to make a change in one place *not* force changes in ten others.
-
-```text
-Requirement changes
-        ↓
-How many places must I edit?
-        ↓
-   Few → low coupling, high cohesion
-   Many → tight coupling, scattered responsibility
-```
-
-## What's in this folder
-
-| File | Question it answers |
+| Attribute | Specification |
 |---|---|
-| [01-oop-pillars.md](./01-oop-pillars.md) | What are encapsulation, abstraction, inheritance and polymorphism, and what is each one for? |
-| [02-composition-vs-inheritance.md](./02-composition-vs-inheritance.md) | When should one class *be* another, and when should it just *use* another? |
-| [03-coupling-and-cohesion.md](./03-coupling-and-cohesion.md) | How do I judge a design in concrete terms? |
-| [04-programming-to-interfaces.md](./04-programming-to-interfaces.md) | How do I make parts of a system replaceable? |
+| **Level** | Foundations / Core |
+| **Prerequisites** | Familiarity with basic Object-Oriented programming (classes, methods, variables) |
+| **Estimated Reading Time** | 20 minutes |
+| **Status** | Complete |
+| **Category** | Foundations |
+| **Also Known As** | Object-Oriented Design Fundamentals, Core Principles of OOD |
+| **Languages Tested** | Java 25 (LTS) / TypeScript 5.8 (Node 24 native) / Python 3.14 |
 
-## How the pieces connect
+---
+
+## Table of Contents
+- [1 The Problem: The Cost of Change Curve](#1-the-problem-the-cost-of-change-curve)
+- [2 Why Foundations Matter](#2-why-foundations-matter)
+- [3 The Fundamental Relationship Matrix](#3-the-fundamental-relationship-matrix)
+- [4 The Four Core Tensions in Software Design](#4-the-four-core-tensions-in-software-design)
+- [5 How the Foundations Map to SOLID and Patterns](#5-how-the-foundations-map-to-solid-and-patterns)
+- [6 Common Misconceptions](#6-common-misconceptions)
+- [7 Summary / Cheat Sheet](#7-summary--cheat-sheet)
+- [8 Further Reading](#8-further-reading)
+
+---
+
+## 1 The Problem: The Cost of Change Curve
+
+In software engineering, software rarely breaks because the computer failed to execute an instruction. Software breaks because **business requirements change**, and the existing design requires modifications in dozens of unrelated files to support that change.
 
 ```text
-OOP pillars ──────────► tools you have
-   │
-   ├─ inheritance ──┐
-   │                ├──► composition vs inheritance: choosing between them
-   └─ polymorphism ─┘
-                         │
-coupling & cohesion ◄────┘    the criteria for judging the choice
-   │
-   ▼
-programming to interfaces     the main technique for lowering coupling
-   │
-   ▼
-SOLID (next folder)           the principles that formalize all of this
+Cost of Change
+  ^
+  |        /  Naive, tightly-coupled system (Exponential friction)
+  |       /
+  |      /
+  |     /
+  |    /
+  |   /__________ Modular, decoupled system (Linear, bounded friction)
+  |  /
+  +--------------------------------------------------------> Time / Features
 ```
 
-## Common misconceptions
+When a system lacks solid design foundations:
+1. **Shotgun Surgery**: A minor change to a billing rate forces changes in 14 different files across the codebase.
+2. **Fragility**: Fixing a bug in user authentication inexplicably breaks order PDF generation.
+3. **Rigidity**: Developers refuse to refactor or add features because the blast radius is unpredictable.
 
-- **"OOP means using inheritance."** Inheritance is one tool, and often the weakest. Much of good OOP design is avoiding it.
-- **"Encapsulation means private fields with getters and setters."** Exposing every field through accessors hides nothing. Encapsulation hides *decisions*, not just data.
-- **"An interface is a keyword."** An interface is any contract callers depend on. The language keyword is one way to express it.
-- **"Low coupling is always the goal."** Some coupling is unavoidable. Aim to couple to stable things (abstractions), not volatile ones (concrete implementations).
+---
 
-## How to use this folder
+## 2 Why Foundations Matter
 
-- **Learning:** read 01 to 04 in order.
-- **Reference:** jump to 03 when reviewing a design, and to 02 when someone proposes a new base class.
-- **Short on time:** read 03 first. Its vocabulary is used in every later folder.
+If you study the SOLID principles or GoF patterns in isolation, they read like a list of abstract rules to memorize for an interview. But when you understand the foundational pressures:
+- **Coupling** (how many other things this thing depends on),
+- **Cohesion** (whether this thing does one clear job),
+- **Encapsulation** (whether an object protects its business invariants), and
+- **Composition** (how systems are assembled from swappable units),
 
-> Code examples in this repository are written in Java.
+SOLID principles stop being arbitrary rules and become obvious consequences of wanting low coupling and high cohesion.
 
-## Quick Summary
+---
 
-- Foundations explain *why* SOLID and patterns exist.
-- The recurring goal is limiting how many places a change touches.
-- Prefer composition and interfaces over inheritance in most designs.
-- Coupling and cohesion are how you judge a design.
+## 3 The Fundamental Relationship Matrix
 
-## Next
+```mermaid
+graph TD
+    Pillars[OOP Pillars: Encapsulation, Abstraction, Polymorphism] --> Comp[Composition over Inheritance]
+    Comp --> Metrics[Coupling & Cohesion: The Criteria for Judgment]
+    Metrics --> Interfaces[Programming to Interfaces: The Primary Decoupling Technique]
+    Interfaces --> SOLID[SOLID Principles: Module 02]
+    SOLID --> Patterns[GoF & Enterprise Patterns: Modules 05-11]
+```
 
-Start with [01-oop-pillars.md](./01-oop-pillars.md). After this folder, continue to [../02-solid-principles/00-overview.md](../02-solid-principles/00-overview.md). Unfamiliar terms are in [../GLOSSARY.md](../GLOSSARY.md).
+---
+
+## 4 The Four Core Tensions in Software Design
+
+Every software design decision balances four competing forces:
+1. **Reusability vs Simplicity**: Highly generic code with 5 layers of abstraction is reusable, but costs more cognitive overhead to read and debug.
+2. **Extensibility vs YAGNI**: Making a system open for unknown future extensions risks building speculative machinery that is never needed.
+3. **Information Hiding vs Performance**: Passing complete value objects through clean interfaces creates minor memory allocation overhead compared to raw primitive pointer manipulation.
+4. **Decoupling vs Understandability**: Decoupling via event emitters or dependency injection makes modules independent, but makes tracing sequential execution flow harder in an IDE.
+
+---
+
+## 5 How the Foundations Map to SOLID and Patterns
+
+| Foundational Concept | How it Materializes in SOLID | How it Materializes in Design Patterns |
+|---|---|---|
+| **Encapsulation** | **Single Responsibility Principle (SRP)**: Encapsulate reasons to change together. | **State**, **Memento**: Encapsulate mutable transitions and snapshots away from clients. |
+| **Polymorphism** | **Open/Closed Principle (OCP)**: Extend behavior via polymorphic subclasses without modifying caller. | **Strategy**, **Command**: Swap execution behavior dynamically via interfaces. |
+| **Abstraction** | **Dependency Inversion Principle (DIP)**: Depend on high-level contracts, not concrete classes. | **Factory Method**, **Abstract Factory**: Decouple client code from concrete instantiation. |
+| **Interfaces** | **Interface Segregation Principle (ISP)**: Split monolithic interfaces into client-specific contracts. | **Adapter**, **Facade**: Provide targeted, unified interfaces to subsystems. |
+| **Composition** | **Liskov Substitution Principle (LSP)**: Replace brittle subclassing with composable delegates. | **Decorator**, **Composite**, **Bridge**: Build complex trees and behaviors by composing components. |
+
+---
+
+## 6 Common Misconceptions
+
+- **Misconception 1: "OOP means creating deep class hierarchies."**  
+  *Correction:* Inheritance is the strongest form of coupling in object-oriented programming. Real-world mastery of OOP is about avoiding inheritance and preferring composition and interfaces.
+- **Misconception 2: "Encapsulation means generating private fields with public getters and setters."**  
+  *Correction:* Exposing public getters and setters for every field provides zero encapsulation. True encapsulation guards **business invariants** and hides **decisions**, exposing behavior (`account.withdraw(50)`) rather than raw mutable state (`account.setBalance(account.getBalance() - 50)`).
+- **Misconception 3: "Coupling should always be zero."**  
+  *Correction:* A system with zero coupling does nothing because components cannot interact. The engineering objective is to eliminate **coupling to volatile concrete implementations** and replace it with **coupling to stable abstractions**.
+
+---
+
+## 7 Summary / Cheat Sheet
+
+```
++-------------------------------------------------------------------------------+
+| THE FOUNDATIONAL IMPERATIVE                                                   |
+| 1. Encapsulate what varies: separate volatile logic from stable policy.      |
+| 2. Program to interfaces, not implementations: make dependencies swappable.  |
+| 3. Favor object composition over class inheritance: avoid fragile base trees. |
+| 4. Maintain high cohesion and low coupling: minimize change blast radius.     |
++-------------------------------------------------------------------------------+
+```
+
+---
+
+## 8 Further Reading
+
+- Parnas, David L. (1972). *"On the Criteria To Be Used in Decomposing Systems into Modules"*, Communications of the ACM.
+- Gamma, Helm, Johnson, Vlissides (1994). *"Design Patterns: Elements of Reusable Object-Oriented Software"*, Chapter 1.
+- Martin, Robert C. (2002). *"Agile Software Development, Principles, Patterns, and Practices"*, Prentice Hall.
+
+### In Your Language
+| Language Track | Deep Dive Reference |
+|---|---|
+| Java | [Java OOP & Patterns Track](file:///e:/Learning/engineering-notes/01-languages/java/24-design-patterns/README.md) |
+| TypeScript | [TypeScript OOP & Patterns Track](file:///e:/Learning/engineering-notes/01-languages/typescript/17-design-patterns/README.md) |
+| Python | [Python OOP & Patterns Track](file:///e:/Learning/engineering-notes/01-languages/python/23-design-patterns/README.md) |
+
+---
+[← Module 01 Index](file:///e:/Learning/engineering-notes/08-solid-design-patterns/01-foundations/README.md) | [Next: 01 - OOP Pillars →](file:///e:/Learning/engineering-notes/08-solid-design-patterns/01-foundations/01-oop-pillars.md)
