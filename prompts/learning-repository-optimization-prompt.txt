@@ -1,185 +1,99 @@
-Analyze my existing **[TECHNOLOGY] learning repository** and redesign it into a clean, scalable structure for:
+ROLE
+You are a repository architect for a markdown mastery repository (repo root
+E:\Learning\engineering-notes). Analyse ONE technology folder, redesign it into a
+clean, scalable structure, and APPLY the restructuring. You restructure; you do
+not write new learning content (the track "complete and extend" prompts do that).
 
-- Beginner → Advanced learning
-- Long-term reference
-- Real-world development
-- Production knowledge
-- Debugging
-- Interview preparation
+INPUT (fill in; if a value is missing, find it yourself)
+TECHNOLOGY: [TECHNOLOGY]                       e.g. Docker, Nginx, Node.js
+FOLDER:     [FOLDER PATH]                      e.g. 04-devops/docker
+Do not ask me to paste the tree: read it from disk (regenerate it with the
+filesystem tools / `tree`, not from an old tree.txt).
 
-## What to do
+READ FIRST
+Repo README.md, tree.txt, ORGANISATION_PLAN.md (repo-wide rules win when they
+conflict with this prompt, log the conflict), prompts/*.txt, the sibling tracks'
+README / INDEX / _templates for conventions, and EVERY file in FOLDER (use a
+script for line counts and headings; read a note in full only when deciding to
+merge or split it).
 
-### 1. Analyze
-Review the **entire existing folder/file structure** and identify:
+GOALS OF THE FINAL STRUCTURE
+- Beginner -> advanced learning order, long-term reference, real-world
+  development, debugging, production, interview preparation.
+- Two workflows: LEARNING (follow in order) and REFERENCE (find a concept fast:
+  INDEX.md + clear names).
+- Adapt the progression to the technology; never create a category just to fill
+  it: Setup -> Fundamentals -> Core -> Intermediate -> Advanced -> Internals/
+  Architecture -> Testing/Debugging -> Performance/Security -> Production ->
+  Projects -> Interview -> Cheatsheets.
 
-- Duplicate or overlapping topics
-- Missing important topics
-- Incorrect grouping
-- Poor or inconsistent naming
-- Files that should be merged
-- Files that should be split
-- Unnecessary or low-value files
-- Important content that should be preserved
+EXECUTION MODE: AUTOMATIC (NO APPROVAL GATES, NO QUESTIONS)
+Never wait for "approved". Ambiguity: choose the safest option and log one line
+in <PFX>_DECISIONS.md. Resumable: keep <PFX>_PROGRESS.md as a checklist of every
+rename/merge/split; re-running this prompt continues from the first unfinished
+item. No narration between tool calls. Be fast: one script for analysis, one
+script to apply renames and fix links; do not re-read files you just wrote.
 
-Do not assume the current structure is correct.
+PHASE 1 ANALYSE (read-only; write <PFX>_STRUCTURE_AUDIT.md)
+ A. Structure problems (briefly): duplicates/overlaps, wrong grouping, missing
+    topics, inconsistent naming, stray files ("README (2).md", "notes2.md",
+    "(1)" copies, .gitkeep, empty or title-only files, unnumbered files in
+    numbered folders, reference/ folders that should be numbered modules),
+    files to merge, files to split (unrelated concepts or >900 lines), low-value
+    files, valuable content that must be preserved.
+ B. Do not assume the current structure is correct. Do not blindly delete.
+PHASE 2 PLAN (write <PFX>_ORGANISATION_PLAN.md, then continue immediately)
+ B. Change plan table: | Current | Action (Keep/Rename/Move/Merge/Split/Delete) |
+    New location | Reason |  covering EVERY existing file.
+ C. Final folder/file tree (the structure to actually use, not an example),
+    including every planned NEW note (name only; content is written later by
+    the track prompt) and README.md for every folder.
+ D. File/folder purpose, one line each, with position in the learning path.
+ E. Missing topics worth adding (genuinely valuable only, one-line reason each;
+    do not invent topics to fill folders).
+ F. Removed/merged topics and why.
+ G. Recommended learning order (and the reference entry points).
+ H. ONE final recommended structure (no alternatives unless there is a real
+    architectural trade-off, then explain it in one paragraph).
+PHASE 3 APPLY (automatic)
+ 1. Backup: git commit (or copy FOLDER to ../<name>-backup-<date>).
+ 2. Apply the plan with `git mv` so history is kept; merge stray/duplicate files
+    into their target WITHOUT losing content (diff them first, keep the unique
+    parts, then remove the copy); split files only along real concept
+    boundaries; delete only what the plan marks redundant and log it.
+ 3. Naming standard (repo convention; keep the track's existing style if the
+    repo plan says so): NN-kebab-case folders and files, numbering ONLY inside
+    ordered learning modules, no numbers in cheatsheet/reference lookups unless
+    the track numbers them, short descriptive names (closures.md,
+    error-handling.md), never misc/stuff/notes2/advanced-things. Uppercase file
+    names only for root meta files (README, INDEX, ROADMAP, GLOSSARY,
+    CONTRIBUTING, LICENSE). One README.md per folder (title, scope, status,
+    contents table with level/status/time, learning outcomes, prerequisites,
+    next link).
+ 4. Run ONE link-fix script over the whole repo for every renamed path (relative
+    links only), then a link check; fix every break.
+ 5. Create/refresh: folder READMEs, track README, INDEX.md (concept -> note),
+    ROADMAP.md (learning tracks with time estimates), GLOSSARY.md skeleton; add
+    "Previous | Section Index | Next" footers ONLY if the track's template uses
+    them (do not write new teaching content).
+ 6. Regenerate tree.txt for the repo.
+PHASE 4 VERIFY: script checks: no stray "(N)" files, no empty files, no
+ unnumbered files in numbered modules (per the standard), every folder has a
+ README, no broken relative links, numbering contiguous, every file in the plan
+ exists, nothing planned for deletion still present. Fix and re-run once.
+PHASE 5 REPORT: <PFX>_ORGANISATION_REPORT.md (what changed, counts, what was
+ merged/removed and why, open issues). Then stop.
 
-### 2. Reorganize
-
-Create a logical learning progression such as:
-
-Setup
-  ↓
-Fundamentals
-  ↓
-Core Concepts
-  ↓
-Intermediate
-  ↓
-Advanced
-  ↓
-Internals / Architecture
-  ↓
-Testing / Debugging
-  ↓
-Performance / Security
-  ↓
-Production
-  ↓
-Projects
-  ↓
-Interview / Quick Reference
-
-**Adapt this structure to the technology. Do not blindly create every category.**
-
-Keep related concepts together, independent concepts separate, and avoid unnecessary nesting.
-
-### 3. Merge / Split / Add / Remove
-
-- **Merge** files when they substantially overlap.
-- **Split** files when one file contains unrelated concepts.
-- **Add** only genuinely missing and valuable topics.
-- **Remove** only redundant or low-value content.
-- Preserve useful existing information.
-- Do not increase the file count just for completeness.
-
-### 4. Naming
-
-Use short, descriptive, consistent filenames:
-
-closures.md
-event-loop.md
-promises.md
-error-handling.md
-testing.md
-
-Avoid:
-
-misc.md
-stuff.md
-notes2.md
-advanced-things.md
-
-### 5. Learning + Reference
-
-The final structure must support two workflows:
-
-**Learning:** a beginner can follow the repository in order.
-
-**Reference:** an experienced developer can quickly locate a specific concept.
-
-Use numbering only where it improves learning order. Avoid excessive numbering or deeply nested folders.
-
-### 6. Concept Files
-
-Do **not** force every topic into the same template.
-
-Let each Markdown file follow the topic naturally. Where useful, include:
-
-Concept
-Prerequisites
-What / Why
-How It Works
-Syntax / API
-Examples
-Important Rules
-Common Patterns
-Common Mistakes
-Debugging
-Internals
-Performance
-Security
-Production
-Best Practices
-Interview Questions
-Quick Reference
-Related / Next Topics
-
-Only include sections that actually make sense for that topic.
-
-## Required Output
-
-### A. Structure Problems
-
-Briefly list the major problems found in the existing repository.
-
-### B. Change Plan
-
-Use:
-
-| Current | Action | New Location | Reason |
-|---|---|---|---|
-| ... | Merge / Move / Rename / Split / Delete / Keep | ... | ... |
-
-### C. Final Structure
-
-Provide the **complete final folder/file tree**.
-
-technology-mastery/
-├── README.md
-├── ROADMAP.md
-├── ...
-
-This must be the structure I should actually use, not an example.
-
-### D. File Purpose
-
-For each final file/folder, briefly explain its purpose and position in the learning path.
-
-### E. Missing Topics
-
-List important topics that should be added and why.
-
-### F. Removed / Merged Topics
-
-List what was removed or merged and why.
-
-### G. Learning Order
-
-Show the final recommended learning progression.
-
-### H. Final Decision
-
-End with **one recommended structure only**. Do not provide multiple alternatives unless there is a genuine architectural trade-off.
-
-## Important Rules
-
-- Analyze before restructuring.
-- Do not blindly preserve the existing structure.
-- Do not blindly delete anything.
-- Do not create unnecessary files.
-- Prefer quality over quantity.
-- Avoid duplicate explanations.
-- Preserve technically valuable content.
-- Keep the structure scalable for future topics.
-- Use consistent naming.
-- Make decisions based on the actual technology and existing repository.
-- Do not invent topics merely to fill folders.
-- Do not force irrelevant categories.
-- Optimize for both **learning progression and fast future reference**.
-- The result should look like a **professional open-source mastery repository**, not a collection of random notes.
-
-**Input repository:**
-
-[PASTE YOUR EXISTING FOLDER TREE HERE]
-
-Now analyze it and produce the optimized final structure.
+RULES
+- Markdown-only repo: you may create/move/merge/delete .md files and update
+  tree.txt; do not create source/config files; existing non-.md files are left
+  alone unless the plan says their content moves into a note (then embed it in
+  a fenced block first, remove the file, log it).
+- Preserve technically valuable content; avoid duplicate explanations; do not
+  increase file count for completeness; prefer quality over quantity; keep the
+  structure scalable for future topics; avoid deep nesting (max two levels below
+  the track root, except data-structure-style sub-collections justified in the
+  plan).
+- Do not edit other tracks except to fix links that point into this folder.
+- The result must look like a professional open-source mastery repository, not
+  a collection of random notes.
