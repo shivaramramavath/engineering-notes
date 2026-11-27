@@ -5,7 +5,7 @@
 | **Category** | Functional & Modern Idioms |
 | **Origin** | Unix Pipes (Doug McIlroy, 1973) / Rack & Express Middleware |
 | **Difficulty** | Beginner → Intermediate |
-| **Prerequisite(s)** | [Chain of Responsibility](file:///E:/Learning/engineering-notes/08-solid-design-patterns/07-behavioral-patterns/04-chain-of-responsibility.md), [Patterns as Functions](file:///E:/Learning/engineering-notes/08-solid-design-patterns/12-functional-and-modern-idioms/01-patterns-as-functions.md) |
+| **Prerequisite(s)** | [Chain of Responsibility](file:///E:/Learning/engineering-notes/08-solid-design-patterns/07-behavioral-patterns/06-chain-of-responsibility.md), [Patterns as Functions](file:///E:/Learning/engineering-notes/08-solid-design-patterns/12-functional-and-modern-idioms/01-patterns-as-functions.md) |
 | **Status** | Complete |
 
 > **TL;DR**: Pipelines chain pure data transformations left-to-right (`a -> b -> c`), while Middleware wraps an execution core in an onion-like chain (`next()`) to handle cross-cutting concerns like auth, logging, and error handling.
@@ -154,7 +154,7 @@ print(clean("  Modern Python Pipelines  "))
 
 - **Linear Pipeline**: Unidirectional `pipe(f, g, h)`.
 - **Onion Middleware**: Bidirectional `(ctx, next)` (Koa, ASP.NET Core, ASGI).
-- **Related**: [Chain of Responsibility](file:///E:/Learning/engineering-notes/08-solid-design-patterns/07-behavioral-patterns/04-chain-of-responsibility.md), [Interceptor / Filter](file:///E:/Learning/engineering-notes/08-solid-design-patterns/09-enterprise-application-patterns/README.md).
+- **Related**: [Chain of Responsibility](file:///E:/Learning/engineering-notes/08-solid-design-patterns/07-behavioral-patterns/06-chain-of-responsibility.md), [Interceptor / Filter](file:///E:/Learning/engineering-notes/08-solid-design-patterns/09-enterprise-application-patterns/README.md).
 
 ---
 

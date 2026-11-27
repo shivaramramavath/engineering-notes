@@ -129,7 +129,7 @@ print("v1=", v1, "v2=", v2)
 
 - **Shallow Immutability**: `final` / `const` / `Object.freeze` (only top-level reference is frozen).
 - **Deep Immutability + Structural Sharing**: Persistent trees/HAMTs (`Immutable.js`, `pyrsistent`, `Vavr`).
-- **Related**: [Immutability & Thread Confinement](file:///E:/Learning/engineering-notes/08-solid-design-patterns/08-concurrency-patterns/08-immutability-and-thread-confinement.md), [Memento](file:///E:/Learning/engineering-notes/08-solid-design-patterns/07-behavioral-patterns/07-memento.md).
+- **Related**: [Immutability & Thread Confinement](file:///E:/Learning/engineering-notes/08-solid-design-patterns/08-concurrency-patterns/08-immutability-and-thread-confinement.md), [Memento](file:///E:/Learning/engineering-notes/08-solid-design-patterns/07-behavioral-patterns/09-memento.md).
 
 ---
 

@@ -5,7 +5,7 @@
 | **Category** | Functional & Modern Idioms |
 | **Origin** | ML / Haskell (`Maybe`, `Either`) / Scott Wlaschin (Railway-Oriented Programming) |
 | **Difficulty** | Intermediate |
-| **Prerequisite(s)** | [Null Object](file:///E:/Learning/engineering-notes/08-solid-design-patterns/07-behavioral-patterns/12-null-object.md), [Patterns as Functions](file:///E:/Learning/engineering-notes/08-solid-design-patterns/12-functional-and-modern-idioms/01-patterns-as-functions.md) |
+| **Prerequisite(s)** | [Null Object](file:///E:/Learning/engineering-notes/08-solid-design-patterns/07-behavioral-patterns/00-overview.md), [Patterns as Functions](file:///E:/Learning/engineering-notes/08-solid-design-patterns/12-functional-and-modern-idioms/01-patterns-as-functions.md) |
 | **Status** | Complete |
 
 > **TL;DR**: `Option<T>` represents an optional value without `null`, while `Result<T, E>` (`Either<E, T>`) models expected failures as return values on two parallel tracks—letting you compose validations and domain steps cleanly without hidden `throw` jumps.
@@ -170,7 +170,7 @@ print("r2=", bind(parse_int("-5"), require_positive))
 - **`Option<T>`**: Presence vs absence (no error payload).
 - **`Either<L, R>`**: General two-branch sum type (by convention `Left` = error, `Right` = success).
 - **Validated / Applicative**: Accumulates **all** errors (e.g., all invalid form fields) instead of short-circuiting on the first one.
-- **Related**: [Null Object](file:///E:/Learning/engineering-notes/08-solid-design-patterns/07-behavioral-patterns/12-null-object.md), [ADTs & Sealed Hierarchies](file:///E:/Learning/engineering-notes/08-solid-design-patterns/12-functional-and-modern-idioms/07-algebraic-data-types-and-sealed-hierarchies.md).
+- **Related**: [Null Object](file:///E:/Learning/engineering-notes/08-solid-design-patterns/07-behavioral-patterns/00-overview.md), [ADTs & Sealed Hierarchies](file:///E:/Learning/engineering-notes/08-solid-design-patterns/12-functional-and-modern-idioms/07-algebraic-data-types-and-sealed-hierarchies.md).
 
 ---
 

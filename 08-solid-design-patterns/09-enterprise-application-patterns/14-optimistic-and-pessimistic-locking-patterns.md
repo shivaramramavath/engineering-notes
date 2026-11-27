@@ -147,7 +147,7 @@ print("T2:", update_optimistic("sku-1", r2.stock - 3, r2.version))
 
 ## 7. Related Patterns
 
-- [Unit of Work](file:///E:/Learning/engineering-notes/08-solid-design-patterns/09-enterprise-application-patterns/02-unit-of-work.md), [Idempotency](file:///E:/Learning/engineering-notes/08-solid-design-patterns/03-design-principles/19-idempotency-and-retry-safety.md).
+- [Unit of Work](file:///E:/Learning/engineering-notes/08-solid-design-patterns/09-enterprise-application-patterns/02-unit-of-work.md), [Idempotency](file:///E:/Learning/engineering-notes/08-solid-design-patterns/03-design-principles/17-idempotency-principle.md).
 
 ---
 

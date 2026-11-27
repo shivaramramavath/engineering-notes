@@ -163,7 +163,7 @@ print(summarize(Captured("o-1", "tx-99", 49.5)))
 
 - **Open Polymorphism (OOP)**: Easy to add new **types**, hard to add new **operations** without modifying every class.
 - **Closed ADTs + Pattern Matching**: Easy to add new **operations**, compiler flags every place needing an update when a new **type** is added.
-- **Related**: [Visitor](file:///E:/Learning/engineering-notes/08-solid-design-patterns/07-behavioral-patterns/10-visitor.md), [State](file:///E:/Learning/engineering-notes/08-solid-design-patterns/07-behavioral-patterns/09-state.md).
+- **Related**: [Visitor](file:///E:/Learning/engineering-notes/08-solid-design-patterns/07-behavioral-patterns/10-visitor.md), [State](file:///E:/Learning/engineering-notes/08-solid-design-patterns/07-behavioral-patterns/04-state.md).
 
 ---
 

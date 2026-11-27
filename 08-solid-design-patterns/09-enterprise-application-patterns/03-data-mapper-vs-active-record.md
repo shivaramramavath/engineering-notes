@@ -5,7 +5,7 @@
 | **Category** | Enterprise Application Patterns (Persistence) |
 | **Origin** | Martin Fowler (*PoEAA*, 2002) |
 | **Difficulty** | Intermediate |
-| **Prerequisite(s)** | [Repository](file:///E:/Learning/engineering-notes/08-solid-design-patterns/09-enterprise-application-patterns/01-repository.md), [Single Responsibility Principle](file:///E:/Learning/engineering-notes/08-solid-design-patterns/02-solid-principles/01-single-responsibility-principle.md) |
+| **Prerequisite(s)** | [Repository](file:///E:/Learning/engineering-notes/08-solid-design-patterns/09-enterprise-application-patterns/01-repository.md), [Single Responsibility Principle](file:///E:/Learning/engineering-notes/08-solid-design-patterns/02-solid-principles/01-single-responsibility.md) |
 | **Status** | Complete |
 
 > **TL;DR**: **Active Record** puts persistence methods (`user.save()`, `User.find()`) directly on the domain object (fast for CRUD, couples domain to DB). **Data Mapper** keeps domain objects 100% persistence-ignorant and delegates all SQL/table mapping to a separate Mapper/Repository layer.

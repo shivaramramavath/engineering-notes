@@ -5,7 +5,7 @@
 | **Category** | Software Architecture (Dependency Inversion) |
 | **Origin** | Alistair Cockburn (Hexagonal, 2005), Jeffrey Palermo (Onion, 2008), Robert C. Martin (Clean, 2012) |
 | **Difficulty** | Intermediate → Advanced |
-| **Prerequisite(s)** | [Dependency Inversion Principle](file:///E:/Learning/engineering-notes/08-solid-design-patterns/02-solid-principles/05-dependency-inversion-principle.md), [Layered Architecture](file:///E:/Learning/engineering-notes/08-solid-design-patterns/10-architecture/01-layered.md) |
+| **Prerequisite(s)** | [Dependency Inversion Principle](file:///E:/Learning/engineering-notes/08-solid-design-patterns/02-solid-principles/05-dependency-inversion.md), [Layered Architecture](file:///E:/Learning/engineering-notes/08-solid-design-patterns/10-architecture/01-layered.md) |
 | **Status** | Complete |
 
 > **TL;DR**: Hexagonal, Onion, and Clean Architecture all enforce one golden rule—**The Dependency Rule**: source-code dependencies must point **inward** toward the pure Domain Core. Databases, HTTP frameworks, and external APIs are **plugins (Adapters)** implementing **Ports (Interfaces)** owned by the core.

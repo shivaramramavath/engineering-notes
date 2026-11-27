@@ -5,7 +5,7 @@
 | **Category** | Software Architecture (Extensibility) |
 | **Origin** | Buschmann et al. (*POSA1*, 1996) / Mark Richards |
 | **Difficulty** | Intermediate |
-| **Prerequisite(s)** | [Plugin & Registry](file:///E:/Learning/engineering-notes/08-solid-design-patterns/09-enterprise-application-patterns/13-plugin-and-plugin.md), [Open/Closed Principle](file:///E:/Learning/engineering-notes/08-solid-design-patterns/02-solid-principles/02-open-closed-principle.md) |
+| **Prerequisite(s)** | [Plugin & Registry](file:///E:/Learning/engineering-notes/08-solid-design-patterns/09-enterprise-application-patterns/13-plugin-and-registry.md), [Open/Closed Principle](file:///E:/Learning/engineering-notes/08-solid-design-patterns/02-solid-principles/02-open-closed.md) |
 | **Status** | Complete |
 
 > **TL;DR**: Microkernel Architecture splits a system into a **minimal Core** (lifecycle, registry, shared contracts) and independent **Plug-in modules** (domain rules, integrations, themes)—powering IDEs, browsers, tax engines, and extensible SaaS platforms.

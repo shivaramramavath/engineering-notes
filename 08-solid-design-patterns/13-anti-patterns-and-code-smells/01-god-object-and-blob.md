@@ -3,7 +3,7 @@
 | Field | Value |
 | :--- | :--- |
 | **Category** | Anti-Pattern (Class / Module Bloat) |
-| **Violates** | [Single Responsibility Principle](file:///E:/Learning/engineering-notes/08-solid-design-patterns/02-solid-principles/01-single-responsibility-principle.md) |
+| **Violates** | [Single Responsibility Principle](file:///E:/Learning/engineering-notes/08-solid-design-patterns/02-solid-principles/01-single-responsibility.md) |
 | **Fix** | Extract Class, Vertical-Slice Use Cases, Domain Entities |
 
 > **TL;DR**: A **God Object** (or **Blob**) is a single 2,000+ line class (`AppManager`, `OrderService`, `UserController`) that knows and does everything—causing constant merge conflicts, untestable dependencies, and Divergent Change.

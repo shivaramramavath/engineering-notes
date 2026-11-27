@@ -5,7 +5,7 @@
 | **Category** | Enterprise Application Patterns (Extensibility) |
 | **Origin** | Martin Fowler (*PoEAA*, 2002) |
 | **Difficulty** | Intermediate |
-| **Prerequisite(s)** | [Open/Closed Principle](file:///E:/Learning/engineering-notes/08-solid-design-patterns/02-solid-principles/02-open-closed-principle.md), [Factory Method](file:///E:/Learning/engineering-notes/08-solid-design-patterns/05-creational-patterns/02-factory-method.md) |
+| **Prerequisite(s)** | [Open/Closed Principle](file:///E:/Learning/engineering-notes/08-solid-design-patterns/02-solid-principles/02-open-closed.md), [Factory Method](file:///E:/Learning/engineering-notes/08-solid-design-patterns/05-creational-patterns/02-factory-method.md) |
 | **Status** | Complete |
 
 > **TL;DR**: A **Registry** maps string keys or types to **Plugin** implementations at startup/runtime (`register("stripe", StripePlugin)`), letting you add new formats, payment providers, or auth strategies without editing a central `switch` statement.

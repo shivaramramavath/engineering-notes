@@ -5,7 +5,7 @@
 | **Category** | Enterprise Application Patterns (Persistence) |
 | **Origin** | Martin Fowler (*PoEAA*, 2002) & Eric Evans (*DDD*, 2003) |
 | **Difficulty** | Beginner → Intermediate |
-| **Prerequisite(s)** | [Dependency Inversion Principle](file:///E:/Learning/engineering-notes/08-solid-design-patterns/02-solid-principles/05-dependency-inversion-principle.md) |
+| **Prerequisite(s)** | [Dependency Inversion Principle](file:///E:/Learning/engineering-notes/08-solid-design-patterns/02-solid-principles/05-dependency-inversion.md) |
 | **Status** | Complete |
 
 > **TL;DR**: Repository mediates between the domain and data-mapping layers using a **collection-like interface** (`findById`, `save`, `findAll(spec)`), hiding SQL/ORM details so domain logic can be tested with an in-memory fake.

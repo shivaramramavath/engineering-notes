@@ -120,7 +120,7 @@ print("Lazy result:", first_three)  # [20, 40, 60]
 
 - **Pull Stream**: Consumer requests next item (`Iterator`, `Stream`, generators).
 - **Push Reactive Stream**: Producer pushes events (`Observable`, `Flux`, `EventEmitter`).
-- **Related**: [Iterator](file:///E:/Learning/engineering-notes/08-solid-design-patterns/07-behavioral-patterns/06-iterator.md), [Observer](file:///E:/Learning/engineering-notes/08-solid-design-patterns/07-behavioral-patterns/02-observer.md), [Backpressure](file:///E:/Learning/engineering-notes/08-solid-design-patterns/08-concurrency-patterns/13-backpressure-and-flow-control.md).
+- **Related**: [Iterator](file:///E:/Learning/engineering-notes/08-solid-design-patterns/07-behavioral-patterns/07-iterator.md), [Observer](file:///E:/Learning/engineering-notes/08-solid-design-patterns/07-behavioral-patterns/02-observer.md), [Backpressure](file:///E:/Learning/engineering-notes/08-solid-design-patterns/08-concurrency-patterns/13-backpressure-and-flow-control.md).
 
 ---
 

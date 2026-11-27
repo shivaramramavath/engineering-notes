@@ -5,7 +5,7 @@
 | **Category** | Enterprise Application Patterns (Integration Boundaries) |
 | **Origin** | Martin Fowler (*PoEAA*, 2002) & Eric Evans (*DDD* ACL, 2003) |
 | **Difficulty** | Beginner → Intermediate |
-| **Prerequisite(s)** | [Adapter](file:///E:/Learning/engineering-notes/08-solid-design-patterns/06-structural-patterns/01-adapter.md), [Dependency Inversion Principle](file:///E:/Learning/engineering-notes/08-solid-design-patterns/02-solid-principles/05-dependency-inversion-principle.md) |
+| **Prerequisite(s)** | [Adapter](file:///E:/Learning/engineering-notes/08-solid-design-patterns/06-structural-patterns/01-adapter.md), [Dependency Inversion Principle](file:///E:/Learning/engineering-notes/08-solid-design-patterns/02-solid-principles/05-dependency-inversion.md) |
 | **Status** | Complete |
 
 > **TL;DR**: A **Gateway** encapsulates all HTTP/SDK communication with an external service (Stripe, Twilio, Legacy SOAP) behind a clean domain-language interface, translating external schemas and errors so third-party quirks never pollute your core domain.

@@ -4,7 +4,7 @@
 | :--- | :--- |
 | **Category** | Anti-Pattern (Engineering Mindset) |
 | **Origin** | Abraham Maslow (*"If all you have is a hammer, everything looks like a nail"*) |
-| **Fix** | Problem-First Pattern Selection, [KISS / YAGNI](file:///E:/Learning/engineering-notes/08-solid-design-patterns/03-design-principles/02-kiss-and-yagni.md) |
+| **Fix** | Problem-First Pattern Selection, [KISS / YAGNI](file:///E:/Learning/engineering-notes/08-solid-design-patterns/03-design-principles/02-kiss-principle.md) |
 
 > **TL;DR**: **Golden Hammer** is forcing one familiar pattern, framework, or database onto every problem—using Microservices for a 2-person CRUD app, Redis as a primary ACID ledger, or GoF Visitor in Python where a 5-line function works.
 

@@ -5,7 +5,7 @@
 | **Category** | Enterprise Application Patterns (Domain Modeling) |
 | **Origin** | Martin Fowler (2003, *"AnemicDomainModel"*) |
 | **Difficulty** | Intermediate |
-| **Prerequisite(s)** | [Domain Model vs Transaction Script](file:///E:/Learning/engineering-notes/08-solid-design-patterns/09-enterprise-application-patterns/10-domain-model-vs-transaction-script.md), [Tell, Don't Ask](file:///E:/Learning/engineering-notes/08-solid-design-patterns/03-design-principles/09-tell-dont-ask.md) |
+| **Prerequisite(s)** | [Domain Model vs Transaction Script](file:///E:/Learning/engineering-notes/08-solid-design-patterns/09-enterprise-application-patterns/10-domain-model-vs-transaction-script.md), [Tell, Don't Ask](file:///E:/Learning/engineering-notes/08-solid-design-patterns/03-design-principles/06-tell-dont-ask.md) |
 | **Status** | Complete |
 
 > **TL;DR**: An **Anemic Domain Model** turns entities into passive getter/setter data bags while dumping all rules into giant `Service` classes. A **Rich Domain Model** puts state transitions and invariants (`order.cancel()`, `account.withdraw(amount)`) directly on the domain entity so invalid states cannot be created.
@@ -167,7 +167,7 @@ print("Status:", o.status)
 
 ## 7. Related Patterns
 
-- [Tell, Don't Ask](file:///E:/Learning/engineering-notes/08-solid-design-patterns/03-design-principles/09-tell-dont-ask.md), [Value Object, Entity & Aggregate](file:///E:/Learning/engineering-notes/08-solid-design-patterns/09-enterprise-application-patterns/15-value-object-entity-aggregate.md).
+- [Tell, Don't Ask](file:///E:/Learning/engineering-notes/08-solid-design-patterns/03-design-principles/06-tell-dont-ask.md), [Value Object, Entity & Aggregate](file:///E:/Learning/engineering-notes/08-solid-design-patterns/09-enterprise-application-patterns/15-value-object-entity-aggregate.md).
 
 ---
 

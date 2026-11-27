@@ -5,7 +5,7 @@
 | **Category** | Distributed & Cloud Patterns (Consistency & Safety) |
 | **Origin** | Stripe API / Enterprise Integration Patterns |
 | **Difficulty** | Intermediate |
-| **Prerequisite(s)** | [Idempotency & Retry Safety](file:///E:/Learning/engineering-notes/08-solid-design-patterns/03-design-principles/19-idempotency-and-retry-safety.md) |
+| **Prerequisite(s)** | [Idempotency & Retry Safety](file:///E:/Learning/engineering-notes/08-solid-design-patterns/03-design-principles/17-idempotency-principle.md) |
 | **Status** | Complete |
 
 > **TL;DR**: Because networks drop responses and brokers deliver messages **at-least-once**, clients send a unique **`Idempotency-Key`** (UUID) with `POST` requests and consumers record processed **`messageId`**s inside the same DB transaction—guaranteeing retries never double-charge or double-insert.

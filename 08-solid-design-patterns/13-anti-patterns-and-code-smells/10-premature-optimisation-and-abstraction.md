@@ -4,7 +4,7 @@
 | :--- | :--- |
 | **Category** | Anti-Pattern (Complexity Bloat) |
 | **Origin** | Donald Knuth (*"Premature optimization is the root of all evil"*) |
-| **Violates** | [KISS & YAGNI](file:///E:/Learning/engineering-notes/08-solid-design-patterns/03-design-principles/02-kiss-and-yagni.md) |
+| **Violates** | [KISS & YAGNI](file:///E:/Learning/engineering-notes/08-solid-design-patterns/03-design-principles/02-kiss-principle.md) |
 
 > **TL;DR**: Inventing `AbstractGenericEventDispatcherFactory` for 1 implementation "just in case", or hand-rolling unreadable bit-hacks before profiling, destroys readability and slows down every real change.
 

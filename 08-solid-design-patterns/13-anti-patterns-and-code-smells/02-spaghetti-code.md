@@ -3,7 +3,7 @@
 | Field | Value |
 | :--- | :--- |
 | **Category** | Anti-Pattern (Control Flow) |
-| **Violates** | [KISS](file:///E:/Learning/engineering-notes/08-solid-design-patterns/03-design-principles/02-kiss-and-yagni.md), [Clean Functions](file:///E:/Learning/engineering-notes/08-solid-design-patterns/03-design-principles/01-dry-and-rule-of-three.md) |
+| **Violates** | [KISS](file:///E:/Learning/engineering-notes/08-solid-design-patterns/03-design-principles/02-kiss-principle.md), [Clean Functions](file:///E:/Learning/engineering-notes/08-solid-design-patterns/03-design-principles/01-dry-and-rule-of-three.md) |
 | **Fix** | Guard Clauses, Extract Method, State Machine / ADT |
 
 > **TL;DR**: **Spaghetti Code** has deeply nested `if/else` arrows, long procedural functions, and hidden mutations of shared variables—making it impossible to trace how execution reaches a given line.
