@@ -1,190 +1,303 @@
-# Repository
+# Repository Pattern
 
-**Intent:** mediate between the domain and data-mapping layers using a collection-like interface for accessing domain objects.
+| Field | Value |
+| :--- | :--- |
+| **Category** | Enterprise Application Patterns (Persistence) |
+| **Origin** | Martin Fowler (*PoEAA*, 2002) & Eric Evans (*DDD*, 2003) |
+| **Difficulty** | Beginner → Intermediate |
+| **Prerequisite(s)** | [Dependency Inversion Principle](file:///E:/Learning/engineering-notes/08-solid-design-patterns/02-solid-principles/05-dependency-inversion-principle.md) |
+| **Status** | Complete |
 
-To the domain code, a repository looks like an in-memory collection of aggregates: you add objects, find them by criteria, and remove them. How and where they're stored (SQL, NoSQL, files, a remote API) is hidden.
+> **TL;DR**: Repository mediates between the domain and data-mapping layers using a **collection-like interface** (`findById`, `save`, `findAll(spec)`), hiding SQL/ORM details so domain logic can be tested with an in-memory fake.
 
-## The problem
+---
 
-Without a repository, business logic and data access intermingle:
+## 1. The Problem: Why Does Repository Exist?
+
+When application services execute raw SQL or ORM `EntityManager` queries directly:
+1. **Duplicate Queries**: `SELECT * FROM orders WHERE status = 'PAID' AND total > 100` gets copy-pasted across 6 controllers.
+2. **Untestable Business Logic**: Unit-testing a discount or billing rule requires booting PostgreSQL or mocking brittle ORM query-builder chains.
+3. **Persistence Coupling**: Changing from SQL to an external API or switching ORMs forces rewriting domain services.
+
+---
+
+## 2. What Is the Repository Pattern?
+
+A **Repository** presents an in-memory collection abstraction (`add`, `remove`, `findById`, `findMatching`) for **Aggregate Roots** (e.g., `OrderRepository`, `UserRepository`).
+
+The domain defines the **interface** (`OrderRepository`); the infrastructure layer provides the **implementation** (`PostgresOrderRepository` for prod, `InMemoryOrderRepository` for fast unit tests).
+
+---
+
+## 3. How It Works
+
+```mermaid
+flowchart LR
+    Svc["OrderService (Domain/App)"] --> RepoI["interface OrderRepository"]
+    RepoI <|.. PgRepo["PostgresOrderRepository (Infra)"]
+    RepoI <|.. MemRepo["InMemoryOrderRepository (Tests)"]
+```
+
+---
+
+## 4. What Goes Wrong Without It
+
+```python
+# ❌ TIGHTLY COUPLED: Domain service directly runs SQL + cursor logic
+def approve_order(conn, order_id: str):
+    row = conn.execute("SELECT total, status FROM orders WHERE id = %s", (order_id,)).fetchone()
+    if row[0] > 1000:
+        conn.execute("UPDATE orders SET status = 'APPROVED' WHERE id = %s", (order_id,))
+```
+
+---
+
+## 5. Multi-Language Examples
+
+### Java 25 LTS
 
 ```java
-public class OrderService {
-    public void cancel(String orderId) {
-        try (Connection c = dataSource.getConnection();
-             PreparedStatement ps = c.prepareStatement("SELECT * FROM orders WHERE id = ?")) {
-            ps.setString(1, orderId);
-            ResultSet rs = ps.executeQuery();
-            // map columns to an Order, check rules, run UPDATE ...
-        }
+import java.util.*;
+
+public class RepositoryDemo {
+    record Order(String id, long cents, boolean paid) {}
+
+    interface OrderRepository {
+        Optional<Order> findById(String id);
+        void save(Order order);
+    }
+
+    static class InMemoryOrderRepository implements OrderRepository {
+        private final Map<String, Order> store = new HashMap<>();
+        @Override public Optional<Order> findById(String id) { return Optional.ofNullable(store.get(id)); }
+        @Override public void save(Order order) { store.put(order.id(), order); }
+    }
+
+    public static void main(String[] args) {
+        OrderRepository repo = new InMemoryOrderRepository();
+        repo.save(new Order("ord-1", 2500, true));
+        System.out.println("Found: " + repo.findById("ord-1"));
     }
 }
 ```
 
-Consequences:
+### TypeScript 5.8
 
-- Business logic can't be tested without a database.
-- SQL is duplicated across services.
-- Changing the persistence technology touches business code.
-- This directly violates [Dependency Inversion](../02-solid-principles/05-dependency-inversion.md).
+```ts
+interface Order { readonly id: string; readonly cents: number; }
 
-## Structure
-
-```text
-Service ──► OrderRepository (interface, owned by the domain)
-                  ▲
-        ┌─────────┴──────────┐
-JpaOrderRepository     InMemoryOrderRepository (tests)
-        │
-        ▼
-     Database
-```
-
-The interface lives with the **domain**; the implementation lives in **infrastructure**.
-
-## Example
-
-```java
-// Domain layer
-public interface OrderRepository {
-    Optional<Order> findById(OrderId id);
-    List<Order> findByCustomer(CustomerId customerId);
-    void save(Order order);          // add or update
-    void remove(Order order);
+interface OrderRepository {
+  findById(id: string): Promise<Order | undefined>;
+  save(order: Order): Promise<void>;
 }
 
-// Service uses only the interface
-public class OrderService {
-    private final OrderRepository orders;
-
-    public OrderService(OrderRepository orders) { this.orders = orders; }
-
-    public void cancel(OrderId id) {
-        Order order = orders.findById(id).orElseThrow(() -> new OrderNotFound(id));
-        order.cancel();                  // business rule lives in the domain object
-        orders.save(order);
-    }
+class InMemoryOrderRepository implements OrderRepository {
+  private readonly store = new Map<string, Order>();
+  async findById(id: string) { return this.store.get(id); }
+  async save(order: Order) { this.store.set(order.id, order); }
 }
+
+const repo: OrderRepository = new InMemoryOrderRepository();
+repo.save({ id: 'ord-1', cents: 2500 }).then(() => repo.findById('ord-1')).then(console.log);
 ```
 
-An in-memory implementation for tests:
+### Python 3.14
 
-```java
-public class InMemoryOrderRepository implements OrderRepository {
-    private final Map<OrderId, Order> store = new HashMap<>();
+```python
+from dataclasses import dataclass
+from typing import Protocol
 
-    public Optional<Order> findById(OrderId id) { return Optional.ofNullable(store.get(id)); }
-    public List<Order> findByCustomer(CustomerId c) {
-        return store.values().stream().filter(o -> o.customerId().equals(c)).toList();
-    }
-    public void save(Order order) { store.put(order.id(), order); }
-    public void remove(Order order) { store.remove(order.id()); }
-}
+@dataclass(frozen=True)
+class Order:
+    id: str
+    cents: int
+
+class OrderRepository(Protocol):
+    def find_by_id(self, order_id: str) -> Order | None: ...
+    def save(self, order: Order) -> None: ...
+
+class InMemoryOrderRepository:
+    def __init__(self) -> None:
+        self._store: dict[str, Order] = {}
+    def find_by_id(self, order_id: str) -> Order | None:
+        return self._store.get(order_id)
+    def save(self, order: Order) -> None:
+        self._store[order.id] = order
+
+repo: OrderRepository = InMemoryOrderRepository()
+repo.save(Order("ord-1", 2500))
+print(repo.find_by_id("ord-1"))
 ```
 
-A production implementation (with JPA, for example) implements the same interface:
+---
 
-```java
-public class JpaOrderRepository implements OrderRepository {
-    private final EntityManager em;
-    public JpaOrderRepository(EntityManager em) { this.em = em; }
+## 6. Real-World Examples
 
-    public Optional<Order> findById(OrderId id) { return Optional.ofNullable(em.find(Order.class, id)); }
-    public void save(Order order) { em.persist(order); }
-    // ...
-}
-```
+1. **Spring Data JPA (`JpaRepository<Order, String>`)**: Separates persistence contract from generated SQL/Hibernate queries.
+2. **TypeORM / Prisma / MikroORM**: Custom repository wrappers shielding NestJS services from raw query builders.
+3. **Django / FastAPI Clean Architecture**: Abstract `UserRepo(Protocol)` backed by SQLAlchemy in prod and dict in pytest.
 
-## Design guidelines
+---
 
-| Guideline | Why |
-|---|---|
-| **One repository per aggregate root**, not per table | Aggregates are the unit of consistency; child entities are reached through the root |
-| **Express queries in domain terms** (`findOverdueInvoices`) | Callers shouldn't know about SQL or tables |
-| **Return domain objects, not persistence types** (no `ResultSet`, no rows) | Keeps the domain free of infrastructure |
-| **Don't leak persistence exceptions** | Translate or wrap them |
-| **Keep it free of business rules** | It stores and retrieves; the domain decides |
-| **Offer pagination** for potentially large results | Avoid loading everything |
+## 7. Variants & Related Patterns
 
-## Repository vs DAO
+- **Specification-Backed Repository**: `findAll(Specification<T>)` avoids explosion of `findByStatusAndDateAnd...` methods.
+- **Generic `Repository<T, ID>` vs Aggregate-Specific**: Prefer aggregate-specific interfaces (`OrderRepository`) so callers only see meaningful domain queries.
+- **Related**: [Unit of Work](file:///E:/Learning/engineering-notes/08-solid-design-patterns/09-enterprise-application-patterns/02-unit-of-work.md), [Data Mapper](file:///E:/Learning/engineering-notes/08-solid-design-patterns/09-enterprise-application-patterns/03-data-mapper-vs-active-record.md), [Specification](file:///E:/Learning/engineering-notes/08-solid-design-patterns/09-enterprise-application-patterns/04-specification.md).
 
-| | Repository | DAO (Data Access Object) |
-|---|---|---|
-| Perspective | Domain: "a collection of aggregates" | Persistence: "access to a table or data source" |
-| Unit | Aggregate root | Usually one table/entity |
-| Language | Domain terms | Data terms (`insertUser`, `updateRow`) |
-| Layer owner | Domain | Infrastructure |
+---
 
-In practice the line blurs, and many "repositories" are really DAOs. The distinguishing mark is whether the interface is shaped by the domain's needs.
+## 8. Advantages
 
-## The generic repository trap
+- **Testability**: Swap DB for `InMemoryOrderRepository` in milliseconds.
+- **Centralized Query Logic**: Eliminates duplicated SQL/ORM queries.
+- **Domain Isolation**: Keeps ORM annotations/SQL out of business logic.
 
-```java
-public interface Repository<T, ID> {
-    T findById(ID id);
-    List<T> findAll();
-    void save(T t);
-    void delete(T t);
-}
-```
+---
 
-Problems:
+## 9. Limitations & When NOT to Use
 
-- Offers operations that don't make sense for every aggregate (can you really "delete" an `Invoice`?).
-- `findAll()` invites loading entire tables.
-- Domain-specific queries still need specific methods, so the generic interface alone isn't enough.
+- **Simple CRUD Apps**: Adding a custom Repository wrapper around an ORM that is *already* a Repository (like Prisma or ActiveRecord) for simple 1-table CRUD adds boilerplate without value.
+- **Complex Reporting / Analytics**: Don't force multi-table BI aggregations through Aggregate Repositories—use a dedicated Read Model / Query Service (CQRS).
 
-A generic *base* for implementation reuse is fine, but each aggregate should expose its **own, specific interface** to the domain.
+---
 
-## Frameworks
+## 10. Anti-Patterns & Common Mistakes
 
-Spring Data repositories generate implementations from interfaces:
+| Mistake | Why It Fails | Fix |
+| :--- | :--- | :--- |
+| Creating a Repository for every child table (`OrderItemRepository`) | Breaks Aggregate consistency invariants | Only create Repositories for **Aggregate Roots** (`OrderRepository`) |
+| Returning `IQueryable` / raw `QueryBuilder` from Repository | Leaks persistence query semantics into domain/controllers | Return materialized domain objects (`List<Order>`, `Page<Order>`) |
+| Calling `commit()` inside `repo.save()` | Prevents multi-repo atomic transactions | Let **Unit of Work** / Service Layer manage transaction boundaries |
+| Putting business validation inside Repository | Mixes persistence with domain rules | Keep business logic in Domain Entities / Service Layer |
+| Generic `IRepository<T>` with `GetAll()` returning 1M rows | Causes OOM in production | Expose paginated/filtered domain methods |
+| Leaking ORM entities directly as API JSON | Couples DB schema to external clients | Map to DTOs at the API boundary |
 
-```java
-public interface OrderJpaRepository extends JpaRepository<OrderEntity, Long> {
-    List<OrderEntity> findByCustomerId(String customerId);
-}
-```
+---
 
-These are convenient, but they expose a broad generic API (`deleteAll`, `findAll`). Many teams keep a smaller domain-owned repository interface and implement it by delegating to the Spring Data interface. Decide whether the abstraction is worth it for your application's complexity.
+## 11. Comparison: Repository vs DAO
 
-## Combining with Specification
+| Aspect | Repository | Data Access Object (DAO) |
+| :--- | :--- | :--- |
+| **Abstraction Level** | Domain Aggregate collection | Table / row CRUD operations |
+| **Granularity** | Aggregate Root (`Order` + `OrderItems`) | 1-to-1 with DB tables |
+| **Vocabulary** | Domain-centric (`findOverdueInvoices()`) | Storage-centric (`selectByStatus()`) |
 
-For flexible queries, accept a [Specification](./03-specification.md) instead of adding a method per combination:
+---
 
-```java
-List<Order> findMatching(Specification<Order> spec);
-```
+## 12. Design Checklist
 
-## When to use it
+- [ ] Is there one Repository per **Aggregate Root**, not per DB table?
+- [ ] Does the Repository interface live in the domain/application layer (DIP)?
+- [ ] Are transactions controlled outside the Repository (Unit of Work / Service Layer)?
 
-- The domain has real business logic you want to test without a database.
-- You may change or mix storage technologies.
-- You want queries named in domain language.
+---
 
-Skip it (or keep it very thin) for simple CRUD applications where the ORM or framework repository is already adequate.
+## 13. Interview Questions
 
-## Common mistakes
+<details>
+<summary>1. What is the difference between Repository and DAO?</summary>
 
-- **One repository per table** rather than per aggregate.
-- **Leaking entities, query objects or ORM sessions** to higher layers.
-- **Business logic inside repositories** (filters that are really domain rules).
-- **`findAll()` on large tables.**
-- **N+1 queries** from lazily loading children inside loops. Provide methods that fetch what the use case needs.
-- **Repositories calling other repositories**, hiding dependencies. Orchestrate in the service.
-- **Mocking everywhere.** Prefer an in-memory fake for readable tests.
+A DAO is a lower-level abstraction around a database table's CRUD operations. A Repository is a domain-level collection abstraction for an entire Aggregate Root.
 
-## Quick Summary
+</details>
 
-- A repository gives the domain a collection-like view of persistent aggregates.
-- The interface belongs to the domain; the implementation to infrastructure.
-- One per aggregate root, with domain-language methods and no business logic.
-- Distinct from DAO by perspective; avoid the one-size-fits-all generic interface.
+<details>
+<summary>2. Why should Repositories only exist for Aggregate Roots?</summary>
 
-## Related
+Loading or saving a child entity (`OrderItem`) directly bypasses the Aggregate Root (`Order`) and can violate invariants like `order.total == sum(items)`.
 
-[Unit of Work](./02-unit-of-work.md) · [Specification](./03-specification.md) · [Dependency Inversion](../02-solid-principles/05-dependency-inversion.md) · [Domain-driven design](../08-architecture/04-domain-driven-design.md)
+</details>
 
-## Next
+<details>
+<summary>3. Why shouldn't `Repository.save()` commit the database transaction?</summary>
 
-[02-unit-of-work.md](./02-unit-of-work.md)
+A single use case often updates two repositories (e.g., `OrderRepository` and `InventoryRepository`). Committing inside each `save()` breaks atomicity; transaction boundaries belong in the Service Layer / Unit of Work.
+
+</details>
+
+<details>
+<summary>4. Why is returning `IQueryable` or a lazy ORM query from a Repository an anti-pattern?</summary>
+
+It leaks ORM/SQL capabilities to callers, meaning your `InMemoryRepository` fake behaves differently from your SQL repository (e.g., unsupported LINQ expressions).
+
+</details>
+
+<details>
+<summary>5. How do you handle complex reporting queries with Repositories?</summary>
+
+Bypass domain Repositories for read-heavy reporting and use a dedicated **Read Model / Query Service** (CQRS) that projects directly to DTOs.
+
+</details>
+
+<details>
+<summary>6. How does Repository support the Dependency Inversion Principle?</summary>
+
+The domain defines the `OrderRepository` interface, and the infrastructure layer depends on and implements it.
+
+</details>
+
+<details>
+<summary>7. When is a Repository overkill?</summary>
+
+In simple CRUD microservices or prototypes where Active Record / Prisma directly serves thin endpoints with minimal domain logic.
+
+</details>
+
+<details>
+<summary>8. How do you prevent `findByXAndYAndZ` method explosion in Repositories?</summary>
+
+Combine Repository with the **Specification** pattern (`findAll(Specification<Order> spec)`).
+
+</details>
+
+---
+
+## 14. Practice Exercises
+
+<details>
+<summary>Exercise 1: In-Memory + Specification Repository</summary>
+
+Implement `UserRepository` with `findByEmail` and `findAll(spec)` backed by an in-memory `Map`/`dict`.
+
+</details>
+
+<details>
+<summary>Exercise 2: Pagination Contract</summary>
+
+Add a `Page<T>(items, totalCount, page, pageSize)` return type to `OrderRepository.findRecent(...)`.
+
+</details>
+
+<details>
+<summary>Exercise 3: Refactor SQL-in-Controller</summary>
+
+Extract inline SQL queries from a sample `checkout()` handler into `OrderRepository` and `InventoryRepository` interfaces.
+
+</details>
+
+---
+
+## 15. Cheat Sheet
+
+- **One per Aggregate Root**, never per child table.
+- **Collection semantics**: `findById`, `save`, `delete`, `findAll(spec)`.
+- **No `commit()` inside `save()`** — let Unit of Work commit.
+
+---
+
+## 16. In Your Language
+
+| Track | Relevant Deep-Dive |
+| :--- | :--- |
+| **Java** | [Spring Boot Data & JPA](file:///E:/Learning/engineering-notes/03-backend/spring-boot/README.md) |
+| **TypeScript** | [NestJS Architecture & Patterns](file:///E:/Learning/engineering-notes/03-backend/nestjs/08-architecture-and-patterns/README.md) |
+| **Python** | [Python Database Access](file:///E:/Learning/engineering-notes/01-languages/python/19-database-access/README.md) |
+
+---
+
+## 17. Navigation
+
+| Previous | Up | Next |
+| :--- | :--- | :--- |
+| [Module 09 Overview](file:///E:/Learning/engineering-notes/08-solid-design-patterns/09-enterprise-application-patterns/00-overview.md) | [Module 09](file:///E:/Learning/engineering-notes/08-solid-design-patterns/09-enterprise-application-patterns/README.md) | [Unit of Work](file:///E:/Learning/engineering-notes/08-solid-design-patterns/09-enterprise-application-patterns/02-unit-of-work.md) |

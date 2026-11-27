@@ -57,3 +57,8 @@ All structural changes, renames, additions, corrections, and verified code runs 
 - Authored all 15 files in `08-concurrency-patterns/` (`README.md`, `00-overview.md`, `01`–`13`), including Java 25 Virtual Threads & Structured Concurrency (`StructuredTaskScope`), TypeScript async/await & backpressure, and Python 3.14 `asyncio.TaskGroup` & `asyncio.Queue(maxsize)`.
 - Authored all 12 files in `12-functional-and-modern-idioms/` (`README.md`, `00-overview.md`, `01`–`10`), covering functional Strategy/Decorator/Command, onion middleware, `Result`/`Either` railway error handling, currying/partial application, memoisation, persistent data, `sealed` ADTs + exhaustive pattern matching, functional DI, lazy/reactive streams, and FP vs OOP decision criteria.
 - Verified Java 25, TypeScript 5.8, and Python 3.14 code examples via `test_conc_1.js`, `test_conc_2.js`, `test_conc_3.js`, and `test_fp_1.js`.
+
+## Batch 7 — Module 09 (Enterprise Application Patterns) & Module 10 (Software Architecture)
+- Rewrote & extended `09-enterprise-application-patterns/` to 18 files (`README.md`, `00-overview.md`, `01`–`16`). Renumbered legacy `03-specification.md` → `04-specification.md`, `04-service-layer.md` → `05-service-layer.md`, `05-data-transfer-object.md` → `06-data-transfer-object.md`, and added `03-data-mapper-vs-active-record.md` plus `07`–`16`.
+- Rewrote & extended `10-architecture/` to 16 files (`README.md`, `00-overview.md`, `01`–`14`), adding `06-microservices-and-when-not-to.md` through `14-evolutionary-architecture.md`.
+- Verified Java 25, TypeScript 5.8, and Python 3.14 enterprise examples via `test_ent_1.js`.

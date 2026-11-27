@@ -1,198 +1,327 @@
 # Unit of Work
 
-**Intent:** maintain a list of objects affected by a business transaction, coordinate writing out the changes, and resolve concurrency problems, so all changes are saved together or not at all.
+| Field | Value |
+| :--- | :--- |
+| **Category** | Enterprise Application Patterns (Transactions) |
+| **Origin** | Martin Fowler (*PoEAA*, 2002) |
+| **Difficulty** | Intermediate |
+| **Prerequisite(s)** | [Repository](file:///E:/Learning/engineering-notes/08-solid-design-patterns/09-enterprise-application-patterns/01-repository.md) |
+| **Status** | Complete |
 
-A use case often changes several objects (an order, its items, the stock levels, a payment record). The unit of work **tracks** all of those changes and **commits them as one transaction** at the end.
+> **TL;DR**: Unit of Work maintains a list of objects affected by a business transaction and coordinates writing out all changes (inserts, updates, deletes) in **one atomic commit**—rolling back everything if any step fails.
 
-## The problem
+---
 
-Without coordination, each step saves immediately:
+## 1. The Problem: Why Does Unit of Work Exist?
+
+In a money transfer or order checkout, a single business operation touches multiple aggregates:
+1. Debit `Account A`
+2. Credit `Account B`
+3. Insert `LedgerEntry`
+
+If each Repository commits immediately on `.save()`, a crash or validation failure after step 1 leaves **Account A debited and Account B uncredited**—corrupting financial data! Plus, firing 50 separate `UPDATE` statements on every setter call destroys DB throughput.
+
+---
+
+## 2. What Is Unit of Work?
+
+A **Unit of Work** tracks every object read, created, modified, or deleted during a business transaction, and at `commit()` time:
+1. Opens (or joins) a single database transaction.
+2. Flushes all changes in dependency order (respecting foreign keys).
+3. Commits atomically—or rolls back everything on error.
+
+---
+
+## 3. How It Works
+
+```mermaid
+sequenceDiagram
+    participant S as Service Layer
+    participant U as UnitOfWork
+    participant DB as Database
+
+    S->>U: begin()
+    S->>U: registerNew(order)
+    S->>U: registerDirty(account)
+    S->>U: commit()
+    U->>DB: BEGIN
+    U->>DB: INSERT order, UPDATE account
+    U->>DB: COMMIT
+```
+
+---
+
+## 4. What Goes Wrong Without It
+
+```ts
+// ❌ BROKEN: Partial write if credit() throws!
+await accountRepo.save(debitAccount);   // Committed!
+await accountRepo.save(creditAccount);  // Throws DB error -> money vanished!
+```
+
+---
+
+## 5. Multi-Language Examples
+
+### Java 25 LTS (`AutoCloseable` Unit of Work)
 
 ```java
-orders.save(order);               // succeeds
-inventory.decrease(item, qty);    // succeeds
-payments.save(payment);           // fails!  ← order and stock are already saved
-```
+import java.util.*;
 
-The system is left in an inconsistent state. You'd also issue many small database round trips instead of one batch.
+public class UnitOfWorkDemo {
+    static class UnitOfWork implements AutoCloseable {
+        private final List<String> ops = new ArrayList<>();
+        private boolean committed = false;
 
-## Core idea
+        void registerNew(String entity) { ops.add("INSERT " + entity); }
+        void registerDirty(String entity) { ops.add("UPDATE " + entity); }
 
-```text
-Start unit of work
-   ├─ load objects        → tracked
-   ├─ modify objects      → marked dirty
-   ├─ add new objects     → marked new
-   └─ remove objects      → marked removed
-Commit
-   └─ write all inserts, updates and deletes in ONE transaction
-      (or roll back everything on failure)
-```
+        void commit() {
+            System.out.println("BEGIN TX -> " + ops + " -> COMMIT");
+            committed = true;
+            ops.clear();
+        }
 
-## Structure
-
-```text
-Service ──► UnitOfWork
-              + registerNew(obj)
-              + registerDirty(obj)
-              + registerRemoved(obj)
-              + commit()
-              + rollback()
-                  │
-                  ▼
-           Repositories / Data mappers ──► Database (one transaction)
-```
-
-## A hand-rolled illustration
-
-```java
-public interface UnitOfWork extends AutoCloseable {
-    void registerNew(Object entity);
-    void registerDirty(Object entity);
-    void registerRemoved(Object entity);
-    void commit();
-    void rollback();
-    @Override void close();
-}
-
-public class JdbcUnitOfWork implements UnitOfWork {
-    private final Connection connection;
-    private final List<Object> newEntities = new ArrayList<>();
-    private final List<Object> dirtyEntities = new ArrayList<>();
-    private final List<Object> removedEntities = new ArrayList<>();
-
-    public JdbcUnitOfWork(DataSource ds) throws SQLException {
-        this.connection = ds.getConnection();
-        this.connection.setAutoCommit(false);              // start a transaction
-    }
-
-    public void registerNew(Object e)     { newEntities.add(e); }
-    public void registerDirty(Object e)   { if (!newEntities.contains(e)) dirtyEntities.add(e); }
-    public void registerRemoved(Object e) { newEntities.remove(e); dirtyEntities.remove(e); removedEntities.add(e); }
-
-    public void commit() {
-        try {
-            newEntities.forEach(this::insert);
-            dirtyEntities.forEach(this::update);
-            removedEntities.forEach(this::delete);
-            connection.commit();
-        } catch (SQLException ex) {
-            rollback();
-            throw new PersistenceException(ex);
+        @Override
+        public void close() {
+            if (!committed && !ops.isEmpty()) {
+                System.out.println("ROLLBACK " + ops);
+                ops.clear();
+            }
         }
     }
 
-    public void rollback() {
-        try { connection.rollback(); } catch (SQLException ignored) { }
+    public static void main(String[] args) {
+        try (var uow = new UnitOfWork()) {
+            uow.registerDirty("Account(A)");
+            uow.registerNew("Order(o-1)");
+            uow.commit();
+        }
     }
-
-    public void close() {
-        try { connection.close(); } catch (SQLException ignored) { }
-    }
-
-    private void insert(Object e) { /* INSERT ... using the connection */ }
-    private void update(Object e) { /* UPDATE ... */ }
-    private void delete(Object e) { /* DELETE ... */ }
 }
 ```
 
-Usage:
+### TypeScript 5.8 (`async` Transaction Runner)
 
-```java
-try (UnitOfWork uow = new JdbcUnitOfWork(dataSource)) {
-    Order order = Order.create(customerId, items);
-    uow.registerNew(order);
+```ts
+class UnitOfWork {
+  private readonly ops: string[] = [];
+  registerNew(entity: string) { this.ops.push('INSERT ' + entity); }
+  registerDirty(entity: string) { this.ops.push('UPDATE ' + entity); }
 
-    Stock stock = stockRepository.find(sku);
-    stock.decrease(qty);
-    uow.registerDirty(stock);
-
-    uow.commit();                  // both changes saved together, or neither
+  async run<T>(work: (uow: UnitOfWork) => Promise<T>): Promise<T> {
+    try {
+      const result = await work(this);
+      console.log('COMMIT:', this.ops);
+      return result;
+    } catch (err) {
+      console.log('ROLLBACK:', this.ops);
+      throw err;
+    }
+  }
 }
+
+new UnitOfWork().run(async (uow) => {
+  uow.registerDirty('Account(A)');
+  uow.registerNew('Order(o-1)');
+});
 ```
 
-In real systems you rarely write this yourself. The point is to understand what your ORM or framework does for you.
+### Python 3.14 (`with` Context Manager)
 
-## You probably already use one
+```python
+class UnitOfWork:
+    def __init__(self) -> None:
+        self.ops: list[str] = []
+        self.committed = False
 
-| Technology | Its unit of work |
-|---|---|
-| JPA / Hibernate | `EntityManager` / `Session`: tracks loaded entities and flushes changes on commit ("dirty checking") |
-| Spring | `@Transactional` defines the boundary within which the persistence context lives |
-| Plain JDBC | `Connection` with `setAutoCommit(false)`, then `commit()` / `rollback()` |
-| Entity Framework (.NET) | `DbContext` and `SaveChanges()` |
+    def __enter__(self) -> "UnitOfWork":
+        return self
 
-With JPA you often don't call `save` on modified entities at all:
+    def register_new(self, entity: str) -> None:
+        self.ops.append(f"INSERT {entity}")
 
-```java
-@Transactional
-public void rename(long id, String newName) {
-    Customer c = em.find(Customer.class, id);
-    c.rename(newName);            // modified in memory
-}                                 // at commit, the change is detected and written
+    def commit(self) -> None:
+        print("COMMIT:", self.ops)
+        self.committed = True
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        if exc_type or not self.committed:
+            print("ROLLBACK:", self.ops)
+
+with UnitOfWork() as uow:
+    uow.register_new("Order(o-1)")
+    uow.commit()
 ```
 
-## Transaction boundary placement
+---
 
-The unit of work should wrap **one use case**, which is why it's normally set at the [service layer](./04-service-layer.md), not in repositories or controllers.
+## 6. Real-World Examples
 
-```text
-Controller → Service.placeOrder() [begin UoW]
-                 ├─ orderRepository.save(...)
-                 ├─ stockRepository ...
-                 └─ paymentRepository ...
-             [commit]  ← all or nothing
-```
+1. **Hibernate / JPA `EntityManager` & `@Transactional`**: Tracks dirty entities automatically in a persistence context and flushes on transaction commit.
+2. **SQLAlchemy `Session` (`with Session(engine) as session:`)**: Built-in Unit of Work + Identity Map.
+3. **EF Core `DbContext.SaveChanges()` / MikroORM `em.flush()`**: Explicit Unit of Work flush.
 
-Repositories participate in the current unit of work; they don't commit on their own.
+---
 
-## Related concerns
+## 7. Variants & Related Patterns
 
-| Concern | Detail |
-|---|---|
-| **Identity map** | Within a unit of work, loading the same row twice returns the same object, avoiding duplicates and conflicting edits |
-| **Optimistic locking** | A version field detects that someone else changed the data since you read it, and commit fails instead of overwriting |
-| **Batching** | Combining many inserts/updates into fewer round trips |
-| **Flush order** | Deletes, inserts and updates must respect foreign-key constraints |
+- **Explicit Registration** (`uow.registerDirty(x)`): Simple, zero reflection magic.
+- **Automatic Dirty-Checking** (Hibernate/SQLAlchemy): Snapshots loaded entities and diffs on commit.
+- **Related**: [Repository](file:///E:/Learning/engineering-notes/08-solid-design-patterns/09-enterprise-application-patterns/01-repository.md), [Identity Map](file:///E:/Learning/engineering-notes/08-solid-design-patterns/09-enterprise-application-patterns/07-identity-map.md), [Service Layer](file:///E:/Learning/engineering-notes/08-solid-design-patterns/09-enterprise-application-patterns/05-service-layer.md).
 
-## When to use it
+---
 
-- A use case modifies several related objects that must stay consistent.
-- You want fewer, batched database operations.
-- You want explicit, testable transaction boundaries.
+## 8. Advantages
 
-You usually get it from the ORM or framework, so the decision is more "where do I place the boundary" than "should I write one".
+- **Atomic Consistency**: All-or-nothing database writes across multiple Repositories.
+- **Batched Writes**: Coalesces multiple mutations to the same row into one `UPDATE`.
+- **Clean Rollbacks**: Context managers (`try-with-resources`, `with`) guarantee rollback on exceptions.
 
-## Common mistakes
+---
 
-- **Committing inside repositories**, so each call is its own transaction and consistency is lost.
-- **Very long-lived units of work** (for example, held across user think time), which hold locks and grow memory.
-- **Transactions that include slow external calls** (HTTP, email), holding database locks while waiting. Do those outside, or after commit.
-- **Forgetting to roll back** on exceptions, or swallowing errors so partial changes are committed.
-- **Self-invocation with proxy-based `@Transactional`**: a call inside the same class bypasses the proxy, so no transaction starts (see [Proxy](../05-structural-patterns/07-proxy.md)).
-- **Lazy-loading outside the session** (`LazyInitializationException`). Fetch what you need inside the boundary.
-- **Assuming "save" writes immediately.** With an ORM, writes happen at flush or commit.
+## 9. Limitations & When NOT to Use
 
-## Debugging
+- **Cross-Service / Distributed Writes**: A DB Unit of Work cannot span two separate microservices—use **Saga** + **Outbox** ([Module 11](file:///E:/Learning/engineering-notes/08-solid-design-patterns/11-distributed-and-cloud-patterns/README.md)).
+- **Long-Running Transactions**: Never hold a DB Unit of Work open while waiting on user input or slow external HTTP calls (locks DB connections/rows).
 
-| Symptom | Likely cause |
-|---|---|
-| Changes not persisted | No active transaction, or the object isn't managed |
-| Partial data saved | Multiple transactions where one use case was expected |
-| `OptimisticLockException` | Concurrent modification; retry or reload |
-| Unexpected extra SQL | Dirty checking flushing, or N+1 loads inside the unit |
+---
 
-## Quick Summary
+## 10. Anti-Patterns & Common Mistakes
 
-- A unit of work tracks changes during a use case and commits them atomically.
-- ORMs and `@Transactional` already provide it; you mainly decide the boundary.
-- Place it at the service layer, one per use case, and keep it short.
-- Avoid external calls inside it, and be careful with lazy loading and proxies.
+| Mistake | Why It Fails | Fix |
+| :--- | :--- | :--- |
+| Making external HTTP calls *inside* a DB transaction | Holds DB connections/locks during network timeouts | Call external APIs outside TX or use **Outbox Pattern** |
+| Sharing one Unit of Work across concurrent threads | Corrupts session state and transaction boundaries | Scope 1 Unit of Work per request/use-case |
+| Swallowing exceptions inside `with uow:` before `commit()` | Silently skips commit or commits partial state | Let exceptions propagate so `__exit__` rolls back |
+| Calling `commit()` inside nested helper methods | Prematurely commits an outer transaction | Only the outermost Service Layer / UoW commits |
+| Keeping a Unit of Work open for bulk 1M-row ETL | Identity Map grows until OOM | Batch in chunks of 500–1,000 and clear session |
+| Confusing `flush()` with `commit()` | `flush` sends SQL to DB TX, but changes still roll back until `commit()` | Understand both lifecycle stages |
 
-## Related
+---
 
-[Repository](./01-repository.md) · [Service Layer](./04-service-layer.md) · [Proxy](../05-structural-patterns/07-proxy.md)
+## 11. Comparison: UoW vs Auto-Commit per Repo
 
-## Next
+| Aspect | Unit of Work | Auto-Commit per Repo |
+| :--- | :--- | :--- |
+| **Multi-Repo Atomicity** | Guaranteed (`COMMIT`/`ROLLBACK`) | Broken (partial writes on failure) |
+| **DB Round Trips** | Batched on commit | 1 TX per `save()` |
 
-[03-specification.md](./03-specification.md)
+---
+
+## 12. Design Checklist
+
+- [ ] Is every Unit of Work scoped to a single request/use-case?
+- [ ] Are slow external HTTP calls kept *outside* the active DB transaction?
+- [ ] Does failure automatically trigger rollback (`AutoCloseable` / `with` / `@Transactional`)?
+
+---
+
+## 13. Interview Questions
+
+<details>
+<summary>1. What problem does Unit of Work solve alongside Repository?</summary>
+
+Repository abstracts persistence per Aggregate, while Unit of Work coordinates atomic transactions and change tracking across multiple Repositories.
+
+</details>
+
+<details>
+<summary>2. Why shouldn't you make external HTTP calls inside a Unit of Work transaction?</summary>
+
+Holding a DB transaction open during slow network I/O exhausts the DB connection pool and holds row locks, causing timeouts across unrelated requests.
+
+</details>
+
+<details>
+<summary>3. How do SQLAlchemy `Session` and JPA `EntityManager` implement Unit of Work?</summary>
+
+Both track loaded entities in an Identity Map, detect dirty fields automatically, order SQL inserts/updates/deletes to satisfy foreign keys, and execute them in one transaction on commit.
+
+</details>
+
+<details>
+<summary>4. What happens if you process 1,000,000 rows in a single Unit of Work?</summary>
+
+The internal change-tracking map / Identity Map retains all 1M objects in RAM, causing `OutOfMemoryError`. Flush and clear in small batches (e.g., every 500 rows).
+
+</details>
+
+<details>
+<summary>5. What is the difference between `flush()` and `commit()`?</summary>
+
+`flush()` sends pending SQL statements to the database within the open transaction (making them visible to subsequent queries in that same TX), while `commit()` permanently finalizes the transaction.
+
+</details>
+
+<details>
+<summary>6. Can a Unit of Work span two different databases or microservices?</summary>
+
+No (unless using slow 2PC/XA). Use the Saga pattern + Outbox pattern for cross-service consistency.
+
+</details>
+
+<details>
+<summary>7. Where should `uow.commit()` be called?</summary>
+
+At the Service Layer / use-case boundary, never inside individual Repositories.
+
+</details>
+
+<details>
+<summary>8. How do Python `with` and Java `try-with-resources` help Unit of Work?</summary>
+
+They guarantee `rollback()` / cleanup executes automatically even if an exception is thrown mid-use-case.
+
+</details>
+
+---
+
+## 14. Practice Exercises
+
+<details>
+<summary>Exercise 1: Bank Transfer with Rollback</summary>
+
+Implement `transfer(fromId, toId, amount)` using `UnitOfWork` where an exception during `credit` rolls back `debit`.
+
+</details>
+
+<details>
+<summary>Exercise 2: Dirty-Tracking Wrapper</summary>
+
+Extend the Python `UnitOfWork` to track `new`, `dirty`, and `removed` sets and print them in `INSERT -> UPDATE -> DELETE` order on `commit()`.
+
+</details>
+
+<details>
+<summary>Exercise 3: Batch Clear</summary>
+
+Demonstrate batching 1,000 inserts in chunks of 100 with `flush()` + `clear()`.
+
+</details>
+
+---
+
+## 15. Cheat Sheet
+
+- **Role**: Atomic transaction coordinator + change tracker.
+- **Scope**: 1 per request/use-case, never shared across threads.
+- **Rule**: No slow HTTP calls inside the TX; commit at Service Layer.
+
+---
+
+## 16. In Your Language
+
+| Track | Relevant Deep-Dive |
+| :--- | :--- |
+| **Java** | [Spring Transactions](file:///E:/Learning/engineering-notes/03-backend/spring-boot/README.md) |
+| **TypeScript** | [Node/NestJS Transactions](file:///E:/Learning/engineering-notes/03-backend/nestjs/README.md) |
+| **Python** | [SQLAlchemy Sessions](file:///E:/Learning/engineering-notes/01-languages/python/19-database-access/README.md) |
+
+---
+
+## 17. Navigation
+
+| Previous | Up | Next |
+| :--- | :--- | :--- |
+| [Repository](file:///E:/Learning/engineering-notes/08-solid-design-patterns/09-enterprise-application-patterns/01-repository.md) | [Module 09](file:///E:/Learning/engineering-notes/08-solid-design-patterns/09-enterprise-application-patterns/README.md) | [Data Mapper vs Active Record](file:///E:/Learning/engineering-notes/08-solid-design-patterns/09-enterprise-application-patterns/03-data-mapper-vs-active-record.md) |

@@ -1,221 +1,184 @@
-# Clean, Hexagonal and Onion Architecture
+# Clean, Hexagonal (Ports & Adapters) & Onion Architecture
 
-Three named architectures, one central idea: **business logic sits at the center and depends on nothing external. Frameworks, databases, UIs and other systems depend on the business logic, never the reverse.**
+| Field | Value |
+| :--- | :--- |
+| **Category** | Software Architecture (Dependency Inversion) |
+| **Origin** | Alistair Cockburn (Hexagonal, 2005), Jeffrey Palermo (Onion, 2008), Robert C. Martin (Clean, 2012) |
+| **Difficulty** | Intermediate → Advanced |
+| **Prerequisite(s)** | [Dependency Inversion Principle](file:///E:/Learning/engineering-notes/08-solid-design-patterns/02-solid-principles/05-dependency-inversion-principle.md), [Layered Architecture](file:///E:/Learning/engineering-notes/08-solid-design-patterns/10-architecture/01-layered.md) |
+| **Status** | Complete |
 
-This is [Dependency Inversion](../02-solid-principles/05-dependency-inversion.md) applied to the whole application, and it addresses the main weakness of [classic layered architecture](./01-layered.md), where the domain ends up depending on the database.
+> **TL;DR**: Hexagonal, Onion, and Clean Architecture all enforce one golden rule—**The Dependency Rule**: source-code dependencies must point **inward** toward the pure Domain Core. Databases, HTTP frameworks, and external APIs are **plugins (Adapters)** implementing **Ports (Interfaces)** owned by the core.
 
-## The shared idea
+---
 
-```text
-Classic layered:                     Dependency-inverted:
+## 1. The Problem: Why Do Clean & Hexagonal Exist?
 
-Presentation                          Web / CLI / Queue ─┐
-     │                                                    ▼
-Business ──► Data access ──► DB                   ┌──────────────┐
-                                                  │   Business   │  ← knows nothing about the outside
-                                                  └──────────────┘
-                                                    ▲           ▲
-                                      Database adapter     Email adapter
+In classic Layered Architecture, your business logic imports Hibernate `@Entity`, Express `Request`, or Django `models.Model`. When you try to:
+1. Run fast unit tests → you have to boot PostgreSQL or an HTTP test server.
+2. Upgrade a major framework or swap MongoDB for PostgreSQL → you rewrite business logic.
+3. Expose the same domain use case via both REST and Kafka → HTTP assumptions are baked into the core.
+
+---
+
+## 2. How Ports & Adapters (Hexagonal) Works
+
+- **Inside the Hexagon (Core)**: Domain Entities, Value Objects, Use Cases / Application Services, and **Ports** (interfaces). Zero framework/SQL imports!
+- **Inbound (Driving) Adapters**: REST Controllers, GraphQL resolvers, CLI commands, Kafka consumers—they call **Inbound Ports** (`PlaceOrderUseCase`).
+- **Outbound (Driven) Adapters**: Postgres Repositories, Stripe Gateways, Redis Caches—they *implement* **Outbound Ports** (`OrderRepository`, `PaymentGateway`) defined by the core.
+
+```mermaid
+flowchart LR
+    REST["REST Controller<br/>(Driving Adapter)"] --> IP["Inbound Port<br/>(UseCase Interface)"]
+    IP --> CORE["Domain Core + Use Cases<br/>(Zero Framework Imports)"]
+    CORE --> OP["Outbound Port<br/>(Repo / Gateway Interface)"]
+    OP <|.. PG["Postgres Adapter<br/>(Driven Adapter)"]
+    OP <|.. ST["Stripe Adapter<br/>(Driven Adapter)"]
 ```
 
-The source-code dependency arrows point **inward**, toward the business rules.
+---
 
-## The three names
+## 3. Clean vs Hexagonal vs Onion
 
-| Name | Origin | Vocabulary | Emphasis |
-|---|---|---|---|
-| **Hexagonal** (Ports and Adapters) | Alistair Cockburn | Ports (interfaces), adapters (implementations) | Symmetry between inbound and outbound connections; many ways in, many ways out |
-| **Onion** | Jeffrey Palermo | Concentric rings: domain model, domain services, application services, infrastructure | Domain model at the very center; layering by ring |
-| **Clean** | Robert C. Martin | Entities, use cases, interface adapters, frameworks & drivers | The Dependency Rule, with use cases as a distinct ring |
+| Name | Emphasis |
+| :--- | :--- |
+| **Hexagonal (Ports & Adapters)** | Symmetry of Inbound/Outbound Ports and swappable Adapters |
+| **Onion Architecture** | Concentric rings around Domain Model → Domain Services → Application Services → Infra |
+| **Clean Architecture** | Entities → Use Cases → Interface Adapters → Frameworks & Drivers (**Dependency Rule**) |
 
-They differ in diagrams and terminology, not in the essential rule. You can treat them as one architecture, and pick the vocabulary your team likes. The "ports and adapters" terms are the most practical.
+All three share the **exact same core idea**: isolate business rules from I/O and frameworks via Dependency Inversion.
 
-## Core concepts (ports and adapters)
+---
 
-```text
-              ┌────────────────────────────────────────┐
- HTTP ──►     │                                        │     ──► Database
- Adapter      │   Inbound port ► Application / Domain  │ Outbound port ► Adapter
- CLI  ──►     │   (use cases)         (rules)          │     ──► Email adapter
- Messages ──► │                                        │     ──► Payment API adapter
-              └────────────────────────────────────────┘
-              driving side            core            driven side
-```
+## 4. Multi-Language Minimal Port & Adapter Example
 
-| Term | Meaning |
-|---|---|
-| **Core (domain + application)** | Business rules and use cases; pure Java, no framework |
-| **Inbound (driving) port** | Interface the outside uses to *call* the core: a use case |
-| **Outbound (driven) port** | Interface the core uses to *call out*: persistence, email, payments |
-| **Inbound adapter** | Translates an external input (HTTP request) into a port call |
-| **Outbound adapter** | Implements an outbound port using a technology (JPA, SMTP) |
-
-The Dependency Rule: **adapters depend on ports, ports belong to the core**. The core never imports an adapter, a framework type or a database class.
-
-## Example
-
+### Java 25 LTS
 ```java
-// ---------- Core ----------
-// Inbound port (use case)
-public interface PlaceOrderUseCase {
-    OrderId place(PlaceOrderCommand command);
-}
-
-// Outbound ports (owned by the core, shaped by its needs)
-public interface OrderStore {
-    void save(Order order);
-}
-public interface PaymentPort {
-    PaymentResult charge(CustomerId customer, Money amount);
-}
-
-// Use case implementation: pure business orchestration
-public class PlaceOrderService implements PlaceOrderUseCase {
-    private final OrderStore orders;
-    private final PaymentPort payments;
-
-    public PlaceOrderService(OrderStore orders, PaymentPort payments) {
-        this.orders = orders;
-        this.payments = payments;
+public class HexagonalDemo {
+    // Outbound Port (owned by Core)
+    interface OrderRepoPort { void save(String id, long cents); }
+    // Inbound Port / Use Case
+    static class PlaceOrderUseCase {
+        private final OrderRepoPort repo;
+        PlaceOrderUseCase(OrderRepoPort repo) { this.repo = repo; }
+        String execute(long cents) {
+            if (cents <= 0) throw new IllegalArgumentException("Bad cents");
+            repo.save("ord-1", cents);
+            return "ord-1";
+        }
     }
-
-    public OrderId place(PlaceOrderCommand cmd) {
-        Order order = Order.create(cmd.customerId(), cmd.items());
-        PaymentResult result = payments.charge(cmd.customerId(), order.total());
-        if (!result.successful()) throw new PaymentDeclined();
-        order.markPaid();
-        orders.save(order);
-        return order.id();
+    public static void main(String[] args) {
+        var useCase = new PlaceOrderUseCase((id, c) -> System.out.println("Adapter saved " + id));
+        System.out.println("Result: " + useCase.execute(1000));
     }
 }
-
-// ---------- Adapters ----------
-// Inbound adapter (web)
-@RestController
-class OrderController {
-    private final PlaceOrderUseCase placeOrder;
-    OrderController(PlaceOrderUseCase placeOrder) { this.placeOrder = placeOrder; }
-
-    @PostMapping("/orders")
-    ResponseEntity<String> place(@RequestBody PlaceOrderRequest req) {
-        OrderId id = placeOrder.place(req.toCommand());
-        return ResponseEntity.status(201).body(id.value());
-    }
-}
-
-// Outbound adapter (persistence)
-class JpaOrderStore implements OrderStore {
-    private final OrderJpaRepository jpa;
-    private final OrderMapper mapper;
-    // maps the domain Order to a JPA entity and saves it
-    public void save(Order order) { jpa.save(mapper.toEntity(order)); }
-}
-
-// Outbound adapter (payment provider)
-class StripePaymentAdapter implements PaymentPort {
-    public PaymentResult charge(CustomerId c, Money amount) { /* call Stripe's API, translate result */ }
-}
 ```
 
-The use case has no idea whether it's driven by HTTP, a CLI or a message queue, or whether orders are saved in PostgreSQL or memory.
-
-## Suggested package layout
-
-```text
-com.shop.orders
-├── domain               Order, OrderId, Money (pure business model)
-├── application
-│   ├── port.in          PlaceOrderUseCase, PlaceOrderCommand
-│   ├── port.out         OrderStore, PaymentPort
-│   └── PlaceOrderService
-└── adapter
-    ├── in.web           OrderController, PlaceOrderRequest
-    └── out
-        ├── persistence  JpaOrderStore, OrderEntity, OrderMapper
-        └── payment      StripePaymentAdapter
+### TypeScript 5.8
+```ts
+// Port
+interface OrderRepoPort { save(id: string, cents: number): Promise<void>; }
+// Core Use Case
+const makePlaceOrder = (repo: OrderRepoPort) => async (cents: number) => {
+  if (cents <= 0) throw new Error('Bad cents');
+  await repo.save('ord-1', cents);
+  return 'ord-1';
+};
+// Adapter
+makePlaceOrder({ save: async (id, c) => console.log('Adapter saved', id, c) })(1000);
 ```
 
-The rule to verify: `domain` and `application` import nothing from `adapter`, nor from framework packages.
+### Python 3.14
+```python
+from typing import Protocol
 
-## Testing benefits
+class OrderRepoPort(Protocol):
+    def save(self, order_id: str, cents: int) -> None: ...
 
-```java
-@Test
-void declinedPaymentDoesNotSaveOrder() {
-    var orders = new InMemoryOrderStore();
-    PaymentPort declining = (customer, amount) -> PaymentResult.declined();
-    var service = new PlaceOrderService(orders, declining);
+class PlaceOrderUseCase:
+    def __init__(self, repo: OrderRepoPort) -> None:
+        self._repo = repo
+    def execute(self, cents: int) -> str:
+        if cents <= 0: raise ValueError("Bad cents")
+        self._repo.save("ord-1", cents)
+        return "ord-1"
 
-    assertThrows(PaymentDeclined.class, () -> service.place(command));
-    assertTrue(orders.isEmpty());
-}
+class MemoryAdapter:
+    def save(self, order_id: str, cents: int) -> None:
+        print("Adapter saved", order_id, cents)
+
+print(PlaceOrderUseCase(MemoryAdapter()).execute(1000))
 ```
 
-Core logic is tested with plain objects and in-memory fakes: fast, no containers, no database. Adapters are tested separately (an integration test for `JpaOrderStore` against a real or containerized database).
+---
 
-## Layered vs hexagonal
+## 5. Real-World Examples
 
-| | Layered | Hexagonal / clean |
-|---|---|---|
-| Dependency direction | Downward, ending at data | Inward toward the domain |
-| Domain depends on persistence? | Often yes | **No** |
-| Swapping database/framework | Hard | Contained to adapters |
-| Test without infrastructure | Needs mocks of lower layers | Natural: use ports with fakes |
-| Cost | Low | More interfaces and mapping |
+1. **Testability**: Testing 200 domain use cases in < 100 ms using in-memory Port fakes instead of Dockerized Postgres.
+2. **Multi-Channel Apps**: Driving the exact same Core from REST, gRPC, and CLI adapters.
 
-## Costs and trade-offs
+---
 
-| Cost | Detail |
-|---|---|
-| **More types** | Ports, adapters, commands, mappers |
-| **Mapping overhead** | Domain ↔ persistence entity ↔ DTO conversions |
-| **Learning curve** | The team must follow the dependency rule consistently |
-| **Overkill for simple CRUD** | Pure pass-through use cases add ceremony without benefit |
+## 6. Advantages & Limitations
 
-A pragmatic compromise: allow annotations such as persistence mappings on domain classes in a simple project, accepting some framework coupling for fewer mappers, and keep strict separation where the domain is rich.
+- **Advantages**: Millisecond unit tests, framework independence, crystal-clear separation of business rules vs I/O.
+- **Limitations**: Extra mapping/interface boilerplate (`DomainOrder` ↔ `JpaOrderEntity` ↔ `OrderResponseDto`)—overkill for simple CRUD microservices.
 
-## When to use it
+---
 
-- Business logic is complex and long-lived.
-- You expect to change technologies (database, messaging, UI).
-- Fast, infrastructure-free tests are valuable.
-- The system has several entry points (web, CLI, queue consumers).
+## 7. Anti-Patterns & Common Mistakes
 
-Skip or relax it for small CRUD services, prototypes and scripts.
+| Mistake | Why It Fails | Fix |
+| :--- | :--- | :--- |
+| Importing Spring/NestJS/SQLAlchemy inside the Core | Violates the Dependency Rule | Keep Core 100% pure language types |
+| Using Clean Architecture for a 3-endpoint CRUD proxy | Massive mapping overhead for zero domain logic | Use Layered/Transaction Script for simple CRUD |
+| Creating 1-to-1 `Port` interfaces for things that will never be swapped (e.g., `StringUtilsPort`) | Boilerplate bloat | Only define Ports at **I/O boundaries** (DB, HTTP, Queue, Clock) |
+| Letting ORM entities act as Domain Entities | Couples Core to DB annotations & lazy proxies | Map at the Persistence Adapter boundary |
 
-## Common mistakes
+---
 
-- **Framework types in the core** (`@Entity`, Spring annotations or `HttpServletRequest` in domain classes) when you intended strict separation.
-- **Ports shaped by the adapter**, for example an outbound port that exposes JPA concepts.
-- **Pass-through use cases** that only call a repository, adding layers without logic.
-- **Mapping everything everywhere**: create separate models only where they truly differ.
-- **Letting adapters call each other directly**, bypassing the core.
-- **One giant port interface** per module. Keep ports small ([ISP](../02-solid-principles/04-interface-segregation.md)).
-- **Treating folder structure as the architecture.** Verify dependencies with tests.
-- **Domain events or exceptions** that leak infrastructure details.
+## 8. Interview Questions
 
-## Enforcing it
+<details>
+<summary>1. What is the Dependency Rule in Clean Architecture?</summary>
 
-Add an architecture test that fails the build when the core imports an adapter or framework package:
+Source-code dependencies may only point **inward**: outer layers (Web, DB, Frameworks) can depend on inner layers (Use Cases, Entities), never the reverse.
 
-```java
-@ArchTest
-static final ArchRule core_does_not_depend_on_adapters =
-        noClasses().that().resideInAnyPackage("..domain..", "..application..")
-                   .should().dependOnClassesThat().resideInAPackage("..adapter..");
-```
+</details>
 
-## Quick Summary
+<details>
+<summary>2. What is the difference between a Driving (Inbound) Adapter and a Driven (Outbound) Adapter?</summary>
 
-- Clean, hexagonal and onion architecture share one rule: dependencies point inward to the business core.
-- Ports are interfaces owned by the core; adapters implement them with specific technologies.
-- Benefits: framework independence, fast tests, replaceable infrastructure.
-- Costs: more types and mapping; not worth it for simple CRUD.
+A Driving Adapter initiates calls *into* the application (REST Controller, CLI, Queue Consumer). A Driven Adapter is called *by* the application to talk to external systems (Database Repository, Email Gateway).
 
-## Related
+</details>
 
-[Layered](./01-layered.md) · [Dependency Inversion](../02-solid-principles/05-dependency-inversion.md) · [Adapter pattern](../05-structural-patterns/01-adapter.md) · [Domain-driven design](./04-domain-driven-design.md) · [Test doubles](../09-testing-and-debugging/02-test-doubles.md)
+<details>
+<summary>3. When is Clean/Hexagonal Architecture overkill?</summary>
 
-## Next
+For simple CRUD services, admin dashboards, or short-lived prototypes with minimal business rules.
 
-[03-modular-monolith.md](./03-modular-monolith.md)
+</details>
+
+<details>
+<summary>4. How do you enforce the Dependency Rule automatically?</summary>
+
+Using Architecture Fitness Functions (`ArchUnit` in Java, `dependency-cruiser` in TS, `import-linter` in Python) in CI.
+
+</details>
+
+---
+
+## 9. Cheat Sheet
+
+- **Rule**: Dependencies point **inward**; Core has zero framework/DB imports.
+- **Ports**: Interfaces at I/O boundaries owned by Core.
+- **Adapters**: Swappable REST, SQL, HTTP, and Test implementations.
+
+---
+
+## 10. Navigation
+
+| Previous | Up | Next |
+| :--- | :--- | :--- |
+| [Layered Architecture](file:///E:/Learning/engineering-notes/08-solid-design-patterns/10-architecture/01-layered.md) | [Module 10](file:///E:/Learning/engineering-notes/08-solid-design-patterns/10-architecture/README.md) | [Modular Monolith](file:///E:/Learning/engineering-notes/08-solid-design-patterns/10-architecture/03-modular-monolith.md) |

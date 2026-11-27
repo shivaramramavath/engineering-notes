@@ -19,8 +19,8 @@
 | **06** | Structural Patterns (`06-structural-patterns/`) | 12 | 12 | Complete |
 | **07** | Behavioral Patterns (`07-behavioral-patterns/`) | 16 | 16 | Complete |
 | **08** | Concurrency Patterns (`08-concurrency-patterns/`) | 15 | 15 | Complete |
-| **09** | Enterprise Application Patterns (`09-enterprise-application-patterns/`) | 17 | 0 | Pending |
-| **10** | Architecture (`10-architecture/`) | 15 | 0 | Pending |
+| **09** | Enterprise Application Patterns (`09-enterprise-application-patterns/`) | 18 | 18 | Complete |
+| **10** | Architecture (`10-architecture/`) | 16 | 16 | Complete |
 | **11** | Distributed & Cloud Patterns (`11-distributed-and-cloud-patterns/`) | 21 | 0 | Pending |
 | **12** | Functional & Modern Idioms (`12-functional-and-modern-idioms/`) | 12 | 12 | Complete |
 | **13** | Anti-Patterns & Code Smells (`13-anti-patterns-and-code-smells/`) | 21 | 0 | Pending |
@@ -170,42 +170,42 @@
 - [x] `08-concurrency-patterns/13-backpressure-and-flow-control.md`
 
 ### Module 09: Enterprise Application Patterns (`09-enterprise-application-patterns/`)
-- [ ] `09-enterprise-application-patterns/README.md`
-- [ ] `09-enterprise-application-patterns/00-overview.md`
-- [ ] `09-enterprise-application-patterns/01-repository.md`
-- [ ] `09-enterprise-application-patterns/02-unit-of-work.md`
-- [ ] `09-enterprise-application-patterns/03-data-mapper-vs-active-record.md`
-- [ ] `09-enterprise-application-patterns/04-specification.md`
-- [ ] `09-enterprise-application-patterns/05-service-layer.md`
-- [ ] `09-enterprise-application-patterns/06-data-transfer-object.md`
-- [ ] `09-enterprise-application-patterns/07-identity-map.md`
-- [ ] `09-enterprise-application-patterns/08-lazy-loading.md`
-- [ ] `09-enterprise-application-patterns/09-gateway-and-adapter-for-external-systems.md`
-- [ ] `09-enterprise-application-patterns/10-domain-model-vs-transaction-script.md`
-- [ ] `09-enterprise-application-patterns/11-anemic-vs-rich-domain-model.md`
-- [ ] `09-enterprise-application-patterns/12-mvc-mvp-mvvm.md`
-- [ ] `09-enterprise-application-patterns/13-plugin-and-registry.md`
-- [ ] `09-enterprise-application-patterns/14-optimistic-and-pessimistic-locking-patterns.md`
-- [ ] `09-enterprise-application-patterns/15-value-object-entity-aggregate.md`
-- [ ] `09-enterprise-application-patterns/16-domain-events.md`
+- [x] `09-enterprise-application-patterns/README.md`
+- [x] `09-enterprise-application-patterns/00-overview.md`
+- [x] `09-enterprise-application-patterns/01-repository.md`
+- [x] `09-enterprise-application-patterns/02-unit-of-work.md`
+- [x] `09-enterprise-application-patterns/03-data-mapper-vs-active-record.md`
+- [x] `09-enterprise-application-patterns/04-specification.md`
+- [x] `09-enterprise-application-patterns/05-service-layer.md`
+- [x] `09-enterprise-application-patterns/06-data-transfer-object.md`
+- [x] `09-enterprise-application-patterns/07-identity-map.md`
+- [x] `09-enterprise-application-patterns/08-lazy-loading.md`
+- [x] `09-enterprise-application-patterns/09-gateway-and-adapter-for-external-systems.md`
+- [x] `09-enterprise-application-patterns/10-domain-model-vs-transaction-script.md`
+- [x] `09-enterprise-application-patterns/11-anemic-vs-rich-domain-model.md`
+- [x] `09-enterprise-application-patterns/12-mvc-mvp-mvvm.md`
+- [x] `09-enterprise-application-patterns/13-plugin-and-registry.md`
+- [x] `09-enterprise-application-patterns/14-optimistic-and-pessimistic-locking-patterns.md`
+- [x] `09-enterprise-application-patterns/15-value-object-entity-aggregate.md`
+- [x] `09-enterprise-application-patterns/16-domain-events.md`
 
 ### Module 10: Architecture (`10-architecture/`)
-- [ ] `10-architecture/README.md`
-- [ ] `10-architecture/00-overview.md`
-- [ ] `10-architecture/01-layered.md`
-- [ ] `10-architecture/02-clean-hexagonal-onion.md`
-- [ ] `10-architecture/03-modular-monolith.md`
-- [ ] `10-architecture/04-domain-driven-design.md`
-- [ ] `10-architecture/05-event-driven.md`
-- [ ] `10-architecture/06-microservices-and-when-not-to.md`
-- [ ] `10-architecture/07-cqrs-and-event-sourcing.md`
-- [ ] `10-architecture/08-serverless-and-function-patterns.md`
-- [ ] `10-architecture/09-pipes-and-filters.md`
-- [ ] `10-architecture/10-micro-kernel-and-plugin.md`
-- [ ] `10-architecture/11-space-based-and-cell-based.md`
-- [ ] `10-architecture/12-architecture-decision-records.md`
-- [ ] `10-architecture/13-architecture-fitness-functions.md`
-- [ ] `10-architecture/14-evolutionary-architecture.md`
+- [x] `10-architecture/README.md`
+- [x] `10-architecture/00-overview.md`
+- [x] `10-architecture/01-layered.md`
+- [x] `10-architecture/02-clean-hexagonal-onion.md`
+- [x] `10-architecture/03-modular-monolith.md`
+- [x] `10-architecture/04-domain-driven-design.md`
+- [x] `10-architecture/05-event-driven.md`
+- [x] `10-architecture/06-microservices-and-when-not-to.md`
+- [x] `10-architecture/07-cqrs-and-event-sourcing.md`
+- [x] `10-architecture/08-serverless-and-function-patterns.md`
+- [x] `10-architecture/09-pipes-and-filters.md`
+- [x] `10-architecture/10-micro-kernel-and-plugin.md`
+- [x] `10-architecture/11-space-based-and-cell-based.md`
+- [x] `10-architecture/12-architecture-decision-records.md`
+- [x] `10-architecture/13-architecture-fitness-functions.md`
+- [x] `10-architecture/14-evolutionary-architecture.md`
 
 ### Module 11: Distributed & Cloud Patterns (`11-distributed-and-cloud-patterns/`)
 - [ ] `11-distributed-and-cloud-patterns/README.md`
