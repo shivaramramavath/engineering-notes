@@ -29,3 +29,9 @@ All structural changes, renames, additions, corrections, and verified code runs 
     - SOLID in Practice: Full OrderProcessor pipeline verified in `test_practice.js`.
     - Functional SOLID: Pure lambdas, curried DI, and higher-order functions verified in `test_fp.js`.
   - Verified 100% adherence to the 17-section template across all notes (each between 430 and 662 lines).
+
+### 2026-11-27 (Batch 2) - Module 03: General Design Principles Completion
+- **Module 03: General Design Principles (`03-design-principles/`)**:
+  - Authored 22 complete files: `README.md`, `00-overview.md`, and `01-dry-and-rule-of-three.md` through `20-principles-cheat-sheet.md`.
+  - Covered DRY & Rule of Three, KISS, YAGNI, Law of Demeter, Separation of Concerns, Tell-Don't-Ask, Principle of Least Astonishment, Fail-Fast, Boy Scout Rule, High Cohesion & Low Coupling, Orthogonality, Postel's Law (including RFC 9413 security nuances), Hollywood Principle / IoC, Craig Larman's 9 GRASP patterns, Robert C. Martin's 6 Package Principles (REP, CCP, CRP, ADP, SDP, SAP), Premature Optimisation & Measuring, Idempotency Principle, Conway's Law & Team Topologies, Principles Conflicts & Trade-offs, and Operational Cheat Sheet.
+  - Verified runnable multi-language examples (Java 25 LTS, TypeScript 5.8, Python 3.14) via scratch runner scripts `test_m3_batch1.js`, `test_kiss_yagni.js`, `test_m3_batch2.js`, and `test_idempotency.js`.

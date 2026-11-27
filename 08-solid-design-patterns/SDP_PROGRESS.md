@@ -13,7 +13,7 @@
 | **00** | Root Governance (README, INDEX, GLOSSARY, ROADMAP, CONTRIBUTING) | 5 | 5 | Complete |
 | **01** | Foundations (`01-foundations/`) | 11 | 11 | Complete |
 | **02** | SOLID Principles (`02-solid-principles/`) | 10 | 10 | Complete |
-| **03** | General Design Principles (`03-design-principles/`) | 21 | 0 | Pending |
+| **03** | General Design Principles (`03-design-principles/`) | 21 | 21 | Complete |
 | **04** | Patterns Introduction (`04-patterns-intro/`) | 6 | 0 | Pending |
 | **05** | Creational Patterns (`05-creational-patterns/`) | 12 | 0 | Pending |
 | **06** | Structural Patterns (`06-structural-patterns/`) | 12 | 0 | Pending |
@@ -71,28 +71,28 @@
 - [x] `02-solid-principles/09-criticisms-and-limits-of-solid.md`
 
 ### Module 03: General Design Principles (`03-design-principles/`)
-- [ ] `03-design-principles/README.md`
-- [ ] `03-design-principles/00-overview.md`
-- [ ] `03-design-principles/01-dry-and-rule-of-three.md`
-- [ ] `03-design-principles/02-kiss-principle.md`
-- [ ] `03-design-principles/03-yagni.md`
-- [ ] `03-design-principles/04-law-of-demeter.md`
-- [ ] `03-design-principles/05-separation-of-concerns.md`
-- [ ] `03-design-principles/06-tell-dont-ask.md`
-- [ ] `03-design-principles/07-principle-of-least-astonishment.md`
-- [ ] `03-design-principles/08-fail-fast-principle.md`
-- [ ] `03-design-principles/09-boy-scout-rule-and-continuous-refactoring.md`
-- [ ] `03-design-principles/10-high-cohesion-low-coupling-in-practice.md`
-- [ ] `03-design-principles/11-orthogonality.md`
-- [ ] `03-design-principles/12-postels-law-robustness-principle.md`
-- [ ] `03-design-principles/13-hollywood-principle-and-inversion-of-control.md`
-- [ ] `03-design-principles/14-grasp-principles.md`
-- [ ] `03-design-principles/15-package-and-component-principles.md`
-- [ ] `03-design-principles/16-premature-optimisation-and-measuring.md`
-- [ ] `03-design-principles/17-idempotency-principle.md`
-- [ ] `03-design-principles/18-conways-law-and-socio-technical-design.md`
-- [ ] `03-design-principles/19-principles-conflicts-and-trade-offs.md`
-- [ ] `03-design-principles/20-principles-cheat-sheet.md`
+- [x] `03-design-principles/README.md`
+- [x] `03-design-principles/00-overview.md`
+- [x] `03-design-principles/01-dry-and-rule-of-three.md`
+- [x] `03-design-principles/02-kiss-principle.md`
+- [x] `03-design-principles/03-yagni.md`
+- [x] `03-design-principles/04-law-of-demeter.md`
+- [x] `03-design-principles/05-separation-of-concerns.md`
+- [x] `03-design-principles/06-tell-dont-ask.md`
+- [x] `03-design-principles/07-principle-of-least-astonishment.md`
+- [x] `03-design-principles/08-fail-fast-principle.md`
+- [x] `03-design-principles/09-boy-scout-rule-and-continuous-refactoring.md`
+- [x] `03-design-principles/10-high-cohesion-low-coupling-in-practice.md`
+- [x] `03-design-principles/11-orthogonality.md`
+- [x] `03-design-principles/12-postels-law-robustness-principle.md`
+- [x] `03-design-principles/13-hollywood-principle-and-inversion-of-control.md`
+- [x] `03-design-principles/14-grasp-principles.md`
+- [x] `03-design-principles/15-package-and-component-principles.md`
+- [x] `03-design-principles/16-premature-optimisation-and-measuring.md`
+- [x] `03-design-principles/17-idempotency-principle.md`
+- [x] `03-design-principles/18-conways-law-and-socio-technical-design.md`
+- [x] `03-design-principles/19-principles-conflicts-and-trade-offs.md`
+- [x] `03-design-principles/20-principles-cheat-sheet.md`
 
 ### Module 04: Patterns Introduction (`04-patterns-intro/`)
 - [ ] `04-patterns-intro/README.md`
