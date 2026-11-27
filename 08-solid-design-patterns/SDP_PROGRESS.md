@@ -27,8 +27,8 @@
 | **14** | Refactoring (`14-refactoring/`) | 9 | 9 | Complete |
 | **15** | Testing & Debugging (`15-testing-and-debugging/`) | 9 | 9 | Complete |
 | **16** | Production (`16-production/`) | 12 | 12 | Complete |
-| **17** | Real-World Case Studies (`17-case-studies/`) | 13 | 0 | Pending |
-| **18** | Pattern Selection (`18-pattern-selection/`) | 7 | 0 | Pending |
+| **17** | Real-World Case Studies (`17-case-studies/`) | 14 | 14 | Complete |
+| **18** | Pattern Selection (`18-pattern-selection/`) | 8 | 8 | Complete |
 | **19** | Technical Interview Guides (`19-interview/`) | 11 | 0 | Pending |
 | **20** | Operational Cheatsheets (`20-cheatsheets/`) | 10 | 0 | Pending |
 
@@ -306,30 +306,30 @@
 - [x] `16-production/10-design-review-checklist.md`
 
 ### Module 17: Case Studies (`17-case-studies/`)
-- [ ] `17-case-studies/README.md`
-- [ ] `17-case-studies/00-overview.md`
-- [ ] `17-case-studies/01-text-editor.md`
-- [ ] `17-case-studies/02-notification-system.md`
-- [ ] `17-case-studies/03-payment-gateway-integration.md`
-- [ ] `17-case-studies/04-parking-lot.md`
-- [ ] `17-case-studies/05-elevator-controller.md`
-- [ ] `17-case-studies/06-logging-framework.md`
-- [ ] `17-case-studies/07-plugin-based-application.md`
-- [ ] `17-case-studies/08-e-commerce-checkout.md`
-- [ ] `17-case-studies/09-game-engine-entities.md`
-- [ ] `17-case-studies/10-rate-limiter-library.md`
-- [ ] `17-case-studies/11-workflow-engine.md`
-- [ ] `17-case-studies/12-http-middleware-pipeline.md`
+- [x] `17-case-studies/README.md`
+- [x] `17-case-studies/00-overview.md`
+- [x] `17-case-studies/01-text-editor.md`
+- [x] `17-case-studies/02-notification-system.md`
+- [x] `17-case-studies/03-payment-gateway-integration.md`
+- [x] `17-case-studies/04-parking-lot.md`
+- [x] `17-case-studies/05-elevator-controller.md`
+- [x] `17-case-studies/06-logging-framework.md`
+- [x] `17-case-studies/07-plugin-based-application.md`
+- [x] `17-case-studies/08-e-commerce-checkout.md`
+- [x] `17-case-studies/09-game-engine-entities.md`
+- [x] `17-case-studies/10-rate-limiter-library.md`
+- [x] `17-case-studies/11-workflow-engine.md`
+- [x] `17-case-studies/12-http-middleware-pipeline.md`
 
 ### Module 18: Pattern Selection (`18-pattern-selection/`)
-- [ ] `18-pattern-selection/README.md`
-- [ ] `18-pattern-selection/00-overview.md`
-- [ ] `18-pattern-selection/01-decision-trees-by-problem.md`
-- [ ] `18-pattern-selection/02-pattern-comparison-matrices.md`
-- [ ] `18-pattern-selection/03-principles-vs-patterns-map.md`
-- [ ] `18-pattern-selection/04-language-idioms-map.md`
-- [ ] `18-pattern-selection/05-pattern-combinations-and-composites.md`
-- [ ] `18-pattern-selection/06-over-engineering-checklist.md`
+- [x] `18-pattern-selection/README.md`
+- [x] `18-pattern-selection/00-overview.md`
+- [x] `18-pattern-selection/01-decision-trees-by-problem.md`
+- [x] `18-pattern-selection/02-pattern-comparison-matrices.md`
+- [x] `18-pattern-selection/03-principles-vs-patterns-map.md`
+- [x] `18-pattern-selection/04-language-idioms-map.md`
+- [x] `18-pattern-selection/05-pattern-combinations-and-composites.md`
+- [x] `18-pattern-selection/06-over-engineering-checklist.md`
 
 ### Module 19: Technical Interview Preparation (`19-interview/`)
 - [ ] `19-interview/README.md`

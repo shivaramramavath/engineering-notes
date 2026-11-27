@@ -74,3 +74,7 @@ All structural changes, renames, additions, corrections, and verified code runs 
 ## Batch 10 — Module 15 (Testing & Debugging) & Module 16 (Production)
 - Rewrote & extended `15-testing-and-debugging/` to 9 files (`README.md`, `00-overview.md`, `01`–`07`). Removed legacy misplaced `03-refactoring-to-patterns.md` (moved to Module 14) and `04-debugging-design-issues.md` (renumbered to `06-debugging-design-issues.md`).
 - Rewrote & extended `16-production/` to 12 files (`README.md`, `00-overview.md`, `01`–`10`).
+
+## Batch 11 — Module 17 (Case Studies) & Module 18 (Pattern Selection)
+- Authored all 14 files in `17-case-studies/` (`README.md`, `00-overview.md`, `01`–`12`).
+- Authored all 8 files in `18-pattern-selection/` (`README.md`, `00-overview.md`, `01`–`06`).
