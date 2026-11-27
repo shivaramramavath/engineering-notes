@@ -70,3 +70,7 @@ All structural changes, renames, additions, corrections, and verified code runs 
 ## Batch 9 — Module 13 (Anti-Patterns & Code Smells) & Module 14 (Refactoring)
 - Authored all 22 files in `13-anti-patterns-and-code-smells/` (`README.md`, `00-overview.md`, `01`–`20`).
 - Authored all 9 files in `14-refactoring/` (`README.md`, `00-overview.md`, `01`–`07`).
+
+## Batch 10 — Module 15 (Testing & Debugging) & Module 16 (Production)
+- Rewrote & extended `15-testing-and-debugging/` to 9 files (`README.md`, `00-overview.md`, `01`–`07`). Removed legacy misplaced `03-refactoring-to-patterns.md` (moved to Module 14) and `04-debugging-design-issues.md` (renumbered to `06-debugging-design-issues.md`).
+- Rewrote & extended `16-production/` to 12 files (`README.md`, `00-overview.md`, `01`–`10`).

@@ -25,8 +25,8 @@
 | **12** | Functional & Modern Idioms (`12-functional-and-modern-idioms/`) | 12 | 12 | Complete |
 | **13** | Anti-Patterns & Code Smells (`13-anti-patterns-and-code-smells/`) | 22 | 22 | Complete |
 | **14** | Refactoring (`14-refactoring/`) | 9 | 9 | Complete |
-| **15** | Testing & Debugging (`15-testing-and-debugging/`) | 8 | 0 | Pending |
-| **16** | Production (`16-production/`) | 11 | 0 | Pending |
+| **15** | Testing & Debugging (`15-testing-and-debugging/`) | 9 | 9 | Complete |
+| **16** | Production (`16-production/`) | 12 | 12 | Complete |
 | **17** | Real-World Case Studies (`17-case-studies/`) | 13 | 0 | Pending |
 | **18** | Pattern Selection (`18-pattern-selection/`) | 7 | 0 | Pending |
 | **19** | Technical Interview Guides (`19-interview/`) | 11 | 0 | Pending |
@@ -281,29 +281,29 @@
 - [x] `14-refactoring/07-measuring-design-quality.md`
 
 ### Module 15: Testing & Debugging (`15-testing-and-debugging/`)
-- [ ] `15-testing-and-debugging/README.md`
-- [ ] `15-testing-and-debugging/00-overview.md`
-- [ ] `15-testing-and-debugging/01-testable-design.md`
-- [ ] `15-testing-and-debugging/02-test-doubles.md`
-- [ ] `15-testing-and-debugging/03-designing-for-testability-with-seams.md`
-- [ ] `15-testing-and-debugging/04-tdd-and-design.md`
-- [ ] `15-testing-and-debugging/05-testing-patterns.md`
-- [ ] `15-testing-and-debugging/06-debugging-design-issues.md`
-- [ ] `15-testing-and-debugging/07-architecture-tests.md`
+- [x] `15-testing-and-debugging/README.md`
+- [x] `15-testing-and-debugging/00-overview.md`
+- [x] `15-testing-and-debugging/01-testable-design.md`
+- [x] `15-testing-and-debugging/02-test-doubles.md`
+- [x] `15-testing-and-debugging/03-designing-for-testability-with-seams.md`
+- [x] `15-testing-and-debugging/04-tdd-and-design.md`
+- [x] `15-testing-and-debugging/05-testing-patterns.md`
+- [x] `15-testing-and-debugging/06-debugging-design-issues.md`
+- [x] `15-testing-and-debugging/07-architecture-tests.md`
 
 ### Module 16: Production (`16-production/`)
-- [ ] `16-production/README.md`
-- [ ] `16-production/00-overview.md`
-- [ ] `16-production/01-maintainability-and-extensibility.md`
-- [ ] `16-production/02-error-handling-design.md`
-- [ ] `16-production/03-logging-observability-and-design.md`
-- [ ] `16-production/04-configuration-and-feature-toggle-design.md`
-- [ ] `16-production/05-api-design-and-versioning.md`
-- [ ] `16-production/06-backward-compatibility-and-deprecation.md`
-- [ ] `16-production/07-security-by-design.md`
-- [ ] `16-production/08-performance-aware-design.md`
-- [ ] `16-production/09-documentation-and-design-reviews.md`
-- [ ] `16-production/10-design-review-checklist.md`
+- [x] `16-production/README.md`
+- [x] `16-production/00-overview.md`
+- [x] `16-production/01-maintainability-and-extensibility.md`
+- [x] `16-production/02-error-handling-design.md`
+- [x] `16-production/03-logging-observability-and-design.md`
+- [x] `16-production/04-configuration-and-feature-toggle-design.md`
+- [x] `16-production/05-api-design-and-versioning.md`
+- [x] `16-production/06-backward-compatibility-and-deprecation.md`
+- [x] `16-production/07-security-by-design.md`
+- [x] `16-production/08-performance-aware-design.md`
+- [x] `16-production/09-documentation-and-design-reviews.md`
+- [x] `16-production/10-design-review-checklist.md`
 
 ### Module 17: Case Studies (`17-case-studies/`)
 - [ ] `17-case-studies/README.md`
