@@ -29,8 +29,8 @@
 | **16** | Production (`16-production/`) | 12 | 12 | Complete |
 | **17** | Real-World Case Studies (`17-case-studies/`) | 14 | 14 | Complete |
 | **18** | Pattern Selection (`18-pattern-selection/`) | 8 | 8 | Complete |
-| **19** | Technical Interview Guides (`19-interview/`) | 11 | 0 | Pending |
-| **20** | Operational Cheatsheets (`20-cheatsheets/`) | 10 | 0 | Pending |
+| **19** | Technical Interview Guides (`19-interview/`) | 12 | 12 | Complete |
+| **20** | Operational Cheatsheets (`20-cheatsheets/`) | 11 | 11 | Complete |
 
 ---
 
@@ -332,28 +332,28 @@
 - [x] `18-pattern-selection/06-over-engineering-checklist.md`
 
 ### Module 19: Technical Interview Preparation (`19-interview/`)
-- [ ] `19-interview/README.md`
-- [ ] `19-interview/00-overview.md`
-- [ ] `19-interview/01-solid-and-principles-qa.md`
-- [ ] `19-interview/02-creational-patterns-qa.md`
-- [ ] `19-interview/03-structural-patterns-qa.md`
-- [ ] `19-interview/04-behavioural-patterns-qa.md`
-- [ ] `19-interview/05-architecture-and-distributed-patterns-qa.md`
-- [ ] `19-interview/06-anti-patterns-and-refactoring-qa.md`
-- [ ] `19-interview/07-spot-the-violation-and-refactor-challenges.md`
-- [ ] `19-interview/08-low-level-design-problems.md`
-- [ ] `19-interview/09-pattern-identification-from-code.md`
-- [ ] `19-interview/10-behavioural-and-project-discussion.md`
+- [x] `19-interview/README.md`
+- [x] `19-interview/00-overview.md`
+- [x] `19-interview/01-solid-and-principles-qa.md`
+- [x] `19-interview/02-creational-patterns-qa.md`
+- [x] `19-interview/03-structural-patterns-qa.md`
+- [x] `19-interview/04-behavioural-patterns-qa.md`
+- [x] `19-interview/05-architecture-and-distributed-patterns-qa.md`
+- [x] `19-interview/06-anti-patterns-and-refactoring-qa.md`
+- [x] `19-interview/07-spot-the-violation-and-refactor-challenges.md`
+- [x] `19-interview/08-low-level-design-problems.md`
+- [x] `19-interview/09-pattern-identification-from-code.md`
+- [x] `19-interview/10-behavioural-and-project-discussion.md`
 
 ### Module 20: Operational Cheatsheets (`20-cheatsheets/`)
-- [ ] `20-cheatsheets/README.md`
-- [ ] `20-cheatsheets/00-overview.md`
-- [ ] `20-cheatsheets/01-solid-one-page.md`
-- [ ] `20-cheatsheets/02-principles-dry-kiss-yagni-and-more.md`
-- [ ] `20-cheatsheets/03-gof-patterns-at-a-glance.md`
-- [ ] `20-cheatsheets/04-pattern-categories-and-intent-table.md`
-- [ ] `20-cheatsheets/05-uml-and-mermaid-diagram-recipes.md`
-- [ ] `20-cheatsheets/06-anti-patterns-and-smells-quick-ref.md`
-- [ ] `20-cheatsheets/07-refactoring-moves.md`
-- [ ] `20-cheatsheets/08-pattern-selection-flowchart.md`
-- [ ] `20-cheatsheets/09-java-ts-python-idiom-table.md`
+- [x] `20-cheatsheets/README.md`
+- [x] `20-cheatsheets/00-overview.md`
+- [x] `20-cheatsheets/01-solid-one-page.md`
+- [x] `20-cheatsheets/02-principles-dry-kiss-yagni-and-more.md`
+- [x] `20-cheatsheets/03-gof-patterns-at-a-glance.md`
+- [x] `20-cheatsheets/04-pattern-categories-and-intent-table.md`
+- [x] `20-cheatsheets/05-uml-and-mermaid-diagram-recipes.md`
+- [x] `20-cheatsheets/06-anti-patterns-and-smells-quick-ref.md`
+- [x] `20-cheatsheets/07-refactoring-moves.md`
+- [x] `20-cheatsheets/08-pattern-selection-flowchart.md`
+- [x] `20-cheatsheets/09-java-ts-python-idiom-table.md`

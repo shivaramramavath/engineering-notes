@@ -78,3 +78,7 @@ All structural changes, renames, additions, corrections, and verified code runs 
 ## Batch 11 — Module 17 (Case Studies) & Module 18 (Pattern Selection)
 - Authored all 14 files in `17-case-studies/` (`README.md`, `00-overview.md`, `01`–`12`).
 - Authored all 8 files in `18-pattern-selection/` (`README.md`, `00-overview.md`, `01`–`06`).
+
+## Batch 12 — Module 19 (Interview Guides) & Module 20 (Operational Cheatsheets)
+- Authored all 12 files in `19-interview/` (`README.md`, `00-overview.md`, `01`–`10`).
+- Authored all 11 files in `20-cheatsheets/` (`README.md`, `00-overview.md`, `01`–`09`).
