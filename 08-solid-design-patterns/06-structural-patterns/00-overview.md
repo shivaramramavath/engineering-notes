@@ -1,70 +1,29 @@
-# Structural Patterns: Overview
+# Structural Design Patterns Overview
 
-Structural patterns deal with **how classes and objects are composed into larger structures**. They help you combine existing pieces, add behavior around them, or hide their complexity, without rewriting the pieces themselves. Most are built on [composition](../01-foundations/02-composition-vs-inheritance.md) rather than inheritance.
+> **One-line summary:** Structural patterns compose classes and objects into larger, resilient architectures—bridging incompatible APIs, stacking runtime behaviors, flattening trees, and sharing immutable memory.
 
-## The seven patterns
+| Attribute | Specification |
+|---|---|
+| **Level** | Core / Foundational |
+| **Prerequisites** | [02-composition-vs-inheritance.md](../01-foundations/02-composition-vs-inheritance.md), [04-interface-segregation.md](../02-solid-principles/04-interface-segregation.md) |
+| **Estimated Reading Time** | 15 minutes |
+| **Status** | Complete |
+| **Category** | Structural Patterns |
 
-| Pattern | Problem it solves | One-line idea |
-|---|---|---|
-| [Adapter](./01-adapter.md) | An existing class has the wrong interface | Convert one interface into the one clients expect |
-| [Bridge](./02-bridge.md) | Two independent dimensions of variation cause a class explosion | Split abstraction from implementation and compose them |
-| [Composite](./03-composite.md) | Individual objects and groups should be treated the same | Tree structure with a shared interface |
-| [Decorator](./04-decorator.md) | Add behavior dynamically without subclassing | Wrap an object with the same interface |
-| [Facade](./05-facade.md) | A subsystem is complicated to use | One simple entry point |
-| [Flyweight](./06-flyweight.md) | Huge numbers of similar objects use too much memory | Share common state |
-| [Proxy](./07-proxy.md) | Control access to an object | A stand-in with the same interface |
+---
 
-## Prerequisites
+## 1. The Four Wrapper Patterns: Same Shape, Different Intent
 
-- [Composition vs inheritance](../01-foundations/02-composition-vs-inheritance.md)
-- [Programming to interfaces](../01-foundations/04-programming-to-interfaces.md)
-
-## The "wrapper" family
-
-Adapter, Decorator, Proxy and Facade all **wrap** something, and their code looks similar. They differ by **intent**.
-
-| Pattern | Interface relative to the wrapped object | Intent |
-|---|---|---|
-| Adapter | **Different** (converts it) | Make incompatible things work together |
-| Decorator | **Same** | Add responsibilities |
-| Proxy | **Same** | Control access (lazy load, security, caching, remote) |
-| Facade | **New, simpler**, over *many* objects | Hide complexity |
-
-```text
-Adapter:    Client ──► [Adapter: wanted interface] ──► Adaptee (different interface)
-Decorator:  Client ──► [Decorator] ──► Component   (same interface, adds behavior)
-Proxy:      Client ──► [Proxy]     ──► RealSubject (same interface, controls access)
-Facade:     Client ──► [Facade] ──► subsystem A, B, C
+```mermaid
+graph LR
+    A[Adapter] -->|Changes Interface| A2[Legacy A -> Expected B]
+    D[Decorator] -->|Same Interface| D2[Adds dynamic layers: Cache/Log]
+    P[Proxy] -->|Same Interface| P2[Controls Access: Auth/Lazy/Remote]
+    F[Facade] -->|New Simpler Interface| F2[Hides 10-class Subsystem]
 ```
 
-When code looks like a wrapper, ask: **what is it for?** The answer names the pattern.
+Every wrapper pattern delegates work to another object—choosing the right one depends strictly on *why* you are wrapping it.
 
-## Choosing between them
+---
 
-```text
-Interfaces don't match, and you can't change one side?       → Adapter
-Want to add behavior around an object at runtime?            → Decorator
-Want to control or defer access to an object?                → Proxy
-Want a simpler API over a group of classes?                  → Facade
-Part-whole hierarchy treated uniformly?                      → Composite
-Two dimensions (e.g. shape × renderer) multiplying classes?  → Bridge
-Millions of similar objects eating memory?                   → Flyweight
-```
-
-For comparisons with patterns in other categories, see [pattern selection](../13-quick-reference/03-pattern-selection.md).
-
-## Common misconceptions
-
-- **"Decorator and Proxy are the same."** Same shape, different purpose: decorators add behavior the client chose; proxies manage access to an object.
-- **"Adapter and Facade both simplify."** An adapter changes *one* interface to match another; a facade provides a new simpler interface over *many* classes.
-- **"Bridge is just an interface."** It's a deliberate split of two hierarchies so each can vary independently.
-
-## Quick Summary
-
-- Structural patterns assemble objects into bigger structures through composition.
-- Adapter, Decorator, Proxy and Facade are wrappers distinguished by intent.
-- Composite builds trees, Bridge separates two hierarchies, Flyweight saves memory.
-
-## Next
-
-[01-adapter.md](./01-adapter.md)
+[← Module 06 Index](file:///e:/Learning/engineering-notes/08-solid-design-patterns/06-structural-patterns/README.md) | [Next: 01 - Adapter Pattern →](file:///e:/Learning/engineering-notes/08-solid-design-patterns/06-structural-patterns/01-adapter.md)

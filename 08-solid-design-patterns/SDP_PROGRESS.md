@@ -16,7 +16,7 @@
 | **03** | General Design Principles (`03-design-principles/`) | 21 | 21 | Complete |
 | **04** | Patterns Introduction (`04-patterns-intro/`) | 6 | 6 | Complete |
 | **05** | Creational Patterns (`05-creational-patterns/`) | 12 | 12 | Complete |
-| **06** | Structural Patterns (`06-structural-patterns/`) | 12 | 0 | Pending |
+| **06** | Structural Patterns (`06-structural-patterns/`) | 12 | 12 | Complete |
 | **07** | Behavioral Patterns (`07-behavioral-patterns/`) | 16 | 0 | Pending |
 | **08** | Concurrency Patterns (`08-concurrency-patterns/`) | 14 | 0 | Pending |
 | **09** | Enterprise Application Patterns (`09-enterprise-application-patterns/`) | 17 | 0 | Pending |
@@ -119,19 +119,19 @@
 - [x] `05-creational-patterns/11-creational-patterns-comparison.md`
 
 ### Module 06: Structural Patterns (`06-structural-patterns/`)
-- [ ] `06-structural-patterns/README.md`
-- [ ] `06-structural-patterns/00-overview.md`
-- [ ] `06-structural-patterns/01-adapter.md`
-- [ ] `06-structural-patterns/02-bridge.md`
-- [ ] `06-structural-patterns/03-composite.md`
-- [ ] `06-structural-patterns/04-decorator.md`
-- [ ] `06-structural-patterns/05-facade.md`
-- [ ] `06-structural-patterns/06-flyweight.md`
-- [ ] `06-structural-patterns/07-proxy.md`
-- [ ] `06-structural-patterns/08-null-object.md`
-- [ ] `06-structural-patterns/09-private-class-data-and-immutable-objects.md`
-- [ ] `06-structural-patterns/10-extension-object-and-mixins-and-traits.md`
-- [ ] `06-structural-patterns/11-structural-patterns-comparison.md`
+- [x] `06-structural-patterns/README.md`
+- [x] `06-structural-patterns/00-overview.md`
+- [x] `06-structural-patterns/01-adapter.md`
+- [x] `06-structural-patterns/02-bridge.md`
+- [x] `06-structural-patterns/03-composite.md`
+- [x] `06-structural-patterns/04-decorator.md`
+- [x] `06-structural-patterns/05-facade.md`
+- [x] `06-structural-patterns/06-flyweight.md`
+- [x] `06-structural-patterns/07-proxy.md`
+- [x] `06-structural-patterns/08-null-object.md`
+- [x] `06-structural-patterns/09-private-class-data-and-immutable-objects.md`
+- [x] `06-structural-patterns/10-extension-object-and-mixins-and-traits.md`
+- [x] `06-structural-patterns/11-structural-patterns-comparison.md`
 
 ### Module 07: Behavioral Patterns (`07-behavioral-patterns/`)
 - [ ] `07-behavioral-patterns/README.md`

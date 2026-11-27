@@ -42,3 +42,8 @@ All structural changes, renames, additions, corrections, and verified code runs 
 - **Module 05: Creational Patterns (`05-creational-patterns/`)**:
   - Authored `README.md`, `00-overview.md`, `01-singleton.md` through `11-creational-patterns-comparison.md`.
   - Verified runnable multi-language examples (Java 25, TypeScript 5.8, Python 3.14) via `test_creational_gof.js` and `test_creational_ext.js`.
+
+### 2026-11-27 (Batch 4) - Module 06: Structural Patterns Completion
+- **Module 06: Structural Patterns (`06-structural-patterns/`)**:
+  - Authored `README.md`, `00-overview.md`, `01-adapter.md` through `11-structural-patterns-comparison.md` (13 files).
+  - Verified runnable multi-language examples (Java 25, TypeScript 5.8, Python 3.14) via `test_struct_1.js` and `test_struct_2.js`.
