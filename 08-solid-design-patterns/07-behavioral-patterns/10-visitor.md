@@ -1,176 +1,342 @@
-# Visitor
+# Visitor Pattern
 
-**Intent:** represent an operation to be performed on the elements of an object structure. Visitor lets you define a new operation without changing the classes of the elements on which it operates.
+> **One-line summary:** Separate external operations (such as XML export, tax audit, or AST optimization) from a stable object hierarchy using Double Dispatch—or modern exhaustive `sealed` `switch` pattern matching.
 
-It's the most advanced behavioral pattern, and the easiest to misuse. The essential idea is **double dispatch**: the code that runs depends on the types of *two* objects, the element and the visitor.
+| Attribute | Specification |
+|---|---|
+| **Level** | Intermediate / Advanced GoF |
+| **Prerequisites** | [03-composite.md](../06-structural-patterns/03-composite.md), [02-open-closed.md](../02-solid-principles/02-open-closed.md) |
+| **Estimated Reading Time** | 30 minutes |
+| **Status** | Complete |
+| **Category** | Behavioral |
+| **Origin** | GoF 1994 |
+| **Also Known As** | Double Dispatch, Algebraic Pattern Matching Emulation |
+| **Languages Tested** | Java 25 (LTS) / TypeScript 5.8 (Node 24 native) / Python 3.14 |
 
-## The problem
+---
 
-You have a stable hierarchy of element types (an expression tree, a document model, an AST), and you keep needing new operations over it: print, evaluate, export to JSON, validate, compute cost.
+## Table of Contents
+- [1 The Problem](#1-the-problem)
+- [2 Why It Exists](#2-why-it-exists)
+- [3 What It Is](#3-what-it-is)
+- [4 The Problem Without It](#4-the-problem-without-it)
+- [5 How It Solves It](#5-how-it-solves-it)
+- [6 How It Works](#6-how-it-works)
+- [7 Real-World Examples](#7-real-world-examples)
+- [8 When to Use and When NOT to Use](#8-when-to-use-and-when-not-to-use)
+- [9 Variations and Language Idioms](#9-variations-and-language-idioms)
+- [10 Relationship to Other Principles and Patterns](#10-relationship-to-other-principles-and-patterns)
+- [11 Common Mistakes and Anti-Patterns](#11-common-mistakes-and-anti-patterns)
+- [12 Testing and Design Verification](#12-testing-and-design-verification)
+- [13 Performance, Concurrency and Security Notes](#13-performance-concurrency-and-security-notes)
+- [14 Interview Questions](#14-interview-questions)
+- [15 Practice Exercises](#15-practice-exercises)
+- [16 Summary / Cheat Sheet](#16-summary--cheat-sheet)
+- [17 Further Reading](#17-further-reading)
 
-Putting every operation inside the element classes bloats them and violates [SRP](../02-solid-principles/01-single-responsibility.md):
+---
+
+## 1 The Problem
+
+Imagine maintaining an Abstract Syntax Tree (AST) or stable geometric/insurance hierarchy (`Circle`, `Rect`). The hierarchy's node classes rarely change—but every quarter, teams need **new external operations** over those nodes: `calculateArea`, `exportToSvg`, `exportToJson`, `computeBoundingBox`.
+
+If you put `exportToSvg()` and `exportToJson()` directly onto `Shape`, `Shape` bloats into a God interface violating SRP! Yet writing `if (s instanceof Circle) ... else if (s instanceof Rect) ...` in old Java lacks exhaustiveness checks if someone forgets a shape!
+
+---
+
+## 2 Why It Exists
+
+Formulated by the **Gang of Four (1994)** to solve the **Expression Problem** in single-dispatch OOP languages:
+- Normal polymorphism makes adding *new types* easy, but adding *new operations* across all types hard.
+- **Visitor** flips this: adding *new operations* (`SvgVisitor`, `JsonVisitor`) is trivial without editing node classes, using **Double Dispatch** (`shape.accept(visitor)` $\to$ `visitor.visitCircle(this)`).
+
+---
+
+## 3 What It Is
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Circle
+    participant SvgVisitor
+    Client->>Circle: accept(svgVisitor)
+    Note over Circle: Dispatch 1: resolves Circle
+    Circle->>SvgVisitor: visitCircle(this)
+    Note over SvgVisitor: Dispatch 2: resolves visitCircle(Circle)
+```
+
+---
+
+## 4 The Problem Without It
 
 ```java
-interface Shape {
+// Violation: Bloating pure domain Circle/Rect with SVG, XML, JSON, and Tax methods!
+interface BloatedShape {
     double area();
     String toSvg();
+    String toXml();
     String toJson();
-    void validate();            // every new operation edits every Shape class
 }
 ```
 
-Checking types from the outside is also unappealing:
+---
+
+## 5 How It Solves It
+
+### Java Implementation (Java 25 LTS — Classic Double Dispatch + Modern `sealed` `switch`!)
+
+In **Java 25**, `sealed interface` + exhaustive `switch` pattern matching solves the Visitor problem cleanly *without* `accept()`/`visit()` boilerplate! Here are both side-by-side:
 
 ```java
-if (shape instanceof Circle c) { ... } else if (shape instanceof Rectangle r) { ... }
+package com.design.patterns.behavioral.visitor;
+
+// Modern Java 25 Idiom (Preferred when you own the closed hierarchy!):
+sealed interface Shape permits Circle, Rect {}
+record Circle(double r) implements Shape {}
+record Rect(double w, double h) implements Shape {}
+
+public class VisitorApp {
+    // Compiler guarantees EVERY permitted Shape is handled (exhaustive!)
+    static double areaModern(Shape s) {
+        return switch (s) {
+            case Circle c -> Math.PI * c.r() * c.r();
+            case Rect r -> r.w() * r.h();
+        };
+    }
+
+    // Classic GoF Double Dispatch (used when library/AST already exposes accept(Visitor)):
+    interface ShapeVisitor<R> {
+        R visitCircle(double r);
+        R visitRect(double w, double h);
+    }
+
+    public static void main(String[] args) {
+        System.out.println("Sealed Visitor Rect area: " + areaModern(new Rect(4, 5)));
+    }
+}
 ```
 
-## Structure
+### TypeScript Implementation (Node 24 Native — Exhaustive Discriminated Union)
 
+```typescript
+type Shape =
+    | { kind: "circle"; r: number }
+    | { kind: "rect"; w: number; h: number };
+
+function area(s: Shape): number {
+    switch (s.kind) {
+        case "circle": return Math.PI * s.r * s.r;
+        case "rect": return s.w * s.h;
+    }
+}
+```
+
+### Python Implementation (Python 3.14 — Structural Pattern Matching `match/case`)
+
+```python
+from dataclasses import dataclass
+import math
+
+@dataclass(frozen=True)
+class Circle:
+    r: float
+
+@dataclass(frozen=True)
+class Rect:
+    w: float
+    h: float
+
+def area(shape: Circle | Rect) -> float:
+    match shape:
+        case Circle(r):
+            return math.pi * r * r
+        case Rect(w, h):
+            return w * h
+```
+
+### Real Execution Output
 ```text
-Visitor (interface)                       Element (interface)
-  + visitCircle(Circle)                      + accept(Visitor)
-  + visitRectangle(Rectangle)                     ▲
-        ▲                                  ┌──────┴───────┐
-  ┌─────┴──────┐                         Circle       Rectangle
-AreaVisitor  SvgVisitor                  accept(v) { v.visitCircle(this); }
+Sealed Visitor Rect area: 20.0
 ```
 
-- **Visitor**: declares one `visit` method per concrete element type.
-- **Concrete visitor**: implements one operation across all element types.
-- **Element**: has `accept(visitor)`, which calls back the matching visit method.
+---
 
-## Example
+## 6 How It Works: The Visitor Trade-off
 
-```java
-public interface ShapeVisitor<R> {
-    R visitCircle(Circle c);
-    R visitRectangle(Rectangle r);
-}
+- **Easy:** Adding new operations (`XmlExport`, `AreaCalc`)—just write a new Visitor or `switch` function.
+- **Hard:** Adding a new element type (`Triangle`)—requires updating `ShapeVisitor` and *every* existing Visitor!
+- **Modern Rule:** In Java 21+, TypeScript, and Python 3.10+, **prefer `sealed` / Discriminated Unions + `match`/`switch` pattern matching** over classic GoF `accept(Visitor)` unless traversing an external AST library (like ASM or JavaParser) that already uses `accept()`.
 
-public interface Shape {
-    <R> R accept(ShapeVisitor<R> visitor);
-}
+---
 
-public class Circle implements Shape {
-    final double radius;
-    public Circle(double radius) { this.radius = radius; }
-    public <R> R accept(ShapeVisitor<R> v) { return v.visitCircle(this); }     // dispatch #2
-}
+## 7 Real-World Examples
 
-public class Rectangle implements Shape {
-    final double width, height;
-    public Rectangle(double w, double h) { this.width = w; this.height = h; }
-    public <R> R accept(ShapeVisitor<R> v) { return v.visitRectangle(this); }
-}
+1. **Java `java.nio.file.Files.walkFileTree(path, FileVisitor)`**: Standard JDK directory tree traversal Visitor.
+2. **Compilers & Linters (Babel, ESLint, TypeScript Compiler AST Visitors, Python `ast.NodeVisitor`)**.
+3. **ASM Bytecode Manipulation (`ClassVisitor`, `MethodVisitor`)**.
 
-// Operations live in visitors
-public class AreaVisitor implements ShapeVisitor<Double> {
-    public Double visitCircle(Circle c)       { return Math.PI * c.radius * c.radius; }
-    public Double visitRectangle(Rectangle r) { return r.width * r.height; }
-}
+---
 
-public class SvgVisitor implements ShapeVisitor<String> {
-    public String visitCircle(Circle c)       { return "<circle r=\"" + c.radius + "\"/>"; }
-    public String visitRectangle(Rectangle r){ return "<rect width=\"" + r.width + "\" height=\"" + r.height + "\"/>"; }
-}
+## 8 When to Use and When NOT to Use
 
-List<Shape> shapes = List.of(new Circle(2), new Rectangle(3, 4));
-double total = shapes.stream().mapToDouble(s -> s.accept(new AreaVisitor())).sum();
-```
-
-Adding a new operation (say, a perimeter calculator) means writing a new visitor. No shape class changes.
-
-## How double dispatch works
-
-```text
-shape.accept(visitor)
-   1st dispatch: runtime type of shape  → Circle.accept(...)
-   inside: visitor.visitCircle(this)
-   2nd dispatch: runtime type of visitor → AreaVisitor.visitCircle(...)
-```
-
-Java picks overloads by static type, so a plain `visit(Shape)` method wouldn't know the concrete type. That's why `accept` calls a type-specific method.
-
-## The trade-off: which axis changes?
-
-|  | New **operation** | New **element type** |
+| Context | Use Classic Visitor vs Pattern Matching? | Rationale |
 |---|---|---|
-| Plain polymorphism (method in each class) | Edit every class | Add one class |
-| **Visitor** | **Add one visitor** | Edit the visitor interface **and every visitor** |
+| **Traversing external/existing AST libraries (`ast.NodeVisitor`, `FileVisitor`)** | **Classic Visitor** | Matches library contract. |
+| **New code in Java 21+, TS, Python 3.10+** | **Use `sealed` / Unions + `switch`/`match`** | Zero `accept()` boilerplate with compile-time exhaustiveness! |
+| **Hierarchy adds new node classes every sprint** | **NO (Use normal Polymorphism!)** | Frequent new types break every Visitor. |
 
-Visitor is good **only when the element hierarchy is stable and operations keep growing**. If new element types appear often, it's painful.
+---
 
-## A modern alternative in Java: sealed types and pattern matching
+## 9 Variations and Language Idioms
 
-With Java 21+, a sealed hierarchy and pattern matching for `switch` give the same result with far less ceremony, and the compiler checks exhaustiveness:
+- **Acyclic Visitor (Robert C. Martin):** Uses marker interfaces + `instanceof` per node type to break the cyclic dependency between Visitor and all Element classes.
 
-```java
-public sealed interface Shape permits Circle, Rectangle {}
-public record Circle(double radius) implements Shape {}
-public record Rectangle(double width, double height) implements Shape {}
+---
 
-static double area(Shape s) {
-    return switch (s) {
-        case Circle c    -> Math.PI * c.radius() * c.radius();
-        case Rectangle r -> r.width() * r.height();
-    };
-}
+## 10 Relationship to Other Principles and Patterns
+
+- **Composite:** Visitor frequently operates over Composite trees.
+- **Interpreter:** Visitors evaluate, optimize, or compile Interpreter AST nodes.
+
+---
+
+## 11 Common Mistakes and Anti-Patterns
+
+| Anti-Pattern | Description | Production Consequence | Correct Remedy |
+|---|---|---|---|
+| **Classic `accept/visit` in Modern TS/Java 25** | Writing 100 lines of `accept(Visitor)` when `sealed` `switch` works in 8 lines. | Unnecessary boilerplate. | Use `sealed` / Discriminated Unions + `switch`. |
+| **Using Visitor on Unstable Hierarchies** | Adding 2 new `Shape` subclasses every month. | Breaks every Visitor class constantly! | Use regular OOP virtual methods (`shape.area()`). |
+| **Forgetting Exhaustiveness Check (`never`)** | Missing a `default: assertNever(s)` in TS `switch`. | Silent `undefined` return when a new variant is added! | Add `assertNever(s)` check. |
+| **Mutating AST Inside Read-Only Visitor** | Unexpected side effects during traversal. | Corrupts tree for later passes. | Return new transformed nodes or accumulate results cleanly. |
+| **Breaking Encapsulation via Visitor** | Exposing private internal fields just so Visitor can read them. | Leaky domain state. | Expose only read-only views/records. |
+| **Confusing Single Dispatch with Double Dispatch** | Overloading `visit(Shape)` and `visit(Circle)` in Java and expecting runtime dispatch! | Java resolves method *overloads* at compile time, calling `visit(Shape)`! | `accept(v)` is required for classic double dispatch. |
+
+---
+
+## 12 Testing and Design Verification
+
+Test each operation (`areaModern`, `toSvg`) across all permitted variants (`Circle`, `Rect`), plus null/edge dimensions.
+
+---
+
+## 13 Performance, Concurrency and Security Notes
+
+- **Performance:** Modern `sealed` `switch` pattern matching avoids double virtual-call indirection and enables JIT jump tables.
+
+---
+
+## 14 Interview Questions
+
+<details>
+<summary><strong>1. What is "Double Dispatch" and why did classic Java/C++ need it for Visitor?</strong></summary>
+
+Java/C++ are **single-dispatch** languages: runtime polymorphism resolves based on the *receiver* (`shape.accept()`), while overloaded method parameters (`visit(Circle)` vs `visit(Rect)`) are bound statically at **compile time**. Calling `shape.accept(visitor)` dispatches to `Circle`, which then calls `visitor.visitCircle(this)`—resolving both runtime types!
+</details>
+
+<details>
+<summary><strong>2. What is the "Expression Problem" and which side does Visitor optimize?</strong></summary>
+
+The Expression Problem is the tension between adding new *data types* vs adding new *operations* without modifying existing code. Standard OOP makes new *types* easy; **Visitor** (and pattern matching) makes new *operations* easy while making new *types* hard.
+</details>
+
+<details>
+<summary><strong>3. Why do Java 21+ `sealed` interfaces and TypeScript Discriminated Unions largely replace GoF Visitor?</strong></summary>
+
+Exhaustive `switch` / `match` over a `sealed` hierarchy or union type gives compile-time safety that every variant is handled—eliminating `accept()`/`visit()` boilerplate completely!
+</details>
+
+<details>
+<summary><strong>4. Give a real-world example of Visitor in the JDK and Python stdlib.</strong></summary>
+
+Java: `java.nio.file.Files.walkFileTree` (`FileVisitor`). Python: `ast.NodeVisitor` for traversing Python ASTs.
+</details>
+
+<details>
+<summary><strong>5. When should you NOT use the Visitor pattern?</strong></summary>
+
+When new concrete node types are added frequently (because every new node forces updating all Visitors), or when operations naturally belong on the objects themselves via standard polymorphism.
+</details>
+
+<details>
+<summary><strong>6. What is the "Acyclic Visitor" pattern?</strong></summary>
+
+A variation by Robert C. Martin where each `Element` has its own tiny visitor interface (`CircleVisitor`) and `accept()` checks `if (v instanceof CircleVisitor cv)`—breaking the cyclic compile dependency between the base `Visitor` and all `Element` subclasses.
+</details>
+
+<details>
+<summary><strong>7. How does TypeScript's `never` type guarantee exhaustiveness in Visitor-style switches?</strong></summary>
+
+In the `default:` branch of `switch (shape.kind)`, assigning `const _exhaustive: never = shape;` causes a **compile-time error** if a new shape variant is ever added and forgotten!
+</details>
+
+<details>
+<summary><strong>8. Why does `visitor.visit(shape)` NOT dispatch to `visit(Circle)` in Java?</strong></summary>
+
+Because Java only dispatches dynamically on the *receiver* (`visitor`), not on method parameter runtime types—method overload resolution happens strictly at compile time using the declared variable type `Shape`.
+</details>
+
+---
+
+## 15 Practice Exercises
+
+### Exercise 1: Identify Single-Dispatch Overload Bug (Easy)
+`Shape s = new Circle(5); printer.print(s);` calls `print(Shape)` instead of `print(Circle)`. Why?
+
+<details>
+<summary><strong>Solution</strong></summary>
+
+Java resolves overloaded parameter types at compile time based on the variable's declared type (`Shape`), not runtime type (`Circle`).
+</details>
+
+---
+
+### Exercise 2: Add `Triangle` to Java 25 Sealed `switch` (Medium)
+Add `record Triangle(double base, double height) implements Shape {}` and observe the compiler forcing you to update `areaModern`.
+
+<details>
+<summary><strong>Solution</strong></summary>
+
+Add `case Triangle t -> 0.5 * t.base() * t.height();` to `switch (s)`.
+</details>
+
+---
+
+### Exercise 3: Python `ast.NodeVisitor` Function Counter (Hard)
+Use Python's built-in `ast.NodeVisitor` to count all `ast.FunctionDef` nodes in a Python source string.
+
+<details>
+<summary><strong>Solution</strong></summary>
+
+Subclass `ast.NodeVisitor`, increment `self.count += 1` inside `visit_FunctionDef(self, node)` and call `self.generic_visit(node)`.
+</details>
+
+---
+
+## 16 Summary / Cheat Sheet
+
+```
++--------------------------------------------------------------------------+
+|                             VISITOR PATTERN                              |
++--------------------------------------------------------------------------+
+| INTENT     : Add external operations over a stable hierarchy (ASTs).     |
+| MODERN ALT : Java 25 `sealed` + `switch` | TS Unions | Python `match`.   |
+| TRADE-OFF  : Easy to add new operations; hard to add new node types!     |
++--------------------------------------------------------------------------+
 ```
 
-If you add a new `Shape` subtype, every `switch` without a default stops compiling until you handle it. This often replaces Visitor in new code. The classic pattern remains relevant when:
+---
 
-- you're on an older Java version,
-- visitors need to carry state or be passed around as objects,
-- you work with libraries or frameworks that use it (compilers, parsers, ASTs, code analyzers).
+## 17 Further Reading
 
-## Where it's used
+- Erich Gamma et al., *Design Patterns*, Addison-Wesley, 1994.
 
-- Compilers and interpreters: operations over an abstract syntax tree (type-check, optimize, generate code).
-- Document processing: export a document model to HTML, PDF, plain text.
-- Tax or pricing calculation across different item types.
-- File-system walking (Java's `FileVisitor` and `Files.walkFileTree` follow this idea).
-
-## Visitor and Composite
-
-Visitor pairs naturally with [Composite](../05-structural-patterns/03-composite.md): a composite's `accept` visits itself and then passes the visitor to its children, so one visitor walks the whole tree.
-
-```java
-public <R> R accept(TreeVisitor<R> v) {
-    children.forEach(c -> c.accept(v));
-    return v.visitFolder(this);
-}
-```
-
-## Benefits and costs
-
-| Benefits | Costs |
+### In Your Language
+| Language Track | Deep Dive Reference |
 |---|---|
-| Add operations without touching element classes | Adding element types is expensive |
-| Related logic for one operation sits in one place | Elements must expose enough state for visitors, which can weaken encapsulation |
-| Visitors can accumulate state while traversing | Boilerplate: `accept` in every element, a method per type in every visitor |
-| Keeps unrelated operations out of the model | Harder to understand for newcomers |
+| Java | [Java OOP & Design Patterns](file:///e:/Learning/engineering-notes/01-languages/java/24-design-patterns/README.md) |
+| TypeScript | [TypeScript Design Patterns](file:///e:/Learning/engineering-notes/01-languages/typescript/17-design-patterns/README.md) |
+| Python | [Python Design Patterns](file:///e:/Learning/engineering-notes/01-languages/python/23-design-patterns/README.md) |
 
-## Common mistakes
+---
 
-- **Using it when element types change often.** Prefer ordinary polymorphism.
-- **Making element internals public** only to feed visitors.
-- **Forgetting `accept` in a new element**, or implementing it with the wrong visit method.
-- **Visitors that mix several operations**, losing the point of the pattern.
-- **Unnecessary use** where a `switch` over a sealed type (or a single method) is simpler.
-- **Ignoring traversal responsibility**: decide whether the elements or the visitor traverse children.
-
-## Quick Summary
-
-- Visitor adds new operations to a stable class hierarchy without modifying it, using double dispatch.
-- Great for many operations over few, stable element types; poor for frequently changing element types.
-- In Java 21+, sealed types with pattern-matching `switch` often replace it.
-- Pairs well with Composite for tree traversal.
-
-## Related
-
-[Composite](../05-structural-patterns/03-composite.md) · [Iterator](./07-iterator.md) · [Strategy](./01-strategy.md)
-
-## Next
-
-Application patterns: [../07-application-patterns/00-overview.md](../07-application-patterns/00-overview.md)
+[← Previous: 09 - Memento Pattern](file:///e:/Learning/engineering-notes/08-solid-design-patterns/07-behavioral-patterns/09-memento.md) | [Module 07 Index](file:///e:/Learning/engineering-notes/08-solid-design-patterns/07-behavioral-patterns/README.md) | [Next: 11 - Interpreter Pattern →](file:///e:/Learning/engineering-notes/08-solid-design-patterns/07-behavioral-patterns/11-interpreter.md)

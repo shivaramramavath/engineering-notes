@@ -47,3 +47,8 @@ All structural changes, renames, additions, corrections, and verified code runs 
 - **Module 06: Structural Patterns (`06-structural-patterns/`)**:
   - Authored `README.md`, `00-overview.md`, `01-adapter.md` through `11-structural-patterns-comparison.md` (13 files).
   - Verified runnable multi-language examples (Java 25, TypeScript 5.8, Python 3.14) via `test_struct_1.js` and `test_struct_2.js`.
+
+### 2026-11-27 (Batch 5) - Module 07: Behavioral Patterns Completion
+- **Module 07: Behavioral Patterns (`07-behavioral-patterns/`)**:
+  - Authored `README.md`, `00-overview.md`, `01-strategy.md` through `15-behavioural-patterns-comparison.md` (17 files).
+  - Verified runnable multi-language examples (Java 25, TypeScript 5.8, Python 3.14) via `test_behav_1.js`, `test_behav_2.js`, and `test_behav_3.js`.

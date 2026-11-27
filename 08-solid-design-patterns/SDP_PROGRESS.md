@@ -17,7 +17,7 @@
 | **04** | Patterns Introduction (`04-patterns-intro/`) | 6 | 6 | Complete |
 | **05** | Creational Patterns (`05-creational-patterns/`) | 12 | 12 | Complete |
 | **06** | Structural Patterns (`06-structural-patterns/`) | 12 | 12 | Complete |
-| **07** | Behavioral Patterns (`07-behavioral-patterns/`) | 16 | 0 | Pending |
+| **07** | Behavioral Patterns (`07-behavioral-patterns/`) | 16 | 16 | Complete |
 | **08** | Concurrency Patterns (`08-concurrency-patterns/`) | 14 | 0 | Pending |
 | **09** | Enterprise Application Patterns (`09-enterprise-application-patterns/`) | 17 | 0 | Pending |
 | **10** | Architecture (`10-architecture/`) | 15 | 0 | Pending |
@@ -134,23 +134,23 @@
 - [x] `06-structural-patterns/11-structural-patterns-comparison.md`
 
 ### Module 07: Behavioral Patterns (`07-behavioral-patterns/`)
-- [ ] `07-behavioral-patterns/README.md`
-- [ ] `07-behavioral-patterns/00-overview.md`
-- [ ] `07-behavioral-patterns/01-strategy.md`
-- [ ] `07-behavioral-patterns/02-observer.md`
-- [ ] `07-behavioral-patterns/03-command.md`
-- [ ] `07-behavioral-patterns/04-state.md`
-- [ ] `07-behavioral-patterns/05-template-method.md`
-- [ ] `07-behavioral-patterns/06-chain-of-responsibility.md`
-- [ ] `07-behavioral-patterns/07-iterator.md`
-- [ ] `07-behavioral-patterns/08-mediator.md`
-- [ ] `07-behavioral-patterns/09-memento.md`
-- [ ] `07-behavioral-patterns/10-visitor.md`
-- [ ] `07-behavioral-patterns/11-interpreter.md`
-- [ ] `07-behavioral-patterns/12-specification-as-behavioural.md`
-- [ ] `07-behavioral-patterns/13-event-bus.md`
-- [ ] `07-behavioral-patterns/14-blackboard-and-publish-subscribe-variants.md`
-- [ ] `07-behavioral-patterns/15-behavioural-patterns-comparison.md`
+- [x] `07-behavioral-patterns/README.md`
+- [x] `07-behavioral-patterns/00-overview.md`
+- [x] `07-behavioral-patterns/01-strategy.md`
+- [x] `07-behavioral-patterns/02-observer.md`
+- [x] `07-behavioral-patterns/03-command.md`
+- [x] `07-behavioral-patterns/04-state.md`
+- [x] `07-behavioral-patterns/05-template-method.md`
+- [x] `07-behavioral-patterns/06-chain-of-responsibility.md`
+- [x] `07-behavioral-patterns/07-iterator.md`
+- [x] `07-behavioral-patterns/08-mediator.md`
+- [x] `07-behavioral-patterns/09-memento.md`
+- [x] `07-behavioral-patterns/10-visitor.md`
+- [x] `07-behavioral-patterns/11-interpreter.md`
+- [x] `07-behavioral-patterns/12-specification-as-behavioural.md`
+- [x] `07-behavioral-patterns/13-event-bus.md`
+- [x] `07-behavioral-patterns/14-blackboard-and-publish-subscribe-variants.md`
+- [x] `07-behavioral-patterns/15-behavioural-patterns-comparison.md`
 
 ### Module 08: Concurrency Patterns (`08-concurrency-patterns/`)
 - [ ] `08-concurrency-patterns/README.md`
