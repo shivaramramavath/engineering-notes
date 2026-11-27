@@ -66,3 +66,7 @@ All structural changes, renames, additions, corrections, and verified code runs 
 ## Batch 8 — Module 11 (Distributed & Cloud Patterns)
 - Authored all 22 files in `11-distributed-and-cloud-patterns/` (`README.md`, `00-overview.md`, `01`–`20`), covering resilience (Circuit Breaker, Retry+Jitter, Timeout/Deadline, Bulkhead, Rate Limiter), consistency (Idempotency, Saga, Transactional Outbox, CQRS Read Models, Cache-Aside), topology (API Gateway/BFF, Sidecar/Ambassador, Strangler Fig, ACL, Discovery/LB, Leader Election/Fencing Tokens, Sharding), and progressive delivery (Health Checks, Feature Flags, Blue–Green & Canary).
 - Verified Java 25, TypeScript 5.8, and Python 3.14 examples via `test_dist_1.js`.
+
+## Batch 9 — Module 13 (Anti-Patterns & Code Smells) & Module 14 (Refactoring)
+- Authored all 22 files in `13-anti-patterns-and-code-smells/` (`README.md`, `00-overview.md`, `01`–`20`).
+- Authored all 9 files in `14-refactoring/` (`README.md`, `00-overview.md`, `01`–`07`).

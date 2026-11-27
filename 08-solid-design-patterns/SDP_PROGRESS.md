@@ -23,8 +23,8 @@
 | **10** | Architecture (`10-architecture/`) | 16 | 16 | Complete |
 | **11** | Distributed & Cloud Patterns (`11-distributed-and-cloud-patterns/`) | 22 | 22 | Complete |
 | **12** | Functional & Modern Idioms (`12-functional-and-modern-idioms/`) | 12 | 12 | Complete |
-| **13** | Anti-Patterns & Code Smells (`13-anti-patterns-and-code-smells/`) | 21 | 0 | Pending |
-| **14** | Refactoring (`14-refactoring/`) | 8 | 0 | Pending |
+| **13** | Anti-Patterns & Code Smells (`13-anti-patterns-and-code-smells/`) | 22 | 22 | Complete |
+| **14** | Refactoring (`14-refactoring/`) | 9 | 9 | Complete |
 | **15** | Testing & Debugging (`15-testing-and-debugging/`) | 8 | 0 | Pending |
 | **16** | Production (`16-production/`) | 11 | 0 | Pending |
 | **17** | Real-World Case Studies (`17-case-studies/`) | 13 | 0 | Pending |
@@ -246,39 +246,39 @@
 - [x] `12-functional-and-modern-idioms/10-when-fp-replaces-oop-patterns.md`
 
 ### Module 13: Anti-Patterns & Code Smells (`13-anti-patterns-and-code-smells/`)
-- [ ] `13-anti-patterns-and-code-smells/README.md`
-- [ ] `13-anti-patterns-and-code-smells/00-overview.md`
-- [ ] `13-anti-patterns-and-code-smells/01-god-object-and-blob.md`
-- [ ] `13-anti-patterns-and-code-smells/02-spaghetti-code.md`
-- [ ] `13-anti-patterns-and-code-smells/03-golden-hammer.md`
-- [ ] `13-anti-patterns-and-code-smells/04-copy-paste-programming.md`
-- [ ] `13-anti-patterns-and-code-smells/05-lava-flow-and-dead-code.md`
-- [ ] `13-anti-patterns-and-code-smells/06-singleton-abuse-and-global-state.md`
-- [ ] `13-anti-patterns-and-code-smells/07-service-locator-abuse.md`
-- [ ] `13-anti-patterns-and-code-smells/08-anemic-domain-model.md`
-- [ ] `13-anti-patterns-and-code-smells/09-big-ball-of-mud.md`
-- [ ] `13-anti-patterns-and-code-smells/10-premature-optimisation-and-abstraction.md`
-- [ ] `13-anti-patterns-and-code-smells/11-cargo-cult-and-resume-driven-development.md`
-- [ ] `13-anti-patterns-and-code-smells/12-primitive-obsession.md`
-- [ ] `13-anti-patterns-and-code-smells/13-feature-envy-and-inappropriate-intimacy.md`
-- [ ] `13-anti-patterns-and-code-smells/14-shotgun-surgery-and-divergent-change.md`
-- [ ] `13-anti-patterns-and-code-smells/15-long-method-and-large-class.md`
-- [ ] `13-anti-patterns-and-code-smells/16-magic-numbers-and-strings.md`
-- [ ] `13-anti-patterns-and-code-smells/17-boolean-flags-and-flag-arguments.md`
-- [ ] `13-anti-patterns-and-code-smells/18-deep-inheritance-and-yo-yo-problem.md`
-- [ ] `13-anti-patterns-and-code-smells/19-leaky-abstractions.md`
-- [ ] `13-anti-patterns-and-code-smells/20-smell-to-refactoring-map.md`
+- [x] `13-anti-patterns-and-code-smells/README.md`
+- [x] `13-anti-patterns-and-code-smells/00-overview.md`
+- [x] `13-anti-patterns-and-code-smells/01-god-object-and-blob.md`
+- [x] `13-anti-patterns-and-code-smells/02-spaghetti-code.md`
+- [x] `13-anti-patterns-and-code-smells/03-golden-hammer.md`
+- [x] `13-anti-patterns-and-code-smells/04-copy-paste-programming.md`
+- [x] `13-anti-patterns-and-code-smells/05-lava-flow-and-dead-code.md`
+- [x] `13-anti-patterns-and-code-smells/06-singleton-abuse-and-global-state.md`
+- [x] `13-anti-patterns-and-code-smells/07-service-locator-abuse.md`
+- [x] `13-anti-patterns-and-code-smells/08-anemic-domain-model.md`
+- [x] `13-anti-patterns-and-code-smells/09-big-ball-of-mud.md`
+- [x] `13-anti-patterns-and-code-smells/10-premature-optimisation-and-abstraction.md`
+- [x] `13-anti-patterns-and-code-smells/11-cargo-cult-and-resume-driven-development.md`
+- [x] `13-anti-patterns-and-code-smells/12-primitive-obsession.md`
+- [x] `13-anti-patterns-and-code-smells/13-feature-envy-and-inappropriate-intimacy.md`
+- [x] `13-anti-patterns-and-code-smells/14-shotgun-surgery-and-divergent-change.md`
+- [x] `13-anti-patterns-and-code-smells/15-long-method-and-large-class.md`
+- [x] `13-anti-patterns-and-code-smells/16-magic-numbers-and-strings.md`
+- [x] `13-anti-patterns-and-code-smells/17-boolean-flags-and-flag-arguments.md`
+- [x] `13-anti-patterns-and-code-smells/18-deep-inheritance-and-yo-yo-problem.md`
+- [x] `13-anti-patterns-and-code-smells/19-leaky-abstractions.md`
+- [x] `13-anti-patterns-and-code-smells/20-smell-to-refactoring-map.md`
 
 ### Module 14: Refactoring (`14-refactoring/`)
-- [ ] `14-refactoring/README.md`
-- [ ] `14-refactoring/00-overview.md`
-- [ ] `14-refactoring/01-refactoring-workflow-and-safety-nets.md`
-- [ ] `14-refactoring/02-refactoring-catalogue.md`
-- [ ] `14-refactoring/03-refactoring-to-patterns.md`
-- [ ] `14-refactoring/04-legacy-code-and-characterisation-tests.md`
-- [ ] `14-refactoring/05-strangler-and-branch-by-abstraction.md`
-- [ ] `14-refactoring/06-automated-refactoring-tools.md`
-- [ ] `14-refactoring/07-measuring-design-quality.md`
+- [x] `14-refactoring/README.md`
+- [x] `14-refactoring/00-overview.md`
+- [x] `14-refactoring/01-refactoring-workflow-and-safety-nets.md`
+- [x] `14-refactoring/02-refactoring-catalogue.md`
+- [x] `14-refactoring/03-refactoring-to-patterns.md`
+- [x] `14-refactoring/04-legacy-code-and-characterisation-tests.md`
+- [x] `14-refactoring/05-strangler-and-branch-by-abstraction.md`
+- [x] `14-refactoring/06-automated-refactoring-tools.md`
+- [x] `14-refactoring/07-measuring-design-quality.md`
 
 ### Module 15: Testing & Debugging (`15-testing-and-debugging/`)
 - [ ] `15-testing-and-debugging/README.md`
