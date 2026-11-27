@@ -18,11 +18,11 @@
 | **05** | Creational Patterns (`05-creational-patterns/`) | 12 | 12 | Complete |
 | **06** | Structural Patterns (`06-structural-patterns/`) | 12 | 12 | Complete |
 | **07** | Behavioral Patterns (`07-behavioral-patterns/`) | 16 | 16 | Complete |
-| **08** | Concurrency Patterns (`08-concurrency-patterns/`) | 14 | 0 | Pending |
+| **08** | Concurrency Patterns (`08-concurrency-patterns/`) | 15 | 15 | Complete |
 | **09** | Enterprise Application Patterns (`09-enterprise-application-patterns/`) | 17 | 0 | Pending |
 | **10** | Architecture (`10-architecture/`) | 15 | 0 | Pending |
 | **11** | Distributed & Cloud Patterns (`11-distributed-and-cloud-patterns/`) | 21 | 0 | Pending |
-| **12** | Functional & Modern Idioms (`12-functional-and-modern-idioms/`) | 11 | 0 | Pending |
+| **12** | Functional & Modern Idioms (`12-functional-and-modern-idioms/`) | 12 | 12 | Complete |
 | **13** | Anti-Patterns & Code Smells (`13-anti-patterns-and-code-smells/`) | 21 | 0 | Pending |
 | **14** | Refactoring (`14-refactoring/`) | 8 | 0 | Pending |
 | **15** | Testing & Debugging (`15-testing-and-debugging/`) | 8 | 0 | Pending |
@@ -153,21 +153,21 @@
 - [x] `07-behavioral-patterns/15-behavioural-patterns-comparison.md`
 
 ### Module 08: Concurrency Patterns (`08-concurrency-patterns/`)
-- [ ] `08-concurrency-patterns/README.md`
-- [ ] `08-concurrency-patterns/00-overview.md`
-- [ ] `08-concurrency-patterns/01-thread-pool-and-executor.md`
-- [ ] `08-concurrency-patterns/02-producer-consumer.md`
-- [ ] `08-concurrency-patterns/03-monitor-object-and-lock-patterns.md`
-- [ ] `08-concurrency-patterns/04-read-write-lock.md`
-- [ ] `08-concurrency-patterns/05-active-object.md`
-- [ ] `08-concurrency-patterns/06-future-and-promise.md`
-- [ ] `08-concurrency-patterns/07-reactor-and-proactor.md`
-- [ ] `08-concurrency-patterns/08-immutability-and-thread-confinement.md`
-- [ ] `08-concurrency-patterns/09-actor-model.md`
-- [ ] `08-concurrency-patterns/10-double-checked-locking-and-why-it-fails.md`
-- [ ] `08-concurrency-patterns/11-async-await-patterns.md`
-- [ ] `08-concurrency-patterns/12-structured-concurrency-pattern.md`
-- [ ] `08-concurrency-patterns/13-backpressure-and-flow-control.md`
+- [x] `08-concurrency-patterns/README.md`
+- [x] `08-concurrency-patterns/00-overview.md`
+- [x] `08-concurrency-patterns/01-thread-pool-and-executor.md`
+- [x] `08-concurrency-patterns/02-producer-consumer.md`
+- [x] `08-concurrency-patterns/03-monitor-object-and-lock-patterns.md`
+- [x] `08-concurrency-patterns/04-read-write-lock.md`
+- [x] `08-concurrency-patterns/05-active-object.md`
+- [x] `08-concurrency-patterns/06-future-and-promise.md`
+- [x] `08-concurrency-patterns/07-reactor-and-proactor.md`
+- [x] `08-concurrency-patterns/08-immutability-and-thread-confinement.md`
+- [x] `08-concurrency-patterns/09-actor-model.md`
+- [x] `08-concurrency-patterns/10-double-checked-locking-and-why-it-fails.md`
+- [x] `08-concurrency-patterns/11-async-await-patterns.md`
+- [x] `08-concurrency-patterns/12-structured-concurrency-pattern.md`
+- [x] `08-concurrency-patterns/13-backpressure-and-flow-control.md`
 
 ### Module 09: Enterprise Application Patterns (`09-enterprise-application-patterns/`)
 - [ ] `09-enterprise-application-patterns/README.md`
@@ -232,18 +232,18 @@
 - [ ] `11-distributed-and-cloud-patterns/20-blue-green-and-canary.md`
 
 ### Module 12: Functional & Modern Idioms (`12-functional-and-modern-idioms/`)
-- [ ] `12-functional-and-modern-idioms/README.md`
-- [ ] `12-functional-and-modern-idioms/00-overview.md`
-- [ ] `12-functional-and-modern-idioms/01-patterns-as-functions.md`
-- [ ] `12-functional-and-modern-idioms/02-pipelines-and-middleware.md`
-- [ ] `12-functional-and-modern-idioms/03-option-result-either-and-railway-oriented-error-handling.md`
-- [ ] `12-functional-and-modern-idioms/04-currying-partial-application-and-composition.md`
-- [ ] `12-functional-and-modern-idioms/05-memoisation.md`
-- [ ] `12-functional-and-modern-idioms/06-immutability-and-persistent-data.md`
-- [ ] `12-functional-and-modern-idioms/07-algebraic-data-types-and-sealed-hierarchies.md`
-- [ ] `12-functional-and-modern-idioms/08-dependency-injection-in-functional-style.md`
-- [ ] `12-functional-and-modern-idioms/09-reactive-and-streams-patterns.md`
-- [ ] `12-functional-and-modern-idioms/10-when-fp-replaces-oop-patterns.md`
+- [x] `12-functional-and-modern-idioms/README.md`
+- [x] `12-functional-and-modern-idioms/00-overview.md`
+- [x] `12-functional-and-modern-idioms/01-patterns-as-functions.md`
+- [x] `12-functional-and-modern-idioms/02-pipelines-and-middleware.md`
+- [x] `12-functional-and-modern-idioms/03-option-result-either-and-railway-oriented-error-handling.md`
+- [x] `12-functional-and-modern-idioms/04-currying-partial-application-and-composition.md`
+- [x] `12-functional-and-modern-idioms/05-memoisation.md`
+- [x] `12-functional-and-modern-idioms/06-immutability-and-persistent-data.md`
+- [x] `12-functional-and-modern-idioms/07-algebraic-data-types-and-sealed-hierarchies.md`
+- [x] `12-functional-and-modern-idioms/08-dependency-injection-in-functional-style.md`
+- [x] `12-functional-and-modern-idioms/09-reactive-and-streams-patterns.md`
+- [x] `12-functional-and-modern-idioms/10-when-fp-replaces-oop-patterns.md`
 
 ### Module 13: Anti-Patterns & Code Smells (`13-anti-patterns-and-code-smells/`)
 - [ ] `13-anti-patterns-and-code-smells/README.md`

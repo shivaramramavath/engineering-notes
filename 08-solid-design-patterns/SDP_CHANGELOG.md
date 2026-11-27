@@ -52,3 +52,8 @@ All structural changes, renames, additions, corrections, and verified code runs 
 - **Module 07: Behavioral Patterns (`07-behavioral-patterns/`)**:
   - Authored `README.md`, `00-overview.md`, `01-strategy.md` through `15-behavioural-patterns-comparison.md` (17 files).
   - Verified runnable multi-language examples (Java 25, TypeScript 5.8, Python 3.14) via `test_behav_1.js`, `test_behav_2.js`, and `test_behav_3.js`.
+
+## Batch 6 — Module 08 (Concurrency Patterns) & Module 12 (Functional & Modern Idioms)
+- Authored all 15 files in `08-concurrency-patterns/` (`README.md`, `00-overview.md`, `01`–`13`), including Java 25 Virtual Threads & Structured Concurrency (`StructuredTaskScope`), TypeScript async/await & backpressure, and Python 3.14 `asyncio.TaskGroup` & `asyncio.Queue(maxsize)`.
+- Authored all 12 files in `12-functional-and-modern-idioms/` (`README.md`, `00-overview.md`, `01`–`10`), covering functional Strategy/Decorator/Command, onion middleware, `Result`/`Either` railway error handling, currying/partial application, memoisation, persistent data, `sealed` ADTs + exhaustive pattern matching, functional DI, lazy/reactive streams, and FP vs OOP decision criteria.
+- Verified Java 25, TypeScript 5.8, and Python 3.14 code examples via `test_conc_1.js`, `test_conc_2.js`, `test_conc_3.js`, and `test_fp_1.js`.
