@@ -35,3 +35,10 @@ All structural changes, renames, additions, corrections, and verified code runs 
   - Authored 22 complete files: `README.md`, `00-overview.md`, and `01-dry-and-rule-of-three.md` through `20-principles-cheat-sheet.md`.
   - Covered DRY & Rule of Three, KISS, YAGNI, Law of Demeter, Separation of Concerns, Tell-Don't-Ask, Principle of Least Astonishment, Fail-Fast, Boy Scout Rule, High Cohesion & Low Coupling, Orthogonality, Postel's Law (including RFC 9413 security nuances), Hollywood Principle / IoC, Craig Larman's 9 GRASP patterns, Robert C. Martin's 6 Package Principles (REP, CCP, CRP, ADP, SDP, SAP), Premature Optimisation & Measuring, Idempotency Principle, Conway's Law & Team Topologies, Principles Conflicts & Trade-offs, and Operational Cheat Sheet.
   - Verified runnable multi-language examples (Java 25 LTS, TypeScript 5.8, Python 3.14) via scratch runner scripts `test_m3_batch1.js`, `test_kiss_yagni.js`, `test_m3_batch2.js`, and `test_idempotency.js`.
+
+### 2026-11-27 (Batch 3) - Module 04 & Module 05 Completion
+- **Module 04: Patterns Introduction (`04-patterns-intro/`)**:
+  - Authored `README.md`, `00-overview.md`, `01-what-are-patterns.md`, `02-how-to-read-and-choose-patterns.md`, `03-dependency-injection.md` (renamed from legacy `02-dependency-injection.md`), `04-inversion-of-control-containers.md`, and `05-pattern-languages-and-catalogues-history.md`.
+- **Module 05: Creational Patterns (`05-creational-patterns/`)**:
+  - Authored `README.md`, `00-overview.md`, `01-singleton.md` through `11-creational-patterns-comparison.md`.
+  - Verified runnable multi-language examples (Java 25, TypeScript 5.8, Python 3.14) via `test_creational_gof.js` and `test_creational_ext.js`.

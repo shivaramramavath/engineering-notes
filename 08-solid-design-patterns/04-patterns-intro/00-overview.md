@@ -1,54 +1,44 @@
-# Design Patterns: Introduction Overview
+# Introduction to Design Patterns: Overview
 
-The previous sections gave you the principles: low coupling, high cohesion, depend on abstractions. This section introduces **design patterns**, which are named, reusable solutions to problems that show up again and again when applying those principles.
+> **One-line summary:** Design patterns are not copy-paste templates or magic silver bullets—they are a shared engineering vocabulary of proven solutions to recurring structural forces.
 
-Two files in this folder:
-
-| File | Question it answers |
+| Attribute | Specification |
 |---|---|
-| [01-what-are-patterns.md](./01-what-are-patterns.md) | What is a design pattern, how are patterns organized, and how do I read and choose one? |
-| [02-dependency-injection.md](./02-dependency-injection.md) | How do objects get their collaborators? The technique almost every pattern relies on. |
+| **Level** | Foundational / Bridge |
+| **Prerequisites** | [Module 02: SOLID Principles](file:///e:/Learning/engineering-notes/08-solid-design-patterns/02-solid-principles/README.md), [Module 03: General Design Principles](file:///e:/Learning/engineering-notes/08-solid-design-patterns/03-design-principles/README.md) |
+| **Estimated Reading Time** | 15 minutes |
+| **Status** | Complete |
+| **Category** | Patterns Introduction |
 
-## Prerequisites
+---
 
-- [Programming to interfaces](../01-foundations/04-programming-to-interfaces.md)
-- [Composition vs inheritance](../01-foundations/02-composition-vs-inheritance.md)
-- [SOLID principles](../02-solid-principles/00-overview.md), especially OCP and DIP
+## 1. The Role of Design Patterns
 
-## Why dependency injection lives here
+If SOLID and General Design Principles tell us *what* properties healthy software has (low coupling, high cohesion, open for extension), **Design Patterns** show us *how* classes and objects collaborate mechanically to achieve those properties.
 
-Dependency injection is not a Gang of Four pattern, but nearly every pattern that follows (Strategy, Decorator, Observer, Factory, Repository) assumes you can *hand an object its collaborators* from outside. Learning it first removes a lot of friction later.
-
-## What comes next
-
-```text
-03-patterns-intro        (you are here: vocabulary + DI)
-   ↓
-04-creational-patterns   how objects get created
-05-structural-patterns   how objects are assembled into larger structures
-06-behavioral-patterns   how objects communicate and share work
-   ↓
-07-application-patterns  patterns for data access and business logic layers
+```mermaid
+graph LR
+    Principles[Principles: SOLID, DRY, KISS, LoD] -->|Inform| Forces[Recurring Design Forces]
+    Forces -->|Resolved by| Patterns[Design Patterns: Strategy, Adapter, Factory, Saga...]
+    Patterns -->|Wired via| DI[Dependency Injection & IoC]
 ```
 
-## How to read the pattern files
+---
 
-Every pattern file in the next sections follows the same spine, adapted to the pattern:
+## 2. The Three Classical GoF Categories (Plus Modern Extensions)
 
-1. **Problem**: the situation that motivates it.
-2. **Structure**: participants and relationships.
-3. **Example**: minimal, realistic Java code.
-4. **Trade-offs**: what it costs.
-5. **Related patterns**: what it is often confused with, and what it combines with.
+1. **Creational Patterns (Module 05):** Decouple *how* objects are constructed, pooled, or wired from the code that uses them (`Factory Method`, `Abstract Factory`, `Builder`, `Prototype`, `Singleton`, `Object Pool`).
+2. **Structural Patterns (Module 06):** Compose objects and interfaces into larger flexible structures (`Adapter`, `Bridge`, `Composite`, `Decorator`, `Facade`, `Flyweight`, `Proxy`, `Null Object`).
+3. **Behavioral Patterns (Module 07):** Govern algorithms, state transitions, and communication protocols between objects (`Strategy`, `Observer`, `Command`, `State`, `Template Method`, `Chain of Responsibility`, `Iterator`, `Mediator`, `Memento`, `Visitor`).
+4. **Modern Concurrency, Enterprise, Distributed & Functional Patterns (Modules 08–12):** Extend GoF into multi-threaded runtimes, persistence layers, microservices, and functional programming.
 
-You don't need to memorize all patterns. Know the problem each one solves, and look up the details when you meet that problem.
+---
 
-## Quick Summary
+## 3. Pattern Fever Warning
 
-- Patterns are shared vocabulary for common design problems.
-- Dependency injection is the supporting technique; learn it before the patterns.
-- Learn a pattern by the *problem* it solves, not by its class diagram.
+Knowing 23 patterns makes every problem look like a nail. Always remember **Joshua Kerievsky's rule** (*Refactoring to Patterns*):
+> *"Do not design upfront with patterns. Evolve toward patterns through refactoring when concrete friction appears."*
 
-## Next
+---
 
-[01-what-are-patterns.md](./01-what-are-patterns.md)
+[← Module 04 Index](file:///e:/Learning/engineering-notes/08-solid-design-patterns/04-patterns-intro/README.md) | [Next: 01 - What Are Design Patterns? →](file:///e:/Learning/engineering-notes/08-solid-design-patterns/04-patterns-intro/01-what-are-patterns.md)

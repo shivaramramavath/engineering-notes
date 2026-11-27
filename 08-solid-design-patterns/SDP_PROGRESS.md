@@ -14,8 +14,8 @@
 | **01** | Foundations (`01-foundations/`) | 11 | 11 | Complete |
 | **02** | SOLID Principles (`02-solid-principles/`) | 10 | 10 | Complete |
 | **03** | General Design Principles (`03-design-principles/`) | 21 | 21 | Complete |
-| **04** | Patterns Introduction (`04-patterns-intro/`) | 6 | 0 | Pending |
-| **05** | Creational Patterns (`05-creational-patterns/`) | 12 | 0 | Pending |
+| **04** | Patterns Introduction (`04-patterns-intro/`) | 6 | 6 | Complete |
+| **05** | Creational Patterns (`05-creational-patterns/`) | 12 | 12 | Complete |
 | **06** | Structural Patterns (`06-structural-patterns/`) | 12 | 0 | Pending |
 | **07** | Behavioral Patterns (`07-behavioral-patterns/`) | 16 | 0 | Pending |
 | **08** | Concurrency Patterns (`08-concurrency-patterns/`) | 14 | 0 | Pending |
@@ -95,28 +95,28 @@
 - [x] `03-design-principles/20-principles-cheat-sheet.md`
 
 ### Module 04: Patterns Introduction (`04-patterns-intro/`)
-- [ ] `04-patterns-intro/README.md`
-- [ ] `04-patterns-intro/00-overview.md`
-- [ ] `04-patterns-intro/01-what-are-patterns.md`
-- [ ] `04-patterns-intro/02-how-to-read-and-choose-patterns.md`
-- [ ] `04-patterns-intro/03-dependency-injection.md`
-- [ ] `04-patterns-intro/04-inversion-of-control-containers.md`
-- [ ] `04-patterns-intro/05-pattern-languages-and-catalogues-history.md`
+- [x] `04-patterns-intro/README.md`
+- [x] `04-patterns-intro/00-overview.md`
+- [x] `04-patterns-intro/01-what-are-patterns.md`
+- [x] `04-patterns-intro/02-how-to-read-and-choose-patterns.md`
+- [x] `04-patterns-intro/03-dependency-injection.md`
+- [x] `04-patterns-intro/04-inversion-of-control-containers.md`
+- [x] `04-patterns-intro/05-pattern-languages-and-catalogues-history.md`
 
 ### Module 05: Creational Patterns (`05-creational-patterns/`)
-- [ ] `05-creational-patterns/README.md`
-- [ ] `05-creational-patterns/00-overview.md`
-- [ ] `05-creational-patterns/01-singleton.md`
-- [ ] `05-creational-patterns/02-factory-method.md`
-- [ ] `05-creational-patterns/03-abstract-factory.md`
-- [ ] `05-creational-patterns/04-builder.md`
-- [ ] `05-creational-patterns/05-prototype.md`
-- [ ] `05-creational-patterns/06-simple-factory-and-static-factory-methods.md`
-- [ ] `05-creational-patterns/07-object-pool.md`
-- [ ] `05-creational-patterns/08-lazy-initialisation-and-holder.md`
-- [ ] `05-creational-patterns/09-multiton-and-registry.md`
-- [ ] `05-creational-patterns/10-dependency-injection-vs-factories.md`
-- [ ] `05-creational-patterns/11-creational-patterns-comparison.md`
+- [x] `05-creational-patterns/README.md`
+- [x] `05-creational-patterns/00-overview.md`
+- [x] `05-creational-patterns/01-singleton.md`
+- [x] `05-creational-patterns/02-factory-method.md`
+- [x] `05-creational-patterns/03-abstract-factory.md`
+- [x] `05-creational-patterns/04-builder.md`
+- [x] `05-creational-patterns/05-prototype.md`
+- [x] `05-creational-patterns/06-simple-factory-and-static-factory-methods.md`
+- [x] `05-creational-patterns/07-object-pool.md`
+- [x] `05-creational-patterns/08-lazy-initialisation-and-holder.md`
+- [x] `05-creational-patterns/09-multiton-and-registry.md`
+- [x] `05-creational-patterns/10-dependency-injection-vs-factories.md`
+- [x] `05-creational-patterns/11-creational-patterns-comparison.md`
 
 ### Module 06: Structural Patterns (`06-structural-patterns/`)
 - [ ] `06-structural-patterns/README.md`
