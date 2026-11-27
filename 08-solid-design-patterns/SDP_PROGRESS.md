@@ -21,7 +21,7 @@
 | **08** | Concurrency Patterns (`08-concurrency-patterns/`) | 15 | 15 | Complete |
 | **09** | Enterprise Application Patterns (`09-enterprise-application-patterns/`) | 18 | 18 | Complete |
 | **10** | Architecture (`10-architecture/`) | 16 | 16 | Complete |
-| **11** | Distributed & Cloud Patterns (`11-distributed-and-cloud-patterns/`) | 21 | 0 | Pending |
+| **11** | Distributed & Cloud Patterns (`11-distributed-and-cloud-patterns/`) | 22 | 22 | Complete |
 | **12** | Functional & Modern Idioms (`12-functional-and-modern-idioms/`) | 12 | 12 | Complete |
 | **13** | Anti-Patterns & Code Smells (`13-anti-patterns-and-code-smells/`) | 21 | 0 | Pending |
 | **14** | Refactoring (`14-refactoring/`) | 8 | 0 | Pending |
@@ -208,28 +208,28 @@
 - [x] `10-architecture/14-evolutionary-architecture.md`
 
 ### Module 11: Distributed & Cloud Patterns (`11-distributed-and-cloud-patterns/`)
-- [ ] `11-distributed-and-cloud-patterns/README.md`
-- [ ] `11-distributed-and-cloud-patterns/00-overview.md`
-- [ ] `11-distributed-and-cloud-patterns/01-circuit-breaker.md`
-- [ ] `11-distributed-and-cloud-patterns/02-retry-with-backoff-and-jitter.md`
-- [ ] `11-distributed-and-cloud-patterns/03-timeout-and-deadline.md`
-- [ ] `11-distributed-and-cloud-patterns/04-bulkhead.md`
-- [ ] `11-distributed-and-cloud-patterns/05-rate-limiter-and-throttling.md`
-- [ ] `11-distributed-and-cloud-patterns/06-idempotency-key-and-idempotent-consumer.md`
-- [ ] `11-distributed-and-cloud-patterns/07-saga-pattern.md`
-- [ ] `11-distributed-and-cloud-patterns/08-transactional-outbox.md`
-- [ ] `11-distributed-and-cloud-patterns/09-cqrs-read-models.md`
-- [ ] `11-distributed-and-cloud-patterns/10-cache-aside-and-write-through.md`
-- [ ] `11-distributed-and-cloud-patterns/11-api-gateway-and-bff.md`
-- [ ] `11-distributed-and-cloud-patterns/12-sidecar-and-ambassador.md`
-- [ ] `11-distributed-and-cloud-patterns/13-strangler-fig-migration.md`
-- [ ] `11-distributed-and-cloud-patterns/14-anti-corruption-layer.md`
-- [ ] `11-distributed-and-cloud-patterns/15-service-discovery-and-load-balancing.md`
-- [ ] `11-distributed-and-cloud-patterns/16-leader-election-and-distributed-lock.md`
-- [ ] `11-distributed-and-cloud-patterns/17-sharding-and-partitioning.md`
-- [ ] `11-distributed-and-cloud-patterns/18-health-check-and-graceful-degradation.md`
-- [ ] `11-distributed-and-cloud-patterns/19-feature-flags-and-dark-launch.md`
-- [ ] `11-distributed-and-cloud-patterns/20-blue-green-and-canary.md`
+- [x] `11-distributed-and-cloud-patterns/README.md`
+- [x] `11-distributed-and-cloud-patterns/00-overview.md`
+- [x] `11-distributed-and-cloud-patterns/01-circuit-breaker.md`
+- [x] `11-distributed-and-cloud-patterns/02-retry-with-backoff-and-jitter.md`
+- [x] `11-distributed-and-cloud-patterns/03-timeout-and-deadline.md`
+- [x] `11-distributed-and-cloud-patterns/04-bulkhead.md`
+- [x] `11-distributed-and-cloud-patterns/05-rate-limiter-and-throttling.md`
+- [x] `11-distributed-and-cloud-patterns/06-idempotency-key-and-idempotent-consumer.md`
+- [x] `11-distributed-and-cloud-patterns/07-saga-pattern.md`
+- [x] `11-distributed-and-cloud-patterns/08-transactional-outbox.md`
+- [x] `11-distributed-and-cloud-patterns/09-cqrs-read-models.md`
+- [x] `11-distributed-and-cloud-patterns/10-cache-aside-and-write-through.md`
+- [x] `11-distributed-and-cloud-patterns/11-api-gateway-and-bff.md`
+- [x] `11-distributed-and-cloud-patterns/12-sidecar-and-ambassador.md`
+- [x] `11-distributed-and-cloud-patterns/13-strangler-fig-migration.md`
+- [x] `11-distributed-and-cloud-patterns/14-anti-corruption-layer.md`
+- [x] `11-distributed-and-cloud-patterns/15-service-discovery-and-load-balancing.md`
+- [x] `11-distributed-and-cloud-patterns/16-leader-election-and-distributed-lock.md`
+- [x] `11-distributed-and-cloud-patterns/17-sharding-and-partitioning.md`
+- [x] `11-distributed-and-cloud-patterns/18-health-check-and-graceful-degradation.md`
+- [x] `11-distributed-and-cloud-patterns/19-feature-flags-and-dark-launch.md`
+- [x] `11-distributed-and-cloud-patterns/20-blue-green-and-canary.md`
 
 ### Module 12: Functional & Modern Idioms (`12-functional-and-modern-idioms/`)
 - [x] `12-functional-and-modern-idioms/README.md`

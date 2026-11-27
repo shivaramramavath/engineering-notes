@@ -62,3 +62,7 @@ All structural changes, renames, additions, corrections, and verified code runs 
 - Rewrote & extended `09-enterprise-application-patterns/` to 18 files (`README.md`, `00-overview.md`, `01`–`16`). Renumbered legacy `03-specification.md` → `04-specification.md`, `04-service-layer.md` → `05-service-layer.md`, `05-data-transfer-object.md` → `06-data-transfer-object.md`, and added `03-data-mapper-vs-active-record.md` plus `07`–`16`.
 - Rewrote & extended `10-architecture/` to 16 files (`README.md`, `00-overview.md`, `01`–`14`), adding `06-microservices-and-when-not-to.md` through `14-evolutionary-architecture.md`.
 - Verified Java 25, TypeScript 5.8, and Python 3.14 enterprise examples via `test_ent_1.js`.
+
+## Batch 8 — Module 11 (Distributed & Cloud Patterns)
+- Authored all 22 files in `11-distributed-and-cloud-patterns/` (`README.md`, `00-overview.md`, `01`–`20`), covering resilience (Circuit Breaker, Retry+Jitter, Timeout/Deadline, Bulkhead, Rate Limiter), consistency (Idempotency, Saga, Transactional Outbox, CQRS Read Models, Cache-Aside), topology (API Gateway/BFF, Sidecar/Ambassador, Strangler Fig, ACL, Discovery/LB, Leader Election/Fencing Tokens, Sharding), and progressive delivery (Health Checks, Feature Flags, Blue–Green & Canary).
+- Verified Java 25, TypeScript 5.8, and Python 3.14 examples via `test_dist_1.js`.
