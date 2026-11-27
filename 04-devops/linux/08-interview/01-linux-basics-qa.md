@@ -1,473 +1,331 @@
-# Linux Interview Questions
+# Linux Basics & Architecture: Technical Interview Q&A
 
-Questions grouped by topic, simple to hard within each group, with answers short enough to say out loud. Each section links to the note that explains it properly. For DevOps, backend, and SRE roles the usual pattern is: a few concept questions, then a **scenario** ("the site is down, walk me through it") where *how you think* matters more than any single command.
-
-How to use this: cover the answer, say yours aloud, then compare. The follow-ups in italics are what interviewers typically ask next.
-
----
-
-## 1. Fundamentals
-→ [Getting started](../01-fundamentals/01-getting-started.md), [Filesystem](../01-fundamentals/02-filesystem-and-navigation.md)
-
-**What is Linux? How is it different from a distribution?**
-Linux is the kernel: it manages CPU, memory, devices, and processes. A distribution bundles the kernel with userland tools (shell, coreutils, libc, systemd), a package manager, and defaults. Ubuntu, Debian, and RHEL share the same kernel family but differ in packaging and defaults. *Follow-up: name the distro families and their package managers (Debian: apt/dpkg, Red Hat: dnf/rpm, Alpine: apk with musl).*
-
-**What does "everything is a file" mean?**
-Regular files, directories, devices (`/dev/sda`), sockets, pipes, and even kernel and process state (`/proc`, `/sys`) are exposed through the filesystem, so the same tools (`cat`, `ls`, `grep`) work on them. It's why debugging is so file-centric, e.g. reading `/proc/<pid>/status`.
-
-**Where do configs, logs, and programs live?**
-Config in `/etc`, logs and changing data in `/var` (`/var/log`, `/var/lib`), programs in `/usr` (your own installs in `/usr/local` or `/opt`), user data in `/home`, scratch in `/tmp`, and virtual kernel views in `/proc` and `/sys`. On modern Debian/Ubuntu `/bin` is a symlink to `/usr/bin`.
-
-**Terminal vs shell?**
-The terminal is the window/program that displays text; the shell (bash) is the interpreter running inside it that reads commands, expands them, and starts programs. Closing the terminal typically sends SIGHUP to the shell and its jobs.
-
-**Absolute vs relative path? What do `.`, `..`, `~`, and `cd -` mean?**
-Absolute starts at `/` and means the same from anywhere; relative starts at the current directory. `.` current, `..` parent, `~` home (expanded by the shell), `cd -` previous directory.
+| Metadata | Details |
+| :--- | :--- |
+| **Topic** | Linux Architecture, Kernel Mechanics & System Primitives |
+| **Module** | `08-interview` — Technical Interview Preparation & Scenario Q&A |
+| **Track** | `04-devops/linux` |
+| **Target Level**| Junior to Senior DevOps / SRE / Systems Engineers |
+| **Questions** | 20 Deep Technical & Architectural Questions |
+| **Last Updated**| 2026 |
 
 ---
 
-## 2. Files, links, and permissions
-→ [Working with files](../01-fundamentals/03-working-with-files.md), [Permissions](../01-fundamentals/05-permissions.md)
+## Overview
 
-**Hard link vs symbolic link?**
-A hard link is another name for the *same inode*, so the data survives deleting the original name, but it can't cross filesystems or link directories. A symlink is a small file holding a *path*; it works across filesystems and for directories but dangles if the target is removed. *Follow-up: what's an inode? The structure storing metadata (owner, mode, times, pointers to data); the filename lives in the directory entry.*
-
-**What does `chmod 755 file` mean? And 644, 600?**
-755 = `rwxr-xr-x` (owner full; group and others read/execute), typical for programs and directories. 644 = `rw-r--r--` for normal files. 600 = owner-only, used for secrets such as SSH private keys.
-
-**What do r, w, x mean on a directory?**
-`r` lists names, `w` creates/deletes/renames entries, `x` lets you enter it and access items by name. You need `x` on every directory in a path to reach a file.
-
-**Who can delete a file?**
-Deleting needs `w` (and `x`) on the **directory**, not on the file. Hence the sticky bit on `/tmp` (`drwxrwxrwt`): everyone can write there but only a file's owner (or the directory owner/root) can delete it.
-
-**What are setuid, setgid, and sticky?**
-Setuid (4) on an executable runs it with the owner's privileges (e.g. `passwd`). Setgid (2) on an executable runs with the group's; on a *directory* it makes new files inherit the directory's group, useful for shared project folders. Sticky (1) on a directory restricts deletion to owners. Setuid is ignored for shell scripts and setuid binaries are a classic privilege-escalation target.
-
-**What is umask?**
-A mask of bits removed from default permissions (666 for files, 777 for directories). `umask 022` yields 644 files and 755 directories; `002` gives 664/775; `077` gives private 600/700.
-
-**Why is `chmod -R 755 dir` usually wrong?**
-It makes every *file* executable too. Use `chmod -R u=rwX,go=rX dir` (capital `X` sets execute only on directories), or `find -type d` and `find -type f` separately.
-
-**Someone says "I have the right permissions but still get permission denied." Why?**
-Check the whole path (`namei -l`: a directory missing `x`), the *effective* user of the process (`ps -o user`), group membership requiring a new login, ACLs (`getfacl`, a `+` in `ls -l`), mount options (`ro`, `noexec`), and MAC layers (SELinux/AppArmor).
-
-**Which file-deletion gotcha involves disk space?**
-Deleting a file that a process still has open doesn't free the space until the process closes it. `lsof +L1` finds them. Truncate (`: > file`) or rotate logs instead of `rm`.
+Modern technical interviews evaluate an engineer's mental model of operating system behavior: the boundary between user space and kernel space, how system calls execute, process address spaces, and distribution package architectures.
 
 ---
 
-## 3. Users and sudo
-→ [Users and groups](../01-fundamentals/04-users-and-groups.md)
+### Q1: What is the exact distinction between the Linux Kernel and a Linux Distribution?
+<details>
+<summary>Detailed Answer & Technical Mechanics</summary>
 
-**What is UID 0? What are system accounts?**
-UID 0 is root, which the kernel treats as all-powerful (the *name* is only a convention). System/service accounts (UIDs below 1000 on Debian/Ubuntu) run daemons, usually with a `nologin` shell and no password.
+**Core Mechanism:**
+The **Linux Kernel** is the core supervisor program (`vmlinuz`) that executes in privileged hardware mode (Ring 0 on x86_64). It manages CPU scheduling, virtual memory paging, block storage drivers, the network protocol stack, and hardware interrupts. The kernel exposes system calls (`syscalls`) to user space.
 
-**`su` vs `sudo`?**
-`su` switches user and needs the *target's* password. `sudo` runs a command with elevated rights using *your* password, is configured per user/command in `sudoers`, and logs each use, which gives an audit trail. `su -` / `sudo -i` give a login shell with the target's environment.
+A **Linux Distribution** (e.g., Ubuntu, Debian, RHEL, Alpine) is an integrated operating system distribution combining:
+1. The Linux kernel.
+2. The GNU or Musl C runtime library (`glibc` or `musl-libc`).
+3. Core userland utilities (GNU Coreutils, systemd, bash).
+4. A package management ecosystem (`apt/dpkg`, `dnf/rpm`, `apk`).
+5. Default security policies (SELinux, AppArmor, default firewall rules).
 
-**Where are users and passwords stored?**
-`/etc/passwd` (world-readable account info; shell, home, UID/GID), `/etc/shadow` (password hashes, root only), `/etc/group`. The `x` in the password field of `/etc/passwd` means the hash is in `shadow`.
-
-**What's the danger in `usermod -G docker alice`?**
-Without `-a` it *replaces* all supplementary groups, potentially removing `sudo`. Use `usermod -aG`. Also, group changes need a new login to take effect.
-
-**Why does `sudo echo hi > /root/file` fail?**
-The redirection is performed by *your* shell before `sudo` runs. Use `echo hi | sudo tee /root/file`.
-
-**Why is the `docker` group dangerous?**
-Anyone who can talk to the Docker daemon can start a container mounting the host filesystem, which is effectively root on the host.
+**Interview Follow-Up Tip:**
+Mention that container base images (e.g., `alpine:latest` vs `ubuntu:24.04`) do *not* contain a kernel; they provide only the userland rootfs. They share the host kernel running underneath.
+</details>
 
 ---
 
-## 4. Shell and scripting
-→ [Shell basics](../02-shell/01-shell-basics.md), [Bash scripting](../02-shell/03-bash-scripting.md)
+### Q2: What happens under the hood when a CPU transitions from Ring 3 (User Space) to Ring 0 (Kernel Space)?
+<details>
+<summary>Detailed Answer & Technical Mechanics</summary>
 
-**What does `cmd > out 2>&1` do, and does order matter?**
-It sends stdout to `out`, then points stderr at wherever stdout currently goes (the file). Order matters: `cmd 2>&1 > out` sends stderr to the terminal and only stdout to the file.
+**Core Mechanism:**
+Modern x86_64 processors implement hardware privilege rings. Ring 3 is unprivileged user space; Ring 0 is privileged supervisor mode.
 
-**Single vs double quotes?**
-Single quotes are fully literal. Double quotes allow `$var`, `$(cmd)`, and backslash escapes but prevent word splitting and globbing. Rule: quote every variable expansion (`"$var"`).
-
-**What is an exit code? How do `&&` and `||` use it?**
-Every command returns a number; 0 means success, non-zero failure. `a && b` runs `b` only if `a` succeeded; `a || b` only if it failed. `$?` holds the last code. Typical codes: 126 not executable, 127 not found, 130 Ctrl+C, 137 SIGKILL, 143 SIGTERM.
-
-**What does `set -euo pipefail` do? Any caveats?**
-`-e` exit on failure, `-u` error on unset variables, `pipefail` fail a pipeline if any stage fails. Caveats: `-e` doesn't trigger inside `if`, `&&`/`||` lists, or `!`; `grep` with no match returns 1; `local x=$(cmd)` masks `cmd`'s failure (declare, then assign). Pair with explicit checks for critical steps.
-
-**`[ ]` vs `[[ ]]`? bash vs sh?**
-`[[ ]]` is a bash keyword: no word splitting, supports `&&`, `=~`, and pattern matching. `[ ]` is the POSIX `test` command and needs strict quoting. On Debian/Ubuntu `/bin/sh` is `dash`, which lacks bash features, so scripts using them need a bash shebang.
-
-**How do you make a script clean up after itself?**
-`trap cleanup EXIT` with `mktemp -d` for temp files. EXIT fires on normal exit, errors under `set -e`, and catchable signals. SIGKILL can't be trapped.
-
-**Why does a cron job work in my terminal but not in cron?**
-Cron has a minimal environment: tiny `PATH`, no profile or aliases, `/bin/sh`, no TTY. Use absolute paths, set `PATH`, redirect output, and remember `%` must be escaped in crontab lines.
-
-**What does `$@` vs `$*` do? Why quote `"$@"`?**
-`"$@"` expands to each argument as a separate word, preserving spaces inside arguments. `$*` and unquoted `$@` re-split on whitespace.
+When a user program issues a system call (e.g., `write()`):
+1. **Instruction Trigger**: The CPU executes the `SYSCALL` (or `SYSENTER`) machine instruction.
+2. **Context Save**: The CPU hardware saves the current user-space instruction pointer (`RIP`) and flags (`RFLAGS`) into special model-specific registers (`RCX` and `R11`), switches the stack pointer (`RSP`) from user stack to the kernel thread stack, and flips the processor privilege level from Ring 3 to Ring 0.
+3. **Dispatcher Execution**: The CPU jumps to the kernel's central system call entry handler (`entry_SYSCALL_64`).
+4. **Table Lookup**: The kernel reads the system call number from the `RAX` register and looks up the corresponding function pointer in the `sys_call_table`.
+5. **Execution & Return**: Once executed, the kernel executes `SYSRET`, which restores the user stack and switches back to Ring 3.
+</details>
 
 ---
 
-## 5. Text processing
-→ [Text processing](../02-shell/02-text-processing.md)
+### Q3: Explain the fundamental architectural difference between a Monolithic Kernel (Linux) and a Microkernel (Mach, MINIX, seL4).
+<details>
+<summary>Detailed Answer & Technical Mechanics</summary>
 
-**Why must you `sort` before `uniq`?**
-`uniq` only collapses *adjacent* duplicates. Idiom for counting: `sort | uniq -c | sort -nr`.
+**Core Mechanism:**
+- **Monolithic Kernel (Linux)**: All major operating system subsystems—VFS filesystem, device drivers, network protocol stack, memory management, and process scheduler—run together inside a single, unified address space in Ring 0. Subsystems communicate via fast direct C function calls. The primary drawback is that a single bug in a device driver can trigger a fatal kernel panic.
+- **Microkernel (seL4, QNX)**: Only minimal core primitives reside in Ring 0 (basic thread scheduling, IPC, address space management). Device drivers, filesystems, and network stacks run as separate, isolated user-space processes (Ring 3). Subsystems communicate via Inter-Process Communication (IPC) messages. A crash in a filesystem driver does not crash the OS, but constant context switching and IPC overhead can degrade throughput.
 
-**`cut` vs `awk`?**
-`cut` splits on a single literal delimiter and treats repeated spaces as separate empty fields. `awk` splits on runs of whitespace by default and can do conditions and arithmetic, so it's better for aligned output like `ps` or `df`.
-
-**Why use `find -print0 | xargs -0`?**
-Filenames can contain spaces and newlines; NUL-separated names are the only fully safe delimiter. (`find -exec ... {} +` achieves the same.)
-
-**How do you edit a file in place safely with `sed`?**
-Run without `-i` first to preview, then `sed -i.bak ...` to keep a backup. Note GNU and BSD/macOS `sed -i` differ.
-
-**How do you parse JSON in a shell script?**
-Use `jq`, not regex: `jq -r '.items[] | select(.status=="failed") | .id'`. `-r` outputs raw strings.
+**Modern Hybrid Reality:**
+Linux mitigates monolithic fragility using dynamic Loadable Kernel Modules (`.ko`), eBPF sandboxed verification, and user-space filesystems (FUSE).
+</details>
 
 ---
 
-## 6. Processes and signals
-→ [Processes and signals](../03-system/01-processes-and-signals.md)
+### Q4: Trace the complete Linux Boot Sequence from Power Button to Login Prompt.
+<details>
+<summary>Detailed Answer & Technical Mechanics</summary>
 
-**What happens when you run a command?**
-The shell `fork()`s a child, then the child `exec()`s the program, replacing itself. The parent waits (foreground) or continues (background) and collects the exit status.
-
-**Zombie vs orphan?**
-A zombie has exited but its parent hasn't reaped its exit status; it uses only a process-table entry and can't be killed. Fix the parent. An orphan is a running process whose parent died; it's adopted by PID 1.
-
-**SIGTERM vs SIGKILL?**
-SIGTERM (15) politely asks a process to stop and can be handled, so it can flush and clean up. SIGKILL (9) can't be caught or ignored and gives no chance to clean up. Try TERM first, wait, then KILL. *Follow-up: SIGHUP is "terminal closed", often reused to reload daemon config.*
-
-**What does a process in `D` state mean?**
-Uninterruptible sleep, usually waiting on disk or network storage. It can't be killed (even by `-9`) until the I/O returns; many of them point to a failing disk or hung NFS mount.
-
-**How do you keep a job running after you log out?**
-`nohup`/`disown` help but are fragile. Use `tmux` for interactive work and a systemd service for anything permanent, since only that restarts it and captures logs.
-
-**Exit code 137 on a process. What does it mean?**
-128 + 9: it was killed by SIGKILL, often by the OOM killer (check `dmesg -T | grep -i oom`) or `docker kill`/a stop timeout.
-
-**Process vs thread?**
-Threads inside a process share the same address space and file descriptors; each has its own stack and ID. Processes have separate address spaces. Linux schedules both as "tasks".
-
-**What does the load average mean?**
-The average number of tasks that are runnable *or* in uninterruptible sleep over 1/5/15 minutes. Compare to `nproc`. High load with low CPU usually means processes blocked on I/O.
+**Step-by-Step Sequence:**
+1. **Power-On & Firmware**: Motherboard executes UEFI (Unified Extensible Firmware Interface) or legacy BIOS, runs POST (Power-On Self Test), and reads EFI System Partition (`/boot/efi`).
+2. **Bootloader (GRUB2)**: Loads kernel image (`vmlinuz`) and initial RAM disk (`initramfs`) into memory and passes kernel boot parameters (e.g., `root=UUID=... quiet splash`).
+3. **Initramfs & Early User Space**: The kernel initializes CPU, memory controllers, and mounts the temporary root filesystem from RAM (`initramfs`). Initramfs loads necessary storage drivers (NVMe, RAID, LVM, multipath, LUKS encryption), mounts the real root filesystem (`/`), and pivots root via `pivot_root`.
+4. **Init Execution (Systemd)**: The kernel executes `/sbin/init` (symlinked to `systemd`), which becomes PID 1.
+5. **Systemd Target Ordering**: Systemd evaluates unit dependencies, bringing up `sysinit.target`, `basic.target`, local filesystems, `network.target`, and reaches `multi-user.target` or `graphical.target`, launching `sshd` and `getty` login shells.
+</details>
 
 ---
 
-## 7. systemd and scheduling
-→ [systemd](../03-system/03-systemd-and-services.md), [Cron and timers](../03-system/04-cron-and-timers.md)
+### Q5: What is the Virtual Filesystem (VFS) in Linux and why is it essential?
+<details>
+<summary>Detailed Answer & Technical Mechanics</summary>
 
-**`enable` vs `start`?**
-`start` runs the unit now; `enable` makes it start at boot. They're independent; `enable --now` does both. "Works until I reboot" usually means it was started but not enabled.
+**Core Mechanism:**
+The **Virtual Filesystem (VFS)** is an abstraction layer inside the Linux kernel that provides a uniform, standardized object-oriented C API (`open`, `read`, `write`, `close`, `stat`) to user-space applications, regardless of the underlying filesystem format.
 
-**How do you run a Node app as a service?**
-A unit with `User=` (non-root), `WorkingDirectory=`, `EnvironmentFile=`, an absolute `ExecStart=/usr/bin/node server.js`, `Restart=on-failure`, `WantedBy=multi-user.target`, then `daemon-reload` and `enable --now`. The app must run in the foreground and log to stdout (captured by journald).
+**Key VFS Objects:**
+- **`superblock`**: Represents an entire mounted filesystem instance (tracks block size, total inodes, filesystem type).
+- **`inode`**: Represents a specific file metadata object (file size, permissions, owner, timestamps, block pointers).
+- **`dentry` (Directory Entry)**: Connects human-readable path strings (`/var/log/syslog`) to inode numbers. Cached in the high-speed `dcache`.
+- **`file`**: Represents an active open file instance held by a process (tracks current read/write byte offset and access flags).
 
-**Why does `ExecStart=/bin/echo hi > /tmp/x` not work?**
-`ExecStart` doesn't run through a shell, so redirection, pipes, `&&`, and `$HOME` aren't interpreted. Wrap in `/bin/sh -c '...'` if needed.
-
-**What happens on `systemctl stop`?**
-SIGTERM to the main process, then SIGKILL after `TimeoutStopSec` (default ~90s) if it hasn't exited. Services should handle SIGTERM.
-
-**Where do unit files go, and how do you modify a packaged one?**
-Packages ship to `/usr/lib/systemd/system`; yours (and overrides) go in `/etc/systemd/system`. Use `systemctl edit unit` to create a drop-in override instead of editing the packaged file. Always `daemon-reload` after changes.
-
-**How do you read a service's logs?**
-`journalctl -u name -f`, `-n 100`, `--since "1 hour ago"`, `-p err`, `-b` for this boot.
-
-**Cron vs systemd timers?**
-Cron is simple and universal but minimal-environment, with output lost unless redirected. Timers log to the journal, support `Persistent=true` (run missed jobs after downtime), dependencies, and service sandboxing, and a still-running `oneshot` isn't started twice. Pick one per host and be consistent.
-
-**A cron job overlaps with its previous run. Fix?**
-`flock -n /var/lock/job.lock command` so a second instance exits immediately.
+Whether an application reads from an NVMe drive running `ext4`, an AWS EFS share over `NFS`, a container `overlayfs`, or a virtual filesystem (`/proc`), the code invokes the identical `read(fd, buf, count)` system call.
+</details>
 
 ---
 
-## 8. Packages
-→ [Package management](../03-system/02-package-management.md)
+### Q6: What does the aphorism "Everything is a file" mean in Linux, and what are its practical limitations?
+<details>
+<summary>Detailed Answer & Technical Mechanics</summary>
 
-**`apt update` vs `apt upgrade`?**
-`update` refreshes the package *index*; `upgrade` installs newer versions of installed packages. Without `update`, you install stale versions or see "Unable to locate package".
+**Meaning:**
+Linux exposes regular disk files, hardware block devices (`/dev/nvme0n1`), character devices (`/dev/urandom`), IPC pipelines (anonymous pipes, named FIFOs), Unix domain sockets, and running kernel state (`/proc`, `/sys`) through unified filesystem paths. All of these can be inspected, opened, read, and written using standard system calls (`open()`, `read()`, `write()`, `close()`) and common CLI utilities (`cat`, `head`, `tee`, `lsof`).
 
-**How do you add a third-party apt repository safely?**
-Download its signing key into `/etc/apt/keyrings/`, reference it with `signed-by=` in the repo entry, `apt update`. Avoid deprecated `apt-key`, which trusts a key for every repo.
-
-**How do you keep a package from upgrading?**
-`apt-mark hold pkg`. For databases, pin and test upgrades before applying.
-
-**"Could not get lock /var/lib/dpkg/lock-frontend."**
-Another apt/dpkg process (often unattended-upgrades) is running. Wait; don't delete the lock unless you've confirmed nothing is running. If an install was interrupted: `dpkg --configure -a` and `apt --fix-broken install`.
-
-**How do you patch servers automatically?**
-`unattended-upgrades` (security updates by default) on Debian/Ubuntu, `dnf-automatic` on Red Hat. Track pending reboots (`/var/run/reboot-required`) and use `needrestart` for services using updated libraries.
+**Practical Limitations & Exceptions:**
+1. **Network Interfaces**: Physical network cards (`eth0`, `wlan0`) are *not* represented as files in `/dev/`. Packets cannot be read using `cat /dev/eth0`. Network configuration is managed via Netlink socket system calls (`iproute2`).
+2. **Asynchronous I/O Engines**: Modern high-performance APIs like `io_uring` bypass traditional synchronous file descriptor semantics.
+3. **Seekability**: Many pseudo-files (pipes, FIFO queues, `/dev/urandom`, socket streams) are non-seekable; executing `lseek()` on them returns `-1 ESPIPE`.
+</details>
 
 ---
 
-## 9. Storage
-→ [Storage and filesystems](../03-system/05-storage-and-filesystems.md)
+### Q7: Explain the difference between `/proc`, `/sys`, and `/dev`.
+<details>
+<summary>Detailed Answer & Technical Mechanics</summary>
 
-**`df` says the disk is full but `du` doesn't add up. Why?**
-Likely a deleted file still held open by a process (`lsof +L1`), data hidden under a mount point, reserved blocks (ext4 keeps ~5% for root), or `du` excluding other filesystems.
+| Virtual Filesystem | Kernel Subsystem | Primary Purpose & Usage |
+| :--- | :--- | :--- |
+| **`/proc` (procfs)** | Process & Kernel State | Process information (`/proc/<pid>/status`, `fd/`, `maps`) and legacy sysctl tuning interfaces (`/proc/sys/net/...`). |
+| **`/sys` (sysfs)** | Unified Device & Driver Model | Structured tree of hardware devices, bus controllers, block devices (`/sys/block/`), cgroups (`/sys/fs/cgroup/`), and kernel module tunables. |
+| **`/dev` (devtmpfs)** | Device Special Files | Character and block device nodes (`/dev/sda`, `/dev/null`, `/dev/zero`, `/dev/pts/`) managed by `udevd` allowing user-space to interface with kernel drivers. |
 
-**"No space left on device" but `df -h` shows free space?**
-Inode exhaustion (`df -i`), typically millions of tiny files. Find the directory, clean up, and fix the producer.
-
-**How do you add and persist a new disk?**
-`lsblk` to identify it, partition, `mkfs`, `mount`, get the UUID with `blkid`, add an `/etc/fstab` line with the UUID and `nofail`, then run `mount -a` to test before rebooting. Use UUIDs, not `/dev/sdX` names, which can change.
-
-**What happens if `/etc/fstab` has a bad entry?**
-Boot can drop into emergency mode. Prevent it with `nofail` for non-critical mounts and test with `mount -a` / `findmnt --verify`.
-
-**What is LVM, and how do you grow a volume online?**
-PV → VG → LV: physical disks pooled into a volume group, carved into logical volumes. Grow with `lvextend -r -L +10G /dev/vg/lv` (`-r` resizes the filesystem too). XFS can grow but not shrink; ext4 shrinks only offline.
-
-**ext4 vs XFS?**
-Both are mature journaling filesystems. ext4 is the Debian/Ubuntu default and is flexible; XFS is the Red Hat default and excels at large files and parallel I/O but can't be shrunk.
+**Key Takeaway:**
+`/proc` is process- and software-centric; `/sys` is hardware-, bus-, and subsystem-centric; `/dev` holds the actual communication endpoints for device drivers.
+</details>
 
 ---
 
-## 10. Networking
-→ [Networking basics](../04-networking/01-networking-basics.md)
+### Q8: What is a System Call vs. a C Standard Library (glibc) Function?
+<details>
+<summary>Detailed Answer & Technical Mechanics</summary>
 
-**What happens when you run `curl https://example.com`?**
-DNS resolves the name, the route/gateway is chosen, a TCP three-way handshake opens a connection to port 443, TLS negotiates certificates and keys, then the HTTP request and response flow. Each step has a failure signature.
+**Core Distinction:**
+- **System Call (`syscall`)**: A direct request from user space to the kernel (Ring 0) requiring a hardware CPU context switch. Examples: `openat()`, `read()`, `write()`, `clone()`, `epoll_create()`. There are approximately ~350-450 system calls in Linux.
+- **Library Function**: A standard C function executing entirely within user space (Ring 3). Examples: `strlen()`, `strcpy()`, `printf()`, `malloc()`.
 
-**"Connection refused" vs "connection timed out"?**
-Refused: the host answered but nothing is listening (or a REJECT rule). Timed out: packets are being dropped (firewall, cloud security group, routing) or the host is unreachable.
-
-**`127.0.0.1` vs `0.0.0.0`?**
-A service bound to `127.0.0.1` is reachable only from the same machine; `0.0.0.0` listens on all IPv4 interfaces. "Works locally, not remotely" is often a loopback bind or a firewall.
-
-**How do you see what's listening on a port and which process?**
-`sudo ss -tlnp` (or `ss -tlnp 'sport = :3000'`), or `lsof -i :3000`. `ss` replaces `netstat`; `ip` replaces `ifconfig`.
-
-**`dig` vs `getent hosts`?**
-`dig` queries a DNS server directly and ignores `/etc/hosts`. `getent hosts` uses the system resolver order (including `/etc/hosts`), which is what applications see.
-
-**What is "DNS propagation"?**
-Cache expiry: resolvers keep answers until the TTL runs out. Lower the TTL before a planned change.
-
-**Why can't a normal user bind port 80?**
-Ports below 1024 are privileged: root or `CAP_NET_BIND_SERVICE` is needed. Common solutions: reverse proxy on 80/443 with the app on a high port.
-
-**Ping fails. Is the host down?**
-Not necessarily; ICMP is often blocked. Test the real port (`nc -zv host 443`, `curl -v`).
+**The Bridge (Wrappers & Buffering):**
+Many library functions are user-space abstractions around system calls. For example, `printf()` formats strings in an in-memory user buffer before calling the `write()` system call. `malloc()` manages a heap memory pool in user space; it only invokes the `brk()` or `mmap()` system calls when the internal memory pool needs expansion.
+</details>
 
 ---
 
-## 11. SSH
-→ [SSH](../04-networking/02-ssh.md)
+### Q9: What is POSIX and why does it matter in modern DevOps engineering?
+<details>
+<summary>Detailed Answer & Technical Mechanics</summary>
 
-**How does SSH key authentication work?**
-The client has a private key, the server has the matching public key in `~/.ssh/authorized_keys`. The server challenges the client, which proves possession of the private key by signing data; the key itself is never sent. Separately, the client verifies the *server's* host key against `known_hosts`.
+**Core Definition:**
+**POSIX (Portable Operating System Interface)** is a family of IEEE standards defining the API, shell environment, and utility interface for Unix-like operating systems.
 
-**"REMOTE HOST IDENTIFICATION HAS CHANGED!"**
-The host key differs from the saved one: either a legitimate rebuild or a man-in-the-middle. Verify out-of-band, then `ssh-keygen -R host`. Don't disable host key checking globally.
-
-**"Permission denied (publickey)": how do you debug?**
-`ssh -vvv` on the client to see which keys are offered; on the server, `journalctl -u ssh` for the reason. Common causes: wrong user or key, public key missing from `authorized_keys`, wrong permissions (`~/.ssh` 700, `authorized_keys` and private keys 600, home not group-writable), too many keys offered (use `IdentitiesOnly yes`).
-
-**Explain `ssh -L 5433:localhost:5432 host`.**
-Opens port 5433 on your machine and forwards it through the SSH connection to `localhost:5432` *as seen from the server*. You can `psql -p 5433 localhost` to reach a database that only listens on the server's loopback. `-R` is the reverse; `-D` creates a SOCKS proxy.
-
-**How do you reach a private server through a bastion?**
-`ssh -J bastion user@internal` or `ProxyJump bastion` in `~/.ssh/config`. Prefer it over agent forwarding (`-A`).
-
-**How do you harden SSH without locking yourself out?**
-Make sure key login works first; set `PermitRootLogin no`, `PasswordAuthentication no`, `AllowUsers` in an early-named drop-in file (sshd uses the first value it reads); `sshd -t`, verify with `sshd -T`, reload, and test from a **second** session before closing the first.
+**Operational Relevance:**
+1. **Script Portability**: Writing bash scripts adhering to POSIX shell standards (`#!/bin/sh` without "bashisms" like `[[`, arrays, or non-standard flags) guarantees that provisioning scripts run seamlessly across Ubuntu, RHEL, Alpine (BusyBox/Ash), macOS, and FreeBSD.
+2. **API Consistency**: Code written in C, Go, Python, or Rust calling POSIX primitives (`fork`, `execve`, `pthreads`, `mmap`) compiles and executes across all major Unix variants with minimal platform-specific patching.
+</details>
 
 ---
 
-## 12. Firewall and security
-→ [Firewall](../04-networking/03-firewall.md), [Hardening](../05-production/01-server-hardening.md)
+### Q10: How does Linux manage Virtual Memory and 64-bit Process Address Spaces?
+<details>
+<summary>Detailed Answer & Technical Mechanics</summary>
 
-**How should a host firewall be configured?**
-Default deny inbound, default allow outbound, allow only needed ports (restrict sensitive ones by source IP/subnet), allow established/related replies. With ufw: allow SSH **before** `enable`.
+**Core Mechanism:**
+On 64-bit architectures (x86_64), CPUs typically use a 48-bit (or 57-bit 5-level) virtual address space:
+- Lower 128 TB (`0x0000000000000000` to `0x00007FFFFFFFFFFF`) is private **User Space**.
+- Upper 128 TB (`0xFFFF800000000000` to `0xFFFFFFFFFFFFFFFF`) is **Kernel Space**.
 
-**Host firewall vs cloud security group?**
-Two separate layers; traffic must pass both. "Port open in ufw but still times out" is often the cloud layer.
-
-**Why does a Docker-published port ignore ufw rules?**
-Docker inserts its own iptables/nftables rules for published ports that are evaluated before ufw's. Bind to loopback (`-p 127.0.0.1:8080:80`), put a reverse proxy in front, or use the `DOCKER-USER` chain. Verify from outside the host.
-
-**DROP vs REJECT?**
-DROP silently discards (client sees a timeout); REJECT answers with an error (client sees "refused").
-
-**What would you do to harden a new server?**
-Non-root admin with sudo; SSH keys only, root login off; default-deny firewall; remove unneeded services and bind databases to loopback/private IPs; automatic security updates; dedicated service users with sandboxing; strict permissions on secrets; AppArmor/SELinux enforcing; fail2ban (optional); log review, time sync, and tested off-machine backups.
-
-**Does fail2ban secure SSH?**
-It reduces brute-force noise and load but isn't the real protection; disabling passwords and using keys is. Set `ignoreip` so you can't ban yourself.
-
-**SELinux vs AppArmor? Why not `setenforce 0`?**
-Both are mandatory access control on top of normal permissions. AppArmor confines programs by path (Ubuntu/Debian); SELinux uses labels on everything (RHEL family). Permissive mode is for *diagnosing* only; fix the label, boolean, or profile and return to enforcing. Typical SELinux fix: `semanage fcontext` + `restorecon`.
-
----
-
-## 13. Performance
-→ [Performance](../05-production/03-performance.md)
-
-**Where do you start when a server is slow?**
-Identify the bottleneck resource: `uptime`/`vmstat 1` (CPU, run queue, swap, I/O wait), `free -h`, `iostat -xz 1`, `ss -s`/`ip -s link`, then drill to the process (`top`, `pidstat`, `iotop`).
-
-**`free` shows almost no free memory. Is that a problem?**
-Not by itself. Linux uses spare RAM as page cache and releases it on demand. Check `available`, swap *activity* (`si`/`so`), and OOM messages.
-
-**Is swap use bad?**
-Some swap use is normal (idle pages). Continuous swap in/out means thrashing. Disabling swap doesn't make things faster; it just turns memory exhaustion into an immediate OOM kill.
-
-**High load average but low CPU?**
-Load includes tasks in uninterruptible I/O sleep. Look for `D` processes and check disk (`iostat`), NFS, or a saturated cloud disk.
-
-**What do `wa` and `st` mean in `top`?**
-`wa` is CPU time waiting on I/O; `st` (steal) is time the hypervisor gave your vCPU to another VM, which you can't fix from inside.
-
-**"Too many open files": how do you fix it?**
-Check the real limit in `/proc/<pid>/limits` and the current count in `/proc/<pid>/fd`. For a systemd service set `LimitNOFILE=`; `limits.conf` only applies to login sessions. If the count keeps growing, you have a descriptor leak.
-
-**What is the OOM killer and how do you recognize it?**
-When memory is exhausted the kernel kills a process (chosen by `oom_score`). Look for "Out of memory: Killed process" in `dmesg`/`journalctl -k` and exit code 137. A cgroup/container limit can trigger it even when the host has free memory.
-
-**How do you tune the kernel?**
-Measure first, change one `sysctl` at a time, persist in `/etc/sysctl.d/*.conf` with `sysctl --system`, document why. Defaults are reasonable; don't paste tuning lists you don't understand.
-
----
-
-## 14. Containers and internals
-→ [Namespaces and cgroups](../06-advanced/01-namespaces-and-cgroups.md)
-
-**Container vs VM?**
-A VM runs its own kernel on virtualized hardware. A container is a regular process (or processes) on the *host* kernel, given isolation by namespaces and limits by cgroups, so it's lighter but shares the kernel's attack surface.
-
-**What are namespaces? Name some.**
-Per-process views of global resources: `pid`, `net`, `mnt`, `uts` (hostname), `ipc`, `user`, `cgroup`. They control what a process can *see*.
-
-**What are cgroups?**
-Hierarchical groups that **limit and account** resources (CPU, memory, I/O, pids). They control what a process can *use*. cgroup v2 exposes files like `memory.max` and `cpu.max`.
-
-**What happens when a container exceeds its memory limit? Its CPU limit?**
-Memory: the kernel OOM-kills a process in that cgroup (exit 137, `OOMKilled: true`). CPU: the group is throttled, so it gets slow rather than dead. No limit means no protection for the host.
-
-**Why might a container ignore `docker stop`?**
-Its main process is PID 1, which doesn't get default signal actions; without a SIGTERM handler it ignores the signal until SIGKILL after the timeout. Handle SIGTERM, use exec-form `CMD`, or `docker run --init`.
-
-**Is root in a container root on the host?**
-By default, yes (UID 0), unless user namespaces/rootless mode are used. Capabilities, seccomp, and AppArmor/SELinux limit it, and `--privileged` removes most of those protections.
-
-**How do you debug a container that has no tools?**
-From the host: find its PID (`docker inspect -f '{{.State.Pid}}'`) and use `nsenter -t PID -n ss -tlnp`, `strace -p`, `lsof -p`, or `tcpdump` inside its network namespace.
-
----
-
-## 15. Debugging tools
-→ [Advanced debugging](../06-advanced/02-advanced-debugging.md)
-
-**When do you reach for `strace`?**
-When logs don't explain a hang or error: it shows system calls and errno (`ENOENT`, `EACCES`, `ECONNREFUSED`). Use `-f` to follow threads/children, `-e trace=...` to filter, `-y` to see what an fd is, `-c` for a summary. It slows the target, so be careful in production.
-
-**`lsof` uses?**
-Who owns a port (`-i :PORT`), who holds a file or mount, deleted-but-open files (`+L1`), and descriptor leaks (`-p PID`).
-
-**How do you read a `tcpdump` handshake problem?**
-SYN with no reply: packets dropped upstream or by a firewall. SYN followed by RST: nothing listening. SYN-ACK but no final ACK: return-path issue. Handshake fine then long gap: the app is slow.
-
-**CPU is pinned in one process. What now?**
-`top -H` to find the hot thread, then `perf top -p PID` or `perf record -F 99 -g` for a profile/flame graph. For Node use `--perf-basic-prof`; in VMs fall back to `-e cpu-clock`.
-
----
-
-## 16. Scenarios (talk through them)
-
-For each, say your *first three checks*, what each result would imply, and what you'd change last. Interviewers listen for method: **symptom → what changed → evidence → one hypothesis → verify**.
-
-**"The website is down."**
-1. Reproduce and classify: `curl -v` from outside; timeout vs refused vs 502/504 vs DNS vs TLS error.
-2. On the server: is the service up (`systemctl status`, `journalctl -u`)? listening on the right address (`ss -tlnp`)? responds locally (`curl localhost:PORT`)?
-3. If it works locally but not remotely: firewall (host and cloud), bind address, security group. If nginx returns 502: upstream down or wrong port; 504: slow upstream.
-4. Ask what changed (deploy, config, updates, cert expiry, disk full). Fix, verify, then find root cause.
-
-**"Disk is full."**
-`df -h` (space), `df -i` (inodes), `lsof +L1` (deleted-open files); `du -xh --max-depth=1` to find the culprit (logs, Docker, uploads, core dumps); free space safely (vacuum journal, prune Docker, rotate/truncate logs); then fix the cause (logrotate, retention) and add an alert.
-
-**"The server is slow."**
-`uptime`, `vmstat 1`: CPU saturated, swapping, I/O wait, or steal? Then the specific tool: `top`/`pidstat` (CPU), `free -h` + swap activity + OOM logs (memory), `iostat -xz` + `iotop` (disk), `ss -s`/`ip -s link` (network). Check recent deploys and traffic; fix the app issue before resizing hardware.
-
-**"I can't SSH in."**
-Timeout → network/firewall/security group/wrong IP (check from another network, use the provider console). Refused → sshd down or wrong port. `Permission denied (publickey)` → `ssh -vvv`, key/user, permissions, `authorized_keys`, and server-side `journalctl -u ssh`. Use the console to fix config; `sshd -t` before reloading.
-
-**"The service starts manually but fails under systemd" / "doesn't come back after reboot."**
-Manual vs service differences: user, environment, working directory, `PATH`. Check `systemctl status` exit code (`203/200/217`), `journalctl -u`, run as the service user with `env -i`. After reboot: is it `enabled`? Does it depend on something not yet ready (`After=`/`Wants=network-online.target`, a mount with a bad `fstab`)?
-
-**"A process keeps dying."**
-Exit code: `137` → OOM or SIGKILL (`dmesg`, cgroup limit); `143` → SIGTERM from systemd/Docker/an operator; otherwise check the app's own log. Look at memory growth over time, `Restart=` loops (`start-limit-hit`), and resource limits.
-
-**"Permission denied even though permissions look right."**
-`id`, effective user of the process, `namei -l path`, `getfacl`, mount options, group membership needing re-login, SELinux/AppArmor logs (`ausearch -m AVC`, `journalctl -k | grep apparmor`).
-
-**"A cron job isn't running."**
-Is the daemon running and the entry loaded (`crontab -l`, `/etc/cron.d`)? Filename dots in `/etc/cron.daily`, unescaped `%`, minimal `PATH`, output not captured, wrong time zone, `run-parts` naming. Check `journalctl -u cron` and the job's own log; reproduce with `env -i`.
-
----
-
-## 17. Hands-on tasks
-
-Be ready to write these without looking:
-
-```bash
-# 1. Top 10 IPs in an access log
-awk '{print $1}' access.log | sort | uniq -c | sort -nr | head
-
-# 2. Files over 100 MB under /var, largest first
-sudo find /var -xdev -type f -size +100M -exec ls -lh {} + | sort -k5 -h -r | head
-
-# 3. Which process uses port 3000? Stop it gracefully.
-sudo ss -tlnp 'sport = :3000'; kill <PID>
-
-# 4. Count lines containing "ERROR" in all .log files, per file
-grep -c ERROR *.log
-
-# 5. Replace a string across files, with backup
-grep -rl "old" conf/ | xargs sed -i.bak 's/old/new/g'
-
-# 6. Make a directory shared by group "dev"
-sudo mkdir /srv/project && sudo chown root:dev /srv/project && sudo chmod 2775 /srv/project
-
-# 7. Give a user sudo, create a service account with no login
-sudo usermod -aG sudo alice
-sudo useradd --system --no-create-home --shell /usr/sbin/nologin myapp
-
-# 8. Check a TCP port is open without nc
-timeout 3 bash -c '</dev/tcp/host/443' && echo open
-
-# 9. Back up a directory with a dry run first
-rsync -an --delete /srv/app/ /backup/app/ && rsync -a --delete /srv/app/ /backup/app/
-
-# 10. Tail errors for one service from the last hour
-journalctl -u myapp --since "1 hour ago" -p err --no-pager
+```
+  0x00007FFFFFFFFFFF +-----------------------+
+                     | Execution Stack (v)   | Grows downward
+                     | Dynamic Libraries     | (mmap)
+                     | Heap (^)              | Grows upward (brk)
+                     | BSS / Data Segments   | Global uninitialized/init
+  0x0000000000400000 | Code / Text (.text)   | Read-only executable binary
+  0x0000000000000000 +-----------------------+ Null pointer trap zone
 ```
 
+The CPU Hardware Memory Management Unit (MMU) translates virtual addresses to physical RAM addresses using hierarchical 4-level page tables, cached in the high-speed Translation Lookaside Buffer (TLB).
+</details>
+
 ---
 
-## Common traps in interviews
+### Q11: What is a Page Fault, and what is the difference between Minor and Major Page Faults?
+<details>
+<summary>Detailed Answer & Technical Mechanics</summary>
 
-- **Naming a command without saying what the output would mean.** Say what you expect and what each result implies.
-- **Jumping to `kill -9`, `chmod 777`, disabling the firewall, or `setenforce 0`.** Interviewers read these as red flags.
-- **Restarting before gathering evidence.**
-- **Not asking what changed or when it started.**
-- **Treating `free` low as OOM, ping failure as "down", or any swap use as a problem.**
-- **Forgetting the second layer** (cloud firewall, Docker iptables rules, SELinux, cgroup limits).
-- **Skipping the root cause** after the quick fix.
+**Core Mechanism:**
+A **Page Fault** is an CPU hardware interrupt generated when a program attempts to access a virtual memory address that is not currently mapped to physical RAM.
 
-## Quick Summary
+- **Minor Page Fault (`soft fault`)**: The memory page is already loaded in physical RAM, but the MMU page table entry has not yet been established. Common examples include allocating memory via `malloc()` (demand paging allocates physical RAM only upon first write) or sharing read-only shared library pages (`libc.so`). Requires no disk I/O; resolves in nanoseconds.
+- **Major Page Fault (`hard fault`)**: The requested memory page is *not* in physical RAM; it resides on physical block storage (either paged out to swap space, or memory-mapped from a disk file via `mmap`). The kernel must block the thread, initiate disk read I/O, wait for storage completion, and update the MMU. Can introduce multi-millisecond latency spikes.
+</details>
 
-- Know the model: files/permissions, users/sudo, processes/signals, systemd, storage, networking layers.
-- Know the **distinctions** interviewers love: hard vs soft link, TERM vs KILL, refused vs timeout, enable vs start, `df` vs `du`, `available` vs `free`, namespaces vs cgroups.
-- Practice the scenarios out loud with a fixed method, and keep [the cheatsheet](./cheatsheet.md) open for command syntax.
-- Rebuild the broken-server scenarios in [the troubleshooting lab](../07-projects/03-troubleshooting-lab/README.md) until the diagnosis is automatic.
+---
 
-**Related:** [Cheatsheet](./cheatsheet.md) · [Projects](../07-projects/README.md)
+### Q12: Explain the role and architecture of Systemd vs. Legacy SysVinit.
+<details>
+<summary>Detailed Answer & Technical Mechanics</summary>
+
+**Core Differences:**
+- **SysVinit (Legacy)**: Serial initialization using shell scripts (`/etc/init.d/*`). Services booted one by one, resulting in slow boot times. Process supervision was primitive: daemons detached via double-forking, leaving PID tracking to error-prone `/var/run/*.pid` text files.
+- **Systemd (Modern Standard)**: Declarative, parallel initialization driven by dependency trees (`Wants`, `Requires`, `After`).
+  - **Cgroups Process Tracking**: Every service is encapsulated in its own cgroup slice (`system.slice/nginx.service`). Even if a daemon forks 100 child processes, systemd tracks every process ID and guarantees clean teardown on `systemctl stop`.
+  - **Socket Activation**: Systemd opens listening sockets (e.g., port 80) *before* launching the service binary, enabling concurrent service boot and zero-downtime reloads.
+  - **Unified Logging (`journald`)**: Binary, structured event logs capturing early-boot events, standard output, and kernel messages.
+</details>
+
+---
+
+### Q13: What is the Linux OOM (Out-Of-Memory) Killer and how does it determine which process to terminate?
+<details>
+<summary>Detailed Answer & Technical Mechanics</summary>
+
+**Core Mechanism:**
+Linux practices **memory overcommit** (`vm.overcommit_memory = 0` default), granting `malloc()` requests that exceed physical RAM on the assumption that processes rarely utilize 100% of their allocated virtual memory simultaneously. When physical RAM and swap are completely exhausted, the kernel invokes the OOM Killer to prevent a complete system lockup.
+
+**Scoring Algorithm (`oom_badness`):**
+The kernel calculates a score (`/proc/<pid>/oom_score`, range 0 to 1000) for every process based on:
+1. Percentage of total system RAM and swap consumed by the process.
+2. Root-owned system processes receive minor score discounts.
+3. The value configured in `/proc/<pid>/oom_score_adj` (-1000 to +1000). Setting `-1000` completely immunizes a process (e.g., PostgreSQL, SSHD) from being terminated.
+</details>
+
+---
+
+### Q14: What is the difference between Buffered I/O, Direct I/O (`O_DIRECT`), and Synchronous I/O (`O_SYNC`)?
+<details>
+<summary>Detailed Answer & Technical Mechanics</summary>
+
+**I/O Modes:**
+1. **Buffered I/O (Default)**: Application `write()` writes data to the kernel's in-memory Page Cache. The system call returns immediately. The kernel flushes dirty pages to disk asynchronously via `kswapd`/`flush` threads. Reads hit the page cache if cached.
+2. **Direct I/O (`O_DIRECT`)**: Bypasses the Linux page cache entirely. Data is transferred via Direct Memory Access (DMA) directly between user-space memory buffers and the storage controller. Used by enterprise databases (PostgreSQL, Oracle, MySQL InnoDB) which manage their own buffer cache and want to prevent duplicate caching.
+3. **Synchronous I/O (`O_SYNC` / `fsync`)**: Writes data through to physical non-volatile storage media before the system call returns, guaranteeing crash consistency at the expense of write latency.
+</details>
+
+---
+
+### Q15: What is the Linux Page Cache and how does `sync` vs `fsync` work?
+<details>
+<summary>Detailed Answer & Technical Mechanics</summary>
+
+**Core Mechanism:**
+The **Page Cache** uses available free RAM to cache disk data blocks, converting expensive storage reads into sub-microsecond memory lookups. In Linux, "free memory is wasted memory": the OS automatically fills idle RAM with page cache and reclaims it instantly when applications demand heap memory.
+
+**Sync System Calls:**
+- `sync()`: Schedules a flush of *all* dirty buffers across the entire operating system to underlying storage. Executes asynchronously/globally.
+- `fsync(fd)`: Blocks the calling thread until all modified data and metadata for that *specific file descriptor* are physically committed to permanent disk media.
+- `fdatasync(fd)`: Similar to `fsync`, but only flushes data blocks and critical file size metadata, avoiding unnecessary inode timestamp updates.
+</details>
+
+---
+
+### Q16: How do CPU Interrupts and SoftIRQs work during high-throughput packet processing?
+<details>
+<summary>Detailed Answer & Technical Mechanics</summary>
+
+**Two-Stage Interrupt Architecture:**
+1. **Top-Half (Hard IRQ)**: The physical NIC issues a hardware interrupt to the CPU. The CPU suspends active work, saves registers, disables further interrupts, acknowledges the hardware interrupt, schedules deferred work in the kernel ring buffer, and returns immediately (< 1 microsecond).
+2. **Bottom-Half (SoftIRQ / NAPI)**: Deferred processing is handled asynchronously by kernel threads (`ksoftirqd/X`). In high-speed networking, Linux switches to **NAPI (New API)** polling: the CPU polls the NIC ring buffer directly, batching thousands of packets per cycle without suffering interrupt storms.
+
+If `top` displays high `%si` (Software Interrupt) utilization, the CPU core is saturated processing network packet receive queues.
+</details>
+
+---
+
+### Q17: What are the primary differences between Musl libc (Alpine) and GNU glibc (Ubuntu/RHEL)?
+<details>
+<summary>Detailed Answer & Technical Mechanics</summary>
+
+| Metric / Feature | GNU `glibc` | `musl-libc` |
+| :--- | :--- | :--- |
+| **Primary Distros** | Ubuntu, Debian, RHEL, Fedora | Alpine Linux |
+| **Binary Size** | Large (~2 MB+) | Extremely Small (~600 KB) |
+| **Memory Allocator**| Ptmalloc (highly tuned for multi-threaded performance) | Musl allocator (minimal footprint, slower under heavy thread contention) |
+| **DNS Resolution** | Supports NSS (`/etc/nsswitch.conf`), concurrent queries | Strictly parallel, ignores non-standard NSS modules |
+| **C Standard Compliance**| Permissive with GNU extensions | Strict POSIX standard compliance |
+| **Binary Compatibility**| Standard pre-compiled wheels (Python, Go) | Requires dedicated `musl` build or `gcompat` |
+
+**DevOps Gotcha:**
+Running standard Python C-extension wheels (`manylinux`) on Alpine often fails because they link against `glibc`.
+</details>
+
+---
+
+### Q18: What is `glibc` NSS (Name Service Switch) and `/etc/nsswitch.conf`?
+<details>
+<summary>Detailed Answer & Technical Mechanics</summary>
+
+**Core Mechanism:**
+The **Name Service Switch (NSS)** is a modular mechanism used by the C library to configure how system databases (such as hostnames, user passwords, and group memberships) are resolved.
+
+Configured in `/etc/nsswitch.conf`:
+```text
+passwd:         files systemd
+hosts:          files mdns4_minimal [NOTFOUND=return] dns myhostname
+```
+When an application calls `gethostbyname()` or `getpwnam()`:
+1. `files`: Checks `/etc/hosts` or `/etc/passwd`.
+2. `dns`: Queries configured nameservers in `/etc/resolv.conf`.
+3. If an NSS plugin fails or hangs (e.g., an uncontactable LDAP/Active Directory NSS module), even simple commands like `ls -l` can stall while attempting to resolve UIDs to usernames!
+</details>
+
+---
+
+### Q19: Explain the difference between Asynchronous, Synchronous, Blocking, and Non-Blocking I/O.
+<details>
+<summary>Detailed Answer & Technical Mechanics</summary>
+
+**I/O Model Matrix:**
+- **Synchronous Blocking**: Application calls `read()`. Thread is put to sleep until data is fully copied into user-space buffer.
+- **Synchronous Non-Blocking (`O_NONBLOCK`)**: Application calls `read()`. If no data is available, kernel immediately returns `-1 EAGAIN` / `EWOULDBLOCK`. Application must poll repeatedly.
+- **I/O Multiplexing (`epoll` / `select`)**: Single thread monitors thousands of file descriptors. The kernel notifies the thread when specific descriptors become ready for non-blocking read/write.
+- **True Asynchronous I/O (`io_uring`, POSIX AIO)**: Application submits an I/O request to a kernel submission queue and continues executing immediately. The kernel performs the I/O in the background and posts completion events to a completion queue.
+</details>
+
+---
+
+### Q20: What are the fundamental trade-offs between `epoll` and `io_uring`?
+<details>
+<summary>Detailed Answer & Technical Mechanics</summary>
+
+**Comparison:**
+- **`epoll` (Event-driven notification)**: Informs the application *when* a socket is ready to be read or written. The application must still perform the synchronous `read()` or `write()` system call, incurring CPU context switches for every I/O operation. Furthermore, `epoll` cannot handle asynchronous disk file I/O (files always report ready).
+- **`io_uring` (Asynchronous submission/completion queues)**: Uses two lockless ring buffers shared directly between user space and kernel space memory. The application places I/O requests into the Submission Queue (SQ) without making a system call. The kernel processes them and writes results to the Completion Queue (CQ). Supports true zero-syscall asynchronous operations across *both* network sockets and disk files, achieving millions of IOPS.
+</details>
+
+---
+*Next Note: [02-filesystem-and-permissions-qa.md](file:///04-devops/linux/08-interview/02-filesystem-and-permissions-qa.md)*

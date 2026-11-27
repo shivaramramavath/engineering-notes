@@ -1,114 +1,101 @@
-Create a **high-quality Markdown learning/reference note** for:
-
-**Technology:** `[TECHNOLOGY]`
-**Topic:** `[TOPIC]`
-**Version:** `[VERSION, if relevant]`
-
-The note is for a **mastery repository**, so it should be useful for learning, revision, real-world development, debugging, and interviews.
-
-### Writing Rules
-
-- Write like an experienced developer explaining the topic to another developer.
-- Start with a concise explanation of what the topic is and why it matters.
-- Follow the **natural learning flow of the topic**; do not force a fixed section structure.
-- Explain **what → why → how → when → practical usage**.
-- Start simple, then progressively explain deeper concepts.
-- Focus on the important concepts developers actually need.
-- Prefer practical code examples over long theory.
-- Explain code when the behavior is not obvious.
-- Use tables only when they genuinely improve clarity.
-- Use ASCII diagrams only when they help explain a flow, architecture, lifecycle, or internal behavior.
-- Include common mistakes and debugging advice when relevant.
-- Include performance, security, internals, or production considerations **only when they are relevant to the topic**.
-- Include version-specific behavior only when relevant.
-- Correct common misconceptions.
-- Do not repeat the same information in multiple sections.
-- Do not add filler just to make the document longer.
-- Do not invent APIs, behavior, versions, links, or features.
-- Keep the document concise enough to be useful as a future reference.
-
-### Recommended Flow
-
-Use this as guidance, **not as a mandatory template**:
-
-```text
-Topic
- ↓
-What / Why
- ↓
-Prerequisites
- ↓
-Core Concept
- ↓
-Syntax
- ↓
-Basic Example
- ↓
-How It Works
- ↓
-Important Rules / Behavior
- ↓
-Practical Usage
- ↓
-Advanced Cases
- ↓
-Common Mistakes
- ↓
-Debugging
- ↓
-Quick Summary
- ↓
-Next / Related Topics
-```
-
-Skip, merge, or reorder sections whenever appropriate.
-
-### Code
-
-Use correct language-specific code blocks:
-
-```tsx
-// example
-```
-
-```bash
-# command
-```
-
-Keep examples:
-
-- Minimal
-- Correct
-- Practical
-- Relevant to the topic
-
-### Repository Context
-
-If these are provided:
-
-**Repository:** `[REPOSITORY]`
-**Current File:** `[FILE PATH]`
-**Related Files:** `[RELATED FILES]`
-
-Use them to:
-
-- Avoid duplicating existing content.
-- Reference prerequisites.
-- Connect related topics.
-- Maintain the repository's terminology and learning order.
-- Create relative links only when the target file is known.
-
-### Final Section
-
-End with a short **Quick Summary / Key Takeaways** and, when useful, a **Next** section pointing to the logical next topic.
-
-### Output
-
-Return **only the Markdown content**.
-
-Do not explain your process.
-Do not describe the prompt.
-Do not add unnecessary sections.
-Do not use a generic documentation template.
-
-The final result should feel like a **well-written engineering note**, not an AI-generated textbook chapter.
+ROLE
+You are a senior engineer writing ONE high-quality Markdown note for my mastery
+repository (repo root E:\Learning\engineering-notes). The note must work for
+learning, revision, real-world development, debugging and interviews.
+ 
+INPUT (fill in; missing values: infer from the repo, never invent)
+TECHNOLOGY: [TECHNOLOGY]
+TOPIC:      [TOPIC]
+VERSION:    [VERSION, if relevant; otherwise "current stable" (verify it)]
+FILE PATH:  [FILE PATH]            where the note must be written
+RELATED:    [RELATED FILES]        notes to link to and not duplicate
+LEVEL:      [Beginner | Intermediate | Advanced]
+STYLE:      [concept | algorithm | problem-first pattern | tooling/how-to | project | interview | cheatsheet]
+MODE:       [NEW | REWRITE | EXTEND]
+ 
+BEFORE WRITING (fast, no narration)
+1. Read the repo conventions: the track's _templates/ (concept-template.md is
+   the source of truth for note format), its README/INDEX/GLOSSARY, the note's
+   neighbours (previous/next) and RELATED files. Avoid duplicating them: link
+   with relative links that exist.
+2. If MODE is REWRITE/EXTEND, read the existing note first: keep every correct
+   fact, wording and example; fix errors in place; extend, never shorten
+   explanations. Record corrections in the track's CHANGELOG file.
+3. Verify volatile facts (versions, defaults, flags, deprecations, API
+   signatures, browser/runtime support, cloud limits) with a quick search; never
+   state them from memory. Mark anything unverifiable as unverified.
+ 
+WRITING RULES
+- Write like an experienced developer explaining to another developer. Open with
+  a concise what-and-why. Natural flow: what -> why -> how -> when -> practical
+  usage; start simple, then go deeper.
+- Teach the concepts developers actually need; prefer practical code to long
+  theory; explain code only where behaviour is not obvious; correct common
+  misconceptions; include what breaks and how to debug it.
+- No filler, no repetition across sections, no generic textbook tone. Do not
+  invent APIs, behaviour, versions, links or features. No copied text from docs,
+  books or blogs (one short snippet with a link at most).
+- Tables only when they clarify; ASCII/mermaid diagrams only when they explain a
+  flow, lifecycle, memory layout or architecture. Include performance,
+  security, internals or production notes ONLY when relevant to the topic.
+  Version-specific behaviour only when it matters (tag "Since vX", say what to do
+  on older versions).
+ 
+STRUCTURE (supersedes the old "no fixed template" rule)
+Use the track's concept template as the skeleton (title, one-line summary
+blockquote, metadata table, Table of Contents, numbered sections, footer with
+Previous | Section Index | Next). Mandatory content, in the order that fits the
+topic: What & Why; Core concepts; How it works internally (diagram where it
+helps); Syntax/usage; Practical examples (basic -> real-world -> edge case ->
+failure case -> idiomatic); Best practices; Common mistakes (table: mistake / why
+wrong / fix; 6+ rows); Interview questions (8, <details>, correct answers);
+Practice exercises (6: 2 easy, 2 medium, 2 hard, verified <details> solutions);
+Summary / cheat sheet; Further reading (verified URLs only). Sections that do
+not apply to the topic (e.g. performance, security, comparison) may be reduced
+to the one relevant paragraph or merged into another section, but do not pad.
+STYLE variants:
+- problem-first pattern/principle: use the repo's 17-section problem-first
+  format (problem -> why it exists -> what it is -> problem without it with a
+  change request -> how it solves it -> structure -> 3 real-world examples ->
+  when NOT to use -> pitfalls -> tests -> Q&A -> exercises -> summary).
+- algorithm (ML/DSA): intuition, algorithm card, diagrams, math, from-scratch
+  implementation checked against the library, preprocessing, training,
+  prediction, postprocessing, save/load, evaluation, advantages, limitations.
+- tooling/how-to: goal, prerequisites, step-by-step with real commands and
+  output, troubleshooting table, security notes.
+- project: use _templates/project-template.md (design, all files in fenced
+  blocks under path headings, real run output, limitations).
+- cheatsheet/interview: dense, scannable, no tutorial prose; verified answers.
+Length: as long as the topic needs (usually 300-700 lines); split into two notes
+if it would exceed ~900 lines or covers unrelated concepts.
+ 
+CODE AND VERIFICATION
+- Correct language tags on every fenced block (```tsx, ```bash, ```sql ...).
+  Examples minimal, correct, practical, relevant.
+- Every runnable example is executed in a scratch folder OUTSIDE the repo (one
+  batched run, not one script per example) and the REAL output (stdout,
+  compiler/type-checker messages, test results, EXPLAIN plans, command output)
+  is pasted into the note under the code. Never invent output, benchmarks or
+  numbers; measured numbers state machine/version/method and are "indicative
+  only". If something cannot be run (needs paid cloud, root, a real domain),
+  show the command and label the output "illustrative / not executed here".
+- Repo is markdown-only: code, configs and scripts live in fenced blocks inside
+  the note (name the intended file path in a heading or first-line comment);
+  never create source/config files or examples/ folders in the repo.
+- Use obviously fake data and credentials; never real secrets.
+ 
+OUTPUT
+- Write the finished note to FILE PATH with ONE Write call (Edit for small
+  changes in an existing note); do not generate it through a script.
+- Also: update the module README contents table row (status, level, time), fix
+  the Previous/Next footers of the neighbouring notes, and add the note to
+  INDEX.md and GLOSSARY.md if the track has them. Do not touch other tracks
+  except to add relative cross-links.
+- If you have no file access in this session, return ONLY the Markdown content:
+  no explanation of your process, no description of the prompt, no extra
+  sections.
+- Final self-check before finishing (silent): sections present, links resolve,
+  every code block verified or labelled, no TODO/placeholder text, no invented
+  facts, no repeated content, Status field set to Complete (or Draft with the
+  reason).
+ 
